@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OWA.Server", "OWA.Server\OWA.Server.csproj", "{DD2C3298-B08B-45A8-BF9D-092C89545727}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{FA2E652A-9DFC-46FD-88CF-F3368C659CF6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OWA.Client", "OWA.Client\OWA.Client.csproj", "{57F7AC0B-9AA2-4D0F-B535-9573B8077833}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSorcery", "sipsorcery-master\src\SIPSorcery.csproj", "{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DD2C3298-B08B-45A8-BF9D-092C89545727}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD2C3298-B08B-45A8-BF9D-092C89545727}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD2C3298-B08B-45A8-BF9D-092C89545727}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD2C3298-B08B-45A8-BF9D-092C89545727}.Release|Any CPU.Build.0 = Release|Any CPU
+		{57F7AC0B-9AA2-4D0F-B535-9573B8077833}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57F7AC0B-9AA2-4D0F-B535-9573B8077833}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57F7AC0B-9AA2-4D0F-B535-9573B8077833}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57F7AC0B-9AA2-4D0F-B535-9573B8077833}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DD2C3298-B08B-45A8-BF9D-092C89545727} = {FA2E652A-9DFC-46FD-88CF-F3368C659CF6}
+		{57F7AC0B-9AA2-4D0F-B535-9573B8077833} = {FA2E652A-9DFC-46FD-88CF-F3368C659CF6}
+	EndGlobalSection
+EndGlobal
