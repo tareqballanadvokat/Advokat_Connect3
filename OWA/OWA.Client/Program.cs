@@ -45,7 +45,7 @@ class Program
                 Console.WriteLine("Data Channel closed.");
             };
 
-            // Obsługa kandydatów ICE
+            // ICE Candidates
             peerConnection.onicecandidate += (RTCIceCandidate candidate) =>
             {
                 if (candidate != null)
@@ -73,32 +73,5 @@ class Program
         Console.ReadKey();
         dataChannel.send("test message");
         cancellationTokenSource.Cancel();
-    }
- 
-
-    private static void WebSocket_OnMessage(object sender, MessageEventArgs e)
-    {
-        var message = Encoding.UTF8.GetString(e.RawData);
-        var json = Newtonsoft.Json.Linq.JObject.Parse(message);
-
-        if (json["type"]?.ToString() == "answer")
-        {
-            // Receied answer SDP from server
-            var sdp = json["sdp"]?.ToString();
-            //var remoteSdp = SDP.ParseSDPDescription(sdp);
-            //_peerConnection.setRemoteDescription(remoteSdp);
-        }
-        else if (json["type"]?.ToString() == "ice")
-        {
-            // Received ICE Candidates from server
-            var candidate = json["candidate"]?.ToString();
-            _peerConnection.addIceCandidate(new RTCIceCandidateInit { candidate = candidate });
-        }
-    }
-
-    private static void SendMessage(object message)
-    {
-        var json = Newtonsoft.Json.JsonConvert.SerializeObject(message);
-        _webSocket.Send(json);
     }
 }
