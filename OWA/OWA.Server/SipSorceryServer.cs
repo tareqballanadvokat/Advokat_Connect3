@@ -37,7 +37,7 @@ namespace demo
     class Program
     {
         private const int WEBSOCKET_PORT = 8081;
-        private const string STUN_URL = "stun1.l.google.com";// "stun:stun.sipsorcery.com";
+        private const string STUN_URL = "stun1.l.google.com";
         private const int JAVASCRIPT_SHA256_MAX_IN_SIZE = 65535;
         private const int SHA256_OUTPUT_SIZE = 32;
         private const int MAX_LOADTEST_COUNT = 100;
@@ -52,28 +52,11 @@ namespace demo
             Console.WriteLine("WebRTC Get Started Data Channel");
 
             logger = AddConsoleLogger();
-
-            // Start web socket.
+                    
             Console.WriteLine("Starting web socket server...");
-            //var webSocketServer = new WebSocketServer(IPAddress.Any, WEBSOCKET_PORT);
+            List<WebSocketServer> webSocketServers = new List<WebSocketServer>();
 
-            //var ips = Dns.GetHostAddresses(Dns.GetHostName());
-            //foreach(var ip in ips)
-            //{
-            //    Console.WriteLine($"IP: {ip.ToString()}");
-            //}
-
-            //webSocketServer.AddWebSocketService<WebRTCWebSocketPeer>("/", (peer) =>
-            //{
-            //    peer.CreatePeerConnection = CreatePeerConnection;
-            //});
-            //webSocketServer.Start();
-
-
-            //var dd =  Dns.GetHostAddresses("afb7fc39-d3d5-4e42-a2c5-3df616396b9a.local");
-            Console.WriteLine("Starting web socket server...");
-            List<WebSocketServer> webSocketServers = new List<WebSocketServer>();// WebSocketServer(IPAddress.Any, WEBSOCKET_PORT);
-
+            //Generate webSockets based on IPs
             var ips = Dns.GetHostAddresses(Dns.GetHostName());
             foreach (var ip in ips)
             {
@@ -99,10 +82,6 @@ namespace demo
                 e.Cancel = false;
                 exitMre.Set();
             };
-
- 
-
-            // Wait for a signal saying the call failed, was cancelled with ctrl-c or completed.
             exitMre.WaitOne();
         }
 

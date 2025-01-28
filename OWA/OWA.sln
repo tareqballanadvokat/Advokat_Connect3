@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OWA.Client", "OWA.Client\OW
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSorcery", "sipsorcery-master\src\SIPSorcery.csproj", "{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OWA.ClientJs", "OWA.ClientJs\OWA.ClientJs.csproj", "{0D52C421-0149-4F16-8FEF-CEE32A499C79}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,6 +31,10 @@ Global
 		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D52C421-0149-4F16-8FEF-CEE32A499C79}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D52C421-0149-4F16-8FEF-CEE32A499C79}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D52C421-0149-4F16-8FEF-CEE32A499C79}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D52C421-0149-4F16-8FEF-CEE32A499C79}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -36,5 +42,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{DD2C3298-B08B-45A8-BF9D-092C89545727} = {FA2E652A-9DFC-46FD-88CF-F3368C659CF6}
 		{57F7AC0B-9AA2-4D0F-B535-9573B8077833} = {FA2E652A-9DFC-46FD-88CF-F3368C659CF6}
+		{0D52C421-0149-4F16-8FEF-CEE32A499C79} = {FA2E652A-9DFC-46FD-88CF-F3368C659CF6}
 	EndGlobalSection
 EndGlobal
