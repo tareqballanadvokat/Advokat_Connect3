@@ -8,11 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Serilog" Version="4.2.0" />
-    <PackageReference Include="Serilog.Extensions" Version="8.0.3" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\sipsorcery-master\src\SIPSorcery.csproj" />
   </ItemGroup>
 

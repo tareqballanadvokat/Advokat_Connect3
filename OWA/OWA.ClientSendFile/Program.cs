@@ -71,22 +71,7 @@ class Program
             return peerConnection;
         };
          
-        RTCConfiguration config = new RTCConfiguration
-        {
-            iceServers = new List<RTCIceServer> { new RTCIceServer { urls = STUN_URL } }
-        };
-        var peerConnection = new RTCPeerConnection(config);
-         
-        _dataChannel = await peerConnection.createDataChannel("dc1");
-         
-        _dataChannel.onopen += () => Console.WriteLine("Opened");
-        _dataChannel.onclose += () => Console.WriteLine("Closed"); 
-        _dataChannel.onmessage += (RTCDataChannel dc, DataChannelPayloadProtocols protocol, byte[] data) =>
-        {
-            Console.WriteLine($"Message recived: {System.Text.Encoding.UTF8.GetString(data)}");
-        };
-         
-        string webSocketServerUrl = "ws://92.205.233.81:8081/";
+            string webSocketServerUrl = "ws://92.205.233.81:8081/";
 
         var webSocketClient = new WebRTCWebSocketClient(webSocketServerUrl, createPeerConnection);
         await webSocketClient.Start(default);

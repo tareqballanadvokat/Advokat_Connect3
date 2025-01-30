@@ -71,8 +71,6 @@ namespace demo
                 webSocketServers.Add(webSocketServer);
             }
 
-
-
             Console.WriteLine("Press ctrl-c to exit.");
 
             // Ctrl-c will gracefully exit the call at any point.
@@ -97,7 +95,7 @@ namespace demo
             {
                 rtcPeerConnections.Add(rdc);
                 rdc.onopen += () => logger.LogDebug($"Data channel {rdc.label} opened.");
-                rdc.onclose += () => logger.LogDebug($"Data channel {rdc.label} closed.");
+                rdc.onclose += () => { rdc.send("Bye"); logger.LogDebug($"Data channel {rdc.label} closed."); };
                 rdc.onmessage += (datachan, type, data) =>
                 {
                     switch (type)
