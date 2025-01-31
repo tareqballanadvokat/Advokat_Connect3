@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OWA.ClientJs")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2afe49a2eb82b9bc56e8aaf7ee6499b779139d86")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7303f1e2c240d61c62edb3174c879a9b8d513688")]
 [assembly: System.Reflection.AssemblyProductAttribute("OWA.ClientJs")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OWA.ClientJs")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

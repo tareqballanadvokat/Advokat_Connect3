@@ -25,7 +25,8 @@ namespace SipSignalServer
                 // Obsługa wiadomości SIP
                 sipTransport.SIPTransportRequestReceived += async (localEndPoint, remoteEndPoint, sipRequest) =>
                 {
-                    Console.WriteLine($"Received SIP request: {sipRequest.Method} from {remoteEndPoint}");
+                    Console.WriteLine($"Received SIP request: {sipRequest.Method} from {remoteEndPoint} with data: {sipRequest.Body}");
+                    
 
                     if (sipRequest.Method == SIPMethodsEnum.REGISTER)
                     {
@@ -41,7 +42,8 @@ namespace SipSignalServer
                         var ringingResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ringing, null);
                         await sipTransport.SendResponseAsync(ringingResponse);
 
-                        var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, null);
+                        var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, "TEst returned from Signallin server");
+                        okResponse.Body = "Body retuned form signalling server";
                         await sipTransport.SendResponseAsync(okResponse);
                         Console.WriteLine("Call established");
                     }

@@ -26,13 +26,14 @@ class Program
             RTCConfiguration config = new RTCConfiguration
             {
                 iceServers = new List<RTCIceServer> { new RTCIceServer { urls = STUN_URL } }
+         
             };
             var peerConnection = new RTCPeerConnection(config);
 
 
             //// Add Data Channel
             _dataChannelDc1 = await peerConnection.createDataChannel("dc1", new RTCDataChannelInit { id=1, negotiated = true });
-            _dataChannelDc2 = await peerConnection.createDataChannel("dc1", new RTCDataChannelInit { id=2, negotiated = true });
+            _dataChannelDc2 = await peerConnection.createDataChannel("asdsadas", new RTCDataChannelInit { id=232, negotiated = true });
 
             // Event Data Channel
             _dataChannelDc1.onopen += () =>
