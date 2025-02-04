@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "OWA.SignallingServer\\OWA.SignallingServer.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "OWA.SignallingClient\\OWA.SignallingClient.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
