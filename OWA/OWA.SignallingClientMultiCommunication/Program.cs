@@ -46,14 +46,12 @@ namespace SipClient
             var clientChannel = new SIPUDPChannel(ipEndpoint);
             sipTransport.AddSIPChannel(clientChannel);
 
-            // Obsługa odpowiedzi z serwera
             sipTransport.SIPTransportResponseReceived += (localEndPoint, remoteEndPoint, sipResponse) =>
             {
                 Console.WriteLine($"Received SIP response: {sipResponse.Status} ({sipResponse.ReasonPhrase})");
                 return Task.CompletedTask;
             };
 
-            // Obsługa wiadomości przychodzących
             sipTransport.SIPTransportRequestReceived += async (localEndPoint, remoteEndPoint, sipRequest) =>
             {
                 Console.WriteLine($"Received SIP request: {sipRequest.Method} from {remoteEndPoint}");
@@ -100,7 +98,7 @@ namespace SipClient
             var publishRequest = SIPRequest.GetRequest(SIPMethodsEnum.PUBLISH, new SIPURI(user, serverIp, null));
             publishRequest.Header.From = new SIPFromHeader(fromName, new SIPURI(fromName, serverIp, null), null);
             publishRequest.Header.To = new SIPToHeader(toName, new SIPURI(toName, serverIp, null), "TAG");
-            publishRequest.Header.CSeq = 2;
+            publishRequest.Header.CSeq = 3;
             publishRequest.Header.CallId = CallProperties.CreateNewCallId();
             publishRequest.Header.MaxForwards = 70;
             publishRequest.Header.Contact = new List<SIPContactHeader>();
@@ -109,6 +107,42 @@ namespace SipClient
             await sipTransport.SendRequestAsync(publishRequest);
             Console.WriteLine("SIP PUBLISH sent.");
 
+            bool isActive = true;
+            while(isActive)
+            {
+                Console.WriteLine("Please type Your message:");
+                var message = Console.ReadLine();
+                // Wysłanie żądania MESSAGE (wiadomość)
+                var messageRequest = SIPRequest.GetRequest(SIPMethodsEnum.MESSAGE, new SIPURI(user, serverIp, null));
+                messageRequest.Header.From = new SIPFromHeader(fromName, new SIPURI(fromName, serverIp, null), null);
+                messageRequest.Header.To = new SIPToHeader(toName, new SIPURI(toName, serverIp, null), "TAG");
+                messageRequest.Header.CSeq = 3;
+                messageRequest.Header.CallId = CallProperties.CreateNewCallId();
+                messageRequest.Header.MaxForwards = 70;
+                messageRequest.Header.Contact = new List<SIPContactHeader>();
+                messageRequest.Header.Contact.Add(new SIPContactHeader(null, new SIPURI(user, serverIp, string.Empty)));
+                messageRequest.Body = message;
+                await sipTransport.SendRequestAsync(messageRequest);
+                Console.WriteLine("SIP MESSAGE sent.");
+                Console.WriteLine("Do You want to send another message? [Y/N]");
+                var answer = Console.ReadLine();
+                if (answer.ToUpper() == "N")
+                {
+                    isActive = false;
+
+                    var byeRequest = SIPRequest.GetRequest(SIPMethodsEnum.BYE, new SIPURI(user, serverIp, null));
+                    byeRequest.Header.From = new SIPFromHeader(fromName, new SIPURI(fromName, serverIp, null), null);
+                    byeRequest.Header.To = new SIPToHeader(toName, new SIPURI(toName, serverIp, null), "TAG");
+                    byeRequest.Header.CSeq = 3;
+                    byeRequest.Header.CallId = CallProperties.CreateNewCallId();
+                    byeRequest.Header.MaxForwards = 70;
+                    byeRequest.Header.Contact = new List<SIPContactHeader>();
+                    byeRequest.Header.Contact.Add(new SIPContactHeader(null, new SIPURI(user, serverIp, string.Empty)));
+                    byeRequest.Body = "BYE message";
+                    await sipTransport.SendRequestAsync(messageRequest);
+
+                }
+            }
 
             await Task.Delay(-1); // Keep the client running
         }
