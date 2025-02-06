@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OWA.SignallingServerSignalR
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OWA.SignallingClientMultiCommunication", "OWA.SignallingClientMultiCommunication\OWA.SignallingClientMultiCommunication.csproj", "{FE23ACDD-685C-4E23-B785-D160376ACDA5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OWA.SipUDPClient", "OWA.SipUDPClient\OWA.SipUDPClient.csproj", "{E4A16C4E-1174-433D-B03F-BA51DD25B366}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -77,6 +79,10 @@ Global
 		{FE23ACDD-685C-4E23-B785-D160376ACDA5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FE23ACDD-685C-4E23-B785-D160376ACDA5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FE23ACDD-685C-4E23-B785-D160376ACDA5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E4A16C4E-1174-433D-B03F-BA51DD25B366}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4A16C4E-1174-433D-B03F-BA51DD25B366}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E4A16C4E-1174-433D-B03F-BA51DD25B366}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E4A16C4E-1174-433D-B03F-BA51DD25B366}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -92,5 +98,6 @@ Global
 		{8AD8A1BB-351C-4E29-BBFB-D598B93FDC4E} = {FA2E652A-9DFC-46FD-88CF-F3368C659CF6}
 		{3F30BABE-8DAB-4911-B1D0-F88ED29AB330} = {FA2E652A-9DFC-46FD-88CF-F3368C659CF6}
 		{FE23ACDD-685C-4E23-B785-D160376ACDA5} = {FA2E652A-9DFC-46FD-88CF-F3368C659CF6}
+		{E4A16C4E-1174-433D-B03F-BA51DD25B366} = {FA2E652A-9DFC-46FD-88CF-F3368C659CF6}
 	EndGlobalSection
 EndGlobal
