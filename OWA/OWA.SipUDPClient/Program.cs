@@ -17,7 +17,8 @@ class Program
 
         //Console.WriteLine("Type SIP IP address (np. 92.205.233.81):");
         string serverIp = "92.205.233.81";// Console.ReadLine();
-        serverEndPoint = new IPEndPoint(IPAddress.Parse(serverIp), 8081);
+        int serverPort = 8081;// Console.ReadLine();
+        serverEndPoint = new IPEndPoint(IPAddress.Parse(serverIp), serverPort);
 
         // Konfiguracja lokalnego portu
         Console.WriteLine("Choose Local Port  (np. 5061):");

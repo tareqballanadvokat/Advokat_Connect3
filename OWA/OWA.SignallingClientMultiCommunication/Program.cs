@@ -14,7 +14,7 @@ namespace SipClient
             ///Setup custom information for the client - port, ip, source name (You/From), destination name (Who/To)
             Console.WriteLine("Starting SIP Real Client ...");
 
-            string serverIp = "92.205.233.81:8081";//int serverPort = 8081;
+            string serverIp = "92.205.233.81:80";//int serverPort = 8081;
             Console.WriteLine($"Signalling Server: {serverIp}");
 
             Console.WriteLine("Please type local port for communication (ex: 5061):");
@@ -45,6 +45,7 @@ namespace SipClient
 
             var sipTransport = new SIPTransport();
             var clientChannel = new SIPUDPChannel(ipEndpoint);
+            //var clientChannel = new SIPUDPChannel(ipEndpoint);
             //var clientChannel3 = new SIPTCPChannel(ipEndpoint);
             sipTransport.AddSIPChannel(clientChannel);
 
@@ -160,20 +161,9 @@ namespace SipClient
 
         public static void CheckConnectionStatus()
         {
-            int cseq = 1;
-            if (requestResponseList.Count > 0)
+            if (requestResponseList.Where(x => x == 1).Any())
             {
-                foreach (var item in requestResponseList)
-                {
-                    if (item != cseq)
-                    {
-                        Console.WriteLine($"CONNECTION NOT ESTABLISHED");
-                    }
-                    else if (item == cseq)
-                    {
-                        Console.WriteLine($"CONNECTION ESTABLISHED");
-                    }
-                }
+                Console.WriteLine($"CONNECTION ESTABLISHED");
                 return;
             }
 
