@@ -14,7 +14,7 @@ namespace SipClient
             ///Setup custom information for the client - port, ip, source name (You/From), destination name (Who/To)
             Console.WriteLine("Starting SIP Real Client ...");
 
-            string serverIp = "92.205.233.81:80";//int serverPort = 8081;
+            string serverIp = "92.205.233.81:8081";//int serverPort = 8081;
             Console.WriteLine($"Signalling Server: {serverIp}");
 
             Console.WriteLine("Please type local port for communication (ex: 5061):");

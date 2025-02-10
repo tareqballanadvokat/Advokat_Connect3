@@ -10,3 +10,16 @@ it can be used as nuget package, but is here commited with source code for resea
 - OWA.ClientSendingFile
 - OWA.SignallingServer - project for PoC based on signalling erver implementated in SipSorcery 
 - OWA.SignallingClient - project for connecting to the Signalling server
+
+
+- OWA.TCPServer - project for connecting TCP:80 connection - basic TCPClient listener made
+- OWA.TCPClient - project for connecting on TCP:80 
+
+
+- OWA.SipTCPServer - project for connecting via TCP connection based on SIPSorcery library
+- OWA.SipTCPClient - project for connecting via TCP connection based on SIPSorcery library
+
+
+- OWA.SignallingServer -Sip SERVER based on UDP port 8081 which receives massegaes - 
+- OWA.SignallingClientMultiCommunicaton - based on UDP:8081 client in SipSorcery 
+- OWA.SipUDPClient - another one project for connecting on UDP:8081 in C# only
