@@ -28,7 +28,7 @@ namespace SipSignalServer
             Console.WriteLine(Environment.NewLine + "Please type SIP SERVER PORT (if empty default: 80)");
             string serverPort = Console.ReadLine();
             var parsed = int.TryParse(serverPort, out int listenPort);
-            if (parsed == false) { listenPort = 80 ; }
+            if (parsed == false) { listenPort = 443 ; }
 
             //int listenPort = 5060;
             sipTransport = new SIPTransport();

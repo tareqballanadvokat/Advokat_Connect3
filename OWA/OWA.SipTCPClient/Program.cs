@@ -21,7 +21,7 @@ class SipClient
         try
         {
             // Konfiguracja klienta SIP na TCP
-            var address = new IPEndPoint(IPAddress.Any, 80);
+            var address = new IPEndPoint(IPAddress.Any, 0);
             var sipChannel = new SIPTCPChannel(address);
             _sipTransport.AddSIPChannel(sipChannel);
         }
@@ -46,13 +46,14 @@ class SipClient
         var uri = new SIPURI(user, serverIP, null);// { Transport = SIPProtocolsEnum.tcp }; // Ustawienie TCP
 
         var registerRequest = SIPRequest.GetRequest(SIPMethodsEnum.REGISTER, uri);
-        var addressIP = new IPEndPoint(IPAddress.Parse(serverIP), 80).ToString();
+        var addressIP = new IPEndPoint(IPAddress.Parse(serverIP), 443).ToString();
         registerRequest.Header.From = new SIPFromHeader(user, new SIPURI(user, addressIP, null), null);
         registerRequest.Header.To = new SIPToHeader(user, new SIPURI(user, addressIP, null), null);
         registerRequest.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(user, addressIP, null)) };
         registerRequest.Header.CSeq = 1;
+        // Poprawienie nagłówka Via, aby wymusić TCP
 
-     var dd =   await _sipTransport.SendRequestAsync(registerRequest);
+        var dd =   await _sipTransport.SendRequestAsync(registerRequest);
         Console.WriteLine("Wysłano żądanie rejestracji.");
     }
 
