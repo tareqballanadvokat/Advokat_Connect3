@@ -14,16 +14,22 @@ namespace SipSignalServer
 
         static async Task Main(string[] args)
         {
-            Console.WriteLine("Starting SIP Server...");
+            Console.WriteLine("Starting SIP Server TCP ...");
 
-            //DEFAULT
-            //IPAddress listenAddress = IPAddress.Any;
-            //int listenPort = 5060;
-            //sipTransport = new SIPTransport();
+            var hostAddresses = Dns.GetHostAddresses(Dns.GetHostName());
+            for (int i = 0; i < hostAddresses.Length; i++)
+            {
+                Console.WriteLine($"[{i}] - {hostAddresses[i]}");
+            }
+            Console.WriteLine("Choose IP from list:");
+            int ipIndex = int.Parse(Console.ReadLine());
+            IPAddress listenAddress = hostAddresses[ipIndex];
 
-            var ips = Dns.GetHostAddresses(Dns.GetHostName());
-            IPAddress listenAddress = ips[2];// IPAddress.Any;
-            int listenPort = 80;
+            Console.WriteLine(Environment.NewLine + "Please type SIP SERVER PORT (if empty default: 80)");
+            string serverPort = Console.ReadLine();
+            var parsed = int.TryParse(serverPort, out int listenPort);
+            if (parsed == false) { listenPort = 80 ; }
+
             //int listenPort = 5060;
             sipTransport = new SIPTransport();
 

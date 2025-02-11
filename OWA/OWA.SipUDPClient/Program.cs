@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 
 class Program
 {
-    // Używamy jednej instancji UdpClient do wysyłania i odbioru
     static UdpClient udpClient;
     static IPEndPoint serverEndPoint;
     public static List<int> requestResponseList = new List<int>();
@@ -16,7 +15,7 @@ class Program
     {
         Console.WriteLine("Starting Basic SIP Client");
 
-        Console.WriteLine("SIP SERVER address: 92.205.233.81");
+        Console.WriteLine("SIP SERVER hardcoded address: 92.205.233.81");
         Console.WriteLine(Environment.NewLine + "Please type SIP SERVER PORT (if empty default: 8081)");
         string serverIp = "92.205.233.81";// Console.ReadLine();
         string serverPort = Console.ReadLine();
@@ -24,7 +23,6 @@ class Program
         if (parsed == false) { port = 8081; }
         serverEndPoint = new IPEndPoint(IPAddress.Parse(serverIp), port);
 
-        // Konfiguracja lokalnego portu
         Console.WriteLine("Type Your Local opened UDP Port (ex. 5061):");
         int clientPort = int.Parse(Console.ReadLine());
 
@@ -37,13 +35,8 @@ class Program
         int ipIndex = int.Parse(Console.ReadLine());
         IPAddress localIP = hostAddresses[ipIndex];
         IPEndPoint localEndPoint = new IPEndPoint(localIP, clientPort);
-        //Console.WriteLine($"Your IP: {localEndPoint}");
-
-        //Console.WriteLine("Your ID: client1 ");
-        string fromName = "client1";// Console.ReadLine();
-        //Console.WriteLine("Destination ID (np. asd123):");
-        //Console.WriteLine("Destination ID (np. asd123):");
-        string toName = "destination1";// Console.ReadLine();
+        string fromName = "client1";// Console.ReadLine(); 
+        string toName = "server1";// Console.ReadLine();
 
 
         udpClient = new UdpClient(localEndPoint);
@@ -62,41 +55,23 @@ class Program
 
         new Thread(async () =>
         {
-            Task.Delay(5000).Wait();
+            Task.Delay(10000).Wait();
             CheckConnectionStatus();
         }).Start();
 
-        //// 2. SIP INVITE
-        //string inviteBody = "Inviting";
-        //string inviteMessage = CreateSIPMessage("INVITE", fromName, toName, localEndPoint, $"{serverIp}:{serverPort}", cseq++, inviteBody);
-        //await SendSIPMessage(inviteMessage);
-        //Console.WriteLine("SIP INVITE sent.");
+        // 2. SIP INVITE
+        string inviteBody = "Inviting";
+        string inviteMessage = CreateSIPMessage("INVITE", fromName, toName, localEndPoint, $"{serverIp}:{serverPort}", cseq++, inviteBody);
+        await SendSIPMessage(inviteMessage);
+        Console.WriteLine("SIP INVITE sent.");
 
-        //// 3. SIP PUBLISH
-        //string publishBody = "MyOffer";
-        //string publishMessage = CreateSIPMessage("PUBLISH", fromName, toName, localEndPoint, $"{serverIp}:{serverPort}", cseq++, publishBody);
-        //await SendSIPMessage(publishMessage);
-        //Console.WriteLine("SIP PUBLISH sent.");
+        // 3. SIP PUBLISH
+        string publishBody = "MyOffer";
+        string publishMessage = CreateSIPMessage("PUBLISH", fromName, toName, localEndPoint, $"{serverIp}:{serverPort}", cseq++, publishBody);
+        await SendSIPMessage(publishMessage);
+        Console.WriteLine("SIP PUBLISH sent.");
 
-        //bool isActive = true;
-        //while (isActive)
-        //{
-        //    Console.WriteLine("Wpisz wiadomość do wysłania:");
-        //    string userMessage = Console.ReadLine();
-        //    string messageMessage = CreateSIPMessage("MESSAGE", fromName, toName, localEndPoint, $"{serverIp}:{serverPort}", cseq++, userMessage);
-        //    await SendSIPMessage(messageMessage);
-        //    Console.WriteLine("SIP MESSAGE sent.");
-        //    Console.WriteLine("Czy chcesz wysłać kolejną wiadomość? [Y/N]");
-        //    string answer = Console.ReadLine();
-        //    if (answer.Trim().ToUpper() == "N")
-        //    {
-        //        isActive = false;
-        //        // 5. SIP BYE
-        //        string byeMessage = CreateSIPMessage("BYE", fromName, toName, localEndPoint, $"{serverIp}:{serverPort}", cseq++, "BYE message");
-        //        await SendSIPMessage(byeMessage);
-        //        Console.WriteLine("SIP BYE sent.");
-        //    }
-        //}
+
 
         Console.ReadKey();
         cts.Cancel();
