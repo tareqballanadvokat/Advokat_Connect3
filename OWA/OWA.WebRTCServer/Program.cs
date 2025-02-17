@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -62,7 +63,8 @@ namespace demo
             foreach (var ip in ips)
             {
                 Console.WriteLine($"IP: {ip.ToString()}");
-                var webSocketServer = new WebSocketServer(ip, WEBSOCKET_PORT);
+                var webSocketServer = new WebSocketServer(ip, WEBSOCKET_PORT); // true for secure connection
+                //webSocketServer.SslConfiguration.ServerCertificate = new X509Certificate2("path_to_certificate.pfx", "certificate_password");
                 webSocketServer.AddWebSocketService<WebRTCWebSocketPeer>("/", (peer) =>
                 {
                     peer.CreatePeerConnection = CreatePeerConnection;
@@ -88,7 +90,12 @@ namespace demo
         {
             RTCConfiguration config = new RTCConfiguration
             {
-                iceServers = new List<RTCIceServer> { new RTCIceServer { urls = STUN_URL } }
+                iceServers = new List<RTCIceServer> { 
+                    new RTCIceServer { urls = STUN_URL } ,
+                    new RTCIceServer { urls = "stun:freestun.net:3478" },
+                    new RTCIceServer { urls = "turn:freestun.net:3478", credentialType = RTCIceCredentialType.password, credential="free", username="free" }
+
+                }
             };
 
             var pc = new RTCPeerConnection(config);

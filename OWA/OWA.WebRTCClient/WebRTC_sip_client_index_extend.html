@@ -31,7 +31,8 @@ const MAX_MESSAGE_SIZE = 16000; // Maksymalny rozmiar wiadomości w bajtach
             }
             isClosed = false;
 
-            pc = new RTCPeerConnection({ iceServers: [{ urls: STUN_URL }] });
+            //pc = new RTCPeerConnection({ iceServers: [{ urls: STUN_URL }] });
+            pc = new RTCPeerConnection({ iceServers: [{ urls: STUN_URL }, { urls: TURN_URL }, { urls: 'stun:freestun.net:3478' }, { urls: 'turn:freestun.net:3478', username: 'free', credential: 'free' }] });
 
             pc.onicecandidate = evt => evt.candidate && ws.send(JSON.stringify(evt.candidate));
 

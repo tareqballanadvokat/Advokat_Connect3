@@ -10,7 +10,7 @@ class Program
     private static WebSocket _webSocket;
     private static RTCPeerConnection _peerConnection;
     private static RTCDataChannel dataChannel;
-    private const string STUN_URL = "stun1.l.google.com";
+    private const string STUN_URL = "stun1.l.google.com:19701";
     static async Task Main(string[] args)
     {
         string webSocketServerUrl = "ws://92.205.233.81:8081/";
