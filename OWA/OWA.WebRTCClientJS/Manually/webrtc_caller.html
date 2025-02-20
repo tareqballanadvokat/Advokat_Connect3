@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Caller</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        textarea, input { width: 80%; margin: 5px; padding: 8px; }
+        button { padding: 10px; margin: 5px; cursor: pointer; }
+        #status { font-size: 18px; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>📞 WebRTC Caller</h2>
+
+    <button onclick="createOffer()">📡 Stwórz Offer</button>
+    <textarea id="offerText" placeholder="Tu pojawi się Offer"></textarea>
+
+    <h3>⬅️ Wklej Answer od Remote</h3>
+    <textarea id="answerText" placeholder="Wklej Answer"></textarea>
+    <button onclick="setRemoteAnswer()">Ustaw Answer</button>
+
+    <h3>🔄 Moje ICE Candidates</h3>
+    <textarea id="localIceCandidates" readonly placeholder="Tu pojawią się moje ICE"></textarea>
+
+    <h3>🔁 Wklej ICE od Remote</h3>
+    <textarea id="remoteIceCandidates" placeholder="Wklej ICE Candidates"></textarea>
+    <button onclick="addRemoteIce()">Dodaj Remote ICE</button>
+
+    <h3>💬 Chat</h3>
+    <input type="text" id="messageInput" placeholder="Wpisz wiadomość...">
+    <button onclick="sendMessage()">Wyślij</button>
+
+    <h3>📩 Odebrane wiadomości:</h3>
+    <textarea id="chatMessages" readonly></textarea>
+
+    <h3>📡 Status:</h3>
+    <div id="status">🟡 Oczekiwanie...</div>
+
+    <script>
+        let peerConnection = new RTCPeerConnection({
+           iceServers: [
+               { urls: "stun:stun.l.google.com:19302" },
+               { urls: "stun:stun1.l.google.com:19302" },
+               { urls: "stun:stun2.l.google.com:19302" },
+               { urls: 'stun:freestun.net:3478' }, 
+               { urls: 'turn:freestun.net:3478', username: 'free', credential: 'free' }
+           ]
+        });
+
+
+        let dataChannel = peerConnection.createDataChannel("chatChannel");
+
+        dataChannel.onopen = () => document.getElementById("status").innerText = "🟢 Połączono!";
+        dataChannel.onmessage = event => document.getElementById("chatMessages").value += "Remote: " + event.data + "\n";
+
+peerConnection.onicecandidate = event => {
+    if (event.candidate) {
+        console.log("📡 ICE Candidate wygenerowany:", event.candidate);
+        console.log("📡 ICE Candidate wygenerowany:", event.candidate.candidate);
+        document.getElementById("localIceCandidates").value += JSON.stringify(event.candidate) + "\n";
+    } else {
+        console.log("🚀 Wszystkie ICE Candidates wysłane!");
+    }
+};
+
+peerConnection.onconnectionstatechange = () => {
+    console.log("🔗 Peer Connection State:", peerConnection.connectionState);
+    document.getElementById("status").innerText = peerConnection.connectionState;
+};
+        async function createOffer() {
+            let offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            document.getElementById("offerText").value = JSON.stringify(offer);
+        }
+
+        async function setRemoteAnswer() {
+            let answer = JSON.parse(document.getElementById("answerText").value);
+            await peerConnection.setRemoteDescription(answer);
+        }
+
+function addRemoteIce() {
+    let iceCandidates = document.getElementById("remoteIceCandidates").value.trim().split("\n");
+    iceCandidates.forEach(candidate => {
+        if (candidate) {
+            let iceObj = JSON.parse(candidate);
+            console.log("➡️ Dodawanie ICE Candidate:", iceObj);
+            peerConnection.addIceCandidate(new RTCIceCandidate(iceObj))
+                .then(() => console.log("✅ ICE Candidate dodany!"))
+                .catch(err => console.error("❌ Błąd dodawania ICE:", err));
+        }
+    });
+}
+
+setInterval(() => {
+    peerConnection.getStats(null).then(stats => {
+        stats.forEach(report => {
+            if (report.type === "candidate-pair" && report.state === "succeeded") {
+                console.log("✅ Aktywne połączenie:", report);
+            }
+			if (report.type === "candidate") {
+            console.log(`🔍 ${report.id}: ${report.candidateType} (${report.ip})`);
+			}
+        });
+    });
+	
+ 
+
+}, 3000);
+
+        function sendMessage() {
+            let message = document.getElementById("messageInput").value;
+            if (dataChannel.readyState === "open") {
+                dataChannel.send(message);
+                document.getElementById("chatMessages").value += "Me: " + message + "\n";
+                document.getElementById("messageInput").value = "";
+            } else {
+                alert("Połączenie nie jest jeszcze gotowe!");
+            }
+        }
+    </script>
+
+</body>
+</html>

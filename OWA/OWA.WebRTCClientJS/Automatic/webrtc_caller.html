@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Caller</title>
+</head>
+<body>
+
+    <h2>📞 WebRTC Caller</h2>
+    <h3>💬 Chat</h3>
+    <input type="text" id="messageInput" placeholder="Wpisz wiadomość...">
+    <button onclick="sendMessage()">Wyślij</button>
+
+    <h3>📩 Odebrane wiadomości:</h3>
+    <textarea id="chatMessages" readonly></textarea>
+
+    <h3>📡 Status:</h3>
+    <div id="status">🟡 Oczekiwanie...</div>
+
+    <script>
+        const socket = new WebSocket("ws://92.205.233.81:8081");
+        const callerId = "caller";
+        let messageQueue = [];
+
+        socket.onopen = () => {
+            console.log("📡 [Caller] WebSocket połączony.");
+            socket.send(JSON.stringify({ type: "register", id: callerId }));
+
+            // Wyślij wszystkie zaległe wiadomości
+            messageQueue.forEach(msg => socket.send(msg));
+            messageQueue = [];
+            
+            createOffer();
+        };
+
+        socket.onerror = (error) => {
+            console.error("❌ [Caller] WebSocket błąd:", error);
+        };
+
+        function safeSend(message) {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(message);
+            } else {
+                console.warn("⚠️ [Caller] WebSocket nie gotowy, dodaję do kolejki:", message);
+                messageQueue.push(message);
+            }
+        }
+
+        let peerConnection = new RTCPeerConnection({
+           iceServers: [
+               { urls: "stun:stun.l.google.com:19302" },
+               { urls: "stun:stun1.l.google.com:19302" },
+               { urls: "stun:stun2.l.google.com:19302" },
+               { urls: 'stun:freestun.net:3478' }, 
+               { urls: 'turn:freestun.net:3478', username: 'free', credential: 'free' }
+           ]
+        });
+
+
+        let dataChannel = peerConnection.createDataChannel("chatChannel");
+
+        dataChannel.onopen = () => {
+            document.getElementById("status").innerText = "🟢 Połączono!";
+            console.log("✅ [Caller] Kanał danych otwarty!");
+        };
+        dataChannel.onmessage = event => {
+            document.getElementById("chatMessages").value += "Remote: " + event.data + "\n";
+        };
+
+        socket.onmessage = async (event) => {
+            let data = JSON.parse(event.data);
+            console.log("📩 [Caller] Odebrano:", data);
+
+            if (data.type === "answer") {
+                console.log("✅ [Caller] Ustawiam Remote Description (Answer).");
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } else if (data.type === "candidate") {
+                console.log("➡️ [Caller] Dodaję ICE Candidate:", data.candidate);
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        };
+
+        async function createOffer() {
+            let offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            console.log("📡 [Caller] Wysyłam Offer:", offer);
+
+            safeSend(JSON.stringify({ type: "offer", target: "remote", offer }));
+        }
+
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log("📡 [Caller] Wygenerowano ICE Candidate:", event.candidate);
+                safeSend(JSON.stringify({ type: "candidate", target: "remote", candidate: event.candidate }));
+            }
+        };
+
+        function sendMessage() {
+            let message = document.getElementById("messageInput").value;
+            if (dataChannel.readyState === "open") {
+                dataChannel.send(message);
+                document.getElementById("chatMessages").value += "Me: " + message + "\n";
+                document.getElementById("messageInput").value = "";
+            }
+        }
+    </script>
+
+</body>
+</html>

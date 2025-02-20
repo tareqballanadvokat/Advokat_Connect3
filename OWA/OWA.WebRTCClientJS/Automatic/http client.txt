@@ -1,0 +1,18 @@
+1:install nodejs for windows
+2:npm install -g http-server
+3:http-server -p 8080
+
+
+ 
+Otwórz przeglądarkę i sprawdź http://localhost:8080/.
+
+
+
+
+
+
+Zainstaluj WebSocket w Node.js:
+ 
+npm install ws
+ 
+node signaling_server.js
