@@ -1,0 +1,19 @@
+﻿<Window x:Class="OWA.WebRTCWPFCaller.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:OWA.WebRTCWPFCaller"
+        mc:Ignorable="d"
+        Title="Caller" Height="450" Width="800">
+    <Grid>
+        <StackPanel Margin="10">
+            <Button Name="ConnectBtn" Content="🔗 Połącz z serwerem" Click="ConnectBtn_Click" Margin="5"/>
+            <Button Name="OfferBtn" Content="📡 Stwórz ofertę" Click="OfferBtn_Click" Margin="5" IsEnabled="False"/>
+            <Button Name="WaitAnswerBtn" Content="⏳ Oczekuj na odpowiedź" Click="WaitAnswerBtn_Click" Margin="5" IsEnabled="False"/>
+            <Button Name="SendICEBtn" Content="❄️ Wyślij ICE" Click="SendICEBtn_Click" Margin="5" IsEnabled="False"/>
+            <Button Name="DisconnectBtn" Content="❌ Rozłącz" Click="DisconnectBtn_Click" Margin="5" IsEnabled="False"/>
+            <TextBox Name="LogBox" Height="300" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+        </StackPanel>
+    </Grid>
+</Window>
