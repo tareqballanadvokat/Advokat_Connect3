@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using SIPSorcery.Net;
 using SIPSorceryMedia.Abstractions;
 
@@ -40,6 +41,24 @@ namespace OWA.WebRTCWPFCaller
         //    DisconnectBtn.IsEnabled = true;
         //    ConnectBtn.IsEnabled = false;
         //}
+        private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (dataChannel != null && dataChannel.readyState == RTCDataChannelState.open)
+            {
+                string message = MessageBox.Text;
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                    dataChannel.send(messageBytes);
+                    Log($"📤 Wysłano wiadomość: {message}");
+                    MessageBox.Clear();
+                }
+            }
+            else
+            {
+                Log("❌ Kanał danych nie jest otwarty!");
+            }
+        }
 
 
         private async Task ReceiveWebSocketMessages()
@@ -70,6 +89,7 @@ namespace OWA.WebRTCWPFCaller
                             break;
                     }
                 }
+                LogBox.ScrollToEnd();
             }
         }
 
@@ -105,7 +125,7 @@ namespace OWA.WebRTCWPFCaller
             DisconnectBtn.IsEnabled = true;
             ConnectBtn.IsEnabled = false;
         }
-        private void SetupWebRTC()
+        private async Task SetupWebRTC()
         {
             RTCConfiguration config = new RTCConfiguration
             {
@@ -129,27 +149,43 @@ namespace OWA.WebRTCWPFCaller
                 }
             };
 
+            //dataChannel = peerConnection.createDataChannel("dataChannel").Result;
+            //peerConnection.ondatachannel += (dc) =>
+            //{
+            //    dc.onopen += () =>
+            //    {
+            //        Log("✅ Kanał danych otwarty w Caller!");
+            //        //Dispatcher.Invoke(() => SendMessageBtn.IsEnabled = true);
+            //    };
+            //    dc.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
+            //    {
+            //        string receivedMessage = Encoding.UTF8.GetString(data);
+            //        Log($"📩 Otrzymano wiadomość: {receivedMessage}");
+            //    }; 
+            //};
+
             dataChannel = peerConnection.createDataChannel("dataChannel").Result;
-            peerConnection.ondatachannel += (dc) =>
+            dataChannel.onopen += () =>
             {
-                dataChannel = dc;
-                dataChannel.onopen += () =>
-                {
-                    Log("✅ Kanał danych otwarty w Caller!");
-                    //Dispatcher.Invoke(() => SendMessageBtn.IsEnabled = true);
-                };
-                dataChannel.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
-                {
-                    string receivedMessage = Encoding.UTF8.GetString(data);
-                    Log($"📩 Otrzymano wiadomość: {receivedMessage}");
-                };
+                Log("✅ DataChannel OTWARTY!");
+                byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału");
+                dataChannel.send(testMessage);
+                LogBox.ScrollToEnd();
             };
+            dataChannel.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
+            {
+                string receivedMessage = Encoding.UTF8.GetString(data);
+                Log($"📩 Otrzymano wiadomość: {receivedMessage}");
+                LogBox.ScrollToEnd();
+            };
+
+
 
         }
 
         private async void OfferBtn_Click(object sender, RoutedEventArgs e)
         {
-            SetupWebRTC();
+            await SetupWebRTC();
             var offer =   peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
 
@@ -159,6 +195,7 @@ namespace OWA.WebRTCWPFCaller
 
             WaitAnswerBtn.IsEnabled = true;
             OfferBtn.IsEnabled = false;
+            LogBox.ScrollToEnd();
         }
 
         private async void WaitAnswerBtn_Click(object sender, RoutedEventArgs e)
@@ -185,6 +222,7 @@ namespace OWA.WebRTCWPFCaller
 
             Log($"⏳ Oczekiwaie na ICE:");
             _ = Task.Run(ReceiveWebSocketMessages);
+            LogBox.ScrollToEnd();
         }
 
         private async void SendICEBtn_Click(object sender, RoutedEventArgs e)
@@ -210,6 +248,7 @@ namespace OWA.WebRTCWPFCaller
                 Log("⚠️ Brak lokalnych ICE Candidate do wysłania.");
             }
 
+            LogBox.ScrollToEnd();
         }
 
         private async void DisconnectBtn_Click(object sender, RoutedEventArgs e)
@@ -234,6 +273,7 @@ namespace OWA.WebRTCWPFCaller
                 byte[] messageBytes = Encoding.UTF8.GetBytes(message);
                 await ws.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, CancellationToken.None);
             }
+            LogBox.ScrollToEnd();
         }
 
         private void Log(string message)

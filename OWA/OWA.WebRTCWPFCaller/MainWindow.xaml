@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:OWA.WebRTCWPFCaller"
         mc:Ignorable="d"
-        Title="Caller" Height="450" Width="800">
+        Title="Caller" Height="700" Width="800">
     <Grid>
         <StackPanel Margin="10">
             <Button Name="ConnectBtn" Content="🔗 Połącz z serwerem" Click="ConnectBtn_Click" Margin="5"/>
@@ -14,6 +14,11 @@
             <Button Name="SendICEBtn" Content="❄️ Wyślij ICE" Click="SendICEBtn_Click" Margin="5" IsEnabled="False"/>
             <Button Name="DisconnectBtn" Content="❌ Rozłącz" Click="DisconnectBtn_Click" Margin="5" IsEnabled="False"/>
             <TextBox Name="LogBox" Height="300" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+
+            <!-- Pole do wpisywania wiadomości -->
+            <TextBox Name="MessageBox" Margin="5" Height="30"  />
+            <Button Name="SendMessageBtn" Content="📨 Wyślij wiadomość" Click="SendMessageBtn_Click" Margin="5" IsEnabled="True"/>
+
         </StackPanel>
     </Grid>
 </Window>

@@ -42,6 +42,7 @@ namespace OWA.WebRTCWPFRemote
             WaitOfferBtn.IsEnabled = true;
             DisconnectBtn.IsEnabled = true;
             ConnectBtn.IsEnabled = false;
+            LogBox.ScrollToEnd();
         }
 
 
@@ -107,6 +108,7 @@ namespace OWA.WebRTCWPFRemote
 
             Log($"📡 Oczekiwaie na ICE:");
             _ = Task.Run(ReceiveWebSocketMessages);
+            LogBox.ScrollToEnd();
 
         }
 
@@ -172,19 +174,32 @@ namespace OWA.WebRTCWPFRemote
 
             // **Nowe**: Tworzenie DataChannel
             dataChannel =   peerConnection.createDataChannel("dataChannel").Result;
-            peerConnection.ondatachannel += (dc) =>
+            dataChannel.onopen += () =>
             {
-                dc.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
-                {
-                    string receivedMessage = Encoding.UTF8.GetString(data);
-                    Log($"📩 Otrzymano wiadomość: {receivedMessage}");
-                };
-                dc.onopen += () =>
-                {
-                    Log("✅ Kanał danych otwarty!");
-                    //Dispatcher.Invoke(() => SendMessageBtn.IsEnabled = true);
-                }; 
+                Log("✅ DataChannel OTWARTY!");
+                byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału");
+                dataChannel.send(testMessage);
             };
+            dataChannel.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
+            {
+                string receivedMessage = Encoding.UTF8.GetString(data);
+                Log($"📩 Otrzymano wiadomość: {receivedMessage}");
+            };
+
+            //peerConnection.ondatachannel += (dc) =>
+            //{
+            //    dc.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
+            //    {
+            //        string receivedMessage = Encoding.UTF8.GetString(data);
+            //        Log($"📩 Otrzymano wiadomość: {receivedMessage}");
+            //    };
+            //    dc.onopen += () =>
+            //    {
+            //        Log("✅ Kanał danych otwarty!");
+            //        //Dispatcher.Invoke(() => SendMessageBtn.IsEnabled = true);
+            //    }; 
+            //};
+            LogBox.ScrollToEnd();
         }
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -203,6 +218,7 @@ namespace OWA.WebRTCWPFRemote
             {
                 Log("❌ Kanał danych nie jest otwarty!");
             }
+            LogBox.ScrollToEnd();
         }
 
         private async void SendICEBtn_Click(object sender, RoutedEventArgs e)
@@ -228,6 +244,7 @@ namespace OWA.WebRTCWPFRemote
             {
                 Log("⚠️ Brak lokalnych ICE Candidate do wysłania.");
             }
+            LogBox.ScrollToEnd();
 
         }
 
