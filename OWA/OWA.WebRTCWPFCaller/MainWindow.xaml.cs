@@ -26,21 +26,6 @@ namespace OWA.WebRTCWPFCaller
             InitializeComponent();
         }
 
-        //private async void ConnectBtn_Click(object sender, RoutedEventArgs e)
-        //{
-        //    ws = new ClientWebSocket();
-        //    Log("📡 Łączenie z serwerem...");
-        //    await ws.ConnectAsync(new Uri(serverUrl), CancellationToken.None);
-
-        //    var registerMsg = JsonSerializer.Serialize(new { type = "register", id = callerId });
-        //    await SendWebSocketMessage(registerMsg);
-        //    Log("✅ Połączono!");
-
-        //    isConnected = true;
-        //    OfferBtn.IsEnabled = true;
-        //    DisconnectBtn.IsEnabled = true;
-        //    ConnectBtn.IsEnabled = false;
-        //}
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
         {
             if (dataChannel != null && dataChannel.readyState == RTCDataChannelState.open)
@@ -50,8 +35,7 @@ namespace OWA.WebRTCWPFCaller
                 {
                     byte[] messageBytes = Encoding.UTF8.GetBytes(message);
                     dataChannel.send(messageBytes);
-                    Log($"📤 Wysłano wiadomość: {message}");
-                    MessageBox.Clear();
+                    Log($"📤 Wysłano wiadomość: {message}"); 
                 }
             }
             else
@@ -88,6 +72,8 @@ namespace OWA.WebRTCWPFCaller
                             Log($"⚠️ Otrzymano nieznany typ wiadomości: {type}");
                             break;
                     }
+
+                    _ = Task.Run(ReceiveWebSocketMessages);
                 }
                 LogBox.ScrollToEnd();
             }
@@ -149,26 +135,29 @@ namespace OWA.WebRTCWPFCaller
                 }
             };
 
-            //dataChannel = peerConnection.createDataChannel("dataChannel").Result;
             //peerConnection.ondatachannel += (dc) =>
             //{
+            //    dataChannel = dc;
             //    dc.onopen += () =>
             //    {
-            //        Log("✅ Kanał danych otwarty w Caller!");
-            //        //Dispatcher.Invoke(() => SendMessageBtn.IsEnabled = true);
+            //        Log("✅ DataChannel OTWARTY!");
+            //        byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału");
+            //        dataChannel.send(testMessage);
+            //        LogBox.ScrollToEnd();
             //    };
             //    dc.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
             //    {
             //        string receivedMessage = Encoding.UTF8.GetString(data);
             //        Log($"📩 Otrzymano wiadomość: {receivedMessage}");
-            //    }; 
+            //        LogBox.ScrollToEnd();
+            //    };
             //};
 
             dataChannel = peerConnection.createDataChannel("dataChannel").Result;
             dataChannel.onopen += () =>
             {
                 Log("✅ DataChannel OTWARTY!");
-                byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału");
+                byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału [FROM CALLER]");
                 dataChannel.send(testMessage);
                 LogBox.ScrollToEnd();
             };
@@ -217,11 +206,10 @@ namespace OWA.WebRTCWPFCaller
                 peerConnection.setRemoteDescription(answer);
                 Log("✅ Ustawiono Remote Description!");
                 SendICEBtn.IsEnabled = true;
+            Log($"⏳ Oczekiwaie na ICE:");
             }
 
 
-            Log($"⏳ Oczekiwaie na ICE:");
-            _ = Task.Run(ReceiveWebSocketMessages);
             LogBox.ScrollToEnd();
         }
 
@@ -248,6 +236,7 @@ namespace OWA.WebRTCWPFCaller
                 Log("⚠️ Brak lokalnych ICE Candidate do wysłania.");
             }
 
+            _ = Task.Run(ReceiveWebSocketMessages);
             LogBox.ScrollToEnd();
         }
 

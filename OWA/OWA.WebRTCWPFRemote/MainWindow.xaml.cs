@@ -173,32 +173,37 @@ namespace OWA.WebRTCWPFRemote
             };
 
             // **Nowe**: Tworzenie DataChannel
-            dataChannel =   peerConnection.createDataChannel("dataChannel").Result;
-            dataChannel.onopen += () =>
-            {
-                Log("✅ DataChannel OTWARTY!");
-                byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału");
-                dataChannel.send(testMessage);
-            };
-            dataChannel.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
-            {
-                string receivedMessage = Encoding.UTF8.GetString(data);
-                Log($"📩 Otrzymano wiadomość: {receivedMessage}");
+            //dataChannel =   peerConnection.createDataChannel("dataChannel").Result;
+            //dataChannel.onopen += () =>
+            //{
+            //    Log("✅ DataChannel OTWARTY!");
+            //    byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału");
+            //    dataChannel.send(testMessage);
+            //};
+            //dataChannel.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
+            //{
+            //    string receivedMessage = Encoding.UTF8.GetString(data);
+            //    Log($"📩 Otrzymano wiadomość: {receivedMessage}");
+            //};
+
+            peerConnection.ondatachannel += (dc) =>
+            {        
+                dataChannel = dc;   
+                dataChannel.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
+                {
+                    string receivedMessage = Encoding.UTF8.GetString(data);
+                    Log($"📩 Otrzymano wiadomość: {receivedMessage}");
+                };
+                dataChannel.onopen += () =>
+                {
+                    Log("✅ DataChannel OTWARTY!");
+                    byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału [FROM REMOTE]");
+                    dataChannel.send(testMessage);
+                    LogBox.ScrollToEnd();
+                };
             };
 
-            //peerConnection.ondatachannel += (dc) =>
-            //{
-            //    dc.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
-            //    {
-            //        string receivedMessage = Encoding.UTF8.GetString(data);
-            //        Log($"📩 Otrzymano wiadomość: {receivedMessage}");
-            //    };
-            //    dc.onopen += () =>
-            //    {
-            //        Log("✅ Kanał danych otwarty!");
-            //        //Dispatcher.Invoke(() => SendMessageBtn.IsEnabled = true);
-            //    }; 
-            //};
+
             LogBox.ScrollToEnd();
         }
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
