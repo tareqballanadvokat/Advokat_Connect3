@@ -35,15 +35,16 @@ namespace OWA.WebRTCWPFCaller
                 {
                     byte[] messageBytes = Encoding.UTF8.GetBytes(message);
                     dataChannel.send(messageBytes);
-                    Log($"📤 Wysłano wiadomość: {message}"); 
+                    Log($"📤 Wysłano wiadomość: {message}");
                 }
             }
             else
             {
-                Log("❌ Kanał danych nie jest otwarty!");
+                Log("❌ Kanał danych nie jest otwarty! Sprawdzam ICE Connection...");
+                Log($"🔍 ICE Connection State: {peerConnection.iceConnectionState}");
             }
+            LogBox.ScrollToEnd();
         }
-
 
         private async Task ReceiveWebSocketMessages()
         {
@@ -122,7 +123,7 @@ namespace OWA.WebRTCWPFCaller
             }
             };
             peerConnection = new RTCPeerConnection(config);
-            
+
             peerConnection.onicecandidate += async (candidate) =>
             {
                 if (candidate != null && isConnected)
@@ -131,45 +132,43 @@ namespace OWA.WebRTCWPFCaller
                     options.Converters.Add(new IPAddressConverter());
 
                     var iceMsg = JsonSerializer.Serialize(new { type = "candidate", target = remoteId, candidate }, options);
-                    candicates.Add(candidate); 
+                    candicates.Add(candidate);
                 }
             };
-
-            //peerConnection.ondatachannel += (dc) =>
-            //{
-            //    dataChannel = dc;
-            //    dc.onopen += () =>
-            //    {
-            //        Log("✅ DataChannel OTWARTY!");
-            //        byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału");
-            //        dataChannel.send(testMessage);
-            //        LogBox.ScrollToEnd();
-            //    };
-            //    dc.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
-            //    {
-            //        string receivedMessage = Encoding.UTF8.GetString(data);
-            //        Log($"📩 Otrzymano wiadomość: {receivedMessage}");
-            //        LogBox.ScrollToEnd();
-            //    };
-            //};
-
-            dataChannel = peerConnection.createDataChannel("dataChannel").Result;
+            peerConnection.oniceconnectionstatechange += (state) =>
+            {
+                Log($"✅ ICE Connection State: {peerConnection.iceConnectionState}");
+            };
+ 
+            dataChannel = await peerConnection.createDataChannel("dc1", null);// new RTCDataChannelInit { id = 1, negotiated = true });
             dataChannel.onopen += () =>
             {
                 Log("✅ DataChannel OTWARTY!");
+                Log(dataChannel.id?.ToString());
                 byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału [FROM CALLER]");
                 dataChannel.send(testMessage);
                 LogBox.ScrollToEnd();
             };
-            dataChannel.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
+
+            dataChannel.onclose += () => { dataChannel.send("Bye");  };
+            dataChannel.onmessage += (datachan, type, data) =>
             {
-                string receivedMessage = Encoding.UTF8.GetString(data);
-                Log($"📩 Otrzymano wiadomość: {receivedMessage}");
-                LogBox.ScrollToEnd();
+                switch (type)
+                {
+                    case DataChannelPayloadProtocols.WebRTC_Binary_Empty:
+                    case DataChannelPayloadProtocols.WebRTC_String_Empty:
+                        break;
+
+                    case DataChannelPayloadProtocols.WebRTC_Binary:
+ 
+                        break;
+
+                    case DataChannelPayloadProtocols.WebRTC_String:
+                        var msg = Encoding.UTF8.GetString(data);
+ 
+                        break;
+                }
             };
-
-
-
         }
 
         private async void OfferBtn_Click(object sender, RoutedEventArgs e)

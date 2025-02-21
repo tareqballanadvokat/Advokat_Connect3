@@ -148,7 +148,7 @@ namespace OWA.WebRTCWPFRemote
 
         List<RTCIceCandidate> candidates = new List<RTCIceCandidate>();
 
-        private void SetupWebRTC()
+        private async void SetupWebRTC()
         {
             RTCConfiguration config = new RTCConfiguration
             {
@@ -171,34 +171,30 @@ namespace OWA.WebRTCWPFRemote
                     candidates.Add(candidate); 
                 }
             };
-
-            // **Nowe**: Tworzenie DataChannel
-            //dataChannel =   peerConnection.createDataChannel("dataChannel").Result;
-            //dataChannel.onopen += () =>
-            //{
-            //    Log("✅ DataChannel OTWARTY!");
-            //    byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału");
-            //    dataChannel.send(testMessage);
-            //};
-            //dataChannel.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
-            //{
-            //    string receivedMessage = Encoding.UTF8.GetString(data);
-            //    Log($"📩 Otrzymano wiadomość: {receivedMessage}");
-            //};
-
+ 
+            peerConnection.oniceconnectionstatechange += (state) =>
+            {
+                Log($"✅ ICE Connection State: {peerConnection.iceConnectionState}");
+            };
             peerConnection.ondatachannel += (dc) =>
-            {        
-                dataChannel = dc;   
-                dataChannel.onmessage += (RTCDataChannel channel, DataChannelPayloadProtocols protocol, byte[] data) =>
+            {
+                Log("✅ ondatachannel");
+                dataChannel = dc;
+                dc.onerror += (error) =>
+                {
+                    Log($"❌ Błąd kanału danych: {error}");
+                };  
+                dc.onmessage += (channel,  protocol, data) =>
                 {
                     string receivedMessage = Encoding.UTF8.GetString(data);
                     Log($"📩 Otrzymano wiadomość: {receivedMessage}");
                 };
-                dataChannel.onopen += () =>
+                dc.onopen += () =>
                 {
                     Log("✅ DataChannel OTWARTY!");
+                    Log(dc.id?.ToString());
                     byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału [FROM REMOTE]");
-                    dataChannel.send(testMessage);
+                    dc.send(testMessage);
                     LogBox.ScrollToEnd();
                 };
             };
@@ -215,13 +211,14 @@ namespace OWA.WebRTCWPFRemote
                 {
                     byte[] messageBytes = Encoding.UTF8.GetBytes(message);
                     dataChannel.send(messageBytes);
-                    Log($"📤 Wysłano wiadomość: {message}");
-                    MessageBox.Clear();
+                    dataChannel.send(message);
+                    Log($"📤 Wysłano wiadomość: {message}"); 
                 }
             }
             else
             {
-                Log("❌ Kanał danych nie jest otwarty!");
+                Log("❌ Kanał danych nie jest otwarty! Sprawdzam ICE Connection...");
+                Log($"🔍 ICE Connection State: {peerConnection.iceConnectionState}");
             }
             LogBox.ScrollToEnd();
         }
