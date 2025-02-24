@@ -1,0 +1,130 @@
+﻿using System;
+using System.Net.WebSockets;
+using System.Text;
+using System.Text.Json;
+using Newtonsoft.Json;
+using SIPSorcery.Net;  
+
+class Caller
+{
+    private static ClientWebSocket _wsClient = new ClientWebSocket();
+
+    private static RTCPeerConnection _peerConnection; 
+    private static readonly string _clientId = "Caller";  
+
+    static async Task Main()
+    {   
+        RTCConfiguration config = new RTCConfiguration
+        {
+            iceServers = new List<RTCIceServer> {
+                    new RTCIceServer { urls = "stun:freestun.net:3478" },
+                    new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
+                    new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
+                }
+        };
+        _peerConnection = new RTCPeerConnection(config);
+        await _wsClient.ConnectAsync(new Uri("ws://92.205.233.81:8081/"), CancellationToken.None);
+        Console.WriteLine("Caller połączony z serwerem sygnalizacyjnym.");
+
+        // Data Channel
+        var dataChannel = await _peerConnection.createDataChannel("dc1");
+        dataChannel.onopen += () => Console.WriteLine("Data Channel opened.");
+        dataChannel.onmessage += (dc, protocol, data) =>
+            Console.WriteLine($"Message received: {Encoding.UTF8.GetString(data)}");
+        dataChannel.onclose += () => Console.WriteLine("Data Channel closed.");
+
+
+        await CreateAndSendOffer();
+        _peerConnection.onicecandidate += (candidate) =>
+        {
+            if (candidate != null)
+            {
+                SendSignal($"{{\"id\": \"{_clientId}\", \"ice\": \"{candidate.toJSON()}\"}}");
+            }
+        };
+
+        _peerConnection.onnegotiationneeded += () =>
+        {
+            var offer =   _peerConnection.createOffer(null);
+            _peerConnection.setLocalDescription(offer);
+            SendSignal($"{{\"id\": \"{_clientId}\", \"sdp\": \"{offer.toJSON()}\"}}");
+        };
+
+
+        new Thread(async () =>
+        {
+            ReceiveSignal();
+
+        }).Start();
+
+        new Thread(async () =>
+        {
+
+            Task.Delay(10000).Wait();
+            dataChannel.send("client sended");
+
+
+        }).Start();
+        Console.WriteLine("Naciśnij ENTER, aby rozpocząć połączenie...");
+        Console.ReadLine();
+
+        //_peerConnection.createDataChannel("chat", null);
+
+
+        dataChannel.send("dupa");
+    }
+
+
+
+
+    private static async Task CreateAndSendOffer()
+    {
+        var offer = _peerConnection.createOffer(null);
+        await _peerConnection.setLocalDescription(offer);
+
+        Console.WriteLine("SDP Offer Created:");
+        Console.WriteLine(offer.sdp);
+
+        var sdpOfferJson = JsonConvert.SerializeObject(new { sdp = offer.sdp, type = "offer" });
+        SendSignal(sdpOfferJson);
+    }
+    static async void SendSignal(string message)
+    {
+        Console.WriteLine($"[{_clientId}] Wysyłanie: {message}");
+        var buffer = Encoding.UTF8.GetBytes(message);
+        await _wsClient.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+
+    static async Task ReceiveSignal()
+    {
+        var buffer = new byte[1024];
+
+        while (_wsClient.State == System.Net.WebSockets.WebSocketState.Open)
+        {
+            var result = await _wsClient.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+            Console.WriteLine($"[{_clientId}] Otrzymano: {message}");
+
+            if (message.Contains("\"sdp\""))
+            {
+                var sdp = RTCSessionDescriptionInit.TryParse(message, out var initialization);
+                _peerConnection.setRemoteDescription(initialization);
+            }
+            else if (message.Contains("\"ice\""))
+            {
+                var data = message.Split("\"ice\": \"")[1].Split("\"}")[0];
+                data += "\"}";
+                try
+                {
+                        RTCIceCandidateInit.TryParse(data, out var iceCandidate);
+                        _peerConnection.addIceCandidate(iceCandidate);
+                } catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+            }
+        }
+    }
+
+      
+}
