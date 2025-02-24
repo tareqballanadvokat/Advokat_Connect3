@@ -3,17 +3,17 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Newtonsoft.Json;
-using SIPSorcery.Net;  
+using SIPSorcery.Net;
 
 class Caller
 {
     private static ClientWebSocket _wsClient = new ClientWebSocket();
 
-    private static RTCPeerConnection _peerConnection; 
-    private static readonly string _clientId = "Caller";  
+    private static RTCPeerConnection _peerConnection;
+    private static readonly string _clientId = "Caller";
 
     static async Task Main()
-    {   
+    {
         RTCConfiguration config = new RTCConfiguration
         {
             iceServers = new List<RTCIceServer> {
@@ -32,24 +32,29 @@ class Caller
         dataChannel.onmessage += (dc, protocol, data) =>
             Console.WriteLine($"Message received: {Encoding.UTF8.GetString(data)}");
         dataChannel.onclose += () => Console.WriteLine("Data Channel closed.");
-
-
-        await CreateAndSendOffer();
+ 
         _peerConnection.onicecandidate += (candidate) =>
         {
+            Console.WriteLine("onicecandidate invoked.");
             if (candidate != null)
             {
-                SendSignal($"{{\"id\": \"{_clientId}\", \"ice\": \"{candidate.toJSON()}\"}}");
+                //SendSignal($"{{\"id\": \"{_clientId}\", \"ice\": \"{candidate.toJSON()}\"}}");
+                //SendSignal( candidate.toJSON());
+                string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
+                SendSignal(jsonCandidate);
             }
         };
 
-        _peerConnection.onnegotiationneeded += () =>
+        _peerConnection.onnegotiationneeded += async () =>
         {
-            var offer =   _peerConnection.createOffer(null);
-            _peerConnection.setLocalDescription(offer);
-            SendSignal($"{{\"id\": \"{_clientId}\", \"sdp\": \"{offer.toJSON()}\"}}");
+            Console.WriteLine("Negotiation needed.");
+            //var offer = _peerConnection.createOffer(null);
+            //_peerConnection.setLocalDescription(offer);
+            //SendSignal($"{{\"id\": \"{_clientId}\", \"sdp\": \"{offer.toJSON()}\"}}");
+
         };
 
+        await CreateAndSendOffer();
 
         new Thread(async () =>
         {
@@ -59,19 +64,11 @@ class Caller
 
         new Thread(async () =>
         {
-
             Task.Delay(10000).Wait();
             dataChannel.send("client sended");
-
-
         }).Start();
         Console.WriteLine("Naciśnij ENTER, aby rozpocząć połączenie...");
-        Console.ReadLine();
-
-        //_peerConnection.createDataChannel("chat", null);
-
-
-        dataChannel.send("dupa");
+        Console.ReadLine(); 
     }
 
 
@@ -112,19 +109,35 @@ class Caller
             }
             else if (message.Contains("\"ice\""))
             {
-                var data = message.Split("\"ice\": \"")[1].Split("\"}")[0];
-                data += "\"}";
-                try
-                {
-                        RTCIceCandidateInit.TryParse(data, out var iceCandidate);
-                        _peerConnection.addIceCandidate(iceCandidate);
-                } catch (Exception e)
-                {
-                    Console.WriteLine(e.Message);
-                }
+                //var data = message.Split("\"ice\": \"")[1].Split("\"}")[0];
+                //data += "\"}";
+                //try
+                //{
+                //    RTCIceCandidateInit.TryParse(message, out var iceCandidate);
+                //    //RTCIceCandidateInit.TryParse(data, out var iceCandidate);
+                //    _peerConnection.addIceCandidate(iceCandidate);
+                //}
+                //catch (Exception e)
+                //{
+                //    Console.WriteLine(e.Message);
+                //}
+
+                var messageObject  = CandidatesIncomming.Create(message);
+
+                RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
+                _peerConnection.addIceCandidate(iceCandidate);
             }
         }
     }
+}
 
-      
+public class CandidatesIncomming
+{
+    public string Type { get; set; }
+
+    public string Ice { get; set; }
+    public static CandidatesIncomming Create(string input)
+    {
+        return JsonConvert.DeserializeObject<CandidatesIncomming>(input);
+    }
 }
