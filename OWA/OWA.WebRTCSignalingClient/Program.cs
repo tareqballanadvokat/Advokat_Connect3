@@ -38,10 +38,9 @@ class Caller
             Console.WriteLine("onicecandidate invoked.");
             if (candidate != null)
             {
-                //SendSignal($"{{\"id\": \"{_clientId}\", \"ice\": \"{candidate.toJSON()}\"}}");
-                //SendSignal( candidate.toJSON());
                 string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
-                SendSignal(jsonCandidate);
+                //      SendSignal(jsonCandidate);
+                sendCandidates.Add(jsonCandidate);
             }
         };
 
@@ -61,18 +60,20 @@ class Caller
             ReceiveSignal();
 
         }).Start();
-
         new Thread(async () =>
         {
-            Task.Delay(10000).Wait();
+            Task.Delay(2000).Wait();
+            AddIceCandidates();
+            SendIceCandidates();
+        }).Start();
+        new Thread(async () =>
+        {
+            Task.Delay(20000).Wait();
             dataChannel.send("client sended");
         }).Start();
         Console.WriteLine("Naciśnij ENTER, aby rozpocząć połączenie...");
         Console.ReadLine(); 
     }
-
-
-
 
     private static async Task CreateAndSendOffer()
     {
@@ -91,6 +92,8 @@ class Caller
         var buffer = Encoding.UTF8.GetBytes(message);
         await _wsClient.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
     }
+    public static List<RTCIceCandidateInit> candidates = new List<RTCIceCandidateInit>();
+    public static List<string> sendCandidates = new List<string>();
 
     static async Task ReceiveSignal()
     {
@@ -109,24 +112,28 @@ class Caller
             }
             else if (message.Contains("\"ice\""))
             {
-                //var data = message.Split("\"ice\": \"")[1].Split("\"}")[0];
-                //data += "\"}";
-                //try
-                //{
-                //    RTCIceCandidateInit.TryParse(message, out var iceCandidate);
-                //    //RTCIceCandidateInit.TryParse(data, out var iceCandidate);
-                //    _peerConnection.addIceCandidate(iceCandidate);
-                //}
-                //catch (Exception e)
-                //{
-                //    Console.WriteLine(e.Message);
-                //}
-
                 var messageObject  = CandidatesIncomming.Create(message);
 
                 RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                _peerConnection.addIceCandidate(iceCandidate);
+                candidates.Add(iceCandidate);
+                //_peerConnection.addIceCandidate(iceCandidate);
             }
+        }
+    }
+
+    static void AddIceCandidates()
+    {
+        Console.WriteLine("Dodawanie ICE Candidates...");
+        foreach (var ice in candidates)
+        _peerConnection.addIceCandidate(ice);
+    }
+    static void SendIceCandidates()
+    {
+        Console.WriteLine("Dodawanie ICE Candidates...");
+        foreach (var ice in sendCandidates)
+        {
+           // string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
+            SendSignal(ice);
         }
     }
 }

@@ -40,10 +40,17 @@ class Remote
             ReceiveSignal();
 
         }).Start();
+
+
+        new Thread(async () =>
+        {
+            Task.Delay(2000).Wait();
+            AddIceCandidates();
+        }).Start();
         new Thread(async () =>
         {
 
-            Task.Delay(10000).Wait();
+            Task.Delay(20000).Wait();
             dataChannel.send("server sended");
         }).Start();
         Console.WriteLine("Czekam na ofertę SDP od Callera...");
@@ -122,25 +129,22 @@ class Remote
             {
 
                 var messageObject = CandidatesIncomming.Create(message);
-                //var data = message.Split("\"ice\": \"")[1].Split("\"}")[0];
-                //data += "\"}";
-                RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
+                RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate); 
+                candidates.Add(iceCandidate);
 
                 //{"ice":"{\"candidate\":\"candidate:1068029474 1 udp 2113937663 192.168.0.117 58456 typ host generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"OAPF\"}","type":"candidate"}
                 _peerConnection.addIceCandidate(iceCandidate);
-
-                //try
-                //{
-                //    //RTCIceCandidateInit.TryParse(data, out var iceCandidate);
-                //    RTCIceCandidateInit.TryParse(message, out var iceCandidate);
-                //    _peerConnection.addIceCandidate(iceCandidate);
-                //}
-                //catch (Exception e)
-                //{
-                //    Console.WriteLine(e.Message);
-                //}
             }
         }
+    }
+
+    public static List<RTCIceCandidateInit> candidates = new List<RTCIceCandidateInit>();
+
+    static void AddIceCandidates()
+    {
+        Console.WriteLine("Dodawanie ICE Candidates...");
+        //foreach (var ice in candidates)
+        //    _peerConnection.addIceCandidate(ice);
     }
 }
 
