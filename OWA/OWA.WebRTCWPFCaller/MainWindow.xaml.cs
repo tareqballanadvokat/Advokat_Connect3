@@ -1,13 +1,11 @@
-﻿using System;
-using System.Net.WebSockets;
+﻿using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using Newtonsoft.Json;
 using SIPSorcery.Net;
-using SIPSorceryMedia.Abstractions;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace OWA.WebRTCWPFCaller
 {
@@ -20,6 +18,8 @@ namespace OWA.WebRTCWPFCaller
         private const string remoteId = "remote";
         private bool isRemoteDescriptionSet = false;
         private bool isConnected = false;
+        private RTCDataChannel dataChannel;
+        List<RTCIceCandidate> candicates = new List<RTCIceCandidate>();
 
         public MainWindow()
         {
@@ -41,7 +41,7 @@ namespace OWA.WebRTCWPFCaller
             else
             {
                 Log("❌ Kanał danych nie jest otwarty! Sprawdzam ICE Connection...");
-                Log($"🔍 ICE Connection State: {peerConnection.iceConnectionState}");
+                Log($"🔍 ICE Connection State: {_peerConnection.iceConnectionState}");
             }
             LogBox.ScrollToEnd();
         }
@@ -80,8 +80,6 @@ namespace OWA.WebRTCWPFCaller
             }
         }
 
-        private RTCDataChannel dataChannel;
-        List<RTCIceCandidate> candicates = new List<RTCIceCandidate>();
         private async void ConnectBtn_Click(object sender, RoutedEventArgs e)
         {
             if (ws != null && ws.State == WebSocketState.Open)
@@ -139,8 +137,8 @@ namespace OWA.WebRTCWPFCaller
             {
                 Log($"✅ ICE Connection State: {peerConnection.iceConnectionState}");
             };
- 
-            dataChannel = await peerConnection.createDataChannel("dc1", null);// new RTCDataChannelInit { id = 1, negotiated = true });
+
+            dataChannel = await peerConnection.createDataChannel("dc1", new RTCDataChannelInit { negotiated = false, ordered = true });// new RTCDataChannelInit { id = 1, negotiated = true });
             dataChannel.onopen += () =>
             {
                 Log("✅ DataChannel OTWARTY!");
@@ -150,7 +148,7 @@ namespace OWA.WebRTCWPFCaller
                 LogBox.ScrollToEnd();
             };
 
-            dataChannel.onclose += () => { dataChannel.send("Bye");  };
+            dataChannel.onclose += () => { dataChannel.send("Bye"); };
             dataChannel.onmessage += (datachan, type, data) =>
             {
                 switch (type)
@@ -160,12 +158,12 @@ namespace OWA.WebRTCWPFCaller
                         break;
 
                     case DataChannelPayloadProtocols.WebRTC_Binary:
- 
+
                         break;
 
                     case DataChannelPayloadProtocols.WebRTC_String:
                         var msg = Encoding.UTF8.GetString(data);
- 
+
                         break;
                 }
             };
@@ -174,7 +172,7 @@ namespace OWA.WebRTCWPFCaller
         private async void OfferBtn_Click(object sender, RoutedEventArgs e)
         {
             await SetupWebRTC();
-            var offer =   peerConnection.createOffer();
+            var offer = peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
 
             var offerMsg = JsonSerializer.Serialize(new { type = "offer", target = remoteId, offer });
@@ -205,7 +203,7 @@ namespace OWA.WebRTCWPFCaller
                 peerConnection.setRemoteDescription(answer);
                 Log("✅ Ustawiono Remote Description!");
                 SendICEBtn.IsEnabled = true;
-            Log($"⏳ Oczekiwaie na ICE:");
+                Log($"⏳ Oczekiwaie na ICE:");
             }
 
 
@@ -243,7 +241,6 @@ namespace OWA.WebRTCWPFCaller
         {
             Log("❌ Rozłączanie...");
             isConnected = false;
-            peerConnection?.close();
             ws?.Abort();
             ws?.Dispose();
 
@@ -268,5 +265,190 @@ namespace OWA.WebRTCWPFCaller
         {
             Dispatcher.Invoke(() => LogBox.AppendText(message + "\n"));
         }
+        private ClientWebSocket _wsClient = new ClientWebSocket();
+
+        private RTCPeerConnection _peerConnection;
+        private readonly string _clientId = "Caller";
+        private async void AutoConnectBtn_Click(object sender, RoutedEventArgs e)
+        {
+            RTCConfiguration config = new RTCConfiguration
+            {
+                iceServers = new List<RTCIceServer> {
+                    new RTCIceServer { urls = "stun:freestun.net:3478" },
+                    new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
+                    new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
+                }
+            };
+            _peerConnection = new RTCPeerConnection(config);
+            await _wsClient.ConnectAsync(new Uri("ws://92.205.233.81:8081/"), CancellationToken.None);
+            Log("Caller połączony z serwerem sygnalizacyjnym.");
+
+            // Data Channel
+            dataChannel = await _peerConnection.createDataChannel("dc1");
+            dataChannel.onopen += () => Log("Data Channel opened.");
+            dataChannel.onmessage += (dc, protocol, data) =>
+                Log($"Message received: {Encoding.UTF8.GetString(data)}");
+            dataChannel.onclose += () => Log("Data Channel closed.");
+
+            _peerConnection.onicecandidate += (candidate) =>
+            {
+                Console.WriteLine("onicecandidate invoked.");
+                if (candidate != null)
+                {
+                    string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
+                    //      SendSignal(jsonCandidate);
+                    sendCandidates.Add(jsonCandidate);
+                }
+            };
+
+            _peerConnection.onnegotiationneeded += async () =>
+            {
+                Log("Negotiation needed.");
+            };
+
+            await CreateAndSendOffer();
+
+            new Thread(async () =>
+            {
+                ReceiveSignal();
+
+            }).Start();
+            new Thread(async () =>
+            {
+                Task.Delay(2000).Wait();
+                AddIceCandidates();
+                SendIceCandidates();
+            }).Start();
+            new Thread(async () =>
+            {
+                Task.Delay(20000).Wait();
+                dataChannel.send("client sended");
+            }).Start();
+            Log("Naciśnij ENTER, aby rozpocząć połączenie...");
+
+            isConnected = true;
+            LogBox.ScrollToEnd();
+        }
+
+
+
+
+        private async Task CreateAndSendOffer()
+        {
+            var offer = _peerConnection.createOffer(null);
+            await _peerConnection.setLocalDescription(offer);
+
+            Log("SDP Offer Created:");
+            Log(offer.sdp);
+
+            var sdpOfferJson = JsonConvert.SerializeObject(new { sdp = offer.sdp, type = "offer" });
+            SendSignal(sdpOfferJson);
+        }
+        async void SendSignal(string message)
+        {
+            Log($"[{_clientId}] Wysyłanie: {message}");
+            var buffer = Encoding.UTF8.GetBytes(message);
+            await _wsClient.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+        public List<RTCIceCandidateInit> candidatesInit = new List<RTCIceCandidateInit>();
+        public List<string> sendCandidates = new List<string>();
+
+        async Task ReceiveSignal()
+        {
+            var buffer = new byte[1024];
+
+            while (_wsClient.State == System.Net.WebSockets.WebSocketState.Open)
+            {
+                var result = await _wsClient.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                Log($"[{_clientId}] Otrzymano: {message}");
+
+                if (message.Contains("\"sdp\""))
+                {
+                    var sdp = RTCSessionDescriptionInit.TryParse(message, out var initialization);
+                    _peerConnection.setRemoteDescription(initialization);
+                }
+                else if (message.Contains("\"ice\""))
+                {
+                    var messageObject = CandidatesIncomming.Create(message);
+
+                    RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
+                    candidatesInit.Add(iceCandidate);
+                    //_peerConnection.addIceCandidate(iceCandidate);
+                }
+            }
+        }
+
+        void AddIceCandidates()
+        {
+            Log("Dodawanie ICE Candidates...");
+            foreach (var ice in candidatesInit)
+                _peerConnection.addIceCandidate(ice);
+        }
+        void SendIceCandidates()
+        {
+            Log("Dodawanie ICE Candidates...");
+            foreach (var ice in sendCandidates)
+            {
+                // string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
+                SendSignal(ice);
+            }
+        }
+
+
+        /// <summary>
+        /// EVENTS HANDLERS
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private async void SignalingServerConnectBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (isConnected)
+            {
+                //disconnect
+                Log("Disconnecting...");
+                await _wsClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client initiated close", CancellationToken.None);
+                isConnected = false;
+                _wsClient?.Abort();
+                _wsClient?.Dispose();
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+                Log("❌ SIGNALING server Disconected");
+                _wsClient = new ClientWebSocket();
+                ConnectionStatus.Content = "Disconnected";
+                SignalingServerConnectBtn.Content = "🔗Connect";
+            }
+            else
+            {
+                //connect
+                Log("Connecting to the SIGNALING Server...");
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Yellow);
+                await _wsClient.ConnectAsync(new Uri(SignalingServer.Text), CancellationToken.None);
+                if (_wsClient.State == WebSocketState.Open)
+                {
+                    StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
+                    Log("🔗 SIGNALING server connected");
+                    isConnected = true;
+                    ConnectionStatus.Content = "Connected";
+                    SignalingServerConnectBtn.Content = "❌ Disconnect";
+                }
+                else
+                {
+                    SignalingServerConnectBtn.Content = "🔗Connect";
+                    Log("❌ Connection to the SIGNALING server failed.");
+                    ConnectionStatus.Content = "Disconnected";
+                    StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+                }
+            }
+        }
+    }
+}
+public class CandidatesIncomming
+{
+    public string Type { get; set; }
+
+    public string Ice { get; set; }
+    public static CandidatesIncomming Create(string input)
+    {
+        return Newtonsoft.Json.JsonConvert.DeserializeObject<CandidatesIncomming>(input);
     }
 }

@@ -8,6 +8,21 @@
         Title="Caller" Height="700" Width="800">
     <Grid>
         <StackPanel Margin="10">
+            <Label  HorizontalAlignment="Center">Caller</Label>
+            <StackPanel Margin="10" Height="30" Orientation="Horizontal">
+                <Label Width="150" VerticalAlignment="Center">Signaling server (IP:PORT)</Label>
+                <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="SignalingServer" 
+                     AcceptsReturn="False" Text="ws://92.205.233.81:8081" 
+                     Height="20" Width="200"/>
+                <Button  Name="SignalingServerConnectBtn" Content="🔗Connect" Click="SignalingServerConnectBtn_Click" Margin="5"/>
+                <Ellipse Name="StatusIndicator" Width="10" Height="10" Fill="Red" Margin="5"/>
+                <Label Name="ConnectionStatus" Content="Disconnected"/>
+            </StackPanel>
+
+            <Button Name="AutoConnectBtn" Content="🔗 Połącz z serwerem - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
+          
+
+
             <Button Name="ConnectBtn" Content="🔗 Połącz z serwerem" Click="ConnectBtn_Click" Margin="5"/>
             <Button Name="OfferBtn" Content="📡 Stwórz ofertę" Click="OfferBtn_Click" Margin="5" IsEnabled="False"/>
             <Button Name="WaitAnswerBtn" Content="⏳ Oczekuj na odpowiedź" Click="WaitAnswerBtn_Click" Margin="5" IsEnabled="False"/>

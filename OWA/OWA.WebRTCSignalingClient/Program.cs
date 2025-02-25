@@ -92,7 +92,7 @@ class Caller
         var buffer = Encoding.UTF8.GetBytes(message);
         await _wsClient.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
     }
-    public static List<RTCIceCandidateInit> candidates = new List<RTCIceCandidateInit>();
+    public static List<RTCIceCandidateInit> candidatesInit = new List<RTCIceCandidateInit>();
     public static List<string> sendCandidates = new List<string>();
 
     static async Task ReceiveSignal()
@@ -115,7 +115,7 @@ class Caller
                 var messageObject  = CandidatesIncomming.Create(message);
 
                 RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                candidates.Add(iceCandidate);
+                candidatesInit.Add(iceCandidate);
                 //_peerConnection.addIceCandidate(iceCandidate);
             }
         }
@@ -124,7 +124,7 @@ class Caller
     static void AddIceCandidates()
     {
         Console.WriteLine("Dodawanie ICE Candidates...");
-        foreach (var ice in candidates)
+        foreach (var ice in candidatesInit)
         _peerConnection.addIceCandidate(ice);
     }
     static void SendIceCandidates()
