@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
 using SIPSorcery.SIP;
 using SIPSorcery.SIP.App;
@@ -14,6 +16,14 @@ namespace SipSignalServer
 
         static async Task Main(string[] args)
         {
+            Console.WriteLine("Starting Basic SIP SERVER");
+
+            Console.WriteLine(Environment.NewLine + "Please type SIP SERVER PORT (if empty default: 8081)");
+
+            string serverPort = Console.ReadLine();
+            var parsed = int.TryParse(serverPort, out int listenPort);
+            if (parsed == false) { listenPort = 8081; }
+
             var hostAddresses = Dns.GetHostAddresses(Dns.GetHostName());
             for (int i = 0; i < hostAddresses.Length; i++)
             {
@@ -22,13 +32,6 @@ namespace SipSignalServer
             Console.WriteLine("Choose IP from list:");
             int ipIndex = int.Parse(Console.ReadLine());
             IPAddress listenAddress = hostAddresses[ipIndex];
-
-            Console.WriteLine(Environment.NewLine + "Please type SIP SERVER PORT (if empty default: 8081)");
-            string serverPort = Console.ReadLine();
-            var parsed = int.TryParse(serverPort, out int listenPort);
-            if (parsed == false) { listenPort = 8081; }
-
-
             var serverEndPoint = new IPEndPoint(listenAddress, listenPort);
             Console.WriteLine("Starting SIP Server...");
             sipTransport = new SIPTransport();
@@ -50,18 +53,18 @@ namespace SipSignalServer
                         var contactUri = new SIPURI(sipRequest.Header.From.FromURI.User, $"{remoteAddress}:{remotePort}", null);
 
                         registeredUsers[sipRequest.Header.From.FromURI.User] = contactUri;
-                        var response = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, null);
+                        var response = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Accepted, null);
                         await sipTransport.SendResponseAsync(response);
                         Console.WriteLine($"User registered: {sipRequest.Header.From.FromURI.User} -> {contactUri}");
                     }
-                    else if (sipRequest.Method == SIPMethodsEnum.INVITE)
+                    else if (sipRequest.Method == SIPMethodsEnum.MESSAGE)
                     {
                         var caller = sipRequest.Header.From.FromURI.User;
                         var callee = sipRequest.Header.To.ToURI.User;
                         if (registeredUsers.TryGetValue(callee, out var calleeUri))
                         {
-                            var ringingResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ringing, null);
-                            await sipTransport.SendResponseAsync(ringingResponse);
+                            //var ringingResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ringing, null);
+                            //await sipTransport.SendResponseAsync(ringingResponse);
 
                             var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, null);
                             await sipTransport.SendResponseAsync(okResponse);
@@ -83,7 +86,7 @@ namespace SipSignalServer
                             await SendMessageToClient(sipRequest.Header.To.ToURI.User, "INFO FROM SERVER TO URI");
                         }).Start();
                     }
-                    else if (sipRequest.Method == SIPMethodsEnum.MESSAGE)
+                    else if (sipRequest.Method == SIPMethodsEnum.PUBLISH)
                     {
                         var recipient = sipRequest.Header.To.ToURI.User;
                         if (registeredUsers.TryGetValue(recipient, out var recipientUri))
@@ -93,6 +96,9 @@ namespace SipSignalServer
                             messageRequest.Header.To = new SIPToHeader(recipient, recipientUri, "Tag");
                             messageRequest.Body = sipRequest.Body;
                             messageRequest.Header.ContentType = "text/plain";
+
+                            var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, null);
+                            await sipTransport.SendResponseAsync(okResponse);
 
                             await sipTransport.SendRequestAsync(messageRequest);
                             Console.WriteLine($"Forwarded MESSAGE to {recipient}: {sipRequest.Body}");
@@ -109,7 +115,7 @@ namespace SipSignalServer
                         var user = sipRequest.Header.From.FromURI.User;
                         registeredUsers.TryRemove(user, out _);
                         Console.WriteLine($"User {user} unregistered.");
-                        var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, null);
+                        var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Accepted, null);
                         await sipTransport.SendResponseAsync(okResponse);
                     }
                     else
@@ -154,6 +160,42 @@ namespace SipSignalServer
             else
             {
                 Console.WriteLine($"User {recipientUser} not found in registeredUsers.");
+            }
+        }
+
+
+        private static TcpListener listener;
+        private const int port = 8081;
+
+
+        private static void HandleClient(object obj)
+        {
+            TcpClient client = (TcpClient)obj;
+            NetworkStream stream = client.GetStream();
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+
+            try
+            {
+                while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    Console.WriteLine($"Otrzymano: {receivedMessage}");
+
+                    // Odpowiedź do klienta
+                    string response = $"Serwer otrzymał: {receivedMessage}";
+                    byte[] responseBytes = Encoding.UTF8.GetBytes(response);
+                    stream.Write(responseBytes, 0, responseBytes.Length);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Błąd klienta: {ex.Message}");
+            }
+            finally
+            {
+                client.Close();
+                Console.WriteLine("Klient rozłączony.");
             }
         }
     }

@@ -1,10 +1,13 @@
-﻿using System.Net.WebSockets;
+﻿using System.Net;
+using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using Newtonsoft.Json;
 using SIPSorcery.Net;
+using SIPSorcery.SIP;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace OWA.WebRTCWPFCaller
@@ -14,8 +17,8 @@ namespace OWA.WebRTCWPFCaller
         private ClientWebSocket ws;
         private RTCPeerConnection peerConnection;
         private const string serverUrl = "ws://92.205.233.81:8081";
-        private const string callerId = "caller2";
-        private const string remoteId = "remote";
+        private string callerId = "caller";
+        private string remoteId = "remote";
         private bool isRemoteDescriptionSet = false;
         private bool isConnected = false;
         private RTCDataChannel dataChannel;
@@ -24,6 +27,14 @@ namespace OWA.WebRTCWPFCaller
         public MainWindow()
         {
             InitializeComponent();
+            Log($"POSSIBLE DNSes");
+            var dnses = Dns.GetHostAddresses(Dns.GetHostName());
+            SipSignalingServerComboBox.Items.Clear();
+            foreach (var dns in dnses)
+            {
+                SipSignalingServerComboBox.Items.Add(dns);
+                Log($"DNS: {dns}");
+            }
         }
 
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
@@ -261,14 +272,11 @@ namespace OWA.WebRTCWPFCaller
             LogBox.ScrollToEnd();
         }
 
-        private void Log(string message)
-        {
-            Dispatcher.Invoke(() => LogBox.AppendText(message + "\n"));
-        }
         private ClientWebSocket _wsClient = new ClientWebSocket();
 
         private RTCPeerConnection _peerConnection;
-        private readonly string _clientId = "Caller";
+        private readonly string _clientId = "Caller"; //auto
+
         private async void AutoConnectBtn_Click(object sender, RoutedEventArgs e)
         {
             RTCConfiguration config = new RTCConfiguration
@@ -439,6 +447,149 @@ namespace OWA.WebRTCWPFCaller
                     StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
                 }
             }
+        }
+
+        private void RegistrationName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            callerId = RegistrationName.Text;
+        }
+
+        private void Log(string message)
+        {
+            Dispatcher.Invoke(() => LogBox.AppendText(message + "\n"));
+        }
+
+        private void DestinationName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            remoteId = DestinationName.Text;
+        }
+
+
+        string serverIp = "92.205.233.81:8081";
+        IPEndPoint ipEndpointForSip;
+        SIPTransport sipTransport = new SIPTransport();
+        bool waitForSipAcceptResponse = false;
+        private async void SignalingServerRegistrationBtn_Click(object sender, RoutedEventArgs e)
+        {
+            //var ips = Dns.GetHostAddresses(Dns.GetHostName());
+            if (SipSignalingServerComboBox.SelectedValue == null)
+            {
+                Log("❌ Select DNS IP Address missing");
+                return;
+            }
+            ipEndpointForSip = new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.SelectedValue.ToString()), Convert.ToInt32(DnsIPAndPort.Text));
+            serverIp = SipSignalingServer.Text;
+            if (isConnected)
+            {
+                //disconnect
+                Log("SIP Server Disconnecting...");
+                await SendSipMessage(SIPMethodsEnum.BYE, string.Empty);
+                waitForSipAcceptResponse = true;
+                await Task.Delay(2000);
+                if (acceptResponse!= null)
+                {
+                    Log("✅ SIP BYE request accepted.");
+                    acceptResponse = null;
+                }
+                else
+                {
+                    Log("❌ SIP BYE request not accepted.");
+                    return;
+                }
+                isConnected = false;
+                sipTransport.Shutdown();
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+                Log("❌ SIGNALING SIP Server Disconected");
+                ConnectionStatus.Content = "Disconnected";
+                SignalingServerRegistrationBtn.Content = "🔗Register";
+
+            }
+            else
+            {
+                //connect
+                Log("Connecting to the SIGNALING SIP Server...");
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Yellow);
+                sipTransport = new SIPTransport();
+                var clientChannel = new SIPUDPChannel(ipEndpointForSip);
+                sipTransport.AddSIPChannel(clientChannel); 
+
+                BindSipDelegates();
+
+                waitForSipAcceptResponse = true;
+ 
+                var result = await SendSipMessage(SIPMethodsEnum.REGISTER, string.Empty);
+                await Task.Delay(2000);
+                if (acceptResponse == null)
+                {
+                    Log("❌ SIP REGISTER request not accepted.");
+                    StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+                    return;
+                }
+                Log("✅ SIP REGISTER request accepted.");
+                acceptResponse = null;
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
+                isConnected = true;
+                SignalingServerRegistrationBtn.Content = "🔗 Unregister";
+            }
+        }
+
+        private async Task<bool> SendSipMessage(SIPMethodsEnum type, string body)
+        {
+            var registerRequest = SIPRequest.GetRequest(type, new SIPURI(null, serverIp, null));
+
+            registerRequest.Header.From = new SIPFromHeader(callerId, new SIPURI(callerId, ipEndpointForSip.ToString(), null), null);
+            registerRequest.Header.To = new SIPToHeader(remoteId, new SIPURI(remoteId, serverIp, null), "TAG");
+            registerRequest.Header.CSeq = 1;
+            registerRequest.Header.CallId = CallProperties.CreateNewCallId();
+            registerRequest.Header.MaxForwards = 70;
+            registerRequest.Body = body;
+            registerRequest.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(callerId, ipEndpointForSip.ToString(), string.Empty)) };
+
+            var response = await sipTransport.SendRequestAsync(registerRequest);
+            if (response == SocketError.Success)
+            {
+                Log("✅ SIP request sent successfully. " + type);
+                return true;
+            }
+            else
+            {
+                Log($"❌ Failed to send SIP request: {response}");
+                return false;
+            }
+        }
+
+        SIPResponse acceptResponse = null;
+        private void BindSipDelegates()
+        {
+            sipTransport.SIPTransportResponseReceived += (localEndPoint, remoteEndPoint, sipResponse) =>
+            {
+                Log($"Received SIP response: {sipResponse.Status} ({sipResponse.ReasonPhrase})");
+                if (sipResponse.Status == SIPResponseStatusCodesEnum.Accepted)
+                {
+                    acceptResponse = sipResponse;
+                    waitForSipAcceptResponse = false;
+                   
+                }
+                Log("✅ SIP response received ACCEPT.");
+                return Task.CompletedTask;
+            };
+
+            // Handling incoming messages
+            sipTransport.SIPTransportRequestReceived += async (localEndPoint, remoteEndPoint, sipRequest) =>
+            {
+                Log($"Received SIP request: {sipRequest.Method} from {remoteEndPoint}");
+
+                if (sipRequest.Method == SIPMethodsEnum.MESSAGE)
+                {
+                    Console.WriteLine($"MESSAGE received from {sipRequest.Header.From.FromURI.User}: {sipRequest.Body}");
+                    var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, null);
+                    await sipTransport.SendResponseAsync(okResponse);
+                }
+            };
+        }
+        private void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
+        {
+            SendSipMessage(SIPMethodsEnum.MESSAGE, MessageBox.Text);
         }
     }
 }
