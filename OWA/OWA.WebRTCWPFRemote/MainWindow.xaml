@@ -4,7 +4,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
         mc:Ignorable="d"
-        Title="Remote" Height="1000" Width="800">
+        Closed="Window_Closed"
+        Title="Remote" Height="718" Width="800">
     <Grid>
         <StackPanel Margin="10">
             <Label  HorizontalAlignment="Center">Remote</Label>
@@ -39,23 +40,25 @@
 
 
 
-            <Button Name="AutoConnectBtn" Content="🔗 Połącz z serwerem - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
+  
 
-
-            <Button Name="ConnectBtn" Content="🔗 Połącz z serwerem" Click="ConnectBtn_Click" Margin="5"/>
-            <Button Name="WaitOfferBtn" Content="⏳ Oczekuj na Offer" Click="WaitOfferBtn_Click" Margin="5" IsEnabled="False"/>
-            <Button Name="GenerateAnswerBtn" Content="📡 Wygeneruj Answer" Click="GenerateAnswerBtn_Click" Margin="5" IsEnabled="False"/>
-            <Button Name="SendICEBtn" Content="❄️ Wyślij ICE" Click="SendICEBtn_Click" Margin="5" IsEnabled="False"/>
-            <Button Name="DisconnectBtn" Content="❌ Rozłącz" Click="DisconnectBtn_Click" Margin="5" IsEnabled="False"/>
-            <TextBox Name="LogBox" Height="300" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+   
             <!-- Pole do wpisywania wiadomości -->
             <TextBox Name="MessageBox" Margin="5" Height="30"  />
-            <Button Name="SendMessageBtn" Content="📨 Wyślij wiadomość" Click="SendMessageBtn_Click" Margin="5" IsEnabled="True"/>
+            <Button Name="SendMessageBtn" Content="📨 Send message" Click="SendMessageBtn_Click" Margin="5" IsEnabled="True"/>
             <Button Name="SendMessageViaSignalingServerBtn" Content="📨 Send message via Signaling server" Click="SendMessageViaSignalingServerBtn_Click" Margin="5" IsEnabled="True"/>
 
 
+            <TextBox Name="LogBox" Height="300" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+            <Button Name="AutoConnectBtn" Content="🔗 Połącz z serwerem - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
 
-
+            <StackPanel Height="30" Orientation="Horizontal" Visibility="Hidden">
+                <Button Name="ConnectBtn" Content="🔗 Połącz z serwerem" Click="ConnectBtn_Click" Margin="5"/>
+                <Button Name="WaitOfferBtn" Content="⏳ Oczekuj na Offer" Click="WaitOfferBtn_Click" Margin="5" IsEnabled="False"/>
+                <Button Name="GenerateAnswerBtn" Content="📡 Wygeneruj Answer" Click="GenerateAnswerBtn_Click" Margin="5" IsEnabled="False"/>
+                <Button Name="SendICEBtn" Content="❄️ Wyślij ICE" Click="SendICEBtn_Click" Margin="5" IsEnabled="False"/>
+                <Button Name="DisconnectBtn" Content="❌ Rozłącz" Click="DisconnectBtn_Click" Margin="5" IsEnabled="False"/>
+            </StackPanel>
 
             <StackPanel Margin="10" Height="30" Orientation="Horizontal" Visibility="Hidden">
                 <Label Width="150" VerticalAlignment="Center">Signaling server (IP:PORT)</Label>

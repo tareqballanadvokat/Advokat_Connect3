@@ -86,7 +86,17 @@ namespace SipClient
             await sipTransport.SendRequestAsync(publishRequest);
             Console.WriteLine("SIP PUBLISH sent.");
 
+            var byeRequest = SIPRequest.GetRequest(SIPMethodsEnum.BYE, new SIPURI(null, serverIp, null));
+            byeRequest.Header.From = new SIPFromHeader("server", new SIPURI("server", ipEndpoint.ToString(), null), null);
+            byeRequest.Header.To = new SIPToHeader("client1", new SIPURI("client1", serverIp, null), "TAG");
+            byeRequest.Header.CSeq = 3;
+            byeRequest.Header.CallId = CallProperties.CreateNewCallId();
+            byeRequest.Header.MaxForwards = 70;
+           // byeRequestst.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI("client", $"127.0.0.1:{clientPort}", string.Empty)) };
+            byeRequest.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI("server", ipEndpoint.ToString(), string.Empty)) };
 
+            await sipTransport.SendRequestAsync(byeRequest);
+            Console.WriteLine("SIP BYE sent.");
             await Task.Delay(-1); // Keep the client running
         }
     }
