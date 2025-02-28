@@ -53,7 +53,7 @@
 
 
             <Button Name="AutoConnectBtn" Content="🔗 Połącz z serwerem - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
-            <TextBox Name="LogBox" Height="214" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+            <TextBox Name="LogBox" Height="214" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
 
             <!-- Pole do wpisywania wiadomości -->
             <TextBox Name="MessageBox" Margin="5" Height="30"  />

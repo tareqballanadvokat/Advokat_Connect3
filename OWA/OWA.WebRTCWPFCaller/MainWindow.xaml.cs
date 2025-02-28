@@ -287,7 +287,10 @@ namespace OWA.WebRTCWPFCaller
 
         private void Log(string message)
         {
-            Dispatcher.Invoke(() => LogBox.AppendText($"{DateTime.Now} : "+message + "\n"));
+            Dispatcher.Invoke(() => LogBox.AppendText($"{DateTime.Now} : " + message + "\n"));
+
+
+            Dispatcher.Invoke(() => LogBox.ScrollToEnd()); 
         }
 
         private void DestinationName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -470,12 +473,13 @@ namespace OWA.WebRTCWPFCaller
                     var messageObject = CandidatesIncomming.Create(sipRequestReceived.Body);
 
                     RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                    //      candidatesInit.Add(iceCandidate);
+                          candidatesInit.Add(iceCandidate);
                     Log("ICE Candidate Received: "+ sipRequestReceived.Body);
-                    _peerConnection.addIceCandidate(iceCandidate);
+                   // _peerConnection.addIceCandidate(iceCandidate);
               //      SendSipMessage(SIPMethodsEnum.INFO, iceCandidate);
                 }
 
+                LogBox.ScrollToEnd();
             };
         }
         private async Task<bool> StartRTCInitialization()
@@ -491,19 +495,23 @@ namespace OWA.WebRTCWPFCaller
             _peerConnection = new RTCPeerConnection(config);
             // Data Channel
             dataChannel = await _peerConnection.createDataChannel("dc1");
-            dataChannel.onopen += () => Log("Data Channel opened.");
+            dataChannel.onopen += () => {
+                Log("Data Channel opened.");
+                //P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
+                //P2PConnectionStatus.Content = "Connected";
+            };
             dataChannel.onmessage += (dc, protocol, data) =>
                 Log($"Message received: {Encoding.UTF8.GetString(data)}");
             dataChannel.onclose += () => Log("Data Channel closed.");
 
-            _peerConnection.onicecandidate += (candidate) =>
+            _peerConnection.onicecandidate += async (candidate) =>
             {
                 Console.WriteLine("onicecandidate invoked.");
                 if (candidate != null)
                 {
                     string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
-                    //sendCandidates.Add(jsonCandidate);
-                    SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
+                    sendCandidates.Add(jsonCandidate);
+                  // await SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
                 }
             };
 
