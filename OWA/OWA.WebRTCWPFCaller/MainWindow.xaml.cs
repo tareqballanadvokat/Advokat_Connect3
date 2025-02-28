@@ -90,8 +90,8 @@ namespace OWA.WebRTCWPFCaller
                 LogBox.ScrollToEnd();
             }
         }
-          
- 
+
+
 
         //private async Task SendWebSocketMessage(string message)
         //{
@@ -290,7 +290,7 @@ namespace OWA.WebRTCWPFCaller
             Dispatcher.Invoke(() => LogBox.AppendText($"{DateTime.Now} : " + message + "\n"));
 
 
-            Dispatcher.Invoke(() => LogBox.ScrollToEnd()); 
+            Dispatcher.Invoke(() => LogBox.ScrollToEnd());
         }
 
         private void DestinationName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -317,7 +317,7 @@ namespace OWA.WebRTCWPFCaller
                 Log("SIP Server Disconnecting...");
                 await SendSipMessage(SIPMethodsEnum.BYE, string.Empty);
                 await Task.Delay(2000);
-                if (acceptResponse!= null)
+                if (acceptResponse != null)
                 {
                     Log("✅ SIP BYE request accepted.");
                     acceptResponse = null;
@@ -342,11 +342,11 @@ namespace OWA.WebRTCWPFCaller
                 StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Yellow);
                 sipTransport = new SIPTransport();
                 var clientChannel = new SIPUDPChannel(ipEndpointForSip);
-                sipTransport.AddSIPChannel(clientChannel); 
+                sipTransport.AddSIPChannel(clientChannel);
 
                 BindSipDelegates();
 
- 
+
                 var result = await SendSipMessage(SIPMethodsEnum.REGISTER, string.Empty);
                 await Task.Delay(2000);
                 if (acceptResponse == null)
@@ -402,7 +402,7 @@ namespace OWA.WebRTCWPFCaller
                 if (sipResponse.Status == SIPResponseStatusCodesEnum.Accepted)
                 {
                     acceptResponse = sipResponse;
-                   
+
                 }
                 Log("✅ SIP response received ACCEPT.");
                 return Task.CompletedTask;
@@ -426,43 +426,39 @@ namespace OWA.WebRTCWPFCaller
                     var okResponse = SIPResponse.GetResponse(sipRequestReceived, SIPResponseStatusCodesEnum.Ok, null);
                     //await sipTransport.SendResponseAsync(okResponse);
                     if (ackResponse == null)
-                    { 
-                        await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
-                        ackResponse = okResponse;
-                        new Thread(async () =>
-                        { 
-                            await StartRTCInitialization();
-
-
-                            Task.Delay(2000).Wait();
-                            await AddIceCandidatesVIaSIP();
-                            await SendIceCandidatesViaSIP();
-
-
-                        }).Start();
-                    }
-                    else
                     {
+                        await SendSipMessage(SIPMethodsEnum.NOTIFY, string.Empty);
+                        ackResponse = okResponse;
                         //new Thread(async () =>
                         //{
-                        //    Task.Delay(1000).Wait();
                         //    await StartRTCInitialization();
-
-
                         //    Task.Delay(2000).Wait();
                         //    await AddIceCandidatesVIaSIP();
                         //    await SendIceCandidatesViaSIP();
-
-
                         //}).Start();
                     }
+
+                }
+                if (sipRequestReceived.Method == SIPMethodsEnum.NOTIFY)
+                {
+
+                    Log($"NOTIFY received from {sipRequestReceived.Header.From.FromURI.User}");
+                    //await sipTransport.SendResponseAsync(okResponse);
+                    if (!notificationReceived) { 
+                        //await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
+                        await StartRTCInitialization();
+          
+                    await AddIceCandidatesVIaSIP();
+                    await SendIceCandidatesViaSIP();
+                }
+                    notificationReceived = true;
                 }
 
 
                 if (sipRequestReceived.Method == SIPMethodsEnum.SERVICE)
                 {
                     var sdp = RTCSessionDescriptionInit.TryParse(sipRequestReceived.Body, out var initialization);
-                    Log("SDP Offer Received:" );
+                    Log("SDP Offer Received:");
                     Log(sipRequestReceived.Body);
                     _peerConnection.setRemoteDescription(initialization);
                 }
@@ -473,15 +469,17 @@ namespace OWA.WebRTCWPFCaller
                     var messageObject = CandidatesIncomming.Create(sipRequestReceived.Body);
 
                     RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                          candidatesInit.Add(iceCandidate);
-                    Log("ICE Candidate Received: "+ sipRequestReceived.Body);
-                   // _peerConnection.addIceCandidate(iceCandidate);
-              //      SendSipMessage(SIPMethodsEnum.INFO, iceCandidate);
+                    candidatesInit.Add(iceCandidate);
+                    Log("ICE Candidate Received: " + sipRequestReceived.Body);
+                    // _peerConnection.addIceCandidate(iceCandidate);
+                    //      SendSipMessage(SIPMethodsEnum.INFO, iceCandidate);
                 }
 
                 LogBox.ScrollToEnd();
             };
         }
+
+        bool notificationReceived = false;
         private async Task<bool> StartRTCInitialization()
         {
             RTCConfiguration config = new RTCConfiguration
@@ -495,7 +493,8 @@ namespace OWA.WebRTCWPFCaller
             _peerConnection = new RTCPeerConnection(config);
             // Data Channel
             dataChannel = await _peerConnection.createDataChannel("dc1");
-            dataChannel.onopen += () => {
+            dataChannel.onopen += () =>
+            {
                 Log("Data Channel opened.");
                 //P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
                 //P2PConnectionStatus.Content = "Connected";
@@ -511,7 +510,7 @@ namespace OWA.WebRTCWPFCaller
                 {
                     string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
                     sendCandidates.Add(jsonCandidate);
-                  // await SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
+                    // SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
                 }
             };
 
@@ -536,8 +535,8 @@ namespace OWA.WebRTCWPFCaller
             //SendSignalViaSIP(sdpOfferJson);
             await SendSipMessage(SIPMethodsEnum.SERVICE, sdpOfferJson);
         }
-      
- 
+
+
         async Task AddIceCandidatesVIaSIP()
         {
             Log("Dodawanie ICE Candidates...");
