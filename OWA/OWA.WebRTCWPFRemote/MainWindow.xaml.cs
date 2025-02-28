@@ -39,7 +39,7 @@ namespace OWA.WebRTCWPFRemote
                 SipSignalingServerComboBox.Items.Add(dns);
                 Log($"DNS: {dns}");
             }
-        
+
         }
 
         private async Task ReceiveWebSocketMessages()
@@ -578,8 +578,8 @@ namespace OWA.WebRTCWPFRemote
                     var okResponse = SIPResponse.GetResponse(sipRequestReceived, SIPResponseStatusCodesEnum.Ok, null);
                     //await sipTransport.SendResponseAsync(okResponse);
                     if (ackResponse == null)
-                    { 
-                       await SendSipMessage(SIPMethodsEnum.NOTIFY, string.Empty);
+                    {
+                        await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
                         ackResponse = okResponse;
                    //     var localWS = new ClientWebSocket();
                    //     await localWS.ConnectAsync(new Uri($"ws://{webSocketServer.Address}:{webSocketServer.Port}"), CancellationToken.None);
@@ -600,13 +600,13 @@ namespace OWA.WebRTCWPFRemote
                 }
                 if (sipRequestReceived.Method == SIPMethodsEnum.NOTIFY)
                 {
-                    Log($"NOTIFY received from {sipRequestReceived.Header.From.FromURI.User}"); 
                     //await sipTransport.SendResponseAsync(okResponse);
                     if (!notificationReceived)
                     {
-                        _ = PeerToPEerConnection();
+                            _=  PeerToPEerConnection();
 
-                     }
+                    }
+                    Log($"NOTIFY received from {sipRequestReceived.Header.From.FromURI.User}"); 
                     notificationReceived = true;
                 }
             };
@@ -636,7 +636,7 @@ namespace OWA.WebRTCWPFRemote
             //new Thread(async () =>
             //{
             //    Task.Delay(2000).Wait();
-            //    AddIceCandidates();
+            //   AddIceCandidates();
             //}).Start();
 
             return true;

@@ -421,21 +421,14 @@ namespace OWA.WebRTCWPFCaller
                 }
                 if (sipRequestReceived.Method == SIPMethodsEnum.ACK)
                 {
-
-                    Log($"ACK received from {sipRequestReceived.Header.From.FromURI.User}");
+                   // Log($"ACK received from {sipRequestReceived.Header.From.FromURI.User}");
                     var okResponse = SIPResponse.GetResponse(sipRequestReceived, SIPResponseStatusCodesEnum.Ok, null);
-                    //await sipTransport.SendResponseAsync(okResponse);
                     if (ackResponse == null)
                     {
+
+                        //NOTIFY send zawsze po dla pierwszego połączonego callera daje kanał danych
                         await SendSipMessage(SIPMethodsEnum.NOTIFY, string.Empty);
                         ackResponse = okResponse;
-                        //new Thread(async () =>
-                        //{
-                        //    await StartRTCInitialization();
-                        //    Task.Delay(2000).Wait();
-                        //    await AddIceCandidatesVIaSIP();
-                        //    await SendIceCandidatesViaSIP();
-                        //}).Start();
                     }
 
                 }
@@ -444,13 +437,14 @@ namespace OWA.WebRTCWPFCaller
 
                     Log($"NOTIFY received from {sipRequestReceived.Header.From.FromURI.User}");
                     //await sipTransport.SendResponseAsync(okResponse);
-                    if (!notificationReceived) { 
+                    if (!notificationReceived) 
+                    { 
                         //await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
                         await StartRTCInitialization();
-          
-                    await AddIceCandidatesVIaSIP();
-                    await SendIceCandidatesViaSIP();
-                }
+        
+                        await AddIceCandidatesVIaSIP();
+                        await SendIceCandidatesViaSIP();
+                    }
                     notificationReceived = true;
                 }
 
