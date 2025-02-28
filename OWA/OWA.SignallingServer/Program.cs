@@ -1,12 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Sockets;
 using SIPSorcery.SIP;
 
 namespace SipSignalServer
 {
-    //SERVER FOR
-    //communication between clients - OWA.WebRTCWPFCaller/OWA.WebRTCWPFRemote
     class Program
     {
         static ConcurrentDictionary<string, SIPURI> registeredUsers = new();
@@ -62,6 +59,7 @@ namespace SipSignalServer
                         if (registeredUsers.TryGetValue(callee, out var calleeUri))
                         {
                             Console.WriteLine($"Call established: {caller} -> {callee}");
+
                             await SendMessageToClient(sipRequest.Header.To.ToURI.User, $"Message From {sipRequest.Header.From.FromURI} TO {sipRequest.Header.To.ToURI}");
                         }
                         else
@@ -69,6 +67,23 @@ namespace SipSignalServer
                             var notFoundResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.NotFound, null);
                             await sipTransport.SendResponseAsync(notFoundResponse);
                         }
+
+                    }
+                    else if (sipRequest.Method == SIPMethodsEnum.NOTIFY)
+                    {
+                        var caller = sipRequest.Header.From.FromURI.User;
+                        var callee = sipRequest.Header.To.ToURI.User;
+                        if (registeredUsers.TryGetValue(callee, out var calleeUri))
+                        {
+                            Console.WriteLine($"Call established: {caller} -> {callee}");
+                            await SendTypedMessageToClient(SIPMethodsEnum.NOTIFY, sipRequest.Header.From.FromURI.User, sipRequest.Header.To.ToURI.User, sipRequest.Body);
+                        }
+                        else
+                        {
+                            var notFoundResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.NotFound, null);
+                            await sipTransport.SendResponseAsync(notFoundResponse);
+                        }
+                        await SendTypedMessageToClient(SIPMethodsEnum.NOTIFY, sipRequest.Header.From.FromURI.User, sipRequest.Header.From.FromURI.User, sipRequest.Body);
                     }
                     else if (sipRequest.Method == SIPMethodsEnum.PUBLISH)
                     {
@@ -108,8 +123,9 @@ namespace SipSignalServer
                         var remotePort = remoteEndPoint.Port;
                         var contactUri = new SIPURI(sipRequest.Header.From.FromURI.User, $"{remoteAddress}:{remotePort}", null);
 
-                        var response = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Accepted, null);
-                        await sipTransport.SendResponseAsync(response);
+                        //          registeredUsers[sipRequest.Header.From.FromURI.User] = contactUri;
+                        //var response = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Accepted, null);
+                        //await sipTransport.SendResponseAsync(response);
                         Console.WriteLine($"User registered: {sipRequest.Header.From.FromURI.User} -> {sipRequest.Header.To.ToURI.User}");
 
 
@@ -117,8 +133,8 @@ namespace SipSignalServer
                         var callee = sipRequest.Header.To.ToURI.User;
                         if (registeredUsers.TryGetValue(callee, out var calleeUri))
                         {
-                            var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, null);
-                            await sipTransport.SendResponseAsync(okResponse);
+                            //var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, null);
+                            //await sipTransport.SendResponseAsync(okResponse);
                             Console.WriteLine($"Call established: {caller} -> {callee}");
 
                             await SendTypedMessageToClient(SIPMethodsEnum.ACK, sipRequest.Header.From.FromURI.User, sipRequest.Header.To.ToURI.User, sipRequest.Body);
@@ -146,7 +162,10 @@ namespace SipSignalServer
                         var callee = sipRequest.Header.To.ToURI.User;
                         if (registeredUsers.TryGetValue(callee, out var calleeUri))
                         {
+                            //var okResponse = SIPResponse.GetResponse(sipRequest, SIPResponseStatusCodesEnum.Ok, null);
+                            //await sipTransport.SendResponseAsync(okResponse);
                             Console.WriteLine($"Call established: {caller} -> {callee}");
+
                             await SendTypedMessageToClient(SIPMethodsEnum.INFO, sipRequest.Header.From.FromURI.User, sipRequest.Header.To.ToURI.User, sipRequest.Body);
                         }
                         else
@@ -232,7 +251,6 @@ namespace SipSignalServer
                 Console.WriteLine($"Sending {type} to {toUser} at {toUri}...");
 
                 var messageRequest = SIPRequest.GetRequest(type, toUri);
-                //messageRequest.Header.From = new SIPFromHeader("server", new SIPURI("server", "127.0.0.1", null), null);
                 messageRequest.Header.From = new SIPFromHeader(fromUser, new SIPURI(fromUser, "127.0.0.1", null), null);
                 messageRequest.Header.To = new SIPToHeader(toUser, toUri, "Tag");
                 messageRequest.Header.CSeq = 1;
@@ -248,8 +266,5 @@ namespace SipSignalServer
                 Console.WriteLine($"User {toUser} not found in registeredUsers.");
             }
         }
-        private static TcpListener listener;
-        private const int port = 8081;
-
     }
 }
