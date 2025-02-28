@@ -9,8 +9,9 @@
     <Grid>
         <StackPanel Margin="10">
             <Label  HorizontalAlignment="Center">Remote</Label>
-
-            <StackPanel  Height="30" Orientation="Horizontal">
+            <StackPanel Margin="10" Background="Cyan">
+                <Label  HorizontalAlignment="Center">Signaling server configuration</Label>
+                <StackPanel  Height="30" Orientation="Horizontal">
                 <Label Width="150" VerticalAlignment="Center">Signaling server (IP:PORT)</Label>
                 <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="SipSignalingServer" 
                       AcceptsReturn="False" Text="92.205.233.81:8081" 
@@ -23,7 +24,7 @@
 
             </StackPanel>
 
-            <StackPanel Height="30" Orientation="Horizontal">
+                <StackPanel Height="30" Orientation="Horizontal">
 
                 <Label Width="243" ToolTip="My Local IP:PORT (ex. 192.168.0.1:1234) based on initial calculated DNS IP">My Local IP:PORT (ex. 192.168.0.1:7654):</Label>
                 <ComboBox Name="SipSignalingServerComboBox" Width="100" Height="20" Margin="5" />
@@ -35,7 +36,20 @@
                 <Label x:Name="ConnectionStatus" Content="Disconnected"/>
 
             </StackPanel>
+            </StackPanel>
+            <StackPanel Margin="10" Background="Fuchsia">
+                <Label  HorizontalAlignment="Center">P2P configuration/status</Label>
 
+                <StackPanel Margin="10" Background="Fuchsia"  Orientation="Horizontal" >
+
+                    <Label Width="243" ToolTip="My Local IP:PORT (ex. 192.168.0.1:7654) based on initial calculated DNS IP">My Local IP:PORT (ex. 192.168.0.1:7654):</Label>
+                    <ComboBox Name="P2PServerComboBox" Width="100" Height="20" Margin="5" />
+
+                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="P2PPort" AcceptsReturn="False" Text="8098" Height="20" Width="55"/>
+                    <Ellipse x:Name="P2PStatusIndicator" Width="10" Height="10" Fill="Red"/>
+                    <Label x:Name="P2PConnectionStatus" Content="Disconnected"/>
+                </StackPanel>
+            </StackPanel>
 
 
 
@@ -52,20 +66,12 @@
             <TextBox Name="LogBox" Height="300" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
             <Button Name="AutoConnectBtn" Content="🔗 Połącz z serwerem - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
 
-            <StackPanel Height="30" Orientation="Horizontal" Visibility="Hidden">
-                <Button Name="ConnectBtn" Content="🔗 Połącz z serwerem" Click="ConnectBtn_Click" Margin="5"/>
-                <Button Name="WaitOfferBtn" Content="⏳ Oczekuj na Offer" Click="WaitOfferBtn_Click" Margin="5" IsEnabled="False"/>
-                <Button Name="GenerateAnswerBtn" Content="📡 Wygeneruj Answer" Click="GenerateAnswerBtn_Click" Margin="5" IsEnabled="False"/>
-                <Button Name="SendICEBtn" Content="❄️ Wyślij ICE" Click="SendICEBtn_Click" Margin="5" IsEnabled="False"/>
-                <Button Name="DisconnectBtn" Content="❌ Rozłącz" Click="DisconnectBtn_Click" Margin="5" IsEnabled="False"/>
-            </StackPanel>
 
             <StackPanel Margin="10" Height="30" Orientation="Horizontal" Visibility="Hidden">
                 <Label Width="150" VerticalAlignment="Center">Signaling server (IP:PORT)</Label>
                 <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="SignalingServer" 
                      AcceptsReturn="False" Text="ws://92.205.233.81:8081" 
-                     Height="20" Width="200"/>
-                <Button  Name="SignalingServerConnectBtn" Content="🔗Connect" Click="SignalingServerConnectBtn_Click" Margin="5"/>
+                     Height="20" Width="200"/> 
 
             </StackPanel>
         </StackPanel>

@@ -8,44 +8,52 @@
         Title="Caller" Height="700" Width="800">
     <Grid>
         <StackPanel Margin="10">
-            <Label  HorizontalAlignment="Center">Caller</Label>
+            <Label  HorizontalAlignment="Center" FontSize="17px">Caller application</Label>
+            <StackPanel Margin="10" Background="Cyan">
+                <Label  HorizontalAlignment="Center">Signaling server configuration</Label> 
+                <StackPanel  Height="30" Orientation="Horizontal"  >
+                    <Label Width="150" VerticalAlignment="Center">Signaling server (IP:PORT)</Label>
+                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="SipSignalingServer" 
+                          AcceptsReturn="False" Text="92.205.233.81:8081" 
+                          Height="20" Width="116"/>
 
-            <StackPanel  Height="30" Orientation="Horizontal">
-                <Label Width="150" VerticalAlignment="Center">Signaling server (IP:PORT)</Label>
-                <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="SipSignalingServer" 
-                      AcceptsReturn="False" Text="92.205.233.81:8081" 
-                      Height="20" Width="116"/>
-
-                <Label Width="65" VerticalAlignment="Center">My name:</Label>
-                <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="RegistrationName" AcceptsReturn="False" Text="caller" TextChanged="RegistrationName_TextChanged" Height="20" Width="50"/>
-                <Label Width="107">Destination name:</Label>
-                <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="DestinationName" AcceptsReturn="False" Text="server" TextChanged="DestinationName_TextChanged" Height="20" Width="72"/>
+                    <Label Width="65" VerticalAlignment="Center">My name:</Label>
+                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="RegistrationName" AcceptsReturn="False" Text="caller" TextChanged="RegistrationName_TextChanged" Height="20" Width="50"/>
+                    <Label Width="107">Destination name:</Label>
+                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="DestinationName" AcceptsReturn="False" Text="server" TextChanged="DestinationName_TextChanged" Height="20" Width="72"/>
   
+                </StackPanel>
+
+                <StackPanel Height="30" Orientation="Horizontal">
+
+                    <Label Width="243" ToolTip="My Local IP:PORT (ex. 192.168.0.1:7654) based on initial calculated DNS IP">My Local IP:PORT (ex. 192.168.0.1:7654):</Label>
+                    <ComboBox Name="SipSignalingServerComboBox" Width="100" Height="20" Margin="5" />
+
+                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="DnsIPAndPort" AcceptsReturn="False" Text="8098" Height="20" Width="55"/>
+
+                    <Button  Name="SignalingServerRegistrationBtn" Content="🔗Register" Click="SignalingServerRegistrationBtn_Click" Margin="5"/>
+                    <Ellipse x:Name="StatusIndicator" Width="10" Height="10" Fill="Red"/>
+                    <Label x:Name="ConnectionStatus" Content="Disconnected"/>
+
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Margin="10" Background="Fuchsia">
+                <Label  HorizontalAlignment="Center">P2P configuration/status</Label>
+
+                <StackPanel Margin="10" Background="Fuchsia"  Orientation="Horizontal" >
+
+                    <Label Width="243" ToolTip="My Local IP:PORT (ex. 192.168.0.1:7654) based on initial calculated DNS IP">My Local IP:PORT (ex. 192.168.0.1:7654):</Label>
+                    <ComboBox Name="P2PServerComboBox" Width="100" Height="20" Margin="5" />
+
+                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="P2PPort" AcceptsReturn="False" Text="8098" Height="20" Width="55"/>
+                    <Ellipse x:Name="P2PStatusIndicator" Width="10" Height="10" Fill="Red"/>
+                    <Label x:Name="P2PConnectionStatus" Content="Disconnected"/>
+                </StackPanel>
             </StackPanel>
 
-            <StackPanel Height="30" Orientation="Horizontal">
-
-                <Label Width="243" ToolTip="My Local IP:PORT (ex. 192.168.0.1:7654) based on initial calculated DNS IP">My Local IP:PORT (ex. 192.168.0.1:7654):</Label>
-                <ComboBox Name="SipSignalingServerComboBox" Width="100" Height="20" Margin="5" />
-
-                <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="DnsIPAndPort" AcceptsReturn="False" Text="8098" Height="20" Width="55"/>
-
-                <Button  Name="SignalingServerRegistrationBtn" Content="🔗Register" Click="SignalingServerRegistrationBtn_Click" Margin="5"/>
-                <Ellipse x:Name="StatusIndicator" Width="10" Height="10" Fill="Red"/>
-                <Label x:Name="ConnectionStatus" Content="Disconnected"/>
-
-            </StackPanel>
 
             <Button Name="AutoConnectBtn" Content="🔗 Połącz z serwerem - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
-          
-
-
-            <Button Name="ConnectBtn" Content="🔗 Połącz z serwerem" Click="ConnectBtn_Click" Margin="5"/>
-            <Button Name="OfferBtn" Content="📡 Stwórz ofertę" Click="OfferBtn_Click" Margin="5" IsEnabled="False"/>
-            <Button Name="WaitAnswerBtn" Content="⏳ Oczekuj na odpowiedź" Click="WaitAnswerBtn_Click" Margin="5" IsEnabled="False"/>
-            <Button Name="SendICEBtn" Content="❄️ Wyślij ICE" Click="SendICEBtn_Click" Margin="5" IsEnabled="False"/>
-            <Button Name="DisconnectBtn" Content="❌ Rozłącz" Click="DisconnectBtn_Click" Margin="5" IsEnabled="False"/>
-            <TextBox Name="LogBox" Height="300" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+            <TextBox Name="LogBox" Height="214" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
 
             <!-- Pole do wpisywania wiadomości -->
             <TextBox Name="MessageBox" Margin="5" Height="30"  />

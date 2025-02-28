@@ -40,75 +40,6 @@ namespace OWA.WebRTCWPFRemote
             }
         }
 
-        private async void ConnectBtn_Click(object sender, RoutedEventArgs e)
-        {
-            //var webSocketClient = new WebRTCWebSocketClient(serverUrl, SetupWebRTCAuto);
-            //await webSocketClient.Start(default);
-
-            SetupWebRTC();
-            ws = new ClientWebSocket();
-            Log("📡 Łączenie z serwerem...");
-            await ws.ConnectAsync(new Uri(serverUrl), CancellationToken.None);
-
-            var registerMsg = JsonSerializer.Serialize(new { type = "register", id = remoteId });
-            await SendWebSocketMessage(registerMsg);
-            Log("✅ Połączono!");
-
-            isConnected = true;
-            WaitOfferBtn.IsEnabled = true;
-            DisconnectBtn.IsEnabled = true;
-            ConnectBtn.IsEnabled = false;
-            LogBox.ScrollToEnd();
-        }
-
- 
-
-        private async void WaitOfferBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (!isConnected) return;
-
-            Log("⏳ Oczekiwanie na Offer...");
-            var buffer = new byte[4096];
-            var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-
-            Log($"📩 Otrzymano: {message}");
-            var data = JsonSerializer.Deserialize<JsonElement>(message);
-            if (data.TryGetProperty("type", out JsonElement typeElement) && typeElement.GetString() == "offer")
-            {
-                var offerJson = data.GetProperty("offer").GetRawText();
-                var offer = JsonSerializer.Deserialize<RTCSessionDescriptionInit>(offerJson);
-                offer.type = RTCSdpType.offer;
-                  peerConnection.setRemoteDescription(offer);
-                Log("✅ Ustawiono Remote Description!");
-
-                offerReceived = true;
-                GenerateAnswerBtn.IsEnabled = true;
-                WaitOfferBtn.IsEnabled = false;
-            }
-        }
-
-        private async void GenerateAnswerBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (!offerReceived) return;
-             
-            var answer =   peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            var answerMsg = JsonSerializer.Serialize(new { type = "answer", target = callerId, answer });
-            await SendWebSocketMessage(answerMsg);
-            Log($"📡 Wysłano Answer: {answer.sdp}");
-
-            SendICEBtn.IsEnabled = true;
-            GenerateAnswerBtn.IsEnabled = false;
-
-            Log($"📡 Oczekiwaie na ICE:");
-            _ = Task.Run(ReceiveWebSocketMessages);
-            LogBox.ScrollToEnd();
-
-        }
-
-
         private async Task ReceiveWebSocketMessages()
         {
             byte[] buffer = new byte[4096];
@@ -144,73 +75,73 @@ namespace OWA.WebRTCWPFRemote
 
         List<RTCIceCandidate> candidates = new List<RTCIceCandidate>();
 
-        private async void SetupWebRTC()
-        {
-            RTCConfiguration config = new RTCConfiguration
-            {
-                iceServers = new List<RTCIceServer> {
-                new RTCIceServer { urls = "stun:freestun.net:3478" },
-                new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
-                new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
-            }
-            };
-            peerConnection = new RTCPeerConnection(config);
+        //private async void SetupWebRTC()
+        //{
+        //    RTCConfiguration config = new RTCConfiguration
+        //    {
+        //        iceServers = new List<RTCIceServer> {
+        //        new RTCIceServer { urls = "stun:freestun.net:3478" },
+        //        new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
+        //        new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
+        //    }
+        //    };
+        //    peerConnection = new RTCPeerConnection(config);
 
-            peerConnection.onicecandidate += async (candidate) =>
-            {
-                if (candidate != null && isConnected)
-                { 
-                    var options = new JsonSerializerOptions();
-                    options.Converters.Add(new IPAddressConverter());
+        //    peerConnection.onicecandidate += async (candidate) =>
+        //    {
+        //        if (candidate != null && isConnected)
+        //        { 
+        //            var options = new JsonSerializerOptions();
+        //            options.Converters.Add(new IPAddressConverter());
 
-                    var iceMsg = JsonSerializer.Serialize(new { type = "candidate", target = callerId, candidate }, options);
-                    candidates.Add(candidate); 
-                }
-            };
+        //            var iceMsg = JsonSerializer.Serialize(new { type = "candidate", target = callerId, candidate }, options);
+        //            candidates.Add(candidate); 
+        //        }
+        //    };
  
-            peerConnection.oniceconnectionstatechange += (state) =>
-            {
-                Log($"✅ ICE Connection State: {peerConnection.iceConnectionState}");
-            };
+        //    peerConnection.oniceconnectionstatechange += (state) =>
+        //    {
+        //        Log($"✅ ICE Connection State: {peerConnection.iceConnectionState}");
+        //    };
 
     
-            peerConnection.ondatachannel += (dc) =>
-            {
-                Log("✅ Remote – Otrzymano DataChannel z Callera!");
-                dataChannel = dc;
-                dc.onerror += (error) =>
-                {
-                    Log($"❌ Błąd kanału danych: {error}");
-                };  
-                dc.onmessage += (channel,  protocol, data) =>
-                {
-                    string receivedMessage = Encoding.UTF8.GetString(data);
-                    Log($"📩 Otrzymano wiadomość: {receivedMessage}");
-                };
-                dc.onopen += () =>
-                {
+        //    peerConnection.ondatachannel += (dc) =>
+        //    {
+        //        Log("✅ Remote – Otrzymano DataChannel z Callera!");
+        //        dataChannel = dc;
+        //        dc.onerror += (error) =>
+        //        {
+        //            Log($"❌ Błąd kanału danych: {error}");
+        //        };  
+        //        dc.onmessage += (channel,  protocol, data) =>
+        //        {
+        //            string receivedMessage = Encoding.UTF8.GetString(data);
+        //            Log($"📩 Otrzymano wiadomość: {receivedMessage}");
+        //        };
+        //        dc.onopen += () =>
+        //        {
 
-                    Log("✅ Kanał danych OTWARTY w Remote!");
+        //            Log("✅ Kanał danych OTWARTY w Remote!");
 
-                    // **Testowa wiadomość – sprawdzamy, czy dochodzi do Callera**
-                    if (dc != null && dc.readyState == RTCDataChannelState.open)
-                    {
-                        Log("✅ DataChannel OTWARTY!");
-                        Log(dc.id?.ToString());
-                        byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału [FROM REMOTE]");
-                        dc.send(testMessage); 
-                    }
-                    else
-                    {
-                        Log("❌ DataChannel jest NULL lub nie jest otwarty!");
-                    }
+        //            // **Testowa wiadomość – sprawdzamy, czy dochodzi do Callera**
+        //            if (dc != null && dc.readyState == RTCDataChannelState.open)
+        //            {
+        //                Log("✅ DataChannel OTWARTY!");
+        //                Log(dc.id?.ToString());
+        //                byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału [FROM REMOTE]");
+        //                dc.send(testMessage); 
+        //            }
+        //            else
+        //            {
+        //                Log("❌ DataChannel jest NULL lub nie jest otwarty!");
+        //            }
  
-                };
-            };
+        //        };
+        //    };
 
 
-            LogBox.ScrollToEnd();
-        }
+        //    LogBox.ScrollToEnd();
+        //}
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
         {
             if (dataChannel != null && dataChannel.readyState == RTCDataChannelState.open)
@@ -257,21 +188,6 @@ namespace OWA.WebRTCWPFRemote
             }
             LogBox.ScrollToEnd();
 
-        }
-
-        private async void DisconnectBtn_Click(object sender, RoutedEventArgs e)
-        {
-            Log("❌ Rozłączanie...");
-            isConnected = false;
-            //peerConnection?.close();
-            ws?.Abort();
-            ws?.Dispose();
-
-            ConnectBtn.IsEnabled = true;
-            WaitOfferBtn.IsEnabled = false;
-            GenerateAnswerBtn.IsEnabled = false;
-            SendICEBtn.IsEnabled = false;
-            DisconnectBtn.IsEnabled = false;
         }
 
         private async Task SendWebSocketMessage(string message)
@@ -432,78 +348,7 @@ namespace OWA.WebRTCWPFRemote
                     _peerConnection.addIceCandidate(ice);
                 }
         }
-        private async void AutoWaitOfferBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (!isConnected) return;
-
-            Log("⏳ Oczekiwanie na Offer...");
-            var buffer = new byte[4096];
-            var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-
-            Log($"📩 Otrzymano: {message}");
-            var data = JsonSerializer.Deserialize<JsonElement>(message);
-            if (data.TryGetProperty("type", out JsonElement typeElement) && typeElement.GetString() == "offer")
-            {
-                var offerJson = data.GetProperty("offer").GetRawText();
-                var offer = JsonSerializer.Deserialize<RTCSessionDescriptionInit>(offerJson);
-                offer.type = RTCSdpType.offer;
-                peerConnection.setRemoteDescription(offer);
-                Log("✅ Ustawiono Remote Description!");
-
-                offerReceived = true;
-            }
-        }
-
-        private async void AutoGenerateAnswerBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (!offerReceived) return;
-
-            var answer = peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            var answerMsg = JsonSerializer.Serialize(new { type = "answer", target = callerId, answer });
-            await SendWebSocketMessage(answerMsg);
-            Log($"📡 Wysłano Answer: {answer.sdp}");
-
-
-            Log($"📡 Oczekiwaie na ICE:");
-            _ = Task.Run(ReceiveWebSocketMessages);
-            LogBox.ScrollToEnd();
-
-        }
-
-        private async void AutoSendICEBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (!isConnected) return;
-
-            if (candidates.Any())
-            {
-                foreach (var candidate in candidates)
-                {
-
-                    var options = new JsonSerializerOptions();
-                    options.Converters.Add(new IPAddressConverter());
-
-                    var iceMsg = JsonSerializer.Serialize(new { type = "candidate", target = callerId, candidate }, options);
-
-                    //var iceMsg = JsonSerializer.Serialize(new { type = "candidate", target = callerId, candidate });
-                    await SendWebSocketMessage(iceMsg);
-                    Log($"❄️ Wysłano ICE Candidate: {candidate.candidate}");
-                }
-            }
-            else
-            {
-                Log("⚠️ Brak lokalnych ICE Candidate do wysłania.");
-            }
-            LogBox.ScrollToEnd();
-        }
-
-        private void SignalingServerConnectBtn_Click(object sender, RoutedEventArgs e)
-        {
-
-        }
-
+ 
 
         ///////////
         /// <summary>
@@ -666,7 +511,6 @@ namespace OWA.WebRTCWPFRemote
                 }
                 if (sipRequestReceived.Method == SIPMethodsEnum.SERVICE)
                 {
- 
                     Log($"[{_clientId}] Otrzymano: {sipRequestReceived.Body}");
 
                     if (sipRequestReceived.Body.Contains("\"sdp\""))
@@ -677,21 +521,11 @@ namespace OWA.WebRTCWPFRemote
                         var answer = _peerConnection.createAnswer(null);
                         await _peerConnection.setLocalDescription(answer);
                         //SendSignal($"{{\"id\": \"{_clientId}\", \"sdp\": \"{answer.toJSON()}\"}}");
-
+                        Log($"[{_clientId}] Odpowiedź: {answer.sdp}");
                         var sdpOfferJson = Newtonsoft.Json.JsonConvert.SerializeObject(new { sdp = answer.sdp, type = "answer" });
                         //SendSignal(sdpOfferJson);
                         await SendSipMessage(SIPMethodsEnum.SERVICE, sdpOfferJson);
                     }
-                    //else if (message.Contains("\"ice\""))
-                    //{
-
-                    //    var messageObject = CandidatesIncomming.Create(message);
-                    //    RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                    //    candidatesInit.Add(iceCandidate);
-
-                    //    //{"ice":"{\"candidate\":\"candidate:1068029474 1 udp 2113937663 192.168.0.117 58456 typ host generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"OAPF\"}","type":"candidate"}
-                    //    _peerConnection.addIceCandidate(iceCandidate);
-   
                 }
                 if (sipRequestReceived.Method == SIPMethodsEnum.INFO)
                 {
@@ -806,50 +640,6 @@ namespace OWA.WebRTCWPFRemote
             _peerConnection = ps;
             return Task.FromResult(ps);
         }
-
-        private async void SendSignalViaSIP(string message)
-        {
-
-            Log($"[{_clientId}] Wysyłanie: {message}");
-            var buffer = Encoding.UTF8.GetBytes(message);
-            await _wsClient.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
-        }
-
-        private async Task ReceiveSignalViaSIP()
-        {
-            var buffer = new byte[1024];
-
-            while (_wsClient.State == WebSocketState.Open)
-            {
-                var result = await _wsClient.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                Log($"[{_clientId}] Otrzymano: {message}");
-
-                if (message.Contains("\"sdp\""))
-                {
-                    var sdp = RTCSessionDescriptionInit.TryParse(message, out var initialization);
-                    _peerConnection.setRemoteDescription(initialization);
-
-                    var answer = _peerConnection.createAnswer(null);
-                    await _peerConnection.setLocalDescription(answer);
-                    //SendSignal($"{{\"id\": \"{_clientId}\", \"sdp\": \"{answer.toJSON()}\"}}");
-
-                    var sdpOfferJson = Newtonsoft.Json.JsonConvert.SerializeObject(new { sdp = answer.sdp, type = "answer" });
-                    SendSignal(sdpOfferJson);
-                }
-                else if (message.Contains("\"ice\""))
-                {
-
-                    var messageObject = CandidatesIncomming.Create(message);
-                    RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                    candidatesInit.Add(iceCandidate);
-
-                    //{"ice":"{\"candidate\":\"candidate:1068029474 1 udp 2113937663 192.168.0.117 58456 typ host generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"OAPF\"}","type":"candidate"}
-                    _peerConnection.addIceCandidate(iceCandidate);
-                }
-            }
-        }
-
 
         private async void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
         {
