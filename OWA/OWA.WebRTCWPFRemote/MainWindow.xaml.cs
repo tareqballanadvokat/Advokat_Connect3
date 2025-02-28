@@ -77,73 +77,6 @@ namespace OWA.WebRTCWPFRemote
 
         List<RTCIceCandidate> candidates = new List<RTCIceCandidate>();
 
-        //private async void SetupWebRTC()
-        //{
-        //    RTCConfiguration config = new RTCConfiguration
-        //    {
-        //        iceServers = new List<RTCIceServer> {
-        //        new RTCIceServer { urls = "stun:freestun.net:3478" },
-        //        new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
-        //        new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
-        //    }
-        //    };
-        //    peerConnection = new RTCPeerConnection(config);
-
-        //    peerConnection.onicecandidate += async (candidate) =>
-        //    {
-        //        if (candidate != null && isConnected)
-        //        { 
-        //            var options = new JsonSerializerOptions();
-        //            options.Converters.Add(new IPAddressConverter());
-
-        //            var iceMsg = JsonSerializer.Serialize(new { type = "candidate", target = callerId, candidate }, options);
-        //            candidates.Add(candidate); 
-        //        }
-        //    };
- 
-        //    peerConnection.oniceconnectionstatechange += (state) =>
-        //    {
-        //        Log($"✅ ICE Connection State: {peerConnection.iceConnectionState}");
-        //    };
-
-    
-        //    peerConnection.ondatachannel += (dc) =>
-        //    {
-        //        Log("✅ Remote – Otrzymano DataChannel z Callera!");
-        //        dataChannel = dc;
-        //        dc.onerror += (error) =>
-        //        {
-        //            Log($"❌ Błąd kanału danych: {error}");
-        //        };  
-        //        dc.onmessage += (channel,  protocol, data) =>
-        //        {
-        //            string receivedMessage = Encoding.UTF8.GetString(data);
-        //            Log($"📩 Otrzymano wiadomość: {receivedMessage}");
-        //        };
-        //        dc.onopen += () =>
-        //        {
-
-        //            Log("✅ Kanał danych OTWARTY w Remote!");
-
-        //            // **Testowa wiadomość – sprawdzamy, czy dochodzi do Callera**
-        //            if (dc != null && dc.readyState == RTCDataChannelState.open)
-        //            {
-        //                Log("✅ DataChannel OTWARTY!");
-        //                Log(dc.id?.ToString());
-        //                byte[] testMessage = Encoding.UTF8.GetBytes("Test wiadomości po otwarciu kanału [FROM REMOTE]");
-        //                dc.send(testMessage); 
-        //            }
-        //            else
-        //            {
-        //                Log("❌ DataChannel jest NULL lub nie jest otwarty!");
-        //            }
- 
-        //        };
-        //    };
-
-
-        //    LogBox.ScrollToEnd();
-        //}
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
         {
             if (dataChannel != null && dataChannel.readyState == RTCDataChannelState.open)
@@ -531,8 +464,6 @@ namespace OWA.WebRTCWPFRemote
                     if (sipRequestReceived.Body.Contains("\"sdp\""))
                     {
                         var sdp = RTCSessionDescriptionInit.TryParse(sipRequestReceived.Body, out var initialization);
-                       // if (peerConnection != null)
-                        {
 
                             _peerConnection.setRemoteDescription(initialization);
                             var answer = _peerConnection.createAnswer(null);
@@ -540,70 +471,33 @@ namespace OWA.WebRTCWPFRemote
                             Log($"[{_clientId}] Odpowiedź: {answer.sdp}");
                             var sdpOfferJson = Newtonsoft.Json.JsonConvert.SerializeObject(new { sdp = answer.sdp, type = "answer" });
                             await SendSipMessage(SIPMethodsEnum.SERVICE, sdpOfferJson);
-                        }
-                        //else
-                        //{
-                        //    sdpOffer.Add(initialization);
-                        //    new Thread(async () =>
-                        //    {
-                        //        Task.Delay(3000).Wait();
-                        //        await InsertEverything();
-
-
-                        //    }).Start();
-                        //}
+                      
                     }
                 }
                 if (sipRequestReceived.Method == SIPMethodsEnum.INFO)
                 {
                     var messageObject = CandidatesIncomming.Create(sipRequestReceived.Body);
                     RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                    // candidatesInit.Add(iceCandidate);
-                //    if (peerConnection != null)
-                    {
                         _peerConnection.addIceCandidate(iceCandidate);
-                    }
-                    //else
-                    //{
-                    //    initIceCandidates.Add(iceCandidate);
-                    //}
                     Log(sipRequestReceived.Body);
                 }
 
                 //start sending offers/answers
                 if (sipRequestReceived.Method == SIPMethodsEnum.ACK)
                 {
-
                     Log($"ACK received from {sipRequestReceived.Header.From.FromURI.User}");
                     var okResponse = SIPResponse.GetResponse(sipRequestReceived, SIPResponseStatusCodesEnum.Ok, null);
-                    //await sipTransport.SendResponseAsync(okResponse);
                     if (ackResponse == null)
                     {
                         await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
                         ackResponse = okResponse;
-                   //     var localWS = new ClientWebSocket();
-                   //     await localWS.ConnectAsync(new Uri($"ws://{webSocketServer.Address}:{webSocketServer.Port}"), CancellationToken.None);
-                    //    Task.Delay(1000).Wait();
-                       //  await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
-
-                        ////////////// MOST important staff for make connection remote/client firstly
-                        /// Task.Delay(2000).Wait();
-                        ////////
-                        //   new Thread(async () =>
-                        //   {
-                        ////       Task.Delay(2000).Wait(); //if delayed then remote hase to connect first to the signaling serwer
-                        //       AddIceCandidates();
-                        //       SendIceCandidates();
-                        //   }).Start(); 
                     }
-
                 }
                 if (sipRequestReceived.Method == SIPMethodsEnum.NOTIFY)
                 {
-                    //await sipTransport.SendResponseAsync(okResponse);
                     if (!notificationReceived)
                     {
-                            _=  PeerToPEerConnection();
+                          _=  PeerToPEerConnection();
 
                     }
                     Log($"NOTIFY received from {sipRequestReceived.Header.From.FromURI.User}"); 
@@ -631,7 +525,7 @@ namespace OWA.WebRTCWPFRemote
 
             var localWS = new ClientWebSocket();
             await localWS.ConnectAsync(new Uri($"ws://{webSocketServer.Address}:{webSocketServer.Port}"), CancellationToken.None);
-
+       
 
             //new Thread(async () =>
             //{
