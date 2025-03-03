@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Org.BouncyCastle.Crypto.Prng;
 using OWA.WebRTCWPFCaller;
 using SIPSorcery.Net;
@@ -17,65 +18,98 @@ using WebSocketSharp.Server;
 
 namespace OWA.WebRTCWPFRemote
 {
+    public enum RTCMethodsEnum
+    {
+        STUN,
+        TURN
+        
+    }
+    public struct RTCOwnIceServer
+    {
+        public string url;
+        public string username;
+        public string credential;
+        public RTCMethodsEnum type;
+        public override string ToString()
+        {
+            return $"{type} {url} {username} {credential}";
+        }
+    }
     public partial class MainWindow : Window
     {
         private ClientWebSocket ws;
         private RTCPeerConnection peerConnection;
-        private const string serverUrl = "ws://92.205.233.81:8081";
+        private   string serverUrl = "ws://92.205.233.81:8081";
         private   string remoteId = "remote";
         private   string callerId = "caller";
         private bool isConnected = false;
-        private bool offerReceived = false; 
-
+        bool notificationReceived = false;
+        string p2pIpSelected = string.Empty;
+        string p2pPortSelected = string.Empty;
         private RTCDataChannel dataChannel;
+        List<RTCOwnIceServer> rtcIceServers = new List<RTCOwnIceServer>();
+        List<RTCIceCandidate> candidates = new List<RTCIceCandidate>();
+
         public MainWindow()
         {
             InitializeComponent();
-            Log($"POSSIBLE DNSes");
             var dnses = Dns.GetHostAddresses(Dns.GetHostName());
             SipSignalingServerComboBox.Items.Clear();
+            P2PServerComboBox.Items.Clear();  
             foreach (var dns in dnses)
             {
                 SipSignalingServerComboBox.Items.Add(dns);
+                P2PServerComboBox.Items.Add(dns);
                 Log($"DNS: {dns}");
             }
+            RTCOwnIceServer stun1 = new RTCOwnIceServer() { credential = string.Empty, type = RTCMethodsEnum.STUN, url = "stun:freestun.net:3478", username = string.Empty };
+            RTCOwnIceServer stun2 = new RTCOwnIceServer() { credential = string.Empty, type = RTCMethodsEnum.STUN, url = "stun:stun1.l.google.com:19302", username = string.Empty };
+            RTCOwnIceServer turn = new RTCOwnIceServer() { credential = "free", type = RTCMethodsEnum.TURN, url = "turn:freestun.net:3478", username = "free" };
+            rtcIceServers.Add( stun1  );
+            rtcIceServers.Add(stun2);
+            rtcIceServers.Add(turn);
 
+            foreach (var dns in rtcIceServers)
+                P2PServersComboBox.Items.Add(dns);
+
+            SipSignalingServerComboBox.SelectedItem = dnses.LastOrDefault();
+            P2PServerComboBox.SelectedItem = dnses.LastOrDefault();
+            p2pIpSelected = dnses.LastOrDefault().ToString();
         }
 
-        private async Task ReceiveWebSocketMessages()
-        {
-            byte[] buffer = new byte[4096];
+        //private async Task ReceiveWebSocketMessages()
+        //{
+        //    byte[] buffer = new byte[4096];
 
-            while (ws.State == WebSocketState.Open)
-            {
-                var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                Log($"📩 Otrzymano wiadomość z serwera: {message}");
+        //    while (ws.State == WebSocketState.Open)
+        //    {
+        //        var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+        //        string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+        //        Log($"📩 Otrzymano wiadomość z serwera: {message}");
 
-                var data = JsonSerializer.Deserialize<JsonElement>(message);
-                if (data.TryGetProperty("type", out JsonElement typeElement))
-                {
-                    string type = typeElement.GetString();
-                    switch (type)
-                    {
-                        case "candidate":
-                            var candidateJson = data.GetProperty("candidate").GetRawText();
-                            var candidate = JsonSerializer.Deserialize<RTCIceCandidateInit>(candidateJson);
-                            peerConnection.addIceCandidate(candidate);
-                            Log($"✅ Dodano ICE Candidate: {candidate.candidate}");
-                            //SendMessageBtn.IsEnabled = true;
-                            break;
+        //        var data = JsonSerializer.Deserialize<JsonElement>(message);
+        //        if (data.TryGetProperty("type", out JsonElement typeElement))
+        //        {
+        //            string type = typeElement.GetString();
+        //            switch (type)
+        //            {
+        //                case "candidate":
+        //                    var candidateJson = data.GetProperty("candidate").GetRawText();
+        //                    var candidate = JsonSerializer.Deserialize<RTCIceCandidateInit>(candidateJson);
+        //                    peerConnection.addIceCandidate(candidate);
+        //                    Log($"✅ Dodano ICE Candidate: {candidate.candidate}");
+        //                    //SendMessageBtn.IsEnabled = true;
+        //                    break;
 
-                        default:
-                            Log($"⚠️ Otrzymano nieznany typ wiadomości: {type}");
-                            break;
-                    }
-                }
-            }
-        }
+        //                default:
+        //                    Log($"⚠️ Otrzymano nieznany typ wiadomości: {type}");
+        //                    break;
+        //            }
+        //        }
+        //    }
+        //}
 
 
-        List<RTCIceCandidate> candidates = new List<RTCIceCandidate>();
 
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -87,13 +121,14 @@ namespace OWA.WebRTCWPFRemote
                     byte[] messageBytes = Encoding.UTF8.GetBytes(message);
                     dataChannel.send(messageBytes);
                     dataChannel.send(message);
-                    Log($"📤 Wysłano wiadomość: {message}"); 
+                    Log($"📤 Message sent: {message}"); 
                 }
             }
             else
             {
-                Log("❌ Kanał danych nie jest otwarty! Sprawdzam ICE Connection...");
-                Log($"🔍 ICE Connection State: {peerConnection.iceConnectionState}");
+                Log("❌ Data channel is closed!");
+                if (_peerConnection != null)
+                    Log($"🔍 ICE Connection State: {peerConnection.iceConnectionState}");
             }
             LogBox.ScrollToEnd();
         }
@@ -109,17 +144,14 @@ namespace OWA.WebRTCWPFRemote
 
                     var options = new JsonSerializerOptions();
                     options.Converters.Add(new IPAddressConverter());
-
                     var iceMsg = JsonSerializer.Serialize(new { type = "candidate", target = callerId, candidate }, options);
-
-                    //var iceMsg = JsonSerializer.Serialize(new { type = "candidate", target = callerId, candidate });
                     await SendWebSocketMessage(iceMsg);
-                    Log($"❄️ Wysłano ICE Candidate: {candidate.candidate}");
+                    Log($"❄️ Sent ICE Candidate: {candidate.candidate}");
                 }
             }
             else
             {
-                Log("⚠️ Brak lokalnych ICE Candidate do wysłania.");
+                Log("⚠️ Missing local ice candidates");
             }
             LogBox.ScrollToEnd();
 
@@ -163,7 +195,7 @@ namespace OWA.WebRTCWPFRemote
             ps.ondatachannel += (dc) =>
             {
                 dataChannel = dc;
-                Log("📡 Otrzymano Data Channel");
+                Log("📡 Received Data Channel");
 
                 // Obsługa zdarzeń DataChannel
                 dataChannel.onopen += () => Console.WriteLine("✅ Data Channel opened.");
@@ -171,6 +203,7 @@ namespace OWA.WebRTCWPFRemote
                     Log($"📩 Message received: {Encoding.UTF8.GetString(data)}");
                 dataChannel.onclose += () => Log("❌ Data Channel closed.");
             };
+Task.Delay(2000).Wait();
             dataChannel = ps.createDataChannel("dc1").Result;
             _peerConnection = ps;
             return Task.FromResult(ps);
@@ -183,7 +216,7 @@ namespace OWA.WebRTCWPFRemote
         private async void SendSignal(string message)
         {
 
-            Log($"[{_clientId}] Wysyłanie: {message}");
+            Log($"[{_clientId}] Send: {message}");
             var buffer = Encoding.UTF8.GetBytes(message);
             await _wsClient.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
         }
@@ -196,7 +229,7 @@ namespace OWA.WebRTCWPFRemote
             {
                 var result = await _wsClient.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-               Log($"[{_clientId}] Otrzymano: {message}");
+               Log($"[{_clientId}] Received: {message}");
 
                 if (message.Contains("\"sdp\""))
                 {
@@ -205,8 +238,6 @@ namespace OWA.WebRTCWPFRemote
 
                     var answer = _peerConnection.createAnswer(null);
                     await _peerConnection.setLocalDescription(answer);
-                    //SendSignal($"{{\"id\": \"{_clientId}\", \"sdp\": \"{answer.toJSON()}\"}}");
-
                     var sdpOfferJson = Newtonsoft.Json.JsonConvert.SerializeObject(new { sdp = answer.sdp, type = "answer" });
                     SendSignal(sdpOfferJson);
                 }
@@ -217,7 +248,6 @@ namespace OWA.WebRTCWPFRemote
                     RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
                     candidatesInit.Add(iceCandidate);
 
-                    //{"ice":"{\"candidate\":\"candidate:1068029474 1 udp 2113937663 192.168.0.117 58456 typ host generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"OAPF\"}","type":"candidate"}
                     _peerConnection.addIceCandidate(iceCandidate);
                 }
             }
@@ -228,10 +258,12 @@ namespace OWA.WebRTCWPFRemote
         {
 
             await _wsClient.ConnectAsync(new Uri("ws://92.205.233.81:8081/"), CancellationToken.None);
-            Console.WriteLine("Remote połączony z serwerem sygnalizacyjnym.");
+            Console.WriteLine("Remote connected with signaling server");
 
             var ips = Dns.GetHostAddresses(Dns.GetHostName());
-            var ip = ips.LastOrDefault();
+            var ip = ips.LastOrDefault();// P2PServersComboBox.SelectedValue;
+//            var ipEndpointForSip =  IPAddress.Parse(SipSignalingServerComboBox.SelectedValue.ToString(),), Convert.ToInt32(DnsIPAndPort.Text) ;
+           
 
             Console.WriteLine($"IP: {ip.ToString()}");
             if (webSocketServer != null)
@@ -278,7 +310,7 @@ namespace OWA.WebRTCWPFRemote
         List<RTCIceCandidateInit> candidatesInit = new List<RTCIceCandidateInit>();
         private void AddIceCandidates()
         {
-            Log("Dodawanie ICE Candidates...");
+            Log("Adding ICE Candidates...");
             foreach (var ice in candidatesInit)
                 if (ice != null)
                 {
@@ -286,15 +318,7 @@ namespace OWA.WebRTCWPFRemote
                 }
         }
 
-        private void SendIceCandidates()
-        {
-            Log("Dodawanie ICE Candidates...");
-            foreach (var ice in generatedIces)
-                if (ice != null)
-                {
-                    SendSipMessage(SIPMethodsEnum.INFO, ice);
-                }
-        }
+      
 
         ///////////
         /// <summary>
@@ -459,18 +483,18 @@ namespace OWA.WebRTCWPFRemote
                 }
                 if (sipRequestReceived.Method == SIPMethodsEnum.SERVICE)
                 {
-                    Log($"[{_clientId}] Otrzymano: {sipRequestReceived.Body}");
+                    Log($"[{_clientId}] Received: {sipRequestReceived.Body}");
 
                     if (sipRequestReceived.Body.Contains("\"sdp\""))
                     {
                         var sdp = RTCSessionDescriptionInit.TryParse(sipRequestReceived.Body, out var initialization);
 
-                            _peerConnection.setRemoteDescription(initialization);
-                            var answer = _peerConnection.createAnswer(null);
-                            await _peerConnection.setLocalDescription(answer);
-                            Log($"[{_clientId}] Odpowiedź: {answer.sdp}");
-                            var sdpOfferJson = Newtonsoft.Json.JsonConvert.SerializeObject(new { sdp = answer.sdp, type = "answer" });
-                            await SendSipMessage(SIPMethodsEnum.SERVICE, sdpOfferJson);
+                        _peerConnection.setRemoteDescription(initialization);
+                        var answer = _peerConnection.createAnswer(null);
+                        await _peerConnection.setLocalDescription(answer);
+                        Log($"[{_clientId}] Response: {answer.sdp}");
+                        var sdpOfferJson = Newtonsoft.Json.JsonConvert.SerializeObject(new { sdp = answer.sdp, type = "answer" });
+                        await SendSipMessage(SIPMethodsEnum.SERVICE, sdpOfferJson);
                       
                     }
                 }
@@ -505,14 +529,12 @@ namespace OWA.WebRTCWPFRemote
                 }
             };
         }
-        bool notificationReceived = false;
+
         private async Task<bool> PeerToPEerConnection()
         {
-            var ips = Dns.GetHostAddresses(Dns.GetHostName());
-            var ip = ips.LastOrDefault();
-
+             var ip =  IPAddress.Parse(p2pIpSelected);
             Console.WriteLine($"IP: {ip.ToString()}");
-            webSocketServer = new WebSocketServer(ip, 9090); // true for secure connection
+            webSocketServer = new WebSocketServer(ip, Convert.ToInt32(p2pPortSelected)); // true for secure connection
                                                              //webSocketServer.SslConfiguration.ServerCertificate = new X509Certificate2("path_to_certificate.pfx", "certificate_password");
             webSocketServer.AddWebSocketService<WebRTCWebSocketPeer>("/", (peer) =>
             {
@@ -525,27 +547,30 @@ namespace OWA.WebRTCWPFRemote
 
             var localWS = new ClientWebSocket();
             await localWS.ConnectAsync(new Uri($"ws://{webSocketServer.Address}:{webSocketServer.Port}"), CancellationToken.None);
-       
-
-            //new Thread(async () =>
-            //{
-            //    Task.Delay(2000).Wait();
-            //   AddIceCandidates();
-            //}).Start();
-
             return true;
         }
 
         List<string> generatedIces = new List<string>();
+        int delay = 2000;
+       
         private   Task<RTCPeerConnection> CreatePeerConnectionViaSIP()
         {
+            var iceServers = new List<RTCIceServer>();
+            foreach(RTCOwnIceServer server in rtcIceServers)
+            {
+                if (server.type == RTCMethodsEnum.STUN)
+                {
+                    iceServers.Add(new RTCIceServer { urls = server.url });
+                }
+                else
+                {
+                    iceServers.Add(new RTCIceServer { urls = server.url, credential = server.credential, credentialType = RTCIceCredentialType.password, username = server.username });
+                }
+            }
+
             RTCConfiguration config = new RTCConfiguration
             {
-                iceServers = new List<RTCIceServer> {
-                    new RTCIceServer { urls = "stun:freestun.net:3478" },
-                    new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
-                    new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
-                }
+                iceServers = iceServers
             };
 
             var ps = new RTCPeerConnection(config); 
@@ -563,15 +588,19 @@ namespace OWA.WebRTCWPFRemote
             ps.ondatachannel += (dc) =>
             {
                 dataChannel = dc;
-                Log("📡 Otrzymano Data Channel");
-                //P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
-                //P2PConnectionStatus.Content = "Connected";
-                // Obsługa zdarzeń DataChannel
+                Log("📡 Added Data Channel");
+                new Thread(() => {
+                    Task.Delay(delay).Wait();
+                    Log("📡 Opened Data Channel");
+                    Dispatcher.Invoke(() => P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green));
+                    Dispatcher.Invoke(() => P2PConnectionStatus.Content = "Connected");
+                }).Start();
                 dataChannel.onopen += () => Console.WriteLine("✅ Data Channel opened.");
                 dataChannel.onmessage += (dc, protocol, data) =>
                     Log($"📩 Message received: {Encoding.UTF8.GetString(data)}");
                 dataChannel.onclose += () => Log("❌ Data Channel closed.");
             };
+Task.Delay(delay).Wait();
             dataChannel =   ps.createDataChannel("dc1").Result;
 
             return   Task.FromResult(ps);
@@ -586,6 +615,87 @@ namespace OWA.WebRTCWPFRemote
         {
             if (isConnected)
             await SendSipMessage(SIPMethodsEnum.BYE, string.Empty);
+        }
+
+        private async void P2PDisconnectBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (dataChannel != null) dataChannel.close();
+            if (_peerConnection != null) { _peerConnection.close(); _peerConnection = null; }
+            if (ws!=null) 
+            { 
+               await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed", CancellationToken.None);
+                ws = null;
+            }
+
+            if (webSocketServer != null)
+            {
+                webSocketServer.Stop();
+                webSocketServer = null;
+            }
+            isConnected = false;
+            candidatesInit.Clear();
+            generatedIces.Clear();
+            StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+            P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+            ConnectionStatus.Content = "Disconnected";
+            P2PConnectionStatus.Content = "Disconnected";
+            Log("Disconnected");
+        }
+
+        private void P2PAddTurnBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (P2PTurnPasswdTextBox.Text == string.Empty || P2PTurnLoginTextBox.Text == string.Empty || P2PTurnUrlTextBox.Text == string.Empty)
+            {
+                Log("❌ TURN server data missing. Correct format Url 'turn:xxx.yyy.zzz:432' ");
+                return;
+            }
+
+            RTCOwnIceServer RtcOwnIceServer = new RTCOwnIceServer
+            {
+                credential = P2PTurnPasswdTextBox.Text,
+                type = RTCMethodsEnum.TURN,
+                url = P2PTurnUrlTextBox.Text,
+                username = P2PTurnLoginTextBox.Text
+            };
+
+            P2PServersComboBox.Items.Add(RtcOwnIceServer);
+            rtcIceServers.Add(RtcOwnIceServer);
+            Log("Added TURN server: " + RtcOwnIceServer);
+        }
+
+        private void P2PAddStunBtn_Click(object sender, RoutedEventArgs e)
+        {
+            RTCOwnIceServer RtcOwnIceServer = new RTCOwnIceServer
+            {
+                credential = P2PTurnPasswdTextBox.Text,
+                type = RTCMethodsEnum.TURN,
+                url = P2PTurnUrlTextBox.Text,
+                username = P2PTurnLoginTextBox.Text
+            };
+
+            P2PServersComboBox.Items.Add(RtcOwnIceServer);
+            rtcIceServers.Add(RtcOwnIceServer);
+            Log("Added STUN server: " + RtcOwnIceServer);
+        }
+
+        private void P2PRemoveStunBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var index = P2PServersComboBox.SelectedIndex;
+            P2PServersComboBox.Items.RemoveAt(index);
+
+            rtcIceServers.RemoveAt(index); 
+        }
+
+        private void DelayMilisecondsTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            delay = Convert.ToInt32(DelayMilisecondsTextBox.Text);
+            //Log("Delay changed: "+delay);
+        }
+
+        private void P2PPort_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            p2pPortSelected = P2PPort.Text;
+            //Log("P2P Port: " + p2pPortSelected);
         }
     }
 }

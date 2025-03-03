@@ -37,27 +37,50 @@
 
                 </StackPanel>
             </StackPanel>
-            <StackPanel Margin="10" Background="Fuchsia">
+
+            <StackPanel Margin="10" Background="Fuchsia" Height="170">
                 <Label  HorizontalAlignment="Center">P2P configuration/status</Label>
 
                 <StackPanel Margin="10" Background="Fuchsia"  Orientation="Horizontal" >
 
-                    <Label Width="243" ToolTip="My Local IP:PORT (ex. 192.168.0.1:7654) based on initial calculated DNS IP">My Local IP:PORT (ex. 192.168.0.1:7654):</Label>
-                    <ComboBox Name="P2PServerComboBox" Width="100" Height="20" Margin="5" />
-
-                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="P2PPort" AcceptsReturn="False" Text="8098" Height="20" Width="55"/>
                     <Ellipse x:Name="P2PStatusIndicator" Width="10" Height="10" Fill="Red"/>
                     <Label x:Name="P2PConnectionStatus" Content="Disconnected"/>
+
+                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="DelayMilisecondsTextBox" TextChanged="DelayMilisecondsTextBox_TextChanged"  AcceptsReturn="False" Text="2000" Height="20" Width="55"/>
+
+                </StackPanel>
+                <StackPanel   Background="Fuchsia"  Orientation="Horizontal" >
+                    <ComboBox Name="P2PServersComboBox" Width="240" Height="20" Margin="5" />
+                    <Label Width="61">STUN Url:</Label>
+                    <TextBox Name="P2PStunTextBox" TextWrapping="Wrap" Text="" Width="169" Height="22"/>
+                    <Button Name="P2PAddStunBtn" Content="Add" Click="P2PAddStunBtn_Click" Margin="5"/>
+
+                </StackPanel>
+                <StackPanel   Background="Fuchsia"  Orientation="Horizontal" >
+                    <Button Name="P2PRemoveStunBtn" Content="Remove selected" Click="P2PRemoveStunBtn_Click" Margin="5" Width="240"/>
+
+                    <Label>TURN Url:</Label>
+                    <TextBox Name="P2PTurnUrlTextBox" TextWrapping="Wrap" Text="" Width="166" Height="22"/>
+                    <Label>login</Label>
+                    <TextBox Name="P2PTurnLoginTextBox"  TextWrapping="Wrap" Text="" Width="54" Height="22"/>
+                    <Label>password</Label>
+                    <TextBox Name="P2PTurnPasswdTextBox" TextWrapping="Wrap" Text="" Width="59" Height="22"/>
+                    <Button  Name="P2PAddTurnBtn" Content="Add" Click="P2PAddTurnBtn_Click" Margin="5"/>
+                </StackPanel>
+                <StackPanel   Background="Fuchsia"  Orientation="Vertical" >
+                    <Button Name="P2PDisconnectBtn" Content="Disctonnect everything" Click="P2PDisconnectBtn_Click" Margin="5"/>
                 </StackPanel>
             </StackPanel>
 
 
-            <Button Name="AutoConnectBtn" Content="🔗 Połącz z serwerem - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
+
+
+            <Button Name="AutoConnectBtn" Content="🔗 Connect with NODE.JS signaling server - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
             <TextBox Name="LogBox" Height="214" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
 
             <!-- Pole do wpisywania wiadomości -->
             <TextBox Name="MessageBox" Margin="5" Height="30"  />
-            <Button Name="SendMessageBtn" Content="📨 Wyślij wiadomość" Click="SendMessageBtn_Click" Margin="5" IsEnabled="True"/>
+            <Button Name="SendMessageBtn" Content="📨 Send message" Click="SendMessageBtn_Click" Margin="5" IsEnabled="True"/>
             <Button Name="SendMessageViaSignalingServerBtn" Content="📨 Send message via Signaling server" Click="SendMessageViaSignalingServerBtn_Click" Margin="5" IsEnabled="True"/>
 
             
