@@ -51,7 +51,7 @@ namespace OWA.WebRTCWPFCaller
         public MainWindow()
         {
             InitializeComponent();
-        //    logger = AddConsoleLogger(); 
+       logger = AddConsoleLogger(); 
             var dnses = Dns.GetHostAddresses(Dns.GetHostName());
             SipSignalingServerComboBox.Items.Clear();
             foreach (var dns in dnses)
@@ -73,20 +73,19 @@ namespace OWA.WebRTCWPFCaller
             SipSignalingServerComboBox.SelectedItem = dnses.LastOrDefault();
 
         }
-        /// <summary>
-        /// Adds a console logger. Can be omitted if internal SIPSorcery debug and warning messages are not required.
-        /// </summary>
-        //private static Microsoft.Extensions.Logging.ILogger AddConsoleLogger()
-        //{
-        //    var seriLogger = new LoggerConfiguration()
-        //        .Enrich.FromLogContext()
-        //        .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
-        //        .WriteTo.Sink().
-        //        .CreateLogger();
-        //    var factory = new SerilogLoggerFactory(seriLogger);
-        //    SIPSorcery.LogFactory.Set(factory);
-        //    return factory.CreateLogger<MainWindow>();
-        //}
+        // Existing code...
+
+        private static Microsoft.Extensions.Logging.ILogger AddConsoleLogger()
+        {
+            var seriLogger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
+                .WriteTo.File("logs/log.txt") // This line replaces the incorrect Console method
+                .CreateLogger();
+            var factory = new SerilogLoggerFactory(seriLogger);
+            SIPSorcery.LogFactory.Set(factory);
+            return factory.CreateLogger<MainWindow>();
+        }
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
         {
             if (dataChannel != null && dataChannel.readyState == RTCDataChannelState.open)
@@ -566,7 +565,7 @@ namespace OWA.WebRTCWPFCaller
 
             _peerConnection = new RTCPeerConnection(config);
             // Data Channel
-            dataChannel = await _peerConnection.createDataChannel("dc1");
+            dataChannel = await _peerConnection.createDataChannel("dc1", null);
             dataChannel.onopen += () =>
             {
                 Log("Data Channel opened.");
@@ -590,7 +589,8 @@ namespace OWA.WebRTCWPFCaller
                 if (candidate != null)
                 {
                     string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
-                    sendCandidates.Add(jsonCandidate);
+                    await SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
+                   // sendCandidates.Add(jsonCandidate);
                 }
             };
 

@@ -9,8 +9,12 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Org.BouncyCastle.Crypto.Prng;
 using OWA.WebRTCWPFCaller;
+using Serilog;
+using Serilog.Extensions.Logging;
 using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using SIPSorceryMedia.Abstractions;
@@ -52,9 +56,12 @@ namespace OWA.WebRTCWPFRemote
         SIPResponse acceptResponse = null;
         SIPResponse ackResponse = null;
 
+        private static Microsoft.Extensions.Logging.ILogger logger = NullLogger.Instance;
         public MainWindow()
         {
-            InitializeComponent();
+            InitializeComponent(); 
+            logger = AddConsoleLogger();
+
             var dnses = Dns.GetHostAddresses(Dns.GetHostName());
             SipSignalingServerComboBox.Items.Clear();
             P2PServerComboBox.Items.Clear();  
@@ -130,7 +137,7 @@ namespace OWA.WebRTCWPFRemote
             {
                 Log("❌ Data channel is closed!");
                 if (_peerConnection != null)
-                    Log($"🔍 ICE Connection State: {peerConnection.iceConnectionState}");
+                    Log($"🔍 ICE Connection State: {_peerConnection.iceConnectionState}");
             }
             LogBox.ScrollToEnd();
         }
@@ -561,7 +568,7 @@ namespace OWA.WebRTCWPFRemote
                                                              //webSocketServer.SslConfiguration.ServerCertificate = new X509Certificate2("path_to_certificate.pfx", "certificate_password");
             webSocketServer.AddWebSocketService<WebRTCWebSocketPeer>("/", (peer) =>
             {
-                peer.CreatePeerConnection = CreatePeerConnectionViaSIP;
+                peer.CreatePeerConnection =  CreatePeerConnectionViaSIP;
             });
             webSocketServer.Start();
 
@@ -576,7 +583,7 @@ namespace OWA.WebRTCWPFRemote
         List<string> generatedIces = new List<string>();
         int delay = 2000;
        
-        private   Task<RTCPeerConnection> CreatePeerConnectionViaSIP()
+        private async Task<RTCPeerConnection> CreatePeerConnectionViaSIP()
         {
             var iceServers = new List<RTCIceServer>();
             foreach(RTCOwnIceServer server in rtcIceServers)
@@ -623,10 +630,10 @@ namespace OWA.WebRTCWPFRemote
                     Log($"📩 Message received: {Encoding.UTF8.GetString(data)}");
                 dataChannel.onclose += () => Log("❌ Data Channel closed.");
             };
-Task.Delay(delay).Wait();
-            dataChannel =   ps.createDataChannel("dc1").Result;
 
-            return   Task.FromResult(ps);
+            Task.Delay(delay).Wait();
+            dataChannel = await ps.createDataChannel("dc1", null);
+            return ps;
         }
 
         private async void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
@@ -720,6 +727,18 @@ Task.Delay(delay).Wait();
         {
             p2pPortSelected = P2PPort.Text;
             //Log("P2P Port: " + p2pPortSelected);
+        }
+
+        private static Microsoft.Extensions.Logging.ILogger AddConsoleLogger()
+        {
+            var seriLogger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
+                .WriteTo.File("logs/log.txt") // This line replaces the incorrect Console method
+                .CreateLogger();
+            var factory = new SerilogLoggerFactory(seriLogger);
+            SIPSorcery.LogFactory.Set(factory);
+            return factory.CreateLogger<MainWindow>();
         }
     }
 }
