@@ -5,12 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:OWA.WebRTCWPFCaller"
         mc:Ignorable="d"
-        Title="Caller" Height="700" Width="800">
+        Title="Caller" Height="800" Width="800">
     <Grid>
         <StackPanel Margin="10">
             <Label  HorizontalAlignment="Center" FontSize="17px">Caller application</Label>
             <StackPanel Margin="10" Background="Cyan">
-                <Label  HorizontalAlignment="Center">Signaling server configuration</Label> 
+                <Label  HorizontalAlignment="Center">Signaling server configuration</Label>
                 <StackPanel  Height="30" Orientation="Horizontal"  >
                     <Label Width="150" VerticalAlignment="Center">Signaling server (IP:PORT)</Label>
                     <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="SipSignalingServer" 
@@ -21,7 +21,7 @@
                     <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="RegistrationName" AcceptsReturn="False" Text="caller" TextChanged="RegistrationName_TextChanged" Height="20" Width="50"/>
                     <Label Width="107">Destination name:</Label>
                     <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="DestinationName" AcceptsReturn="False" Text="server" TextChanged="DestinationName_TextChanged" Height="20" Width="72"/>
-  
+
                 </StackPanel>
 
                 <StackPanel Height="30" Orientation="Horizontal">
@@ -45,8 +45,6 @@
 
                     <Ellipse x:Name="P2PStatusIndicator" Width="10" Height="10" Fill="Red"/>
                     <Label x:Name="P2PConnectionStatus" Content="Disconnected"/>
-
-                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="DelayMilisecondsTextBox" TextChanged="DelayMilisecondsTextBox_TextChanged"  AcceptsReturn="False" Text="2000" Height="20" Width="55"/>
 
                 </StackPanel>
                 <StackPanel   Background="Fuchsia"  Orientation="Horizontal" >
@@ -72,29 +70,25 @@
                 </StackPanel>
             </StackPanel>
 
-
-
-
-            <Button Name="AutoConnectBtn" Content="🔗 Connect with NODE.JS signaling server - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
-            <TextBox Name="LogBox" Height="214" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
-
             <!-- Pole do wpisywania wiadomości -->
             <TextBox Name="MessageBox" Margin="5" Height="30"  />
-            <Button Name="SendMessageBtn" Content="📨 Send message" Click="SendMessageBtn_Click" Margin="5" IsEnabled="True"/>
+            <Button Name="SendMessageBtn" Content="📨 Send message via P2P" Click="SendMessageBtn_Click" Margin="5" IsEnabled="True"/>
             <Button Name="SendMessageViaSignalingServerBtn" Content="📨 Send message via Signaling server" Click="SendMessageViaSignalingServerBtn_Click" Margin="5" IsEnabled="True"/>
+            <TextBox x:Name="LogBox" Height="214" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+            <Button x:Name="AutoConnectBtn" Content="🔗 Connect with NODE.JS signaling server - AUTO" Click="AutoConnectBtn_Click"/>
 
-            
-            
+
+
             <StackPanel Margin="10" Height="30" Orientation="Horizontal" Visibility="Hidden">
-                
-                
+
+
                 <Label Width="150" VerticalAlignment="Center">Signaling server (IP:PORT)</Label>
                 <TextBox TextWrapping="NoWrap" TextAlignment="Left" Name="SignalingServer" 
                      AcceptsReturn="False" Text="ws://92.205.233.81:8081" 
-                     Height="20" Width="200"/>     
- 
+                     Height="20" Width="200"/>
+
                 <Button  Name="SignalingServerConnectBtn" Content="🔗Connect" Click="SignalingServerConnectBtn_Click" Margin="5"/>
-  
+
             </StackPanel>
         </StackPanel>
     </Grid>

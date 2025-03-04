@@ -88,7 +88,7 @@
             <Button Name="SendMessageViaSignalingServerBtn" Content="📨 Send message via Signaling server" Click="SendMessageViaSignalingServerBtn_Click" Margin="5" IsEnabled="True"/>
 
 
-            <TextBox Name="LogBox" Height="230" IsReadOnly="True"  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+            <TextBox Name="LogBox" Height="170" IsReadOnly="True"  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
             <Button Name="AutoConnectBtn" Content="🔗 Connect with NODE.JS signaling server - AUTO" Click="AutoConnectBtn_Click" Margin="5"/>
 
 

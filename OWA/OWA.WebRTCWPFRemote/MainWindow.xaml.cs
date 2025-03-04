@@ -49,6 +49,8 @@ namespace OWA.WebRTCWPFRemote
         private RTCDataChannel dataChannel;
         List<RTCOwnIceServer> rtcIceServers = new List<RTCOwnIceServer>();
         List<RTCIceCandidate> candidates = new List<RTCIceCandidate>();
+        SIPResponse acceptResponse = null;
+        SIPResponse ackResponse = null;
 
         public MainWindow()
         {
@@ -173,16 +175,35 @@ namespace OWA.WebRTCWPFRemote
 
         private  Task<RTCPeerConnection> CreatePeerConnection()
         {
+            var iceServers = new List<RTCIceServer>();
+            foreach (RTCOwnIceServer server in rtcIceServers)
+            {
+                if (server.type == RTCMethodsEnum.STUN)
+                {
+                    iceServers.Add(new RTCIceServer { urls = server.url });
+                }
+                else
+                {
+                    iceServers.Add(new RTCIceServer { urls = server.url, credential = server.credential, credentialType = RTCIceCredentialType.password, username = server.username });
+                }
+            }
+
             RTCConfiguration config = new RTCConfiguration
             {
-                iceServers = new List<RTCIceServer> {
-                    new RTCIceServer { urls = "stun:freestun.net:3478" },
-                    new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
-                    new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
-                }
+                iceServers = iceServers
             };
 
+            //RTCConfiguration config = new RTCConfiguration
+            //{
+            //    iceServers = new List<RTCIceServer> {
+            //        new RTCIceServer { urls = "stun:freestun.net:3478" },
+            //        new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
+            //        new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
+            //    }
+            //};
+
             var ps = new RTCPeerConnection(config);
+            _peerConnection = ps;
             ps.onicecandidate += (candidate) =>
             {
                 if (candidate != null)
@@ -202,10 +223,8 @@ namespace OWA.WebRTCWPFRemote
                 dataChannel.onmessage += (dc, protocol, data) =>
                     Log($"📩 Message received: {Encoding.UTF8.GetString(data)}");
                 dataChannel.onclose += () => Log("❌ Data Channel closed.");
-            };
-Task.Delay(2000).Wait();
+            }; 
             dataChannel = ps.createDataChannel("dc1").Result;
-            _peerConnection = ps;
             return Task.FromResult(ps);
         }
 
@@ -253,22 +272,29 @@ Task.Delay(2000).Wait();
             }
         }
 
-   
+        private bool isNodeJsSignalingServer = false;
         private async void AutoConnectBtn_Click(object sender, RoutedEventArgs e)
-        {
-
-            await _wsClient.ConnectAsync(new Uri("ws://92.205.233.81:8081/"), CancellationToken.None);
+        { 
+            var uri = new Uri("ws://"+ SipSignalingServer.Text+"/");
+            await _wsClient.ConnectAsync(uri, CancellationToken.None);
+            //await _wsClient.ConnectAsync(new Uri("ws://92.205.233.81:8081/"), CancellationToken.None);
             Console.WriteLine("Remote connected with signaling server");
 
-            var ips = Dns.GetHostAddresses(Dns.GetHostName());
-            var ip = ips.LastOrDefault();// P2PServersComboBox.SelectedValue;
-//            var ipEndpointForSip =  IPAddress.Parse(SipSignalingServerComboBox.SelectedValue.ToString(),), Convert.ToInt32(DnsIPAndPort.Text) ;
-           
+            //var ips = Dns.GetHostAddresses(Dns.GetHostName());
+            //var ip = ips.LastOrDefault();// P2PServersComboBox.SelectedValue;
+            //                             //            var ipEndpointForSip =  IPAddress.Parse(SipSignalingServerComboBox.SelectedValue.ToString(),), Convert.ToInt32(DnsIPAndPort.Text) ;
 
-            Console.WriteLine($"IP: {ip.ToString()}");
             if (webSocketServer != null)
                 webSocketServer.Stop();
-            webSocketServer = new WebSocketServer(ip, 9090); // true for secure connection
+
+            var ip = IPAddress.Parse(p2pIpSelected);
+            Console.WriteLine($"IP: {ip.ToString()}");
+            webSocketServer = new WebSocketServer(ip, Convert.ToInt32(p2pPortSelected)); // true for secure connection
+                                                                                         //webSocketServer.SslConfiguration.ServerCertificate = new X509Certificate2("path_to_certificate.pfx", "certificate_password");
+
+            Console.WriteLine($"NODEJS IP: {ip.ToString()}");
+
+         //   webSocketServer = new WebSocketServer(ip, 9090); // true for secure connection
                                                              //webSocketServer.SslConfiguration.ServerCertificate = new X509Certificate2("path_to_certificate.pfx", "certificate_password");
             webSocketServer.AddWebSocketService<WebRTCWebSocketPeer>("/", (peer) =>
             {
@@ -304,6 +330,7 @@ Task.Delay(2000).Wait();
             }).Start();
 
             isConnected = true;
+            isNodeJsSignalingServer = true;
             LogBox.ScrollToEnd();
         }
 
@@ -451,10 +478,6 @@ Task.Delay(2000).Wait();
             }
         }
 
-        SIPResponse acceptResponse = null;
-
-        SIPResponse ackResponse = null;
-        List<RTCSessionDescriptionInit> sdpOffer = new List<RTCSessionDescriptionInit>();
         private void BindSipDelegates()
         {
             sipTransport.SIPTransportResponseReceived += (localEndPoint, remoteEndPoint, sipResponse) =>
@@ -613,7 +636,7 @@ Task.Delay(delay).Wait();
 
         private async void Window_Closed(object sender, EventArgs e)
         {
-            if (isConnected)
+            if (isConnected && !isNodeJsSignalingServer)
             await SendSipMessage(SIPMethodsEnum.BYE, string.Empty);
         }
 
@@ -639,6 +662,7 @@ Task.Delay(delay).Wait();
             P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
             ConnectionStatus.Content = "Disconnected";
             P2PConnectionStatus.Content = "Disconnected";
+            isNodeJsSignalingServer = false;
             Log("Disconnected");
         }
 
@@ -667,10 +691,10 @@ Task.Delay(delay).Wait();
         {
             RTCOwnIceServer RtcOwnIceServer = new RTCOwnIceServer
             {
-                credential = P2PTurnPasswdTextBox.Text,
-                type = RTCMethodsEnum.TURN,
+                credential = string.Empty,
+                type = RTCMethodsEnum.STUN,
                 url = P2PTurnUrlTextBox.Text,
-                username = P2PTurnLoginTextBox.Text
+                username = string.Empty
             };
 
             P2PServersComboBox.Items.Add(RtcOwnIceServer);

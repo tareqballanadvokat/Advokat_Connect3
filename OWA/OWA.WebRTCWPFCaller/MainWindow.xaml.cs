@@ -5,7 +5,11 @@ using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json;
+using Serilog;
+using Serilog.Extensions.Logging;
 using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using WebSocketSharp.Server;
@@ -32,6 +36,7 @@ namespace OWA.WebRTCWPFCaller
     }
     public partial class MainWindow : Window
     {
+        private static Microsoft.Extensions.Logging.ILogger logger = NullLogger.Instance;
         private ClientWebSocket ws;
         private RTCPeerConnection peerConnection;
         private const string serverUrl = "ws://92.205.233.81:8081";
@@ -46,7 +51,7 @@ namespace OWA.WebRTCWPFCaller
         public MainWindow()
         {
             InitializeComponent();
-            Log($"POSSIBLE DNSes");
+        //    logger = AddConsoleLogger(); 
             var dnses = Dns.GetHostAddresses(Dns.GetHostName());
             SipSignalingServerComboBox.Items.Clear();
             foreach (var dns in dnses)
@@ -68,7 +73,20 @@ namespace OWA.WebRTCWPFCaller
             SipSignalingServerComboBox.SelectedItem = dnses.LastOrDefault();
 
         }
-
+        /// <summary>
+        /// Adds a console logger. Can be omitted if internal SIPSorcery debug and warning messages are not required.
+        /// </summary>
+        //private static Microsoft.Extensions.Logging.ILogger AddConsoleLogger()
+        //{
+        //    var seriLogger = new LoggerConfiguration()
+        //        .Enrich.FromLogContext()
+        //        .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
+        //        .WriteTo.Sink().
+        //        .CreateLogger();
+        //    var factory = new SerilogLoggerFactory(seriLogger);
+        //    SIPSorcery.LogFactory.Set(factory);
+        //    return factory.CreateLogger<MainWindow>();
+        //}
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
         {
             if (dataChannel != null && dataChannel.readyState == RTCDataChannelState.open)
@@ -140,21 +158,41 @@ namespace OWA.WebRTCWPFCaller
 
         private RTCPeerConnection _peerConnection;
         private readonly string _clientId = "Caller"; //auto
-
+        private bool isNodeJsSignalingServer = false;
         private async void AutoConnectBtn_Click(object sender, RoutedEventArgs e)
         {
+            var iceServers = new List<RTCIceServer>();
+            foreach (RTCOwnIceServer server in rtcIceServers)
+            {
+                if (server.type == RTCMethodsEnum.STUN)
+                {
+                    iceServers.Add(new RTCIceServer { urls = server.url });
+                }
+                else
+                {
+                    iceServers.Add(new RTCIceServer { urls = server.url, credential = server.credential, credentialType = RTCIceCredentialType.password, username = server.username });
+                }
+            }
+
             RTCConfiguration config = new RTCConfiguration
             {
-                iceServers = new List<RTCIceServer> {
-                    new RTCIceServer { urls = "stun:freestun.net:3478" },
-                    new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
-                    new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
-                }
+                iceServers = iceServers
             };
-            _peerConnection = new RTCPeerConnection(config);
-            await _wsClient.ConnectAsync(new Uri("ws://92.205.233.81:8081/"), CancellationToken.None);
-            Log("Caller connected with signalling server.");
 
+
+            //RTCConfiguration config = new RTCConfiguration
+            //{
+            //    iceServers = new List<RTCIceServer> {
+            //        new RTCIceServer { urls = "stun:freestun.net:3478" },
+            //        new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
+            //        new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
+            //    }
+            //};
+            _peerConnection = new RTCPeerConnection(config);
+            await _wsClient.ConnectAsync(new Uri($"ws://{SipSignalingServer.Text}/"), CancellationToken.None);
+            //await _wsClient.ConnectAsync(new Uri($"ws://92.205.233.81:8081/"), CancellationToken.None);
+            Log("Caller connected with signalling server.");
+            
             // Data Channel
             dataChannel = await _peerConnection.createDataChannel("dc1");
             dataChannel.onopen += () =>
@@ -207,7 +245,8 @@ namespace OWA.WebRTCWPFCaller
             }).Start(); 
 
             isConnected = true;
-            LogBox.ScrollToEnd();
+            isNodeJsSignalingServer = true;
+            
         }
 
 
@@ -241,7 +280,7 @@ namespace OWA.WebRTCWPFCaller
             {
                 var result = await _wsClient.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                Log($"[{_clientId}] Otrzymano: {message}");
+                Log($"[{_clientId}] Received: {message}");
 
                 if (message.Contains("\"sdp\""))
                 {
@@ -662,10 +701,10 @@ namespace OWA.WebRTCWPFCaller
         {
             RTCOwnIceServer RtcOwnIceServer = new RTCOwnIceServer
             {
-                credential = P2PTurnPasswdTextBox.Text,
-                type = RTCMethodsEnum.TURN,
+                credential = string.Empty,
+                type = RTCMethodsEnum.STUN,
                 url = P2PTurnUrlTextBox.Text,
-                username = P2PTurnLoginTextBox.Text
+                username = string.Empty
             };
 
             P2PServersComboBox.Items.Add(RtcOwnIceServer);
@@ -679,11 +718,6 @@ namespace OWA.WebRTCWPFCaller
             P2PServersComboBox.Items.RemoveAt(index);
 
             rtcIceServers.RemoveAt(index);
-        }
-
-        private void DelayMilisecondsTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
-        {
-            delay = Convert.ToInt32(DelayMilisecondsTextBox.Text);
         }
     }
 }
