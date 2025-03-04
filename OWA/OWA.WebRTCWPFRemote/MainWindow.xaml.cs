@@ -564,19 +564,21 @@ namespace OWA.WebRTCWPFRemote
         {
              var ip =  IPAddress.Parse(p2pIpSelected);
             Console.WriteLine($"IP: {ip.ToString()}");
-            webSocketServer = new WebSocketServer(ip, Convert.ToInt32(p2pPortSelected)); // true for secure connection
+          //  webSocketServer = new WebSocketServer(ip, Convert.ToInt32(p2pPortSelected)); // true for secure connection
                                                              //webSocketServer.SslConfiguration.ServerCertificate = new X509Certificate2("path_to_certificate.pfx", "certificate_password");
-            webSocketServer.AddWebSocketService<WebRTCWebSocketPeer>("/", (peer) =>
-            {
-                peer.CreatePeerConnection =  CreatePeerConnectionViaSIP;
-            });
-            webSocketServer.Start();
+            //webSocketServer.AddWebSocketService<WebRTCWebSocketPeer>("/", (peer) =>
+            //{
+          //   peer.CreatePeerConnection = 
+                await CreatePeerConnectionViaSIP();
+           
+            //});
+            //webSocketServer.Start();
 
-            Log($"Waiting for web socket connections on {webSocketServer.Address}:{webSocketServer.Port}...");
+           // Log($"Waiting for web socket connections on {webSocketServer.Address}:{webSocketServer.Port}...");
 
 
-            var localWS = new ClientWebSocket();
-            await localWS.ConnectAsync(new Uri($"ws://{webSocketServer.Address}:{webSocketServer.Port}"), CancellationToken.None);
+       //     var localWS = new ClientWebSocket();
+       //     await localWS.ConnectAsync(new Uri($"ws://{webSocketServer.Address}:{webSocketServer.Port}"), CancellationToken.None);
             return true;
         }
 
