@@ -179,15 +179,6 @@ namespace OWA.WebRTCWPFCaller
                 iceServers = iceServers
             };
 
-
-            //RTCConfiguration config = new RTCConfiguration
-            //{
-            //    iceServers = new List<RTCIceServer> {
-            //        new RTCIceServer { urls = "stun:freestun.net:3478" },
-            //        new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
-            //        new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
-            //    }
-            //};
             _peerConnection = new RTCPeerConnection(config);
             await _wsClient.ConnectAsync(new Uri($"ws://{SipSignalingServer.Text}/"), CancellationToken.None);
             //await _wsClient.ConnectAsync(new Uri($"ws://92.205.233.81:8081/"), CancellationToken.None);
@@ -468,7 +459,7 @@ namespace OWA.WebRTCWPFCaller
                 Log($"❌ Failed to send SIP request: {response}");
                 return false;
             }
-        }
+        } 
 
         SIPResponse acceptResponse = null;
         SIPResponse ackResponse = null;
@@ -516,7 +507,8 @@ namespace OWA.WebRTCWPFCaller
                     Log($"NOTIFY received from {sipRequestReceived.Header.From.FromURI.User}");
                     //await sipTransport.SendResponseAsync(okResponse);
                     if (!notificationReceived) 
-                    { 
+                    {
+                        Task.Delay(delay).Wait();
                         //await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
                         await StartRTCInitialization();
         
@@ -572,16 +564,6 @@ namespace OWA.WebRTCWPFCaller
                 iceServers = iceServers
             };
 
-
-
-            //RTCConfiguration config = new RTCConfiguration
-            //{
-            //    iceServers = new List<RTCIceServer> {
-            //        new RTCIceServer { urls = "stun:freestun.net:3478" },
-            //        new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
-            //        new RTCIceServer { urls = "turn:freestun.net:3478", credential = "free", credentialType = RTCIceCredentialType.password, username = "free" }
-            //    }
-            //};
             _peerConnection = new RTCPeerConnection(config);
             // Data Channel
             dataChannel = await _peerConnection.createDataChannel("dc1");
@@ -609,7 +591,6 @@ namespace OWA.WebRTCWPFCaller
                 {
                     string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
                     sendCandidates.Add(jsonCandidate);
-                    // SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
                 }
             };
 
@@ -711,7 +692,10 @@ namespace OWA.WebRTCWPFCaller
             rtcIceServers.Add(RtcOwnIceServer);
             Log("Added STUN server: " + RtcOwnIceServer);
         }
-
+        private void DelayMilisecondsTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            delay = Convert.ToInt32(DelayMilisecondsTextBox.Text);
+        }
         private void P2PRemoveStunBtn_Click(object sender, RoutedEventArgs e)
         {
             var index = P2PServersComboBox.SelectedIndex;

@@ -45,6 +45,7 @@
 
                     <Ellipse x:Name="P2PStatusIndicator" Width="10" Height="10" Fill="Red"/>
                     <Label x:Name="P2PConnectionStatus" Content="Disconnected"/>
+                    <TextBox TextWrapping="NoWrap" TextAlignment="Left" x:Name="DelayMilisecondsTextBox" TextChanged="DelayMilisecondsTextBox_TextChanged"  AcceptsReturn="False" Text="2000" Height="20" Width="55"/>
 
                 </StackPanel>
                 <StackPanel   Background="Fuchsia"  Orientation="Horizontal" >
