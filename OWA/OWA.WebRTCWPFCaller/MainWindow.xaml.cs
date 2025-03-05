@@ -168,8 +168,8 @@ namespace OWA.WebRTCWPFCaller
                         Task.Delay(_delay).Wait();
                         await StartRTCInitialization();
                         //not used if lists are empty
-                        await AddIceCandidatesVIaSIP();
-                        await SendIceCandidatesViaSIP();
+                        //await AddIceCandidatesVIaSIP();
+                        //await SendIceCandidatesViaSIP();
                     }
                     _notificationReceived = true;
                 }
@@ -189,10 +189,8 @@ namespace OWA.WebRTCWPFCaller
                     var messageObject = CandidatesIncomming.Create(sipRequestReceived.Body);
 
                     RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                    _iceCandidateList.Add(iceCandidate);
                     Log("ICE Candidate Received: " + sipRequestReceived.Body);
-                    // _peerConnection.addIceCandidate(iceCandidate);
-                    //      SendSipMessage(SIPMethodsEnum.INFO, iceCandidate);
+                     _peerConnection.addIceCandidate(iceCandidate);
                 }
 
                 LogBox.ScrollToEnd();
