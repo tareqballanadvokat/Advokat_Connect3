@@ -130,7 +130,7 @@ namespace OWA.WebRTCWPFRemote
                 if (candidate != null)
                 {
                     string jsonCandidate = Newtonsoft.Json.JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
-                    SendSignal(jsonCandidate);
+                    NodeJsReceiveSignal(jsonCandidate);
                 }
             };
 
@@ -147,15 +147,14 @@ namespace OWA.WebRTCWPFRemote
             return Task.FromResult(ps);
         }
 
-
-        private async void SendSignal(string message)
+        private async void NodeJsReceiveSignal(string message)
         {
             Log($"[{_remoteId}] Send: {message}");
             var buffer = Encoding.UTF8.GetBytes(message);
             await _wsClient.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
         }
 
-        private async Task ReceiveSignal()
+        private async Task NodeJSReceiveSignal()
         {
             var buffer = new byte[1024];
 
@@ -173,7 +172,7 @@ namespace OWA.WebRTCWPFRemote
                     var answer = _peerConnection.createAnswer(null);
                     await _peerConnection.setLocalDescription(answer);
                     var sdpOfferJson = Newtonsoft.Json.JsonConvert.SerializeObject(new { sdp = answer.sdp, type = "answer" });
-                    SendSignal(sdpOfferJson);
+                    NodeJsReceiveSignal(sdpOfferJson);
                 }
                 else if (message.Contains("\"ice\""))
                 {
@@ -187,41 +186,6 @@ namespace OWA.WebRTCWPFRemote
             }
         }
 
-         
-
- 
-        private void Log(string message)
-        {
-            Dispatcher.Invoke(() => LogBox.AppendText($"{DateTime.Now} : " + message + "\n"));
-            Dispatcher.Invoke(() => LogBox.ScrollToEnd());
-            _logger.LogInformation($"----->: " + message);
-        }
-
-
-        private async Task<bool> SendSipMessage(SIPMethodsEnum type, string body)
-        {
-            var registerRequest = SIPRequest.GetRequest(type, new SIPURI(null, _serverIp, null));
-
-            registerRequest.Header.From = new SIPFromHeader(_callerId, new SIPURI(_callerId, _sipProtocolIPEndpoint.ToString(), null), null);
-            registerRequest.Header.To = new SIPToHeader(_remoteId, new SIPURI(_remoteId, _serverIp, null), "TAG");
-            registerRequest.Header.CSeq = 1;
-            registerRequest.Header.CallId = CallProperties.CreateNewCallId();
-            registerRequest.Header.MaxForwards = 70;
-            registerRequest.Body = body;
-            registerRequest.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(_callerId, _sipProtocolIPEndpoint.ToString(), string.Empty)) };
-
-            var response = await _sipTransport.SendRequestAsync(registerRequest);
-            if (response == SocketError.Success)
-            {
-                Log("✅ SIP request sent successfully. " + type);
-                return true;
-            }
-            else
-            {
-                Log($"❌ Failed to send SIP request: {response}");
-                return false;
-            }
-        }
 
         private void BindSipDelegates()
         {
@@ -267,7 +231,7 @@ namespace OWA.WebRTCWPFRemote
                 {
                     var messageObject = CandidatesIncomming.Create(sipRequestReceived.Body);
                     RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                        _peerConnection.addIceCandidate(iceCandidate);
+                    _peerConnection.addIceCandidate(iceCandidate);
                     Log(sipRequestReceived.Body);
                 }
 
@@ -294,8 +258,6 @@ namespace OWA.WebRTCWPFRemote
             };
         }
 
-
- 
         private async Task<RTCPeerConnection> CreatePeerConnectionViaSIP()
         {
             var iceServers = new List<RTCIceServer>();
@@ -347,6 +309,41 @@ namespace OWA.WebRTCWPFRemote
             _dataChannel = await ps.createDataChannel("dc1", null);
             return ps;
         }
+
+        private void Log(string message)
+        {
+            Dispatcher.Invoke(() => LogBox.AppendText($"{DateTime.Now} : " + message + "\n"));
+            Dispatcher.Invoke(() => LogBox.ScrollToEnd());
+            _logger.LogInformation($"----->: " + message);
+        }
+
+        private async Task<bool> SendSipMessage(SIPMethodsEnum type, string body)
+        {
+            var registerRequest = SIPRequest.GetRequest(type, new SIPURI(null, _serverIp, null));
+
+            registerRequest.Header.From = new SIPFromHeader(_callerId, new SIPURI(_callerId, _sipProtocolIPEndpoint.ToString(), null), null);
+            registerRequest.Header.To = new SIPToHeader(_remoteId, new SIPURI(_remoteId, _serverIp, null), "TAG");
+            registerRequest.Header.CSeq = 1;
+            registerRequest.Header.CallId = CallProperties.CreateNewCallId();
+            registerRequest.Header.MaxForwards = 70;
+            registerRequest.Body = body;
+            registerRequest.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(_callerId, _sipProtocolIPEndpoint.ToString(), string.Empty)) };
+
+            var response = await _sipTransport.SendRequestAsync(registerRequest);
+            if (response == SocketError.Success)
+            {
+                Log("✅ SIP request sent successfully. " + type);
+                return true;
+            }
+            else
+            {
+                Log($"❌ Failed to send SIP request: {response}");
+                return false;
+            }
+        }
+
+
+
 
         private async void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -559,7 +556,7 @@ namespace OWA.WebRTCWPFRemote
 
             new Thread(async () =>
             {
-                ReceiveSignal();
+               await NodeJSReceiveSignal();
 
             }).Start();
             Task.Delay(2000).Wait();
