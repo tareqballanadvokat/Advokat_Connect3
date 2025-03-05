@@ -31,10 +31,10 @@ class Remote
         });
         webSocketServer.Start();
         Console.WriteLine($"Waiting for web socket connections on {webSocketServer.Address}:{webSocketServer.Port}...");
-
+      
         var localWS = new ClientWebSocket();
         await localWS.ConnectAsync(new Uri($"ws://{webSocketServer.Address}:{webSocketServer.Port}"), CancellationToken.None);
-
+  Task.Delay(5000).Wait();
         new Thread(async () =>
         {
             ReceiveSignal();
@@ -89,7 +89,7 @@ class Remote
                 Console.WriteLine($"📩 Message received: {Encoding.UTF8.GetString(data)}");
             dataChannel.onclose += () => Console.WriteLine("❌ Data Channel closed.");
         };
-        dataChannel = ps.createDataChannel("dc1").Result;
+        //dataChannel = ps.createDataChannel("dc1").Result;
         _peerConnection = ps;
         return Task.FromResult( ps);
     }

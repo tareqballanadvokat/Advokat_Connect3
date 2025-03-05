@@ -2,7 +2,6 @@
 using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using Microsoft.Extensions.Logging;
@@ -12,8 +11,6 @@ using Serilog;
 using Serilog.Extensions.Logging;
 using SIPSorcery.Net;
 using SIPSorcery.SIP;
-using WebSocketSharp.Server;
-using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace OWA.WebRTCWPFCaller
 {
@@ -37,21 +34,28 @@ namespace OWA.WebRTCWPFCaller
     public partial class MainWindow : Window
     {
         private static Microsoft.Extensions.Logging.ILogger logger = NullLogger.Instance;
-        private ClientWebSocket ws;
-        private RTCPeerConnection peerConnection;
-        private const string serverUrl = "ws://92.205.233.81:8081";
-        private string callerId = "caller";
-        private string remoteId = "remote";
-        private bool isRemoteDescriptionSet = false;
-        private bool isConnected = false;
-        private int delay = 2000;
-        private RTCDataChannel dataChannel;
-        private List<RTCIceCandidate> candicates = new List<RTCIceCandidate>();
-        private List<RTCOwnIceServer> rtcIceServers = new List<RTCOwnIceServer>();
+        private string _callerId = "caller";
+        private string _remoteId = "remote";
+        private string _serverIp = "92.205.233.81:8081";
+        private bool _isConnected = false;
+        private bool _notificationReceived = false;
+        private int _delay = 2000;
+        private IPEndPoint _sipProtocolIPEndpoint;
+        private SIPTransport _sipTransport = new SIPTransport();
+        private ClientWebSocket _wsClient = new ClientWebSocket();
+        private List<RTCIceCandidateInit> _iceCandidateList = new List<RTCIceCandidateInit>();
+        private List<string> _nodeJSSendCandidateList = new List<string>();
+        private RTCPeerConnection _peerConnection;
+        private RTCDataChannel _dataChannel;
+        private List<RTCOwnIceServer> _rtcStunServerList = new List<RTCOwnIceServer>();
+
+
+        SIPResponse acceptResponse;
+        SIPResponse ackResponse;
         public MainWindow()
         {
             InitializeComponent();
-       logger = AddConsoleLogger(); 
+            logger = AddConsoleLogger();
             var dnses = Dns.GetHostAddresses(Dns.GetHostName());
             SipSignalingServerComboBox.Items.Clear();
             foreach (var dns in dnses)
@@ -63,186 +67,23 @@ namespace OWA.WebRTCWPFCaller
             RTCOwnIceServer stun1 = new RTCOwnIceServer() { credential = string.Empty, type = RTCMethodsEnum.STUN, url = "stun:freestun.net:3478", username = string.Empty };
             RTCOwnIceServer stun2 = new RTCOwnIceServer() { credential = string.Empty, type = RTCMethodsEnum.STUN, url = "stun:stun1.l.google.com:19302", username = string.Empty };
             RTCOwnIceServer turn = new RTCOwnIceServer() { credential = "free", type = RTCMethodsEnum.TURN, url = "turn:freestun.net:3478", username = "free" };
-            rtcIceServers.Add(stun1);
-            rtcIceServers.Add(stun2);
-            rtcIceServers.Add(turn);
+            _rtcStunServerList.Add(stun1);
+            _rtcStunServerList.Add(stun2);
+            _rtcStunServerList.Add(turn);
 
-            foreach (var dns in rtcIceServers)
+            foreach (var dns in _rtcStunServerList)
+            {
                 P2PServersComboBox.Items.Add(dns);
+            }
 
             SipSignalingServerComboBox.SelectedItem = dnses.LastOrDefault();
 
         }
         // Existing code...
 
-        private static Microsoft.Extensions.Logging.ILogger AddConsoleLogger()
-        {
-            var seriLogger = new LoggerConfiguration()
-                .Enrich.FromLogContext()
-                .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
-                .WriteTo.File("logs/log.txt") // This line replaces the incorrect Console method
-                .CreateLogger();
-            var factory = new SerilogLoggerFactory(seriLogger);
-            SIPSorcery.LogFactory.Set(factory);
-            return factory.CreateLogger<MainWindow>();
-        }
-        private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (dataChannel != null && dataChannel.readyState == RTCDataChannelState.open)
-            {
-                string message = MessageBox.Text;
-                if (!string.IsNullOrWhiteSpace(message))
-                {
-                    byte[] messageBytes = Encoding.UTF8.GetBytes(message);
-                    dataChannel.send(messageBytes);
-                    Log($"📤 Message sent: {message}");
-                }
-            }
-            else
-            {
-                Log("❌ Data channel is closed");
-                if (_peerConnection != null)
-                Log($"🔍 ICE Connection State: {_peerConnection.iceConnectionState}");
-            }
-            LogBox.ScrollToEnd();
-        }
-
-        private async Task ReceiveWebSocketMessages()
-        {
-            byte[] buffer = new byte[4096];
-
-            while (ws.State == WebSocketState.Open)
-            {
-                var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                Log($"📩 Received message from server: {message}");
-
-                var data = JsonSerializer.Deserialize<JsonElement>(message);
-                if (data.TryGetProperty("type", out JsonElement typeElement))
-                {
-                    string type = typeElement.GetString();
-                    switch (type)
-                    {
-                        case "candidate":
-                            var candidateJson = data.GetProperty("candidate").GetRawText();
-                            var candidate = JsonSerializer.Deserialize<RTCIceCandidateInit>(candidateJson);
-                            peerConnection.addIceCandidate(candidate);
-                            Log($"✅ Added ICE Candidate: {candidate.candidate}");
-                            break;
-
-                        default:
-                            Log($"⚠️ Unrecognised message type received: {type}");
-                            break;
-                    }
-
-                    _ = Task.Run(ReceiveWebSocketMessages);
-                }
-                LogBox.ScrollToEnd();
-            }
-        }
 
 
-
-        //private async Task SendWebSocketMessage(string message)
-        //{
-        //    if (ws.State == WebSocketState.Open)
-        //    {
-        //        byte[] messageBytes = Encoding.UTF8.GetBytes(message);
-        //        await ws.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, CancellationToken.None);
-        //    }
-        //    LogBox.ScrollToEnd();
-        //}
-
-        private ClientWebSocket _wsClient = new ClientWebSocket();
-
-        private RTCPeerConnection _peerConnection;
-        private readonly string _clientId = "Caller"; //auto
-        private bool isNodeJsSignalingServer = false;
-        private async void AutoConnectBtn_Click(object sender, RoutedEventArgs e)
-        {
-            var iceServers = new List<RTCIceServer>();
-            foreach (RTCOwnIceServer server in rtcIceServers)
-            {
-                if (server.type == RTCMethodsEnum.STUN)
-                {
-                    iceServers.Add(new RTCIceServer { urls = server.url });
-                }
-                else
-                {
-                    iceServers.Add(new RTCIceServer { urls = server.url, credential = server.credential, credentialType = RTCIceCredentialType.password, username = server.username });
-                }
-            }
-
-            RTCConfiguration config = new RTCConfiguration
-            {
-                iceServers = iceServers
-            };
-
-            _peerConnection = new RTCPeerConnection(config);
-            await _wsClient.ConnectAsync(new Uri($"ws://{SipSignalingServer.Text}/"), CancellationToken.None);
-            //await _wsClient.ConnectAsync(new Uri($"ws://92.205.233.81:8081/"), CancellationToken.None);
-            Log("Caller connected with signalling server.");
-            
-            // Data Channel
-            dataChannel = await _peerConnection.createDataChannel("dc1");
-            dataChannel.onopen += () =>
-            {
-                Log("📡 Opened Data Channel"); 
-                new Thread(() => {
-                    Task.Delay(2000).Wait();
-                    Log("📡 Opened Data Channel");
-                    Dispatcher.Invoke(() => P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green));
-                    Dispatcher.Invoke(() => P2PConnectionStatus.Content = "Connected");
-                }).Start();
-            };
-            dataChannel.onmessage += (dc, protocol, data) =>
-            Log($"Message received: {Encoding.UTF8.GetString(data)}");
-            dataChannel.onclose += () => Log("Data Channel closed.");
-
-            _peerConnection.onicecandidate += (candidate) =>
-            {
-                Console.WriteLine("onicecandidate invoked.");
-                if (candidate != null)
-                {
-                    string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
-                    //      SendSignal(jsonCandidate);
-                    sendCandidates.Add(jsonCandidate);
-                }
-            };
-
-            _peerConnection.onnegotiationneeded += async () =>
-            {
-                Log("Negotiation needed.");
-            };
-
-            await CreateAndSendOffer();
-
-            new Thread(async () =>
-            {
-                ReceiveSignal();
-
-            }).Start();
-            new Thread(async () =>
-            {
-                Task.Delay(2000).Wait();
-                AddIceCandidates();
-                SendIceCandidates();
-            }).Start();
-            new Thread(async () =>
-            {
-                Task.Delay(20000).Wait();
-                dataChannel.send("client sended");
-            }).Start(); 
-
-            isConnected = true;
-            isNodeJsSignalingServer = true;
-            
-        }
-
-
-
-
-        private async Task CreateAndSendOffer()
+        private async Task NodeJSCreateAndSendOffer()
         {
             var offer = _peerConnection.createOffer(null);
             await _peerConnection.setLocalDescription(offer);
@@ -251,18 +92,10 @@ namespace OWA.WebRTCWPFCaller
             Log(offer.sdp);
 
             var sdpOfferJson = JsonConvert.SerializeObject(new { sdp = offer.sdp, type = "offer" });
-            SendSignal(sdpOfferJson);
+            NodeJsSendSignal(sdpOfferJson);
         }
-        async void SendSignal(string message)
-        {
-            Log($"[{_clientId}] Sending: {message}");
-            var buffer = Encoding.UTF8.GetBytes(message);
-            await _wsClient.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
-        }
-        public List<RTCIceCandidateInit> candidatesInit = new List<RTCIceCandidateInit>();
-        public List<string> sendCandidates = new List<string>();
 
-        async Task ReceiveSignal()
+        private async Task NodeJSReceiveSignals()
         {
             var buffer = new byte[1024];
 
@@ -270,7 +103,7 @@ namespace OWA.WebRTCWPFCaller
             {
                 var result = await _wsClient.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                Log($"[{_clientId}] Received: {message}");
+                Log($"[{_callerId}] Received: {message}");
 
                 if (message.Contains("\"sdp\""))
                 {
@@ -282,189 +115,17 @@ namespace OWA.WebRTCWPFCaller
                     var messageObject = CandidatesIncomming.Create(message);
 
                     RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                    candidatesInit.Add(iceCandidate);
+                    _iceCandidateList.Add(iceCandidate);
                     //_peerConnection.addIceCandidate(iceCandidate);
                 }
             }
         }
 
-        void AddIceCandidates()
-        {
-            Log("Adding ICE Candidates...");
-            foreach (var ice in candidatesInit)
-                _peerConnection.addIceCandidate(ice);
-        }
-        void SendIceCandidates()
-        {
-            Log("Sending ICE Candidates...");
-            foreach (var ice in sendCandidates)
-            {
-                // string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
-                SendSignal(ice);
-            }
-        }
 
 
-        /// <summary>
-        /// EVENTS HANDLERS
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private async void SignalingServerConnectBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (isConnected)
-            {
-                //disconnect
-                Log("Disconnecting...");
-                await _wsClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client initiated close", CancellationToken.None);
-                isConnected = false;
-                _wsClient?.Abort();
-                _wsClient?.Dispose();
-                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
-                Log("❌ SIGNALING server Disconected");
-                _wsClient = new ClientWebSocket();
-                ConnectionStatus.Content = "Disconnected";
-                SignalingServerConnectBtn.Content = "🔗Connect";
-            }
-            else
-            {
-                //connect
-                Log("Connecting to the SIGNALING Server...");
-                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Yellow);
-                await _wsClient.ConnectAsync(new Uri(SignalingServer.Text), CancellationToken.None);
-                if (_wsClient.State == WebSocketState.Open)
-                {
-                    StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
-                    Log("🔗 SIGNALING server connected");
-                    isConnected = true;
-                    ConnectionStatus.Content = "Connected";
-                    SignalingServerConnectBtn.Content = "❌ Disconnect";
-                }
-                else
-                {
-                    SignalingServerConnectBtn.Content = "🔗Connect";
-                    Log("❌ Connection to the SIGNALING server failed.");
-                    ConnectionStatus.Content = "Disconnected";
-                    StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
-                }
-            }
-        }
-
-        private void RegistrationName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
-        {
-            callerId = RegistrationName.Text;
-        }
-
-        private void Log(string message)
-        {
-            Dispatcher.Invoke(() => LogBox.AppendText($"{DateTime.Now} : " + message + "\n"));
-            Dispatcher.Invoke(() => LogBox.ScrollToEnd());
-        }
-
-        private void DestinationName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
-        {
-            remoteId = DestinationName.Text;
-        }
-
-
-        string serverIp = "92.205.233.81:8081";
-        IPEndPoint ipEndpointForSip;
-        SIPTransport sipTransport = new SIPTransport();
-        private async void SignalingServerRegistrationBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (SipSignalingServerComboBox.SelectedValue == null)
-            {
-                Log("❌ Select DNS IP Address missing");
-                return;
-            }
-            ipEndpointForSip = new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.SelectedValue.ToString()), Convert.ToInt32(DnsIPAndPort.Text));
-            serverIp = SipSignalingServer.Text;
-            if (isConnected)
-            {
-                //disconnect
-                Log("SIP Server Disconnecting...");
-                await SendSipMessage(SIPMethodsEnum.BYE, string.Empty);
-                await Task.Delay(2000);
-                if (acceptResponse != null)
-                {
-                    Log("✅ SIP BYE request accepted.");
-                    acceptResponse = null;
-                }
-                else
-                {
-                    Log("❌ SIP BYE request not accepted.");
-                    return;
-                }
-                isConnected = false;
-                sipTransport.Shutdown();
-                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
-                Log("❌ SIGNALING SIP Server Disconected");
-                ConnectionStatus.Content = "Disconnected";
-                SignalingServerRegistrationBtn.Content = "🔗Register";
-
-            }
-            else
-            {
-                //connect
-                Log("Connecting to the SIGNALING SIP Server...");
-                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Yellow);
-                sipTransport = new SIPTransport();
-                var clientChannel = new SIPUDPChannel(ipEndpointForSip);
-                sipTransport.AddSIPChannel(clientChannel);
-
-                BindSipDelegates();
-
-
-                var result = await SendSipMessage(SIPMethodsEnum.REGISTER, string.Empty);
-                await Task.Delay(2000);
-                if (acceptResponse == null)
-                {
-                    Log("❌ SIP REGISTER request not accepted.");
-                    StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
-                    sipTransport.Shutdown();
-                    return;
-                }
-                Log("✅ SIP REGISTER request accepted.");
-                acceptResponse = null;
-                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
-                isConnected = true;
-                SignalingServerRegistrationBtn.Content = "🔗 Unregister";
-
-                Log("✅ ACK request accepted.");
-                var ackResult = await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
-            }
-        }
-
-        private async Task<bool> SendSipMessage(SIPMethodsEnum type, string body)
-        {
-            var registerRequest = SIPRequest.GetRequest(type, new SIPURI(null, serverIp, null));
-
-            registerRequest.Header.From = new SIPFromHeader(callerId, new SIPURI(callerId, ipEndpointForSip.ToString(), null), null);
-            registerRequest.Header.To = new SIPToHeader(remoteId, new SIPURI(remoteId, serverIp, null), "TAG");
-            registerRequest.Header.CSeq = 1;
-            registerRequest.Header.CallId = CallProperties.CreateNewCallId();
-            registerRequest.Header.MaxForwards = 70;
-            registerRequest.Body = body;
-            registerRequest.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(callerId, ipEndpointForSip.ToString(), string.Empty)) };
-
-            var response = await sipTransport.SendRequestAsync(registerRequest);
-            if (response == SocketError.Success)
-            {
-                Log("✅ SIP request sent successfully. " + type);
-                return true;
-            }
-            else
-            {
-                Log($"❌ Failed to send SIP request: {response}");
-                return false;
-            }
-        } 
-
-        SIPResponse acceptResponse = null;
-        SIPResponse ackResponse = null;
         private void BindSipDelegates()
         {
-            sipTransport.SIPTransportResponseReceived += (localEndPoint, remoteEndPoint, sipResponse) =>
+            _sipTransport.SIPTransportResponseReceived += (localEndPoint, remoteEndPoint, sipResponse) =>
             {
                 Log($"Received SIP response: {sipResponse.Status} ({sipResponse.ReasonPhrase})");
                 if (sipResponse.Status == SIPResponseStatusCodesEnum.Accepted)
@@ -477,7 +138,7 @@ namespace OWA.WebRTCWPFCaller
             };
 
             // Handling incoming messages
-            sipTransport.SIPTransportRequestReceived += async (localEndPoint, remoteEndPoint, sipRequestReceived) =>
+            _sipTransport.SIPTransportRequestReceived += async (localEndPoint, remoteEndPoint, sipRequestReceived) =>
             {
                 Log($"Received SIP request: {sipRequestReceived.Method} from {remoteEndPoint}");
 
@@ -485,36 +146,32 @@ namespace OWA.WebRTCWPFCaller
                 {
                     Log($"MESSAGE received from {sipRequestReceived.Header.From.FromURI.User}: {sipRequestReceived.Body}");
                     var okResponse = SIPResponse.GetResponse(sipRequestReceived, SIPResponseStatusCodesEnum.Ok, null);
-                    await sipTransport.SendResponseAsync(okResponse);
+                    await _sipTransport.SendResponseAsync(okResponse);
                 }
                 if (sipRequestReceived.Method == SIPMethodsEnum.ACK)
                 {
-                   // Log($"ACK received from {sipRequestReceived.Header.From.FromURI.User}");
+                    // Log($"ACK received from {sipRequestReceived.Header.From.FromURI.User}");
                     var okResponse = SIPResponse.GetResponse(sipRequestReceived, SIPResponseStatusCodesEnum.Ok, null);
                     if (ackResponse == null)
                     {
-
                         //NOTIFY send zawsze po dla pierwszego połączonego callera daje kanał danych
                         await SendSipMessage(SIPMethodsEnum.NOTIFY, string.Empty);
                         ackResponse = okResponse;
                     }
-
                 }
                 if (sipRequestReceived.Method == SIPMethodsEnum.NOTIFY)
                 {
 
                     Log($"NOTIFY received from {sipRequestReceived.Header.From.FromURI.User}");
-                    //await sipTransport.SendResponseAsync(okResponse);
-                    if (!notificationReceived) 
+                    if (!_notificationReceived)
                     {
-                        Task.Delay(delay).Wait();
-                        //await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
+                        Task.Delay(_delay).Wait();
                         await StartRTCInitialization();
-        
+                        //not used if lists are empty
                         await AddIceCandidatesVIaSIP();
                         await SendIceCandidatesViaSIP();
                     }
-                    notificationReceived = true;
+                    _notificationReceived = true;
                 }
 
 
@@ -532,7 +189,7 @@ namespace OWA.WebRTCWPFCaller
                     var messageObject = CandidatesIncomming.Create(sipRequestReceived.Body);
 
                     RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                    candidatesInit.Add(iceCandidate);
+                    _iceCandidateList.Add(iceCandidate);
                     Log("ICE Candidate Received: " + sipRequestReceived.Body);
                     // _peerConnection.addIceCandidate(iceCandidate);
                     //      SendSipMessage(SIPMethodsEnum.INFO, iceCandidate);
@@ -541,12 +198,26 @@ namespace OWA.WebRTCWPFCaller
                 LogBox.ScrollToEnd();
             };
         }
-         
-        bool notificationReceived = false;
+        private void NodeJSAddIceCandidates()
+        {
+            Log("Adding ICE Candidates...");
+            foreach (var ice in _iceCandidateList)
+                _peerConnection.addIceCandidate(ice);
+        }
+        private void NodeJSSendIceCandidates()
+        {
+            Log("Sending ICE Candidates...");
+            foreach (var ice in _nodeJSSendCandidateList)
+            {
+                // string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
+                NodeJsSendSignal(ice);
+            }
+        }
+
         private async Task<bool> StartRTCInitialization()
         {
             var iceServers = new List<RTCIceServer>();
-            foreach (RTCOwnIceServer server in rtcIceServers)
+            foreach (RTCOwnIceServer server in _rtcStunServerList)
             {
                 if (server.type == RTCMethodsEnum.STUN)
                 {
@@ -565,23 +236,21 @@ namespace OWA.WebRTCWPFCaller
 
             _peerConnection = new RTCPeerConnection(config);
             // Data Channel
-            dataChannel = await _peerConnection.createDataChannel("dc1", null);
-            dataChannel.onopen += () =>
+            _dataChannel = await _peerConnection.createDataChannel("dc1", null);
+            _dataChannel.onopen += () =>
             {
                 Log("Data Channel opened.");
-                new Thread(() => {
+                new Thread(() =>
+                {
                     Task.Delay(2000).Wait();
                     Log("📡 Opened Data Channel");
                     Dispatcher.Invoke(() => P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green));
                     Dispatcher.Invoke(() => P2PConnectionStatus.Content = "Connected");
                 }).Start();
-
-                //P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
-                //P2PConnectionStatus.Content = "Connected";
             };
-            dataChannel.onmessage += (dc, protocol, data) =>
+            _dataChannel.onmessage += (dc, protocol, data) =>
                 Log($"Message received: {Encoding.UTF8.GetString(data)}");
-            dataChannel.onclose += () => Log("Data Channel closed.");
+            _dataChannel.onclose += () => Log("Data Channel closed.");
 
             _peerConnection.onicecandidate += async (candidate) =>
             {
@@ -590,7 +259,6 @@ namespace OWA.WebRTCWPFCaller
                 {
                     string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
                     await SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
-                   // sendCandidates.Add(jsonCandidate);
                 }
             };
 
@@ -612,23 +280,267 @@ namespace OWA.WebRTCWPFCaller
             Log(offer.sdp);
 
             var sdpOfferJson = JsonConvert.SerializeObject(new { sdp = offer.sdp, type = "offer" });
-            //SendSignalViaSIP(sdpOfferJson);
             await SendSipMessage(SIPMethodsEnum.SERVICE, sdpOfferJson);
         }
-
-
-        async Task AddIceCandidatesVIaSIP()
+        private async Task AddIceCandidatesVIaSIP()
         {
             Log("Adding ICE Candidates...");
-            foreach (var ice in candidatesInit)
+            foreach (var ice in _iceCandidateList)
+            {
                 _peerConnection.addIceCandidate(ice);
+            }
         }
-        async Task SendIceCandidatesViaSIP()
+        private async Task SendIceCandidatesViaSIP()
         {
             Log("Sending ICE Candidates...");
-            foreach (var ice in sendCandidates)
+            foreach (var ice in _nodeJSSendCandidateList)
             {
-                SendSipMessage(SIPMethodsEnum.INFO, ice);
+                await SendSipMessage(SIPMethodsEnum.INFO, ice);
+            }
+        }
+
+        private async void NodeJsSendSignal(string message)
+        {
+            Log($"[{_callerId}] Sending: {message}");
+            var buffer = Encoding.UTF8.GetBytes(message);
+            await _wsClient.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+
+        private async Task<bool> SendSipMessage(SIPMethodsEnum type, string body)
+        {
+            var registerRequest = SIPRequest.GetRequest(type, new SIPURI(null, _serverIp, null));
+
+            registerRequest.Header.From = new SIPFromHeader(_callerId, new SIPURI(_callerId, _sipProtocolIPEndpoint.ToString(), null), null);
+            registerRequest.Header.To = new SIPToHeader(_remoteId, new SIPURI(_remoteId, _serverIp, null), "TAG");
+            registerRequest.Header.CSeq = 1;
+            registerRequest.Header.CallId = CallProperties.CreateNewCallId();
+            registerRequest.Header.MaxForwards = 70;
+            registerRequest.Body = body;
+            registerRequest.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(_callerId, _sipProtocolIPEndpoint.ToString(), string.Empty)) };
+
+            var response = await _sipTransport.SendRequestAsync(registerRequest);
+            if (response == SocketError.Success)
+            {
+                Log("✅ SIP request sent successfully. " + type);
+                return true;
+            }
+            else
+            {
+                Log($"❌ Failed to send SIP request: {response}");
+                return false;
+            }
+        }
+
+        private void Log(string message)
+        {
+            Dispatcher.Invoke(() => LogBox.AppendText($"{DateTime.Now} : " + message + "\n"));
+            Dispatcher.Invoke(() => LogBox.ScrollToEnd());
+            logger.LogInformation($"----->: " + message);
+        }
+
+        /// <summary>
+        /// EVENTS HANDLERS
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        /// 
+
+        private async void AutoConnectBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var iceServers = new List<RTCIceServer>();
+            foreach (RTCOwnIceServer server in _rtcStunServerList)
+            {
+                if (server.type == RTCMethodsEnum.STUN)
+                {
+                    iceServers.Add(new RTCIceServer { urls = server.url });
+                }
+                else
+                {
+                    iceServers.Add(new RTCIceServer { urls = server.url, credential = server.credential, credentialType = RTCIceCredentialType.password, username = server.username });
+                }
+            }
+
+            RTCConfiguration config = new RTCConfiguration
+            {
+                iceServers = iceServers
+            };
+
+            _peerConnection = new RTCPeerConnection(config);
+            await _wsClient.ConnectAsync(new Uri($"ws://{SipSignalingServer.Text}/"), CancellationToken.None);
+            //await _wsClient.ConnectAsync(new Uri($"ws://92.205.233.81:8081/"), CancellationToken.None);
+            Log("Caller connected with signalling server.");
+
+            // Data Channel
+            _dataChannel = await _peerConnection.createDataChannel("dc1");
+            _dataChannel.onopen += () =>
+            {
+                Log("📡 Opened Data Channel");
+                new Thread(() =>
+                {
+                    Task.Delay(2000).Wait();
+                    Log("📡 Opened Data Channel");
+                    Dispatcher.Invoke(() => P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green));
+                    Dispatcher.Invoke(() => P2PConnectionStatus.Content = "Connected");
+                }).Start();
+            };
+            _dataChannel.onmessage += (dc, protocol, data) =>
+            Log($"Message received: {Encoding.UTF8.GetString(data)}");
+            _dataChannel.onclose += () => Log("Data Channel closed.");
+
+            _peerConnection.onicecandidate += (candidate) =>
+            {
+                Console.WriteLine("onicecandidate invoked.");
+                if (candidate != null)
+                {
+                    string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
+                    //      SendSignal(jsonCandidate);
+                    _nodeJSSendCandidateList.Add(jsonCandidate);
+                }
+            };
+
+            _peerConnection.onnegotiationneeded += async () =>
+            {
+                Log("Negotiation needed.");
+            };
+
+            await NodeJSCreateAndSendOffer();
+
+            new Thread(async () =>
+            {
+                await NodeJSReceiveSignals();
+
+            }).Start();
+            new Thread(async () =>
+            {
+                Task.Delay(2000).Wait();
+                NodeJSAddIceCandidates();
+                NodeJSSendIceCandidates();
+            }).Start();
+            new Thread(async () =>
+            {
+                Task.Delay(20000).Wait();
+                _dataChannel.send("client sended");
+            }).Start();
+
+            _isConnected = true;
+
+        }
+
+
+        private async void SignalingServerConnectBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isConnected)
+            {
+                //disconnect
+                Log("Disconnecting...");
+                await _wsClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client initiated close", CancellationToken.None);
+                _isConnected = false;
+                _wsClient?.Abort();
+                _wsClient?.Dispose();
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+                Log("❌ SIGNALING server Disconected");
+                _wsClient = new ClientWebSocket();
+                ConnectionStatus.Content = "Disconnected";
+                SignalingServerConnectBtn.Content = "🔗Connect";
+            }
+            else
+            {
+                //connect
+                Log("Connecting to the SIGNALING Server...");
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Yellow);
+                await _wsClient.ConnectAsync(new Uri(SignalingServer.Text), CancellationToken.None);
+                if (_wsClient.State == WebSocketState.Open)
+                {
+                    StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
+                    Log("🔗 SIGNALING server connected");
+                    _isConnected = true;
+                    ConnectionStatus.Content = "Connected";
+                    SignalingServerConnectBtn.Content = "❌ Disconnect";
+                }
+                else
+                {
+                    SignalingServerConnectBtn.Content = "🔗Connect";
+                    Log("❌ Connection to the SIGNALING server failed.");
+                    ConnectionStatus.Content = "Disconnected";
+                    StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+                }
+            }
+        }
+
+        private void RegistrationName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            _callerId = RegistrationName.Text;
+        }
+
+
+
+        private void DestinationName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            _remoteId = DestinationName.Text;
+        }
+
+        private async void SignalingServerRegistrationBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (SipSignalingServerComboBox.SelectedValue == null)
+            {
+                Log("❌ Select DNS IP Address missing");
+                return;
+            }
+            _sipProtocolIPEndpoint = new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.SelectedValue.ToString()), Convert.ToInt32(DnsIPAndPort.Text));
+            _serverIp = SipSignalingServer.Text;
+            if (_isConnected)
+            {
+                //disconnect
+                Log("SIP Server Disconnecting...");
+                await SendSipMessage(SIPMethodsEnum.BYE, string.Empty);
+                await Task.Delay(2000);
+                if (acceptResponse != null)
+                {
+                    Log("✅ SIP BYE request accepted.");
+                    acceptResponse = null;
+                }
+                else
+                {
+                    Log("❌ SIP BYE request not accepted.");
+                    return;
+                }
+                _isConnected = false;
+                _sipTransport.Shutdown();
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+                Log("❌ SIGNALING SIP Server Disconected");
+                ConnectionStatus.Content = "Disconnected";
+                SignalingServerRegistrationBtn.Content = "🔗Register";
+
+            }
+            else
+            {
+                //connect
+                Log("Connecting to the SIGNALING SIP Server...");
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Yellow);
+                _sipTransport = new SIPTransport();
+                var clientChannel = new SIPUDPChannel(_sipProtocolIPEndpoint);
+                _sipTransport.AddSIPChannel(clientChannel);
+
+                BindSipDelegates();
+
+
+                var result = await SendSipMessage(SIPMethodsEnum.REGISTER, string.Empty);
+                await Task.Delay(2000);
+                if (acceptResponse == null)
+                {
+                    Log("❌ SIP REGISTER request not accepted.");
+                    StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
+                    _sipTransport.Shutdown();
+                    return;
+                }
+                Log("✅ SIP REGISTER request accepted.");
+                acceptResponse = null;
+                StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Green);
+                _isConnected = true;
+                SignalingServerRegistrationBtn.Content = "🔗 Unregister";
+
+                Log("✅ ACK request accepted.");
+                var ackResult = await SendSipMessage(SIPMethodsEnum.ACK, string.Empty);
             }
         }
 
@@ -639,17 +551,12 @@ namespace OWA.WebRTCWPFCaller
 
         private void P2PDisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (dataChannel != null) dataChannel.close();
+            if (_dataChannel != null) _dataChannel.close();
             if (_peerConnection != null) { _peerConnection.close(); _peerConnection = null; }
-            if (ws != null)
-            {
-                ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed", CancellationToken.None);
-                ws = null;
-            }
 
-           
-            isConnected = false;
-            candidatesInit.Clear();
+
+            _isConnected = false;
+            _iceCandidateList.Clear();
             StatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
             P2PStatusIndicator.Fill = new System.Windows.Media.SolidColorBrush(Colors.Red);
             ConnectionStatus.Content = "Disconnected";
@@ -674,7 +581,7 @@ namespace OWA.WebRTCWPFCaller
             };
 
             P2PServersComboBox.Items.Add(RtcOwnIceServer);
-            rtcIceServers.Add(RtcOwnIceServer);
+            _rtcStunServerList.Add(RtcOwnIceServer);
             Log("Added TURN server: " + RtcOwnIceServer);
         }
 
@@ -689,19 +596,53 @@ namespace OWA.WebRTCWPFCaller
             };
 
             P2PServersComboBox.Items.Add(RtcOwnIceServer);
-            rtcIceServers.Add(RtcOwnIceServer);
+            _rtcStunServerList.Add(RtcOwnIceServer);
             Log("Added STUN server: " + RtcOwnIceServer);
         }
         private void DelayMilisecondsTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
-            delay = Convert.ToInt32(DelayMilisecondsTextBox.Text);
+            _delay = Convert.ToInt32(DelayMilisecondsTextBox.Text);
         }
+        private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_dataChannel != null && _dataChannel.readyState == RTCDataChannelState.open)
+            {
+                string message = MessageBox.Text;
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+                    _dataChannel.send(messageBytes);
+                    Log($"📤 Message sent: {message}");
+                }
+            }
+            else
+            {
+                Log("❌ Data channel is closed");
+                if (_peerConnection != null)
+                    Log($"🔍 ICE Connection State: {_peerConnection.iceConnectionState}");
+            }
+            LogBox.ScrollToEnd();
+        }
+
         private void P2PRemoveStunBtn_Click(object sender, RoutedEventArgs e)
         {
             var index = P2PServersComboBox.SelectedIndex;
             P2PServersComboBox.Items.RemoveAt(index);
 
-            rtcIceServers.RemoveAt(index);
+            _rtcStunServerList.RemoveAt(index);
+        }
+
+        private static Microsoft.Extensions.Logging.ILogger AddConsoleLogger()
+        {
+            var logFilePath = $"logs/caller_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            var seriLogger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
+                .WriteTo.File(logFilePath) // This line replaces the incorrect Console method
+                .CreateLogger();
+            var factory = new SerilogLoggerFactory(seriLogger);
+            SIPSorcery.LogFactory.Set(factory);
+            return factory.CreateLogger<MainWindow>();
         }
     }
 }
