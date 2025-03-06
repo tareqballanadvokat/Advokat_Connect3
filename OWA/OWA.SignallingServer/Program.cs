@@ -1,5 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Serilog;
+using Serilog.Extensions.Logging;
 using SIPSorcery.SIP;
 
 namespace SipSignalServer
@@ -9,8 +13,10 @@ namespace SipSignalServer
         static ConcurrentDictionary<string, SIPURI> registeredUsers = new();
         static SIPTransport sipTransport;
 
+        private static Microsoft.Extensions.Logging.ILogger logger = NullLogger.Instance;
         static async Task Main(string[] args)
         {
+            logger = AddConsoleLogger();
             Console.WriteLine("Starting Basic SIP SERVER");
 
             Console.WriteLine(Environment.NewLine + "Please type SIP SERVER PORT (if empty default: 8081)");
@@ -228,7 +234,7 @@ namespace SipSignalServer
 
                 var messageRequest = SIPRequest.GetRequest(SIPMethodsEnum.MESSAGE, recipientUri);
                 //messageRequest.Header.From = new SIPFromHeader("server", new SIPURI("server", "127.0.0.1", null), null);
-                messageRequest.Header.From = new SIPFromHeader(from, new SIPURI(from, "127.0.0.1", null), null);
+                messageRequest.Header.From = new SIPFromHeader(from, new SIPURI(from, "127.0.0.1", null), null);//check it
                 messageRequest.Header.To = new SIPToHeader(recipientUser, recipientUri, "Tag");
                 messageRequest.Header.CSeq = 1;
                 messageRequest.Header.CallId = CallProperties.CreateNewCallId();
@@ -265,6 +271,24 @@ namespace SipSignalServer
             {
                 Console.WriteLine($"{DateTime.Now} : User {toUser} not found in registeredUsers.");
             }
+        }
+   
+        public static void LogEntry(string message)
+        {
+
+        }
+
+        private static Microsoft.Extensions.Logging.ILogger AddConsoleLogger()
+        {
+            var logFilePath = $"logs/caller_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            var seriLogger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
+                .WriteTo.File(logFilePath) // This line replaces the incorrect Console method
+                .CreateLogger();
+            var factory = new SerilogLoggerFactory(seriLogger);
+            SIPSorcery.LogFactory.Set(factory);
+            return factory.CreateLogger<Program>();
         }
     }
 }

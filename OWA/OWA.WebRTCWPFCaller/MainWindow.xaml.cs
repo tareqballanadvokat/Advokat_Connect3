@@ -260,9 +260,34 @@ namespace OWA.WebRTCWPFCaller
                 }
             };
 
-            _peerConnection.onnegotiationneeded += async () =>
+            _peerConnection.onnegotiationneeded +=   () =>
             {
                 Log("Negotiation needed.");
+            };
+
+            _peerConnection.onicecandidateerror += (candidate, error) =>
+            {
+                Log($"❌ ICE candidate error: {error}");
+            };
+            _peerConnection.onconnectionstatechange += (state) =>
+            {
+                Log($"🔗 Connection state change: {state}");
+            };
+            _peerConnection.oniceconnectionstatechange += (state) =>
+            {
+                Log($"🔗 ICE connection state change: {state}");
+            };
+            _peerConnection.OnClosed += () =>
+            {
+                Log("❌ Peer Connection closed.");
+            };
+            _peerConnection.OnTimeout += (data) =>
+            {
+                Log("❌ Peer Connection timeout." + data);
+            };
+            _peerConnection.OnRtpClosed += (data) =>
+            {
+                Log("❌ Peer Connection RTP closed." + data);
             };
 
             await CreateAndSendOfferViaSIP();

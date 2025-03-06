@@ -75,11 +75,9 @@ namespace OWA.WebRTCWPFRemote
 
             var dnses = Dns.GetHostAddresses(Dns.GetHostName());
             SipSignalingServerComboBox.Items.Clear();
-            P2PServerComboBox.Items.Clear();  
             foreach (var dns in dnses)
             {
                 SipSignalingServerComboBox.Items.Add(dns);
-                P2PServerComboBox.Items.Add(dns);
                 Log($"DNS: {dns}");
             }
             RTCOwnIceServer stun1 = new RTCOwnIceServer() { credential = string.Empty, type = RTCMethodsEnum.STUN, url = "stun:freestun.net:3478", username = string.Empty };
@@ -95,7 +93,6 @@ namespace OWA.WebRTCWPFRemote
             }
 
             SipSignalingServerComboBox.SelectedItem = dnses.LastOrDefault();
-            P2PServerComboBox.SelectedItem = dnses.LastOrDefault();
             p2pIpSelected = dnses.LastOrDefault().ToString();
         }
  
@@ -133,7 +130,30 @@ namespace OWA.WebRTCWPFRemote
                     NodeJsReceiveSignal(jsonCandidate);
                 }
             };
-
+            ps.onicecandidateerror += (candidate, error) =>
+            {
+                Log($"❌ ICE candidate error: {error}");
+            };
+            ps.onconnectionstatechange += (state) =>
+            {
+                Log($"🔗 Connection state change: {state}");
+            };
+            ps.oniceconnectionstatechange += (state) =>
+            {
+                Log($"🔗 ICE connection state change: {state}");
+            };
+            ps.OnClosed += () =>
+            {
+                Log("❌ Peer Connection closed.");
+            };
+            ps.OnTimeout += (data) =>
+            {
+                Log("❌ Peer Connection timeout." +data);
+            };
+            ps.OnRtpClosed += (data) =>
+            {
+                Log("❌ Peer Connection RTP closed." + data);
+            };
             ps.ondatachannel += (dc) =>
             {
                 _dataChannel = dc;
