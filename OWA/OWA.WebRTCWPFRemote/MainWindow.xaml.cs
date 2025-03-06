@@ -414,6 +414,7 @@ namespace OWA.WebRTCWPFRemote
                 BindSipDelegates();
 
                 var result = await SendSipMessage(SIPMethodsEnum.REGISTER, string.Empty);
+                await Task.Delay(2000);
                 if (_acceptResponse == null)
                 {
                     Log("❌ SIP REGISTER request not accepted.");
