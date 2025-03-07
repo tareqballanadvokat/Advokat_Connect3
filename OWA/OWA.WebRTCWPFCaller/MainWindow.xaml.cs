@@ -252,11 +252,12 @@ namespace OWA.WebRTCWPFCaller
 
             _peerConnection.onicecandidate += async (candidate) =>
             {
-                Console.WriteLine("onicecandidate invoked.");
+                Log("onicecandidate invoked.");
                 if (candidate != null)
                 {
                     string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
                     await SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
+                    Log(jsonCandidate);
                 }
             };
 
