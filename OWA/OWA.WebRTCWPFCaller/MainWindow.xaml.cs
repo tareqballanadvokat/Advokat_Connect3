@@ -165,8 +165,9 @@ namespace OWA.WebRTCWPFCaller
                     Log($"NOTIFY received from {sipRequestReceived.Header.From.FromURI.User}");
                     if (!_notificationReceived)
                     {
-                        Task.Delay(_delay).Wait();
                         await StartRTCInitialization();
+                        Task.Delay(_delay).Wait();
+                        await CreateAndSendOfferViaSIP();
                         //not used if lists are empty
                         //await AddIceCandidatesVIaSIP();
                         //await SendIceCandidatesViaSIP();
@@ -178,7 +179,7 @@ namespace OWA.WebRTCWPFCaller
                 if (sipRequestReceived.Method == SIPMethodsEnum.SERVICE)
                 {
                     var sdp = RTCSessionDescriptionInit.TryParse(sipRequestReceived.Body, out var initialization);
-                    Log("SDP Offer Received:");
+                    Log("SDP Answer Received:");
                     Log(sipRequestReceived.Body);
                     _peerConnection.setRemoteDescription(initialization);
                 }
@@ -256,14 +257,15 @@ namespace OWA.WebRTCWPFCaller
                 if (candidate != null)
                 {
                     string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
-                    await SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
+          //          await SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
                     Log(jsonCandidate);
                 }
             };
 
-            _peerConnection.onnegotiationneeded +=   () =>
+            _peerConnection.onnegotiationneeded += () =>
             {
                 Log("Negotiation needed.");
+               // await CreateAndSendOfferViaSIP();
             };
 
             _peerConnection.onicecandidateerror += (candidate, error) =>
@@ -291,7 +293,7 @@ namespace OWA.WebRTCWPFCaller
                 Log("❌ Peer Connection RTP closed." + data);
             };
 
-            await CreateAndSendOfferViaSIP();
+
 
             return true;
         }
@@ -419,7 +421,8 @@ namespace OWA.WebRTCWPFCaller
                     string jsonCandidate = JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
                     //      SendSignal(jsonCandidate);
                     _nodeJSSendCandidateList.Add(jsonCandidate);
-                }
+                } 
+               // _peerConnection.restartIce();
             };
 
             _peerConnection.onnegotiationneeded += async () =>
