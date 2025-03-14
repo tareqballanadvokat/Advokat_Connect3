@@ -63,6 +63,8 @@
 
         function register() {
             const username = document.getElementById('username').value;
+            const recipient = document.getElementById('recipient').value;
+
             const callId = generateCallId();
             const sipUri = getSipUri();
             const registerMessage =
@@ -70,7 +72,7 @@
                 `Via: SIP/2.0/WS ${sipUri};branch=z9hG4bK${callId}\r\n` +
                 `Max-Forwards: 70\r\n` +
                 `From: <sip:${username}@${sipUri}>;tag=Tag\r\n` +
-                `To: <sip:${username}@${sipUri}>\r\n` +
+                `To: <sip:${recipient}@${sipUri}>\r\n` +
                 `Call-ID: ${callId}@${sipUri}\r\n` +
                 `CSeq: 1 REGISTER\r\n` +
                 `Contact: <sip:${username}@${sipUri}>\r\n` +
