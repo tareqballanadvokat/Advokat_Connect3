@@ -54,36 +54,28 @@ namespace SipSignalServer
             if (registeredUsers.TryGetValue(recipientUser, out var recipientUri))
             {
                 LogEntry($"{DateTime.Now} : Sending MESSAGE to {recipientUser} at {recipientUri}...");
-                //var spiuri = new SIPURI(recipientUri.User, "192.168.0.117:8082", string.Empty, SIPSchemesEnum.sip, SIPProtocolsEnum.ws);
 
-                //var registerRequest = SIPRequest.GetRequest(SIPMethodsEnum.MESSAGE, new SIPURI("sip", "192.168.0.117", "8082", SIPSchemesEnum.sip, SIPProtocolsEnum.ws));
-                
-                
-                var registerRequest = SIPRequest.GetRequest(SIPMethodsEnum.MESSAGE, request.Header.From.FromURI);
+                // request.Header.Vias.TopViaHeader.ReceivedFromAddress is the most important here
+                var messageRequest = new SIPRequest(SIPMethodsEnum.MESSAGE, new SIPURI("server", request.Header.Vias.TopViaHeader.ReceivedFromAddress, "transport=ws", SIPSchemesEnum.sip));
+                var CallId = CallProperties.CreateNewCallId();
 
-
-                //registerRequest.Header.From = new SIPFromHeader("caller", new SIPURI("caller", "192.168.0.117", null), "Tag");
-                //registerRequest.Header.To = new SIPToHeader("caller", new SIPURI("caller", "192.168.0.117", null), null);
-                registerRequest.Header.To = new SIPToHeader("caller", request.Header.From.FromURI, request.Header.To.ToTag);
-
-                // registerRequest.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI("caller", "192.168.0.117", null)) };
-                registerRequest.Header.CallId = CallProperties.CreateNewCallId();
-                registerRequest.Header.CSeq = request.Header.CSeq + 1;
-                registerRequest.Header.MaxForwards = 70;
-
-                //registerRequest.Header.Vias.PushViaHeader(SIPViaHeader.GetDefaultSIPViaHeader());
-                //registerRequest.Body = null;
-                //registerRequest.Header.ContentType = null;
-
-
-
-
-
-
+                messageRequest.Header = new SIPHeader(
+                    SIPFromHeader.ParseFromHeader(request.Header.To.ToString()), // should this also be set to ReceivedFromAddress?
+                    SIPToHeader.ParseToHeader(request.Header.From.ToString()),
+                    1,
+                    CallId);
+                messageRequest.Header.CSeqMethod = SIPMethodsEnum.MESSAGE;
+                messageRequest.Header.Vias = new SIPViaSet()
+                {
+                    Via = new List<SIPViaHeader>()
+                        {
+                            new SIPViaHeader("192.168.1.58", request.Header.Vias.TopViaHeader.ReceivedFromPort, CallProperties.CreateBranchId(), SIPProtocolsEnum.ws)
+                        }
+                };
 
                 LogEntry($"{DateTime.Now} : MESSAGE sent to {recipientUser}: {message}");
                
-                return registerRequest;
+                return messageRequest;
             }
             else
             {
@@ -169,45 +161,7 @@ namespace SipSignalServer
 
 
                     var message = CreateMessageToClient2(sipRequest.Header.From.FromURI.User, $"Message From {sipRequest.Header.From.FromURI} TO {sipRequest.Header.To.ToURI}", sipRequest);
-
-
-                    // ---------------------------------------------------
-                    // working second response
-                    //var myResponse = new SIPResponse(SIPResponseStatusCodesEnum.BusyHere, "");
-                    //var CallId = sipRequest.Header.CallId;
-                    //var CSeq = sipRequest.Header.CSeq;
-
-                    //myResponse.Header = new SIPHeader(sipRequest.Header.From, sipRequest.Header.To, CSeq, CallId);
-
-                    //myResponse.Header.CSeqMethod = SIPMethodsEnum.REGISTER;
-
-                    //myResponse.Header.Vias = sipRequest.Header.Vias;
-                    //myResponse.Header.Allow = "ACK, BYE, CANCEL, INFO, INVITE, NOTIFY, OPTIONS, PRACK, REFER, REGISTER, SUBSCRIBE";
-                    //await sipTransport.SendResponseAsync(myResponse);
-                    // ---------------------------------------------------
-                    var myResponse = new SIPRequest(SIPMethodsEnum.NOTIFY, new SIPURI("server", sipRequest.Header.Vias.TopViaHeader.ReceivedFromAddress, "transport=ws", SIPSchemesEnum.sip));
-                    var CallId = CallProperties.CreateNewCallId();
-
-                    myResponse.Header = new SIPHeader(
-                        SIPFromHeader.ParseFromHeader(sipRequest.Header.To.ToString()),
-                        SIPToHeader.ParseToHeader(sipRequest.Header.From.ToString()),
-                        1,
-                        CallId);
-                    myResponse.Header.CSeqMethod = SIPMethodsEnum.REGISTER;
-                    myResponse.Header.Vias = new SIPViaSet()
-                    {
-                        Via = new List<SIPViaHeader>()
-                        {
-                            new SIPViaHeader("192.168.1.58", sipRequest.Header.Vias.TopViaHeader.ReceivedFromPort, CallProperties.CreateBranchId(), SIPProtocolsEnum.ws)
-                        }
-                    };
-                    
-                    
-                    //sipRequest.Header.Vias;
-                    // myResponse.Header.Allow = "ACK, BYE, CANCEL, INFO, INVITE, NOTIFY, OPTIONS, PRACK, REFER, REGISTER, SUBSCRIBE";
-
-
-                    await sipTransport.SendRequestAsync(myResponse);
+                    await sipTransport.SendRequestAsync(message);
 
                     LogEntry($"{DateTime.Now} : REGISTER: {sipRequest.Header.From.FromURI.User} -> {contactUri}");
                 }
