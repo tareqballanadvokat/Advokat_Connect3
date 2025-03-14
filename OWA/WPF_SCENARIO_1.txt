@@ -1,0 +1,111 @@
+SCENARIO 1:
+BUSINESS SERVER - CALLER:
+2/28/2025 2:24:40 PM : POSSIBLE DNSes
+2/28/2025 2:24:40 PM : DNS: ::1
+2/28/2025 2:24:40 PM : DNS: 192.168.99.50
+2/28/2025 2:24:57 PM : Connecting to the SIGNALING SIP Server...
+2/28/2025 2:24:57 PM : ✅ SIP request sent successfully. REGISTER
+2/28/2025 2:24:57 PM : Received SIP response: Accepted (Accepted)
+2/28/2025 2:24:57 PM : ✅ SIP response received ACCEPT.
+2/28/2025 2:24:59 PM : ✅ SIP REGISTER request accepted.
+2/28/2025 2:24:59 PM : ✅ ACK request accepted.
+2/28/2025 2:24:59 PM : ✅ SIP request sent successfully. ACK
+2/28/2025 2:24:59 PM : Received SIP response: NotFound (NotFound)
+2/28/2025 2:24:59 PM : ✅ SIP response received ACCEPT.
+2/28/2025 2:25:03 PM : Received SIP request: ACK from udp:92.205.233.81:8081
+2/28/2025 2:25:03 PM : ACK received from server
+2/28/2025 2:25:03 PM : ✅ SIP request sent successfully. ACK
+2/28/2025 2:25:03 PM : Received SIP request: ACK from udp:92.205.233.81:8081
+2/28/2025 2:25:03 PM : ACK received from server
+2/28/2025 2:25:03 PM : SDP Offer Created:
+2/28/2025 2:25:03 PM : v=0
+o=- 61977 0 IN IP4 127.0.0.1
+s=sipsorcery
+t=0 0
+a=group:BUNDLE 0
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:YKBC
+a=ice-pwd:WTAIJCZINQUNPVFFDGAXDOBW
+a=fingerprint:sha-256 1F:6F:64:1E:15:5C:51:77:F1:A9:31:51:48:34:3E:D2:B8:90:EA:F3:70:5F:17:9C:F7:7B:89:E9:F9:4F:28:93
+a=setup:actpass
+a=candidate:3003371490 1 udp 2113937663 192.168.99.50 49690 typ host generation 0
+a=ice-options:ice2,trickle
+a=mid:0
+a=sctp-port:5000
+a=max-message-size:262144
+
+2/28/2025 2:25:03 PM : ✅ SIP request sent successfully. SERVICE
+2/28/2025 2:25:03 PM : Received SIP request: INFO from udp:92.205.233.81:8081
+2/28/2025 2:25:03 PM : ICE Candidate Received: {"ice":"{\"candidate\":\"candidate:239127743 1 udp 2113937663 192.168.0.114 50790 typ host generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"NNDT\"}","type":"candidate"}
+2/28/2025 2:25:03 PM : Received SIP request: SERVICE from udp:92.205.233.81:8081
+2/28/2025 2:25:03 PM : SDP Offer Received:
+2/28/2025 2:25:03 PM : {"sdp":"v=0\r\no=- 12682 0 IN IP4 127.0.0.1\r\ns=sipsorcery\r\nt=0 0\r\na=group:BUNDLE 0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\nc=IN IP4 0.0.0.0\r\na=ice-ufrag:NNDT\r\na=ice-pwd:PPNNVBCTYDQTRRJYTOLPLUTX\r\na=fingerprint:sha-256 95:02:EE:49:0A:AA:3B:44:87:BF:D2:27:58:BF:4D:C3:30:60:AE:34:9A:B1:CF:3A:12:53:8B:CE:D7:AE:69:F1\r\na=setup:active\r\na=candidate:239127743 1 udp 2113937663 192.168.0.114 50790 typ host generation 0\r\na=ice-options:ice2,trickle\r\na=mid:0\r\na=sctp-port:5000\r\na=max-message-size:262144\r\n","type":"answer"}
+2/28/2025 2:25:03 PM : Received SIP request: INFO from udp:92.205.233.81:8081
+2/28/2025 2:25:03 PM : ICE Candidate Received: {"ice":"{\"candidate\":\"candidate:663729900 1 udp 1677730047 91.90.160.102 50790 typ srflx raddr 0.0.0.0 rport 0 generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"NNDT\"}","type":"candidate"}
+2/28/2025 2:25:03 PM : Received SIP request: INFO from udp:92.205.233.81:8081
+2/28/2025 2:25:03 PM : ICE Candidate Received: {"ice":"{\"candidate\":\"candidate:1090727518 1 udp 8447 178.254.39.50 61895 typ relay raddr 0.0.0.0 rport 0 generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"NNDT\"}","type":"candidate"}
+2/28/2025 2:25:05 PM : Dodawanie ICE Candidates...
+2/28/2025 2:25:05 PM : Wysyłanie ICE Candidates...
+2/28/2025 2:25:05 PM : ✅ SIP request sent successfully. INFO
+2/28/2025 2:25:05 PM : ✅ SIP request sent successfully. INFO
+2/28/2025 2:25:05 PM : ✅ SIP request sent successfully. INFO
+2/28/2025 2:25:05 PM : ✅ SIP request sent successfully. INFO
+2/28/2025 2:25:05 PM : ✅ SIP request sent successfully. INFO
+2/28/2025 2:25:05 PM : Data Channel opened.
+2/28/2025 2:25:12 PM : 📤 Wysłano wiadomość: 666
+
+
+
+
+LOCAL REMOTE:
+
+28.02.2025 14:23:47 : POSSIBLE DNSes
+28.02.2025 14:23:47 : DNS: fe80::8f6a:8670:a3bf:709a%9
+28.02.2025 14:23:47 : DNS: 192.168.0.114
+28.02.2025 14:23:47 : Waiting for web socket connections on 192.168.0.114:9090...
+28.02.2025 14:23:56 : Connecting to the SIGNALING SIP Server...
+28.02.2025 14:23:56 : ✅ SIP request sent successfully. REGISTER
+28.02.2025 14:23:56 : Received SIP response: Accepted (Accepted)
+28.02.2025 14:23:56 : ✅ SIP response received ACCEPT.
+28.02.2025 14:23:58 : ✅ SIP REGISTER request accepted.
+28.02.2025 14:23:58 : ✅ ACK request accepted.
+28.02.2025 14:23:58 : ✅ SIP request sent successfully. ACK
+28.02.2025 14:23:58 : Received SIP request: ACK from udp:92.205.233.81:8081
+28.02.2025 14:23:58 : ACK received from caller
+28.02.2025 14:23:58 : ✅ SIP request sent successfully. ACK
+28.02.2025 14:23:59 : Received SIP request: SERVICE from udp:92.205.233.81:8081
+28.02.2025 14:23:59 : [Remote] Otrzymano: {"sdp":"v=0\r\no=- 61977 0 IN IP4 127.0.0.1\r\ns=sipsorcery\r\nt=0 0\r\na=group:BUNDLE 0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\nc=IN IP4 0.0.0.0\r\na=ice-ufrag:YKBC\r\na=ice-pwd:WTAIJCZINQUNPVFFDGAXDOBW\r\na=fingerprint:sha-256 1F:6F:64:1E:15:5C:51:77:F1:A9:31:51:48:34:3E:D2:B8:90:EA:F3:70:5F:17:9C:F7:7B:89:E9:F9:4F:28:93\r\na=setup:actpass\r\na=candidate:3003371490 1 udp 2113937663 192.168.99.50 49690 typ host generation 0\r\na=ice-options:ice2,trickle\r\na=mid:0\r\na=sctp-port:5000\r\na=max-message-size:262144\r\n","type":"offer"}
+28.02.2025 14:23:59 : ✅ SIP request sent successfully. INFO
+28.02.2025 14:23:59 : [Remote] Odpowiedź: v=0
+o=- 12682 0 IN IP4 127.0.0.1
+s=sipsorcery
+t=0 0
+a=group:BUNDLE 0
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:NNDT
+a=ice-pwd:PPNNVBCTYDQTRRJYTOLPLUTX
+a=fingerprint:sha-256 95:02:EE:49:0A:AA:3B:44:87:BF:D2:27:58:BF:4D:C3:30:60:AE:34:9A:B1:CF:3A:12:53:8B:CE:D7:AE:69:F1
+a=setup:active
+a=candidate:239127743 1 udp 2113937663 192.168.0.114 50790 typ host generation 0
+a=ice-options:ice2,trickle
+a=mid:0
+a=sctp-port:5000
+a=max-message-size:262144
+
+28.02.2025 14:23:59 : ✅ SIP request sent successfully. SERVICE
+28.02.2025 14:23:59 : ✅ SIP request sent successfully. INFO
+28.02.2025 14:23:59 : ✅ SIP request sent successfully. INFO
+28.02.2025 14:24:01 : Received SIP request: INFO from udp:92.205.233.81:8081
+28.02.2025 14:24:01 : {"ice":"{\"candidate\":\"candidate:3003371490 1 udp 2113937663 192.168.99.50 49690 typ host generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"YKBC\"}","type":"candidate"}
+28.02.2025 14:24:01 : Received SIP request: INFO from udp:92.205.233.81:8081
+28.02.2025 14:24:01 : {"ice":"{\"candidate\":\"candidate:3354392456 1 udp 1677730047 83.175.125.106 45355 typ srflx raddr 0.0.0.0 rport 0 generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"YKBC\"}","type":"candidate"}
+28.02.2025 14:24:01 : Received SIP request: INFO from udp:92.205.233.81:8081
+28.02.2025 14:24:01 : {"ice":"{\"candidate\":\"candidate:1090727518 1 udp 8447 178.254.39.50 61538 typ relay raddr 0.0.0.0 rport 0 generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"YKBC\"}","type":"candidate"}
+28.02.2025 14:24:01 : Received SIP request: INFO from udp:92.205.233.81:8081
+28.02.2025 14:24:01 : {"ice":"{\"candidate\":\"candidate:1090727518 1 udp 8447 178.254.39.50 61538 typ relay raddr 0.0.0.0 rport 0 generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"YKBC\"}","type":"candidate"}
+28.02.2025 14:24:01 : Received SIP request: INFO from udp:92.205.233.81:8081
+28.02.2025 14:24:01 : {"ice":"{\"candidate\":\"candidate:3354392456 1 udp 1677730047 83.175.125.106 45355 typ srflx raddr 0.0.0.0 rport 0 generation 0\",\"sdpMid\":\"0\",\"sdpMLineIndex\":0,\"usernameFragment\":\"YKBC\"}","type":"candidate"}
+28.02.2025 14:24:01 : 📡 Otrzymano Data Channel
+28.02.2025 14:24:08 : 📩 Message received: 666
