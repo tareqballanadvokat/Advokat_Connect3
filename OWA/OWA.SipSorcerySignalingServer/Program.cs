@@ -64,15 +64,20 @@ namespace SipSignalServer
                     SIPToHeader.ParseToHeader(request.Header.From.ToString()),
                     1,
                     CallId);
+                messageRequest.Header.Contact = new List<SIPContactHeader>
+                {
+                    new SIPContactHeader(request.Header.To.ToUserField)
+                };
                 messageRequest.Header.CSeqMethod = SIPMethodsEnum.MESSAGE;
                 messageRequest.Header.Vias = new SIPViaSet()
                 {
                     Via = new List<SIPViaHeader>()
                         {
-                            new SIPViaHeader("192.168.1.58", request.Header.Vias.TopViaHeader.ReceivedFromPort, CallProperties.CreateBranchId(), SIPProtocolsEnum.ws)
+                            new SIPViaHeader(request.Header.Vias.TopViaHeader.ReceivedFromIPAddress, request.Header.Vias.TopViaHeader.ReceivedFromPort, CallProperties.CreateBranchId(), SIPProtocolsEnum.ws)
                         }
                 };
 
+                messageRequest.Header.ContentType = "text/plain";
                 LogEntry($"{DateTime.Now} : MESSAGE sent to {recipientUser}: {message}");
                
                 return messageRequest;
