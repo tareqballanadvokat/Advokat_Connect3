@@ -251,7 +251,8 @@ namespace OWA.WebRTCWPFRemote
                 {
                     var messageObject = CandidatesIncomming.Create(sipRequestReceived.Body);
                     RTCIceCandidateInit.TryParse(messageObject.Ice, out var iceCandidate);
-                    _peerConnection.addIceCandidate(iceCandidate);
+                    //OPTIONAL  for sending IceCandidates
+                    //_peerConnection.addIceCandidate(iceCandidate);
                     Log(sipRequestReceived.Body);
                 }
 
@@ -299,13 +300,15 @@ namespace OWA.WebRTCWPFRemote
             };
 
             var ps = new RTCPeerConnection(config); 
+            _dataChannel = await ps.createDataChannel("dc1", null);
             _peerConnection = ps;
             ps.onicecandidate += async (candidate) =>
             {
                 if (candidate != null)
                 {
                     string jsonCandidate = Newtonsoft.Json.JsonConvert.SerializeObject(new { ice = candidate.toJSON(), type = "candidate" });
-                    _=  await SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
+                    //OPTIONAL fore sending ice candidates
+                    // _=  await SendSipMessage(SIPMethodsEnum.INFO, jsonCandidate);
                 }
             };
 
@@ -325,8 +328,6 @@ namespace OWA.WebRTCWPFRemote
                 _dataChannel.onclose += () => Log("❌ Data Channel closed.");
             };
 
-            Task.Delay(_delay).Wait();
-            _dataChannel = await ps.createDataChannel("dc1", null);
             return ps;
         }
 

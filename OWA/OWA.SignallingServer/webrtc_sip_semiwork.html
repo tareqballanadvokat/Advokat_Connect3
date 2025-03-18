@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIP WebSocket Client</title>
+</head>
+<body>
+    <h1>SIP WebSocket Client</h1>
+    <div>
+        <label>Web Service Address:</label>
+        <input type="text" id="serverAddress" placeholder="ws://192.168.0.114:8082" value="ws://192.168.0.114:8082">
+        <label>Username:</label>
+        <input type="text" id="username" placeholder="Enter your username" value="caller">
+        <label>Recipient:</label>
+        <input type="text" id="recipient" placeholder="Recipient" value="server">
+        <label>TAG:</label>
+        <input type="text" id="tag" placeholder="Tag" value="TAG">
+        <button onclick="connect()">Connect</button>
+        <button onclick="register()">Register</button>
+        <button onclick="sendSDPOffer()">Send SDP Offer</button>
+        <button onclick="sendNotify()">Send NOTIFY</button>
+    </div>
+    <div id="logs"></div>
+
+    <script>
+        let ws;
+        let peerConnection;
+
+        function connect() {
+            const serverAddress = document.getElementById('serverAddress').value;
+            ws = new WebSocket(serverAddress);
+
+            ws.onopen = () => logMessage('Connected to SIP server');
+            ws.onmessage = async (event) => {
+                logMessage(`Incoming message:${event.data}`);  // Log incoming messages
+             
+                logMessage(`Received: ${event.data}`);
+                if (event.data.includes('SERVICE') && event.data.includes('application/sdp')) {
+                    const sdp = event.data.split('\r\n\r\n')[1];
+                    if (!peerConnection) peerConnection = new RTCPeerConnection();
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp }));
+                    logMessage('SDP Answer received and set as remote description');
+                }
+            };
+            ws.onerror = (error) => logMessage(`Error: ${error.message}`);
+            ws.onclose = () => logMessage('Disconnected from SIP server');
+        }
+
+        function logMessage(message) {
+            const logs = document.getElementById('logs');
+            logs.innerHTML += `<p>${message}</p>`;
+        }
+
+        function generateCallId() {
+            return Math.floor(Math.random() * 1000000).toString(16);
+        }
+
+        function getSipUri() {
+            const serverAddress = new URL(document.getElementById('serverAddress').value);
+            return `${serverAddress.hostname}:${serverAddress.port}`;
+        }
+
+        function register() {
+            const username = document.getElementById('username').value;
+            const callId = generateCallId();
+            const sipUri = getSipUri();
+            const registerMessage =
+                `REGISTER sip:${sipUri} SIP/2.0\r\n` +
+                `Via: SIP/2.0/WS ${sipUri};branch=z9hG4bK${callId}\r\n` +
+                `Max-Forwards: 70\r\n` +
+                `From: <sip:${username}@${sipUri}>;tag=${callId}\r\n` +
+                `To: <sip:${username}@${sipUri}>\r\n` +
+                `Call-ID: ${callId}@${sipUri}\r\n` +
+                `CSeq: 1 REGISTER\r\n` +
+                `Contact: <sip:${username}@${sipUri}>\r\n` +
+                `Content-Length: 0\r\n\r\n`;
+
+            ws.send(registerMessage);
+            logMessage(`Sent REGISTER for ${username}`);
+        }
+
+        async function sendSDPOffer() {
+            const username = document.getElementById('username').value;
+            const recipient = document.getElementById('recipient').value;
+            const tag = document.getElementById('tag').value;
+            const callId = generateCallId();
+            const sipUri = getSipUri();
+
+            peerConnection = new RTCPeerConnection();
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            const sdpOffer = peerConnection.localDescription.sdp;
+            const serviceRequest =
+                `SERVICE sip:${recipient}@${sipUri} SIP/2.0\r\n` +
+                `Via: SIP/2.0/WS ${sipUri};branch=z9hG4bK${callId}\r\n` +
+                `Max-Forwards: 70\r\n` +
+                `From: <sip:${username}@${sipUri}>;tag=${tag}\r\n` +
+                `To: <sip:${recipient}@${sipUri}>\r\n` +
+                `Call-ID: ${callId}@${sipUri}\r\n` +
+                `CSeq: 3 SERVICE\r\n` +
+                `Content-Type: application/sdp\r\n` +
+                `Content-Length: ${sdpOffer.length}\r\n\r\n` +
+                `${sdpOffer}`;
+
+            ws.send(serviceRequest);
+            logMessage(`Sent SDP Offer to ${recipient}`);
+        }
+
+        function sendNotify() {
+            const username = document.getElementById('username').value;
+            const recipient = document.getElementById('recipient').value;
+            const tag = document.getElementById('tag').value;
+            const callId = generateCallId();
+            const sipUri = getSipUri();
+
+            const notifyMessage =
+                `NOTIFY sip:${recipient}@${sipUri} SIP/2.0\r\n` +
+                `Via: SIP/2.0/WS ${sipUri};branch=z9hG4bK${callId}\r\n` +
+                `Max-Forwards: 70\r\n` +
+                `From: <sip:${username}@${sipUri}>;tag=${tag}\r\n` +
+                `To: <sip:${recipient}@${sipUri}>\r\n` +
+                `Call-ID: ${callId}@${sipUri}\r\n` +
+                `CSeq: 4 NOTIFY\r\n` +
+                `Content-Type: text/plain\r\n` +
+                `Content-Length: 0\r\n\r\n`;
+
+            ws.send(notifyMessage);
+            logMessage(`Sent NOTIFY to ${recipient}`);
+        }
+    </script>
+</body>
+</html>

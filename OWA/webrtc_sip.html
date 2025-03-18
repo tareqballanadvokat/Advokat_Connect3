@@ -19,7 +19,8 @@
     <pre id="logs"></pre>
 
     <script>
-        const ws = new WebSocket('ws://localhost:5000/sip');
+       const ws = new WebSocket('ws://localhost:5000/sip');
+ //const ws = new WebSocket('ws://192.168.0.114:8082'); // lub odpowiednie IP serwera
 
         ws.onopen = () => log('Connected to SIP Server');
         ws.onmessage = (event) => log(`Received: ${event.data}`);
