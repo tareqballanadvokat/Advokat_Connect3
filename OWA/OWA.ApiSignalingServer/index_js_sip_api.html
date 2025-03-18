@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIP Client</title>
+</head>
+<body>
+    <h1>SIP WebSocket Client</h1>
+    <input type="text" id="username" placeholder="Enter your username" value="caller">
+    <button onclick="register()">Register</button>
+    <br><br>
+    <input type="text" id="recipient" placeholder="Recipient">
+    <input type="text" id="message" placeholder="Message">
+    <button onclick="sendMessage()">Send Message</button>
+    <button onclick="sendNotify()">Send NOTIFY</button>
+    <br><br>
+    <h3>Logs:</h3>
+    <pre id="logs"></pre>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:5000/sip');
+
+        ws.onopen = () => log('Connected to SIP Server');
+        ws.onmessage = (event) => log(`Received: ${event.data}`);
+        ws.onclose = () => log('Disconnected from SIP Server');
+        ws.onerror = (error) => log(`WebSocket Error: ${error}`);
+
+        function log(message) {
+            const logs = document.getElementById('logs');
+            logs.textContent += message + '\n';
+        }
+
+        function register() {
+            const username = document.getElementById('username').value;
+            const message = `REGISTER sip:${username}@localhost SIP/2.0\r\n`;
+            ws.send(message);
+            log('Sent REGISTER');
+        }
+
+        function sendMessage() {
+            const username = document.getElementById('username').value;
+            const recipient = document.getElementById('recipient').value;
+            const message = document.getElementById('message').value;
+            const sipMessage = `MESSAGE sip:${recipient}@localhost SIP/2.0\r\nFrom: sip:${username}@localhost\r\n\r\n${message}`;
+            ws.send(sipMessage);
+            log(`Sent MESSAGE to ${recipient}`);
+        }
+
+        function sendNotify() {
+            const username = document.getElementById('username').value;
+            const notifyMessage = `NOTIFY sip:server@localhost SIP/2.0\r\nFrom: sip:${username}@localhost\r\n\r\nNotification`;
+            ws.send(notifyMessage);
+            log('Sent NOTIFY');
+        }
+    </script>
+</body>
+</html>
