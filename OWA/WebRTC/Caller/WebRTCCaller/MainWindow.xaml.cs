@@ -17,7 +17,7 @@ namespace WebRTCCaller
         private static readonly string testingSignalingServerSourcePort = "8098";
         private static readonly string testingTimeout = "2000";
 
-        private RegistrationManager SignalingServer = new RegistrationManager();
+        private RegistrationManager SignalingServer = new RegistrationManager("callerIdIsIrrelevantIHope");
 
         public MainWindow()
         {
@@ -93,7 +93,7 @@ namespace WebRTCCaller
 
         private async void P2PDisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
-            await this.SignalingServer.Disconnect();
+            await this.SignalingServer.Unregister();
         }
 
         private void SendMessageBtn_Click(object sender, RoutedEventArgs e)

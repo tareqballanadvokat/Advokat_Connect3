@@ -2,18 +2,20 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using WebRTCCallerLibrary.Models;
+using static WebRTCCallerLibrary.SIPConnection;
+using static WebRTCCallerLibrary.Utils.TaskHelpers;
+
 
 namespace WebRTCCallerLibrary
 {
-    public class RegistrationManager
+    public class RegistrationManager : AbstractSIPMessager
     {
         public static readonly SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip; // TODO: should probably be changed to SIPS later on
+                                                                              // TODO: should be passed in constructor
 
-        public int MessageTimeout = 2000;
+        public int MessageTimeout = 2000;                                     // TODO: should be passed in constructor
 
         public string CallID { get; private set; }
-
-        //public bool Connected { get; private set; }
 
         public bool Registered { get; private set; }
 
@@ -30,11 +32,6 @@ namespace WebRTCCallerLibrary
 
         [MemberNotNullWhen(true, nameof(this.Registered), nameof(this.Registering))]
         private SIPConnection? Connection { get; set; }
-
-        public RegistrationManager():
-            this(CallProperties.CreateNewCallId()) // TODO: should we append ip-address?
-        {
-        }
 
         public RegistrationManager(string callID)
         {
@@ -56,66 +53,41 @@ namespace WebRTCCallerLibrary
                 
             // TODO: get the tag to the responselistener somehow
             string tag = CallProperties.CreateNewTag();
-            
-            // set response delegate
-            this.Connection.SIPResponseReceived += this.ListenForRegistrationAccept;
 
+            // set response delegate
+            SIPTransportResponsetAsyncDelegate responseDelegate = GetResponseListener(this.ListenForRegistrationAccept, requestFromTag: tag);
+            this.Connection.SIPResponseReceived += responseDelegate;
+
+            // send request
             SIPHeaderParams headerParams = this.GetHeaderParams(fromTag: tag);
             await this.SendSIPMessage(SIPMethodsEnum.REGISTER, headerParams);
 
-            await this.WaitFor(
+            await WaitFor(
                 () => (this.Registered && !this.Registering),
                 failureCallback: this.RegistrationFailed,
-                timeOut: timeOut);
-
+                timeOut: timeOut ?? this.MessageTimeout);
+            
             // TODO: make sure this happens after timeout / failure or success
-            this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept; // remove listener
-
-
+            if (this.Connection != null)
+            {
+                this.Connection.SIPResponseReceived -= responseDelegate; // remove listener
+            }
         }
 
-        public async Task Disconnect(int? timeOut = null) // call method Unregister?
-        {
-            if (!this.Registered)
-            {
-                // TODO: log. Not registered
-                return;
-            }
-
-            if (this.Registering)
-            {
-                // TODO: cancel registering and check if we have to continue
-                return;
-            }
-
-            // TODO: get the tag to the responselistener somehow
-            string tag = CallProperties.CreateNewTag();
-
-            // set response listener
-            // cannot be null if registered is true
-            this.Connection.SIPResponseReceived += this.ListenForDisconnectAccept;
-
-
-            // send disconnect message
-            SIPHeaderParams headerParams = this.GetHeaderParams(fromTag: tag);
-            await this.SendSIPMessage(SIPMethodsEnum.BYE, headerParams);
-
-            // TODO: add failurecallback --> log failure to disconnect
-            await this.WaitFor(() => !this.Registered, timeOut: timeOut);
-
-            // remove listener
-            // TODO: will this always run after previous task is finished?
-            this.Connection.SIPResponseReceived -= this.ListenForDisconnectAccept;
-        }
-
-        private async Task ListenForRegistrationAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
+        private async Task ListenForRegistrationAccept(
+            SIPEndPoint localEndPoint,
+            SIPEndPoint remoteEndPoint,
+            SIPResponse sipResponse,
+            string? requestFromTag = null,
+            string? requestToTag = null)
         {
             if (sipResponse.Status == SIPResponseStatusCodesEnum.Accepted
                 && this.RemoteParticipant != null
                 // TODO: implement this comparison better - is it even needed?
-                && remoteEndPoint.GetIPEndPoint().ToString() == this.RemoteParticipant.Endpoint.GetIPEndPoint().ToString())
+                && remoteEndPoint.GetIPEndPoint().ToString() == this.RemoteParticipant.Endpoint.GetIPEndPoint().ToString()
+                //&& sipResponse.Header.To.ToTag == requestFromTag // TODO: activate. Signaling server does currently not respond with the correct tag
+                )
             {
-                // TODO: Check tag
                 SIPHeaderParams sipResponseHeaderParams = this.GetHeaderParamsForResponseTo(sipResponse);
                 await this.SendSIPMessage(SIPMethodsEnum.ACK, headerParams: sipResponseHeaderParams);
 
@@ -129,21 +101,65 @@ namespace WebRTCCallerLibrary
             this.RegistrationFailed();
         }
 
-        private async Task ListenForDisconnectAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
+        public async Task Unregister(int? timeOut = null)
+        {
+            if (!this.Registered)
+            {
+                // TODO: log. Not registered
+                return;
+            }
+
+            if (this.Registering)
+            {
+                // TODO: cancel registering and check if we have to continue
+                return;
+            }
+
+            string tag = CallProperties.CreateNewTag();
+
+            // set response listener
+            // cannot be null if registered is true
+            SIPTransportResponsetAsyncDelegate responseDelegate = GetResponseListener(this.ListenForDisconnectAccept, requestFromTag: tag);
+            this.Connection.SIPResponseReceived += responseDelegate;
+
+            SIPHeaderParams headerParams = this.GetHeaderParams(fromTag: tag);
+            // send disconnect message
+            await this.SendSIPMessage(SIPMethodsEnum.BYE, headerParams);
+
+            // TODO: add failurecallback --> log failure to disconnect or retry
+            await WaitFor(() => !this.Registered, timeOut: timeOut ?? this.MessageTimeout);
+
+            if (this.Connection != null)
+            {
+                // remove listener
+                // TODO: will this always run after previous task is finished?
+                this.Connection.SIPResponseReceived -= responseDelegate; // remove listener
+            }
+        }
+
+        private async Task ListenForDisconnectAccept(
+            SIPEndPoint localEndPoint,
+            SIPEndPoint remoteEndPoint,
+            SIPResponse sipResponse,
+            string? requestFromTag = null,
+            string? requestToTag = null)
         {
             if (sipResponse.Status == SIPResponseStatusCodesEnum.Accepted
                 && this.RemoteParticipant != null
                 // TODO: implement this comparison better - is it even needed?
-                && remoteEndPoint.GetIPEndPoint().ToString() == this.RemoteParticipant.Endpoint.GetIPEndPoint().ToString())
+                && remoteEndPoint.GetIPEndPoint().ToString() == this.RemoteParticipant.Endpoint.GetIPEndPoint().ToString()
+                //&& sipResponse.Header.To.ToTag == requestFromTag // TODO: activate. Signaling server does currently not respond with the correct tag
+                )
             {
-                // TODO: check Tag
-
                 // TODO should this be Acknowledged aswell? What if the accept doesn't reach the peer. We still think we are registered.
-                this.Registered = false;
 
-                // TODO: dispose connection itself
-                this.Connection.Transport?.Dispose();
+                this.Connection?.Dispose();
+                this.Connection = null;
                 // TODO: check if channels have to be closed manually
+
+                this.SourceParticipant = null;
+                this.RemoteParticipant = null;
+                this.Registered = false;
                 return;
             }
 
@@ -153,6 +169,8 @@ namespace WebRTCCallerLibrary
         [MemberNotNull(nameof(this.Connection))]
         private void SetConnection()
         {
+            // TODO: Inject connectionfactory - ISIPConenction easier to test and switch UDP / TCP / WS
+
             SIPTransport transport = new SIPTransport();
 
             // set listening channel
@@ -169,8 +187,8 @@ namespace WebRTCCallerLibrary
             this.SourceParticipant = null;
             this.RemoteParticipant = null;
             
-            this.Connection?.Transport.Dispose();
-            this.Connection = null; // TODO: Dispose
+            this.Connection?.Dispose();
+            this.Connection = null;
         }
 
         private async Task SendSIPMessage(SIPMethodsEnum method, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
@@ -204,33 +222,9 @@ namespace WebRTCCallerLibrary
             }
         }
 
-        private async Task WaitFor(Func<bool> predicate, Action? successCallback = null, Action? failureCallback = null, int? timeOut = null)
-        {
-            CancellationTokenSource cts = new CancellationTokenSource(timeOut ?? this.MessageTimeout);
-            CancellationToken ct = cts.Token;
-
-            await Task.Factory.StartNew(() =>
-            {
-                while (!ct.IsCancellationRequested)
-                {
-                    if (predicate.Invoke())
-                    {
-                        // success
-                        successCallback?.Invoke();
-                        return;
-                    }
-
-                    Task.Delay(100);
-                }
-
-                // timout/failure
-                failureCallback?.Invoke();
-            });
-        }
-
         private SIPHeaderParams GetHeaderParams(string? fromTag = null, string? toTag = null, int cSeq = 1)
         {
-            return new SIPHeaderParams(
+            return this.GetHeaderParams(
                 this.SourceParticipant,
                 this.RemoteParticipant,
                 fromTag: fromTag,
@@ -241,12 +235,12 @@ namespace WebRTCCallerLibrary
 
         private SIPHeaderParams GetHeaderParamsForResponseTo(SIPResponse response)
         {
-            SIPHeaderParams sipHeaderParams = this.GetHeaderParams(
-                fromTag: response.Header.To.ToTag,
-                toTag: response.Header.From.FromTag,
-                cSeq: response.Header.CSeq + 1);
-
-            return sipHeaderParams;
+            return this.GetHeaderParamsForResponseTo(
+                this.SourceParticipant,
+                this.RemoteParticipant,
+                response,
+                callId: this.CallID
+                );
         }
     }
 }

@@ -4,7 +4,7 @@ using WebRTCCallerLibrary.Models;
 
 namespace WebRTCCallerLibrary
 {
-    internal class SIPConnection
+    internal class SIPConnection : IDisposable
     {
         public int MessageTimeout = 2000;
 
@@ -23,12 +23,6 @@ namespace WebRTCCallerLibrary
             this.Transport.SIPTransportResponseReceived += this.OnMessageRecieved;
         }
 
-        private async Task OnMessageRecieved(SIPEndPoint localSIPEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
-        {
-            // we can filter for current connection, but it should only recieve current connections anyway.
-            this.SIPResponseReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipResponse);
-        }
-
         public async Task<SocketError> SendSIPMessage(SIPMethodsEnum method, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
         {
             // TODO: Make ct Mandatory
@@ -37,6 +31,31 @@ namespace WebRTCCallerLibrary
             Task<SocketError> request = this.Transport.SendRequestAsync(registerRequest);
 
             return await this.WaitForSendConfirmation(request, timeOut);
+        }
+
+        /// <summary>Returns an eventlistener for incoming responses that gets passed previous assigned tags.
+        ///          This is useful to compare the tags of the response and the previous request in the callback function.
+        ///          We can make sure the response is for a specific request like this.</summary>
+        /// <param name="callback">callback function that actually handles the response. String parameters get passed in the order reqeustFromTag, requestToTag</param>
+        /// <param name="requestFromTag">The from tag of the original request.</param>
+        /// <param name="requestToTag">The to tag of the original request.</param>
+        /// <returns></returns>
+        /// <version date="19.03.2025" sb="MAC"></version>
+        public static SIPTransportResponsetAsyncDelegate GetResponseListener(
+            Func<SIPEndPoint, SIPEndPoint, SIPResponse, string?, string?, Task> callback,
+            string? requestFromTag = null,
+            string? requestToTag = null)
+        {
+            return (SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse) =>
+            {
+                return callback.Invoke(localEndPoint, remoteEndPoint, sipResponse, requestFromTag, requestToTag);
+            };
+        }
+
+        private async Task OnMessageRecieved(SIPEndPoint localSIPEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
+        {
+            // we can filter for current connection, but it should only recieve current connections anyway.
+            this.SIPResponseReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipResponse);
         }
 
         private async Task<SocketError> WaitForSendConfirmation(Task<SocketError> request, int? timeOut = null)
@@ -64,7 +83,7 @@ namespace WebRTCCallerLibrary
                 method,
                 new SIPURI(
                     this.SIPScheme,
-                    headerParams.RemoteParticipant.Endpoint.Address, // cannot be null here
+                    headerParams.RemoteParticipant.Endpoint.Address,
                     headerParams.RemoteParticipant.Endpoint.Port));
 
             SIPURI FromUri = this.GetSIPURIFor(headerParams.SourceParticipant);
@@ -89,9 +108,13 @@ namespace WebRTCCallerLibrary
                 participant.Name,
                 participant.Endpoint.GetIPEndPoint().ToString(),
                 paramsAndHeaders,
-                this.SIPScheme,
+                this.SIPScheme, // can the scheme differ for each participant?
                 participant.Endpoint.Protocol);
         }
 
+        public void Dispose()
+        {
+            this.Transport.Dispose();
+        }
     }
 }
