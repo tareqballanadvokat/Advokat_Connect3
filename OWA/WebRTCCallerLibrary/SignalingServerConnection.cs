@@ -63,31 +63,33 @@ namespace WebRTCCallerLibrary
 
             await this.SendSIPMessage(SIPMethodsEnum.REGISTER);
 
-
-            CancellationTokenSource cts = new CancellationTokenSource(timeOut ?? this.MessageTimeout);
-            CancellationToken ct = cts.Token;
-
-            // Check for timeout. Call RegistrationFailed when timeout is reached.
-            await Task.Factory.StartNew(() =>
-            {
-                while (!ct.IsCancellationRequested)
-                {
-                    if (this.Registered && !this.Registering)
-                    {
-                        // success
-                        return;
-                    }
-
-                    Task.Delay(100);
-                }
-
-                // timout/failure
-                this.RegistrationFailed();
-            });
+            await this.WaitFor(() => (this.Registered && !this.Registering), failureCallback: this.RegistrationFailed, timeOut: timeOut);
 
             // TODO: make sure this happens after timeout / failure or success
             this.Connection.SIPTransportResponseReceived -= this.ListenForRegistrationAccept; // remove listener
 
+        }
+
+        public async Task Disconnect(int? timeOut = null) // call method Unregister?
+        {
+            if (!this.Registered)
+            {
+                // TODO: log. Not registered
+                return;
+            }
+
+            // set response listener
+            this.Connection.SIPTransportResponseReceived += this.ListenForDisconnectAccept;
+
+            // send disconnect message
+            await this.SendSIPMessage(SIPMethodsEnum.BYE);
+
+            // TODO: add failurecallback --> log failure to disconnect
+            await this.WaitFor(() => !this.Registered, timeOut: timeOut);
+
+            // remove listener
+            // TODO: will this always run after previous task is finished?
+            this.Connection.SIPTransportResponseReceived -= this.ListenForDisconnectAccept;
         }
 
         private async Task ListenForRegistrationAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
@@ -117,46 +119,6 @@ namespace WebRTCCallerLibrary
             this.Registering = false;
             this.SourceParticipant = null;
             this.RemoteParticipant = null;
-        }
-
-        public async Task Disconnect(int? timeOut = null) // call method Unregister?
-        {
-            if (!this.Registered)
-            {
-                // TODO: log. Not registered
-                return;
-            }
-
-            // set response listener
-            this.Connection.SIPTransportResponseReceived += this.ListenForDisconnectAccept;
-            
-            // send disconnect
-            await this.SendSIPMessage(SIPMethodsEnum.BYE);
-
-            CancellationTokenSource cts = new CancellationTokenSource(timeOut ?? this.MessageTimeout);
-            CancellationToken ct = cts.Token;
-
-            // check if request was accepted
-            await Task.Factory.StartNew(() =>
-            {
-                while (!ct.IsCancellationRequested)
-                {
-                    if (!this.Registered)
-                    {
-                        // success
-                        return;
-                    }
-
-                    Task.Delay(100);
-                }
-
-                // timout/failure
-                // TODO: log?
-            });
-
-            // remove listener
-            // TODO: will this always run after previous task is finished?
-            this.Connection.SIPTransportResponseReceived -= this.ListenForDisconnectAccept;
         }
 
         private async Task ListenForDisconnectAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
@@ -227,6 +189,30 @@ namespace WebRTCCallerLibrary
             {
                 return SocketError.TimedOut;
             }
+        }
+
+        private async Task WaitFor(Func<bool> predicate, Action? successCallback = null, Action? failureCallback = null, int? timeOut = null)
+        {
+            CancellationTokenSource cts = new CancellationTokenSource(timeOut ?? this.MessageTimeout);
+            CancellationToken ct = cts.Token;
+
+            await Task.Factory.StartNew(() =>
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    if (predicate.Invoke())
+                    {
+                        // success
+                        successCallback?.Invoke();
+                        return;
+                    }
+
+                    Task.Delay(100);
+                }
+
+                // timout/failure
+                failureCallback?.Invoke();
+            });
         }
 
         private SIPHeaderParams GetHeaderParamsForResponseTo(SIPResponse response)
