@@ -1,6 +1,7 @@
 ﻿using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
+using System.Threading;
 using WebRTCCallerLibrary.Models;
 using WebRTCCallerLibrary.Utils;
 
@@ -8,7 +9,11 @@ namespace WebRTCCallerLibrary
 {
     public class SignalingServerConnection
     {
+        public static readonly SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip; // TODO: should probably be changed to SIPS later on
+
         public int MessageTimeout = 2000;
+
+        public string CallID { get; private set; }
 
         public bool Connected { get; private set; }
 
@@ -25,11 +30,21 @@ namespace WebRTCCallerLibrary
         [MemberNotNullWhen(true, nameof(this.Registered), nameof(this.Registering))]
         private SIPTransport? Connection { get; set; }
 
+        public SignalingServerConnection():
+            this(CallProperties.CreateNewCallId()) // TODO: should we append ip-address?
+        {
+        }
+
+        public SignalingServerConnection(string callID)
+        {
+            this.CallID = callID;
+        }
+
         public async Task Register(SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, int? timeOut = null)
         {
-            if (this.Registered)
+            if (this.Registered || this.Registering)
             {
-                // TODO: log. already registered
+                // TODO: log. already registered or registering
                 return;
             }
 
@@ -44,9 +59,9 @@ namespace WebRTCCallerLibrary
             this.Connection.AddSIPChannel(channel);
 
             // set response delegate
-            this.Connection.SIPTransportResponseReceived += this.OnRegisterAcknowledge;
+            this.Connection.SIPTransportResponseReceived += this.ListenForRegistrationAccept;
 
-            await this.SendSIPMessage(SIPMethodsEnum.REGISTER, this.Connection, new SIPMessage(RemoteParticipant));
+            await this.SendSIPMessage(SIPMethodsEnum.REGISTER);
 
 
             CancellationTokenSource cts = new CancellationTokenSource(timeOut ?? this.MessageTimeout);
@@ -67,19 +82,24 @@ namespace WebRTCCallerLibrary
                 }
 
                 // timout/failure
-                this.Connection.SIPTransportResponseReceived -= this.OnRegisterAcknowledge; // remove listener
                 this.RegistrationFailed();
             });
+
+            // TODO: make sure this happens after timeout / failure or success
+            this.Connection.SIPTransportResponseReceived -= this.ListenForRegistrationAccept; // remove listener
+
         }
 
-        private async Task OnRegisterAcknowledge(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
+        private async Task ListenForRegistrationAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
             if (sipResponse.Status == SIPResponseStatusCodesEnum.Accepted
                 && this.RemoteParticipant != null
                 // TODO: implement this comparison better - is it even needed?
                 && remoteEndPoint.GetIPEndPoint().ToString() == this.RemoteParticipant.Endpoint.GetIPEndPoint().ToString())
             {
-                await this.SendSIPMessage(SIPMethodsEnum.ACK, new SIPMessage(this.RemoteParticipant));// TODO: Check if new message (tag, call id Cseq etc.)
+                // TODO: Check tag
+                SIPHeaderParams sipResponseHeaderParams = this.GetHeaderParamsForResponseTo(sipResponse);
+                await this.SendSIPMessage(SIPMethodsEnum.ACK, headerParams: sipResponseHeaderParams);
 
                 // success
                 this.Registered = true;
@@ -99,7 +119,7 @@ namespace WebRTCCallerLibrary
             this.RemoteParticipant = null;
         }
 
-        public async Task Disconnect() // call method Unregister?
+        public async Task Disconnect(int? timeOut = null) // call method Unregister?
         {
             if (!this.Registered)
             {
@@ -107,15 +127,61 @@ namespace WebRTCCallerLibrary
                 return;
             }
 
-            await this.SendSIPMessage(SIPMethodsEnum.BYE, new SIPMessage(this.RemoteParticipant));
-            // TODO: check if request was accepted
+            // set response listener
+            this.Connection.SIPTransportResponseReceived += this.ListenForDisconnectAccept;
             
-            // TODO: check if channels have to be closed manually
-            this.Connection.Dispose();
+            // send disconnect
+            await this.SendSIPMessage(SIPMethodsEnum.BYE);
+
+            CancellationTokenSource cts = new CancellationTokenSource(timeOut ?? this.MessageTimeout);
+            CancellationToken ct = cts.Token;
+
+            // check if request was accepted
+            await Task.Factory.StartNew(() =>
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    if (!this.Registered)
+                    {
+                        // success
+                        return;
+                    }
+
+                    Task.Delay(100);
+                }
+
+                // timout/failure
+                // TODO: log?
+            });
+
+            // remove listener
+            // TODO: will this always run after previous task is finished?
+            this.Connection.SIPTransportResponseReceived -= this.ListenForDisconnectAccept;
         }
 
-        private async Task SendSIPMessage(SIPMethodsEnum method, SIPTransport connection, SIPMessage sipMessage, CancellationToken? ct = null, int? timeOut = null)
+        private async Task ListenForDisconnectAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
+            if (sipResponse.Status == SIPResponseStatusCodesEnum.Accepted
+                && this.RemoteParticipant != null
+                // TODO: implement this comparison better - is it even needed?
+                && remoteEndPoint.GetIPEndPoint().ToString() == this.RemoteParticipant.Endpoint.GetIPEndPoint().ToString())
+            {
+                // TODO: check Tag
+
+                // TODO should this be Acknowledged aswell? What if the accept doesn't reach the peer. We still think we are registered.
+                this.Registered = false;
+                this.Connection?.Dispose();
+                // TODO: check if channels have to be closed manually
+                return;
+            }
+
+            // failed
+        }
+
+        private async Task SendSIPMessage(SIPMethodsEnum method, string? message = null, SIPHeaderParams? headerParams = null, CancellationToken? ct = null, int? timeOut = null)
+        {
+            // TODO: Make ct Mandatory
+
             if ((!this.Registering && !this.Registered)
                 || (this.RemoteParticipant == null || this.SourceParticipant == null))
             {
@@ -123,63 +189,97 @@ namespace WebRTCCallerLibrary
                 return;
             }
 
-            // TODO: Make ct Mandatory
+            SIPRequest registerRequest = this.GetRequest(method, message, headerParams);
+            Task<SocketError> request = this.Connection.SendRequestAsync(registerRequest);
 
-            SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip; // TODO: should probably be changed to SIPS later on
+            SocketError result = await this.WaitForSendConfirmation(request, timeOut);
 
-            SIPRequest registerRequest = SIPRequest.GetRequest(
+            // should we return socketerror?
+            switch (result)
+            {
+                case SocketError.Success:
+                    // Log("✅ SIP request sent successfully. " + method);
+                    // success
+                    break;
+
+                case SocketError.TimedOut:
+                    // timeout
+                    break;
+
+                default:
+                    // failure to send
+                    break;
+            }
+        }
+
+        private async Task<SocketError> WaitForSendConfirmation(Task<SocketError> request, int? timeOut = null)
+        {
+            timeOut ??= this.MessageTimeout;
+            if (await Task.WhenAny(request, Task.Delay((int)timeOut)) == request) // TODO: pass ct: Task.Delay(timeOut ?? this.MessageTimeout, ct)
+            {
+                // Task completed within timeout.
+                // TODO: Consider that the task may have faulted or been canceled.
+                // We re-await the task so that any exceptions/cancellation is rethrown.
+
+                return await request;
+            }
+            else
+            {
+                return SocketError.TimedOut;
+            }
+        }
+
+        private SIPHeaderParams GetHeaderParamsForResponseTo(SIPResponse response)
+        {
+            SIPHeaderParams sipHeaderParams = new SIPHeaderParams();
+            sipHeaderParams.FromTag = response.Header.To.ToTag;
+            sipHeaderParams.ToTag = response.Header.From.FromTag;
+            sipHeaderParams.CSeq = response.Header.CSeq + 1;
+
+            return sipHeaderParams;
+        }
+
+        private SIPRequest GetRequest(SIPMethodsEnum method, string? message = null, SIPHeaderParams? headerParams = null)
+        {
+            // set default values
+            if (headerParams == null)
+            {
+                headerParams = new SIPHeaderParams();
+                headerParams.FromTag = CallProperties.CreateNewTag(); // should we set this as default here?
+            }
+
+            // branch?
+            SIPRequest request = SIPRequest.GetRequest(
                 method,
                 new SIPURI(
                     SIPScheme,
                     this.RemoteParticipant.Endpoint.Address, // cannot be null here
                     this.RemoteParticipant.Endpoint.Port));
 
-            sipMessage.Tag ??= CallProperties.CreateNewTag();
+            SIPURI FromUri = GetSIPURIFor(this.SourceParticipant);
+            SIPURI ToUri = GetSIPURIFor(this.RemoteParticipant);
 
-            SIPURI FromUri = new SIPURI(this.SourceParticipant.Name, this.SourceParticipant.Endpoint.GetIPEndPoint().ToString(), "", SIPScheme, SIPProtocolsEnum.udp);
-            SIPURI ToUri = new SIPURI(sipMessage.To.Name, sipMessage.To.Endpoint.GetIPEndPoint().ToString(), "", SIPScheme, SIPProtocolsEnum.udp);
-
-            registerRequest.Header.From = new SIPFromHeader(this.SourceParticipant.Name, FromUri, sipMessage.Tag);
-            registerRequest.Header.To = new SIPToHeader(sipMessage.To.Name, ToUri, sipMessage.Tag); // TODO: should both From and to have a tag?
-            registerRequest.Header.CSeq = sipMessage.CSeq ?? 1;
-            registerRequest.Header.CallId = CallProperties.CreateNewCallId(); // TODO: CallerId should be per endpoint
-            registerRequest.Header.MaxForwards = 70; // 70 is an arbitrary number
+            request.Header.From = new SIPFromHeader(this.SourceParticipant.Name, FromUri, headerParams.FromTag);
+            request.Header.To = new SIPToHeader(this.RemoteParticipant.Name, ToUri, headerParams.ToTag);
+            request.Header.CSeq = headerParams.CSeq;
+            request.Header.CallId = this.CallID;
+            request.Header.MaxForwards = 70; // 70 is an arbitrary number
 
             // TODO: add message
-            //registerRequest.Body = "";
-            //registerRequest.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(SIPScheme, this.SourceParticipant.Endpoint)) };
+            //request.Body = "";
+            //request.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(SIPScheme, this.SourceParticipant.Endpoint)) };
 
-            Task<SocketError> request = connection.SendRequestAsync(registerRequest);
-
-            if(await Task.WhenAny(request, Task.Delay(timeOut ?? this.MessageTimeout)) == request) // TODO: pass ct: Task.Delay(timeOut ?? this.MessageTimeout, ct)
-            {
-
-                // Task completed within timeout.
-                // TODO: Consider that the task may have faulted or been canceled.
-                // We re-await the task so that any exceptions/cancellation is rethrown.
-
-                SocketError response = await request;
-                if (response == SocketError.Success)
-                {
-                    //Log("✅ SIP request sent successfully. " + type);
-                    //return true;
-                }
-                else
-                {
-                    //Log($"❌ Failed to send SIP request: {response}");
-                    //return false;
-                }
-            }
-            else
-            {
-                // timeout/cancellation logic
-            }
+            return request;
         }
 
-        public async Task SendSIPMessage(SIPMethodsEnum method, SIPMessage sipMessage, CancellationToken? ct = null, int? timeOut = null)
+        private static SIPURI GetSIPURIFor(SIPParticipant participant, string? paramsAndHeaders = null)
         {
-            using SIPTransport connection = new SIPTransport();
-            await this.SendSIPMessage(method, connection, sipMessage, ct, timeOut);
+            return new SIPURI(
+                participant.Name,
+                participant.Endpoint.GetIPEndPoint().ToString(),
+                paramsAndHeaders,
+                SIPScheme,
+                participant.Endpoint.Protocol);
         }
     }
 }

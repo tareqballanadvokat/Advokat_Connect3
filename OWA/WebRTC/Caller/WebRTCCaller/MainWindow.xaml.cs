@@ -59,7 +59,7 @@ namespace WebRTCCaller
             DnsIPAndPort.Text = testingSignalingServerSourcePort;
             DelayMilisecondsTextBox.Text = testingTimeout;
             this.LoadLocalIps();
-            LoadICEServers();
+            this.LoadICEServers();
         }
 
         private async void SignalingServerRegistrationBtn_Click(object sender, RoutedEventArgs e)
@@ -94,8 +94,6 @@ namespace WebRTCCaller
         private async void P2PDisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
             await this.SignalingServer.Disconnect();
-            await Task.Delay(2000);
-
         }
 
         private void SendMessageBtn_Click(object sender, RoutedEventArgs e)
