@@ -1,18 +1,12 @@
 ﻿using SIPSorcery.SIP;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace WebRTCCallerLibrary.Utils
+namespace WebRTCCallerLibrary.Models
 {
     public class SIPParticipant
     {
         public SIPParticipant(string name, SIPEndPoint Endpoint)
         {
-            this.Name = name;
+            Name = name;
             this.Endpoint = Endpoint;
         }
 

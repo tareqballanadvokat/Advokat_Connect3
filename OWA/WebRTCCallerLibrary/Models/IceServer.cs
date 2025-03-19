@@ -1,4 +1,4 @@
-﻿namespace WebRTCCallerLibrary.Utils
+﻿namespace WebRTCCallerLibrary.Models
 {
     public enum RTCMethodsEnum
     {

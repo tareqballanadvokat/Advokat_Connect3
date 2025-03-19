@@ -2,7 +2,7 @@
 using System.Net;
 using System.Windows;
 using WebRTCCallerLibrary;
-using WebRTCCallerLibrary.Utils;
+using WebRTCCallerLibrary.Models;
 
 namespace WebRTCCaller
 {
@@ -17,7 +17,7 @@ namespace WebRTCCaller
         private static readonly string testingSignalingServerSourcePort = "8098";
         private static readonly string testingTimeout = "2000";
 
-        private SignalingServerConnection SignalingServer = new SignalingServerConnection();
+        private RegistrationManager SignalingServer = new RegistrationManager();
 
         public MainWindow()
         {
