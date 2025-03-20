@@ -1,8 +1,8 @@
 ﻿using SIPSorcery.SIP;
 using System.Net;
 using System.Windows;
-using WebRTCCallerLibrary;
-using WebRTCCallerLibrary.Models;
+using WebRTCLibrary.SIP;
+using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCCaller
 {
@@ -17,7 +17,9 @@ namespace WebRTCCaller
         private static readonly string testingSignalingServerSourcePort = "8098";
         private static readonly string testingTimeout = "2000";
 
-        private RegistrationManager SignalingServer = new RegistrationManager("callerIdIsIrrelevantIHope");
+        //private RegistrationManager SignalingServer = new RegistrationManager("callerIdIsIrrelevantIHope");
+
+        private SIPUserAgent? UserAgent;
 
         public MainWindow()
         {
@@ -70,10 +72,16 @@ namespace WebRTCCaller
                 return;
             }
 
+
+
+
             SIPParticipant caller = new SIPParticipant(this.RegistrationName.Text, new SIPEndPoint(new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.Text), int.Parse(DnsIPAndPort.Text))));
             SIPParticipant server = new SIPParticipant(this.DestinationName.Text, new SIPEndPoint(IPEndPoint.Parse(this.SipSignalingServer.Text)));
-            
-            await this.SignalingServer.Register(caller, server);
+
+            this.UserAgent = new SIPUserAgent(caller.Endpoint.GetIPEndPoint());
+            await this.UserAgent.Connect(caller, server);
+
+            //await this.SignalingServer.Register(caller, server);
         }
 
         private void P2PAddStunBtn_Click(object sender, RoutedEventArgs e)
@@ -93,7 +101,11 @@ namespace WebRTCCaller
 
         private async void P2PDisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
-            await this.SignalingServer.Unregister();
+            Task? task = this.UserAgent?.Disconnect();
+            if (task != null)
+            {
+                await task;
+            }
         }
 
         private void SendMessageBtn_Click(object sender, RoutedEventArgs e)
