@@ -5,6 +5,7 @@ namespace WebRTCLibrary.SIP
 {
     public class AbstractSIPMessager
     {
+        // TODO: remove
 
         protected virtual SIPHeaderParams GetHeaderParams(
             SIPParticipant sourceParticipant,

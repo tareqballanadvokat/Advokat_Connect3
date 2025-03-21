@@ -6,7 +6,7 @@ namespace WebRTCLibrary.SIP.Models
     {
         public SIPParticipant SourceParticipant { get; set; }
 
-        public SIPParticipant RemoteParticipant { get; set; }
+        public SIPParticipant DestinationParticipant { get; set; }
 
         public string? FromTag { get; set; }
 
@@ -25,7 +25,7 @@ namespace WebRTCLibrary.SIP.Models
             string? callID = null)
         {
             this.SourceParticipant = source;
-            this.RemoteParticipant = remote;
+            this.DestinationParticipant = remote;
             FromTag = fromTag;
             ToTag = toTag;
             CSeq = cSeq;

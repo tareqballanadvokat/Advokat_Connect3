@@ -1,6 +1,7 @@
 ﻿using SIPSorcery.SIP;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP.Models;
+using WebRTCLibrary.SIP.Utils;
 
 namespace WebRTCLibrary.SIP
 {
@@ -8,7 +9,7 @@ namespace WebRTCLibrary.SIP
     {
         public int MessageTimeout = 2000;
 
-        public SIPSchemesEnum SIPScheme { get; set; }
+        public SIPSchemesEnum SIPScheme { get; private set; }
 
         public SIPTransport Transport { get; private set; }
 
@@ -24,35 +25,56 @@ namespace WebRTCLibrary.SIP
             this.Transport.SIPTransportRequestReceived += this.OnRequestRecieved;
         }
 
-        public async Task<SocketError> SendSIPMessage(SIPMethodsEnum method, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
         {
             // TODO: Make ct Mandatory
 
-            SIPRequest registerRequest = this.GetRequest(method, headerParams, message);
-            Task<SocketError> request = this.Transport.SendRequestAsync(registerRequest);
-
-            return await this.WaitForSendConfirmation(request, timeOut);
+            SIPRequest request = SIPHelper.GetRequest(this.SIPScheme, method, headerParams, message);
+            return await this.SendSIPRequest(request, ct, timeOut);
         }
 
-        /// <summary>Returns an eventlistener for incoming responses that gets passed previous assigned tags.
-        ///          This is useful to compare the tags of the response and the previous request in the callback function.
-        ///          We can make sure the response is for a specific request like this.</summary>
-        /// <param name="callback">callback function that actually handles the response. String parameters get passed in the order reqeustFromTag, requestToTag</param>
-        /// <param name="requestFromTag">The from tag of the original request.</param>
-        /// <param name="requestToTag">The to tag of the original request.</param>
-        /// <returns></returns>
-        /// <version date="19.03.2025" sb="MAC"></version>
-        public static SIPTransportResponseAsyncDelegate GetResponseListener(
-            Func<SIPEndPoint, SIPEndPoint, SIPResponse, string?, string?, Task> callback,
-            string? requestFromTag = null,
-            string? requestToTag = null)
+        public async Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken? ct = null, int ? timeOut = null)
         {
-            return (SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse) =>
-            {
-                return callback.Invoke(localEndPoint, remoteEndPoint, sipResponse, requestFromTag, requestToTag);
-            };
+            // TODO: Make ct Mandatory
+
+            Task<SocketError> requestTask = this.Transport.SendRequestAsync(request);
+            return await this.WaitForSendConfirmation(requestTask, timeOut);
         }
 
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
+        {
+            // TODO: Make ct Mandatory
+
+            SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams, message);
+            return await this.SendSIPResponse(response, ct, timeOut);
+        }
+
+        public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken? ct = null, int? timeOut = null)
+        {
+            // TODO: Make ct Mandatory
+
+            Task<SocketError> responseTask = this.Transport.SendResponseAsync(response);
+            return await this.WaitForSendConfirmation(responseTask, timeOut);
+        }
+
+        ///// <summary>Returns an eventlistener for incoming responses that gets passed previous assigned tags.
+        /////          This is useful to compare the tags of the response and the previous request in the callback function.
+        /////          We can make sure the response is for a specific request like this.</summary>
+        ///// <param name="callback">callback function that actually handles the response. String parameters get passed in the order reqeustFromTag, requestToTag</param>
+        ///// <param name="requestFromTag">The from tag of the original request.</param>
+        ///// <param name="requestToTag">The to tag of the original request.</param>
+        ///// <returns></returns>
+        ///// <version date="19.03.2025" sb="MAC"></version>
+        //public static SIPTransportResponseAsyncDelegate GetResponseListener(
+        //    Func<SIPEndPoint, SIPEndPoint, SIPResponse, string?, string?, Task> callback,
+        //    string? requestFromTag = null,
+        //    string? requestToTag = null)
+        //{
+        //    return (SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse) =>
+        //    {
+        //        return callback.Invoke(localEndPoint, remoteEndPoint, sipResponse, requestFromTag, requestToTag);
+        //    };
+        //}
 
         /// <summary>Returns an eventlistener for incoming requests that gets passed previous assigned tags.
         ///          This is useful to compare the tags of the request and the previous request in the callback function.
@@ -72,7 +94,6 @@ namespace WebRTCLibrary.SIP
                 return callback.Invoke(localEndPoint, remoteEndPoint, sipRequest, fromTag, toTag);
             };
         }
-
 
         private async Task OnResponseRecieved(SIPEndPoint localSIPEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
@@ -104,41 +125,66 @@ namespace WebRTCLibrary.SIP
         }
 
  
-        private SIPRequest GetRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string? message = null)
-        {
-            // branch?
-            SIPRequest request = SIPRequest.GetRequest(
-                method,
-                new SIPURI(
-                    this.SIPScheme,
-                    headerParams.RemoteParticipant.Endpoint.Address,
-                    headerParams.RemoteParticipant.Endpoint.Port));
+        //private SIPRequest GetRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string? message = null)
+        //{
+        //    // branch?
+        //    SIPRequest request = SIPRequest.GetRequest(
+        //        method,
+        //        new SIPURI(
+        //            this.SIPScheme,
+        //            headerParams.DestinationParticipant.Endpoint.Address,
+        //            headerParams.DestinationParticipant.Endpoint.Port));
 
-            SIPURI FromUri = this.GetSIPURIFor(headerParams.SourceParticipant);
-            SIPURI ToUri = this.GetSIPURIFor(headerParams.RemoteParticipant);
+        //    SIPURI FromUri = this.GetSIPURIFor(headerParams.SourceParticipant);
+        //    SIPURI ToUri = this.GetSIPURIFor(headerParams.DestinationParticipant);
 
-            request.Header.From = new SIPFromHeader(headerParams.SourceParticipant.Name, FromUri, headerParams.FromTag);
-            request.Header.To = new SIPToHeader(headerParams.RemoteParticipant.Name, ToUri, headerParams.ToTag);
-            request.Header.CSeq = headerParams.CSeq;
-            request.Header.CallId = headerParams.CallID;
-            //request.Header.MaxForwards = 70; // 70 is an arbitrary number
+        //    request.Header.From = new SIPFromHeader(headerParams.SourceParticipant.Name, FromUri, headerParams.FromTag);
+        //    request.Header.To = new SIPToHeader(headerParams.DestinationParticipant.Name, ToUri, headerParams.ToTag);
+        //    request.Header.CSeq = headerParams.CSeq;
+        //    request.Header.CallId = headerParams.CallID;
+        //    //request.Header.MaxForwards = 70; // 70 is an arbitrary number
 
-            // TODO: add message
-            //request.Body = "";
-            //request.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(SIPScheme, this.SourceParticipant.Endpoint)) };
+        //    // TODO: add message
+        //    //request.Body = "";
+        //    //request.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(SIPScheme, this.SourceParticipant.Endpoint)) };
 
-            return request;
-        }
+        //    return request;
+        //}
 
-        private SIPURI GetSIPURIFor(SIPParticipant participant, string? paramsAndHeaders = null)
-        {
-            return new SIPURI(
-                participant.Name,
-                participant.Endpoint.GetIPEndPoint().ToString(),
-                paramsAndHeaders,
-                this.SIPScheme, // can the scheme differ for each participant?
-                participant.Endpoint.Protocol);
-        }
+        //private SIPResponse GetResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string? message = null)
+        //{
+        //    // branch?
+        //    SIPResponse response = SIPResponse.GetResponse(
+        //        headerParams.SourceParticipant.Endpoint,
+        //        headerParams.DestinationParticipant.Endpoint,
+        //        statusCode,
+        //        message);
+        //    //new SIPURI(
+        //    //    this.SIPScheme,
+        //    //    headerParams.RemoteParticipant.Endpoint.Address,
+        //    //    headerParams.RemoteParticipant.Endpoint.Port));
+
+        //    //SIPURI FromUri = this.GetSIPURIFor(headerParams.SourceParticipant);
+        //    //SIPURI ToUri = this.GetSIPURIFor(headerParams.RemoteParticipant);
+
+        //    //request.Header.From = new SIPFromHeader(headerParams.SourceParticipant.Name, FromUri, headerParams.FromTag);
+        //    //request.Header.To = new SIPToHeader(headerParams.RemoteParticipant.Name, ToUri, headerParams.ToTag);
+        //    response.Header.CSeq = headerParams.CSeq;
+        //    response.Header.CallId = headerParams.CallID;
+
+        //    return response;
+        //}
+
+
+        //private SIPURI GetSIPURIFor(SIPParticipant participant, string? paramsAndHeaders = null)
+        //{
+        //    return new SIPURI(
+        //        participant.Name,
+        //        participant.Endpoint.GetIPEndPoint().ToString(),
+        //        paramsAndHeaders,
+        //        this.SIPScheme, // can the scheme differ for each participant?
+        //        participant.Endpoint.Protocol);
+        //}
 
         public void Dispose()
         {

@@ -1,6 +1,7 @@
 ﻿using SIPSorcery.SIP;
 using System.Net;
 using System.Windows;
+using WebRTCLibrary;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -12,6 +13,8 @@ namespace WebRTCCaller
     public partial class MainWindow : Window
     {
         private static readonly string testingSignalingServer = "92.205.233.81:8081";
+        //private static readonly string testingSignalingServer = "192.168.1.58:8081";
+
         private static readonly string testingCallerName = "macc";
         private static readonly string testingRemoteName = "macs";
         private static readonly string testingSignalingServerSourcePort = "8098";
@@ -19,7 +22,7 @@ namespace WebRTCCaller
 
         //private RegistrationManager SignalingServer = new RegistrationManager("callerIdIsIrrelevantIHope");
 
-        private SIPUserAgent? UserAgent;
+        private SIPClient? UserAgent;
 
         public MainWindow()
         {
@@ -72,16 +75,10 @@ namespace WebRTCCaller
                 return;
             }
 
-
-
-
             SIPParticipant caller = new SIPParticipant(this.RegistrationName.Text, new SIPEndPoint(new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.Text), int.Parse(DnsIPAndPort.Text))));
-            SIPParticipant server = new SIPParticipant(this.DestinationName.Text, new SIPEndPoint(IPEndPoint.Parse(this.SipSignalingServer.Text)));
-
-            this.UserAgent = new SIPUserAgent(caller.Endpoint.GetIPEndPoint());
-            await this.UserAgent.Connect(caller, server);
-
-            //await this.SignalingServer.Register(caller, server);
+            
+            this.UserAgent = new SIPClient(caller, new SIPEndPoint(IPEndPoint.Parse(this.SipSignalingServer.Text)), this.DestinationName.Text, SIPSchemesEnum.sip);
+            await this.UserAgent.StartDialog();
         }
 
         private void P2PAddStunBtn_Click(object sender, RoutedEventArgs e)
@@ -101,7 +98,7 @@ namespace WebRTCCaller
 
         private async void P2PDisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
-            Task? task = this.UserAgent?.Disconnect();
+            Task? task = this.UserAgent?.StopDialog();
             if (task != null)
             {
                 await task;

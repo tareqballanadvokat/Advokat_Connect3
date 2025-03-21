@@ -54,7 +54,7 @@ namespace WebRTCLibrary.SIP
                 SIPHeaderParams headerParams = this.GetHeaderParamsForResponseTo(sipRequest, fromTag: fromTag);
 
                 // TODO: do something with the result
-                SocketError result = await this.Connection.SendSIPMessage(SIPMethodsEnum.ACK, headerParams);
+                SocketError result = await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, headerParams);
             }
         }
 
