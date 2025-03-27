@@ -26,7 +26,7 @@ export async function run() {
   insertAt.appendChild(document.createElement("br"));
   insertAt.appendChild(document.createTextNode(item.subject));
   insertAt.appendChild(document.createElement("br"));
-  console.log("Item type:", Office.context.mailbox.item.getAsFileAsync);
+  // console.log("Item type:", Office.context.mailbox.item.getAsFileAsync);
  
 //   function getAttachmentContentCompose() {
 //     const item = Office.context.mailbox.item;
@@ -59,16 +59,16 @@ export async function run() {
 // }
 
 const options = Office.AsyncContextOptions = { asyncContext: { currentItem: item } };
-  Office.context.mailbox.item.getAsFileAsync(Office.AsyncContextOptions.Base64, (result) => {
-    // const emailContent = result.value;
-    // const fileName = `${Office.context.mailbox.item.subject}.eml`;
-    // const element = document.createElement("a");
-    // element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(emailContent));
-    // element.setAttribute("download", `/Users/{user}/Desktop/${fileName}`);
-    // element.style.display = "none";
-    // document.body.appendChild(element);
-    // element.click();
-    // document.body.removeChild(element);
+  Office.context.mailbox.item.getAsFileAsync(options, (result) => {
+     const emailContent = result.value;
+    const fileName = `${Office.context.mailbox.item.subject}.eml`;
+    const element = document.createElement("a");
+    element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(emailContent));
+    element.setAttribute("download", `/Users/{user}/Desktop/${fileName}`);
+    element.style.display = "none";
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   });
 
 
