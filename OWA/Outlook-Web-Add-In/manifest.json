@@ -8,7 +8,7 @@
         "full": "Advokat Task Pane Add-in"
     },
     "description": {
-        "short": "Advocat Add-In",
+        "short": "A template to get started.",
         "full": "This is the template to get started."
     },
     "developer": {
@@ -61,6 +61,31 @@
                 ]
             },
             "runtimes": [
+                {
+                    "requirements": {
+                        "capabilities": [
+                            {
+                                "name": "Mailbox",
+                                "minVersion": "1.3"
+                            }
+                        ]
+                    },
+                    "id": "ServicePaneRuntime",
+                    "type": "general",
+                    "code": {
+                        "page": "https://localhost:3000/service.html"
+                    },
+                    "lifetime": "short",
+                    "actions": [
+                        {
+                            "id": "ServicePaneRuntimeShow",
+                            "type": "openPage",
+                            "pinnable": false,
+                            "view": "dashboard"
+                        }
+                    ]
+                },
+
                 {
                     "requirements": {
                         "capabilities": [
@@ -132,6 +157,7 @@
                     ]
                 }
             ],
+            
             "ribbons": [
                 {
                     "contexts": [
@@ -162,7 +188,7 @@
                                         {
                                             "id": "msgReadOpenPaneButton",
                                             "type": "button",
-                                            "label": "Show Task Pane",
+                                            "label": "Show Advocat Pane",
                                             "icons": [
                                                 {
                                                     "size": 16,
@@ -178,7 +204,7 @@
                                                 }
                                             ],
                                             "supertip": {
-                                                "title": "Show Task Pane",
+                                                "title": "Show Advocat Pane",
                                                 "description": "Opens a pane displaying all available properties."
                                             },
                                             "actionId": "TaskPaneRuntimeShow"
@@ -286,6 +312,106 @@
                                                 "description": "Append the Advokat disclaimer on send."
                                             },
                                             "actionId": "appendDisclaimerOnSend"
+                                        }, 
+                                        
+                                        {
+                                            "id": "msgReadOpenPaneButton",
+                                            "type": "button",
+                                            "label": "Show Task Pane",
+                                            "icons": [
+                                                {
+                                                    "size": 16,
+                                                    "url": "https://localhost:3000/assets/icon-16.png"
+                                                },
+                                                {
+                                                    "size": 32,
+                                                    "url": "https://localhost:3000/assets/icon-32.png"
+                                                },
+                                                {
+                                                    "size": 80,
+                                                    "url": "https://localhost:3000/assets/icon-80.png"
+                                                }
+                                            ],
+                                            "supertip": {
+                                                "title": "Show Task Pane",
+                                                "description": "Opens a pane displaying all available properties."
+                                            },
+                                            "actionId": "TaskPaneRuntimeShow"
+                                        },
+                                        {
+                                            "id": "ActionButton",
+                                            "type": "button",
+                                            "label": "Perform an action",
+                                            "icons": [
+                                                {
+                                                    "size": 16,
+                                                    "url": "https://localhost:3000/assets/icon-16.png"
+                                                },
+                                                {
+                                                    "size": 32,
+                                                    "url": "https://localhost:3000/assets/icon-32.png"
+                                                },
+                                                {
+                                                    "size": 80,
+                                                    "url": "https://localhost:3000/assets/icon-80.png"
+                                                }
+                                            ],
+                                            "supertip": {
+                                                "title": "Perform an action",
+                                                "description": "Perform an action when clicked."
+                                            },
+                                            "actionId": "action"
+                                        }
+
+                                        ,
+
+                                        {
+                                            "id": "msgReadOpenServicePaneButton",
+                                            "type": "button",
+                                            "label": "Show Service Pane",
+                                            "icons": [
+                                                {
+                                                    "size": 16,
+                                                    "url": "https://localhost:3000/assets/icon-16.png"
+                                                },
+                                                {
+                                                    "size": 32,
+                                                    "url": "https://localhost:3000/assets/icon-32.png"
+                                                },
+                                                {
+                                                    "size": 80,
+                                                    "url": "https://localhost:3000/assets/icon-80.png"
+                                                }
+                                            ],
+                                            "supertip": {
+                                                "title": "Show Service Pane",
+                                                "description": "Opens a pane displaying all available properties."
+                                            },
+                                            "actionId": "ServicePaneRuntimeShow"
+                                        },
+                                        {
+                                            "id": "ServiceButton",
+                                            "type": "button",
+                                            "label": "Service an action",
+                                            "icons": [
+                                                {
+                                                    "size": 16,
+                                                    "url": "https://localhost:3000/assets/icon-16.png"
+                                                },
+                                                {
+                                                    "size": 32,
+                                                    "url": "https://localhost:3000/assets/icon-32.png"
+                                                },
+                                                {
+                                                    "size": 80,
+                                                    "url": "https://localhost:3000/assets/icon-80.png"
+                                                }
+                                            ],
+                                            "supertip": {
+                                                "title": "Service",
+                                                "description": "Service."
+                                            },
+                                            "actionId": "action"
                                         }
                                     ]
                                 }
