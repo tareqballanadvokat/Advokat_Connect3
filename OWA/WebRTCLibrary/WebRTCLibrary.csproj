@@ -10,8 +10,4 @@
     <ProjectReference Include="..\sipsorcery-master\src\SIPSorcery.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Dialogs\SignalingServerDialogs\" />
-  </ItemGroup>
-
 </Project>

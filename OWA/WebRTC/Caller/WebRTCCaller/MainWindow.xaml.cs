@@ -1,8 +1,7 @@
 ﻿using SIPSorcery.SIP;
 using System.Net;
 using System.Windows;
-using WebRTCLibrary;
-using WebRTCLibrary.SIP;
+using WebRTCClient;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCCaller

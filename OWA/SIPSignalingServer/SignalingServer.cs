@@ -5,7 +5,7 @@ using WebRTCLibrary.SIP;
 
 namespace SIPSignalingServer
 {
-    internal class SignalingServer
+    public class SignalingServer
     {
         //private IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 8081);
         private IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:8081");
@@ -17,7 +17,7 @@ namespace SIPSignalingServer
 
         private SIPConnection Connection;
 
-        internal SignalingServer()
+        public SignalingServer()
         {
             this.Connection = this.GetConnection(this.ServerEndpoint);
             Console.WriteLine($"listening on {ServerEndpoint}");

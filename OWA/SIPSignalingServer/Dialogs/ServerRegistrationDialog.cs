@@ -68,7 +68,7 @@ namespace SIPSignalingServer.Dialogs
 
         public override Task Stop()
         {
-            // TODO: something to unregister?
+            // TODO: something to unregister from signaling server side? Nothing like that is currently implement 
             throw new NotImplementedException();
         }
 

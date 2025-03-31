@@ -10,7 +10,7 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 //using static WebRTCLibrary.SIP.SIPConnection;
 
 
-namespace WebRTCLibrary.Dialogs.ClientDialogs
+namespace WebRTCClient.Dialogs.ClientDialogs
 {
     internal class ClientRegistrationDialog : SIPDialog, IAsyncDisposable
     {

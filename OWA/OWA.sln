@@ -25,7 +25,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebRTCCaller", "WebRTC\Call
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebRTCLibrary", "WebRTCLibrary\WebRTCLibrary.csproj", "{E30042BC-DC96-48C3-B5D1-C9E25F43F5C7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSignalingServer", "SIPSignalingServer\SIPSignalingServer.csproj", "{D1FA1230-22D0-4FC2-907E-A94983F9FCBE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SIPSignalingServerConsole", "SIPSignalingServerConsole\SIPSignalingServerConsole.csproj", "{DCF83545-7C01-437B-A232-1D9023290702}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSignalingServer", "SIPSignalingServer\SIPSignalingServer.csproj", "{1CBF4E6F-5C88-41A3-A951-941155CCB21E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCClient", "SIPClient\WebRTCClient.csproj", "{58ADE97A-E7CB-4BDB-864F-48EFC2E60B9C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -57,10 +61,18 @@ Global
 		{E30042BC-DC96-48C3-B5D1-C9E25F43F5C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E30042BC-DC96-48C3-B5D1-C9E25F43F5C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E30042BC-DC96-48C3-B5D1-C9E25F43F5C7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D1FA1230-22D0-4FC2-907E-A94983F9FCBE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D1FA1230-22D0-4FC2-907E-A94983F9FCBE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D1FA1230-22D0-4FC2-907E-A94983F9FCBE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D1FA1230-22D0-4FC2-907E-A94983F9FCBE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DCF83545-7C01-437B-A232-1D9023290702}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DCF83545-7C01-437B-A232-1D9023290702}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DCF83545-7C01-437B-A232-1D9023290702}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DCF83545-7C01-437B-A232-1D9023290702}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CBF4E6F-5C88-41A3-A951-941155CCB21E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CBF4E6F-5C88-41A3-A951-941155CCB21E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CBF4E6F-5C88-41A3-A951-941155CCB21E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CBF4E6F-5C88-41A3-A951-941155CCB21E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{58ADE97A-E7CB-4BDB-864F-48EFC2E60B9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{58ADE97A-E7CB-4BDB-864F-48EFC2E60B9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58ADE97A-E7CB-4BDB-864F-48EFC2E60B9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{58ADE97A-E7CB-4BDB-864F-48EFC2E60B9C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

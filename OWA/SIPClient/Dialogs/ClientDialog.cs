@@ -4,9 +4,9 @@ using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.Utils;
 
-namespace WebRTCLibrary.Dialogs.ClientDialogs
+namespace WebRTCClient.Dialogs.ClientDialogs
 {
-    public class ClientDialog : SIPDialog
+    internal class ClientDialog : SIPDialog
     {
         public bool Registered { get => RegistrationDialog.Registered; }
 

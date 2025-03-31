@@ -1,9 +1,9 @@
 ﻿using SIPSorcery.SIP;
-using WebRTCLibrary.Dialogs.ClientDialogs;
+using WebRTCClient.Dialogs.ClientDialogs;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
-namespace WebRTCLibrary
+namespace WebRTCClient
 {
     public class SIPClient
     {

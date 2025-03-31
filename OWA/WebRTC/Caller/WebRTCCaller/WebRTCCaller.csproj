@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\WebRTCLibrary\WebRTCLibrary.csproj" />
+    <ProjectReference Include="..\..\..\SIPClient\WebRTCClient.csproj" />
   </ItemGroup>
 
 </Project>
