@@ -39,16 +39,13 @@ namespace WebRTCLibrary.SIP.Utils
                 headerParams.DestinationParticipant.Endpoint,
                 statusCode,
                 message);
-            //new SIPURI(
-            //    this.SIPScheme,
-            //    headerParams.RemoteParticipant.Endpoint.Address,
-            //    headerParams.RemoteParticipant.Endpoint.Port));
 
-            //SIPURI FromUri = this.GetSIPURIFor(headerParams.SourceParticipant);
-            //SIPURI ToUri = this.GetSIPURIFor(headerParams.RemoteParticipant);
+            // add correct header. .GetResponse does not populate tag or name
+            SIPURI FromUri = GetSIPURIFor(headerParams.SourceParticipant, sipScheme);
+            SIPURI ToUri = GetSIPURIFor(headerParams.DestinationParticipant, sipScheme);
 
-            //request.Header.From = new SIPFromHeader(headerParams.SourceParticipant.Name, FromUri, headerParams.FromTag);
-            //request.Header.To = new SIPToHeader(headerParams.RemoteParticipant.Name, ToUri, headerParams.ToTag);
+            response.Header.From = new SIPFromHeader(headerParams.SourceParticipant.Name, FromUri, headerParams.FromTag);
+            response.Header.To = new SIPToHeader(headerParams.DestinationParticipant.Name, ToUri, headerParams.ToTag);
             response.Header.CSeq = headerParams.CSeq;
             response.Header.CallId = headerParams.CallID;
 

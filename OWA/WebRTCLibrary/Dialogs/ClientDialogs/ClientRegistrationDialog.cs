@@ -1,4 +1,5 @@
 ﻿using SIPSorcery.SIP;
+using System.Diagnostics;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
@@ -11,17 +12,17 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCLibrary.Dialogs.ClientDialogs
 {
-    internal class RegistrationDialog : SIPDialog, IAsyncDisposable
+    internal class ClientRegistrationDialog : SIPDialog, IAsyncDisposable
     {
         public bool Registered { get; private set; }
 
         private bool Registering { get; set; }
 
-        public event Action<RegistrationDialog, SIPDialogEventArgs> OnRegistered;
+        public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnRegistered;
 
-        public event Action<RegistrationDialog, SIPDialogEventArgs> OnUnRegistered;
+        public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnUnRegistered;
 
-        public RegistrationDialog(
+        public ClientRegistrationDialog(
             SIPParticipant sourceParticipant,
             SIPParticipant signalingServer,
             SIPConnection connection,
@@ -82,6 +83,8 @@ namespace WebRTCLibrary.Dialogs.ClientDialogs
                 //&& sipResponse.Header.To.ToTag == this.SourceTag // TODO: activate. Signaling server does currently not respond with the correct tag
                 )
             {
+                Debug.WriteLine($"Client received Accepted."); // DEBUG
+
                 RemoteTag = sipResponse.Header.From.FromTag;
 
                 await SendSIPMessage(SIPMethodsEnum.ACK, GetHeaderParams(cSeq: sipResponse.Header.CSeq + 1));
@@ -122,7 +125,7 @@ namespace WebRTCLibrary.Dialogs.ClientDialogs
                 return;
             }
 
-            string tag = CallProperties.CreateNewTag();
+            //string tag = CallProperties.CreateNewTag();
 
             // set response listener
             Connection.SIPResponseReceived += ListenForDisconnectAccept;
@@ -131,10 +134,12 @@ namespace WebRTCLibrary.Dialogs.ClientDialogs
             await SendSIPMessage(SIPMethodsEnum.BYE);
 
             // TODO: add failurecallback --> log failure to disconnect. Retry?
-            await WaitFor(() => !Registered, timeOut: ReceiveTimeout);
+            await WaitFor(
+                () => !Registered,
+                timeOut: ReceiveTimeout);
 
-            // TODO: will this always run after previous task is finished?
             // remove listener
+            // TODO: will this always run after previous task is finished?
             Connection.SIPResponseReceived -= ListenForDisconnectAccept; // remove listener
         }
 
@@ -184,7 +189,8 @@ namespace WebRTCLibrary.Dialogs.ClientDialogs
             //    return;
             //}
 
-            SocketError result = await Connection.SendSIPRequest(
+            Debug.WriteLine($"Client sending {method}."); // DEBUG
+            SocketError result = await this.Connection.SendSIPRequest(
                 method,
                 headerParams ?? this.GetHeaderParams(),
                 message,

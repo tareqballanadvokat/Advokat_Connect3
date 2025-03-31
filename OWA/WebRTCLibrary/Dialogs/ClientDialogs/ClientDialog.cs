@@ -14,7 +14,7 @@ namespace WebRTCLibrary.Dialogs.ClientDialogs
 
         //public bool ConnectionPending { get => this.Registered && !this.Connected; }
 
-        private RegistrationDialog RegistrationDialog { get; set; }
+        private ClientRegistrationDialog RegistrationDialog { get; set; }
 
         public IPEndPoint SignalingServer { get; private set; }
 
@@ -36,7 +36,7 @@ namespace WebRTCLibrary.Dialogs.ClientDialogs
         {
             // send registration addressed to SIPParticipant with username of remote and endpoint of signaling server. We don't know the remoteparticipants endpoint yet.
             SIPParticipant signalingServerAsRemote = new SIPParticipant(this.RemoteParticipant.Name, signalingServer);
-            RegistrationDialog = new RegistrationDialog(SourceParticipant, signalingServerAsRemote, Connection, CallId);
+            RegistrationDialog = new ClientRegistrationDialog(SourceParticipant, signalingServerAsRemote, Connection, CallId);
             RegistrationDialog.SendTimeout = SendTimeout;
             RegistrationDialog.ReceiveTimeout = ReceiveTimeout;
 
@@ -54,7 +54,7 @@ namespace WebRTCLibrary.Dialogs.ClientDialogs
             await RegistrationDialog.Stop();
         }
 
-        private void RegistationSuccessful(RegistrationDialog sender, SIPDialogEventArgs eventArgs)
+        private void RegistationSuccessful(ClientRegistrationDialog sender, SIPDialogEventArgs eventArgs)
         {
             SourceTag = eventArgs.SourceTag;
             RemoteTag = eventArgs.RemoteTag;
