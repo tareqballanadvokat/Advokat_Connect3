@@ -26,49 +26,22 @@ export async function run() {
   insertAt.appendChild(document.createElement("br"));
   insertAt.appendChild(document.createTextNode(item.subject));
   insertAt.appendChild(document.createElement("br"));
-  // console.log("Item type:", Office.context.mailbox.item.getAsFileAsync);
+
+
  
-//   function getAttachmentContentCompose() {
-//     const item = Office.context.mailbox.item;
-//     const options: Office.AsyncContextOptions = { asyncContext: { currentItem: item } };
-//     item.getAttachmentsAsync(options, callback);
-
-//     function callback(result) {
-//         if (result.status === Office.AsyncResultStatus.Failed) {
-//             console.log(result.error.message);
-//             return;
-//         }
-
-//         if (result.value.length <= 0) {
-//             console.log("Mail item has no attachments.");
-//             return;
-//         }
-
-//         const currentItem = result.asyncContext.currentItem;
-//         for (let i = 0; i < result.value.length; i++) {
-//             currentItem.getAttachmentContentAsync(result.value[i].id, (asyncResult) => {
-//                 if (asyncResult.status === Office.AsyncResultStatus.Failed) {
-//                     console.log(asyncResult.error.message);
-//                     return;
-//                 }
-
-//                 console.log(asyncResult.value.content);
-//             });
-//         }
-//     }
-// }
-const options = Office.AsyncContextOptions = { asyncContext: { currentItem: item,  } };
-Office.context.mailbox.item.getItemIdAsync(options, (result) => {
-  const emailContent = result.value;
-  debugger;
-console.log(emailContent);
-});
+  const options = Office.AsyncContextOptions = { asyncContext: { currentItem: item,  } };
+  //message compose ? 
+  //Dok: says mailread
+  // Office.context.mailbox.item.getItemIdAsync(options, (result) => {
+  //   const emailContent = result.value;
+  // console.log(emailContent);
+  // });
 
   Office.context.mailbox.item.getAsFileAsync(options, (result) => {
      const emailContent = result.value;
      debugger;
     // const fileName = `${Office.context.mailbox.item.subject}.eml`;
-    const fileName = "test.eml";
+    const fileName = "base64test.eml";
     const element = document.createElement("a");
     element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(emailContent));
     element.setAttribute("download", `/Users/{user}/Desktop/${fileName}`);
@@ -77,12 +50,4 @@ console.log(emailContent);
     element.click();
     document.body.removeChild(element);
   });
-
-
-
-
- 
- 
-
-
 }

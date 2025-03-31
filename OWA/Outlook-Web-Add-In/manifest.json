@@ -7,6 +7,8 @@
         "short": "Advokat-Add-In",
         "full": "Advokat Task Pane Add-in"
     },
+ 
+
     "description": {
         "short": "A template to get started.",
         "full": "This is the template to get started."
@@ -188,7 +190,7 @@
                                         {
                                             "id": "msgReadOpenPaneButton",
                                             "type": "button",
-                                            "label": "Show Advocat Pane",
+                                            "label": "Show Advocat Pane mailread",
                                             "icons": [
                                                 {
                                                     "size": 16,
@@ -204,7 +206,7 @@
                                                 }
                                             ],
                                             "supertip": {
-                                                "title": "Show Advocat Pane",
+                                                "title": "Show Advocat Pane mailread",
                                                 "description": "Opens a pane displaying all available properties."
                                             },
                                             "actionId": "TaskPaneRuntimeShow"
@@ -233,6 +235,34 @@
                                             },
                                             "actionId": "action"
                                         }
+
+                                        ,
+
+                                        {
+                                            "id": "msgReadOpenServicePaneButton2",
+                                            "type": "button",
+                                            "label": "Show Service Pane",
+                                            "icons": [
+                                                {
+                                                    "size": 16,
+                                                    "url": "https://localhost:3000/assets/icon-16.png"
+                                                },
+                                                {
+                                                    "size": 32,
+                                                    "url": "https://localhost:3000/assets/icon-32.png"
+                                                },
+                                                {
+                                                    "size": 80,
+                                                    "url": "https://localhost:3000/assets/icon-80.png"
+                                                }
+                                            ],
+                                            "supertip": {
+                                                "title": "Show Service Pane",
+                                                "description": "Opens a pane displaying all available properties."
+                                            },
+                                            "actionId": "ServicePaneRuntimeShow"
+                                        }
+
                                     ]
                                 }
                             ]
@@ -265,6 +295,30 @@
                                         }
                                     ],
                                     "controls": [
+                                        {
+                                            "id": "msgReadOpenPaneButton",
+                                            "type": "button",
+                                            "label": "Show Advocat Pane mailcompose",
+                                            "icons": [
+                                                {
+                                                    "size": 16,
+                                                    "url": "https://localhost:3000/assets/icon-16.png"
+                                                },
+                                                {
+                                                    "size": 32,
+                                                    "url": "https://localhost:3000/assets/icon-32.png"
+                                                },
+                                                {
+                                                    "size": 80,
+                                                    "url": "https://localhost:3000/assets/icon-80.png"
+                                                }
+                                            ],
+                                            "supertip": {
+                                                "title": "Show Advocat Pane mailcompose",
+                                                "description": "Opens a pane displaying all available properties."
+                                            },
+                                            "actionId": "TaskPaneRuntimeShow"
+                                        },
                                         {
                                             "id": "PrependButton",
                                             "type": "button",
@@ -315,7 +369,7 @@
                                         }, 
                                         
                                         {
-                                            "id": "msgReadOpenPaneButton",
+                                            "id": "msgReadOpenPaneButton2",
                                             "type": "button",
                                             "label": "Show Task Pane",
                                             "icons": [
@@ -341,7 +395,7 @@
                                         {
                                             "id": "ActionButton",
                                             "type": "button",
-                                            "label": "Perform an action",
+                                            "label": "Original Perform an action",
                                             "icons": [
                                                 {
                                                     "size": 16,
@@ -388,30 +442,6 @@
                                                 "description": "Opens a pane displaying all available properties."
                                             },
                                             "actionId": "ServicePaneRuntimeShow"
-                                        },
-                                        {
-                                            "id": "ServiceButton",
-                                            "type": "button",
-                                            "label": "Service an action",
-                                            "icons": [
-                                                {
-                                                    "size": 16,
-                                                    "url": "https://localhost:3000/assets/icon-16.png"
-                                                },
-                                                {
-                                                    "size": 32,
-                                                    "url": "https://localhost:3000/assets/icon-32.png"
-                                                },
-                                                {
-                                                    "size": 80,
-                                                    "url": "https://localhost:3000/assets/icon-80.png"
-                                                }
-                                            ],
-                                            "supertip": {
-                                                "title": "Service",
-                                                "description": "Service."
-                                            },
-                                            "actionId": "action"
                                         }
                                     ]
                                 }
@@ -419,7 +449,18 @@
                         }
                     ]
                 }
-            ]
+            ],
+            "autoRunEvents": [
+                {
+                    "events": [
+                        {
+                            "options": { "sendMode": "promptUser" },
+                            "actionId": "asdddd",
+                            "type": "ItemSend"
+                        }
+                    ]
+                } 
+              ]
         }
     ]
 }
