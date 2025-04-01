@@ -47,91 +47,118 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private async Task Register()
         {
-            if (Registered || Registering)
+            if (this.Registered)
             {
-                // TODO: log. already registered or registering
+                // TODO: log. already registered
                 return;
             }
 
-            Registering = true;
+            if (this.Registering)
+            {
+                // TODO: log. already registering. Wait for the previous registering to finish. Retry automatically?
+                return;
+            }
+
+            this.Registering = true;
             this.SourceTag = CallProperties.CreateNewTag();
 
             // set response delegate
-            Connection.SIPResponseReceived += this.ListenForRegistrationAccept;
+            this.Connection.SIPResponseReceived += this.ListenForRegistrationAccept;
 
             // send request
-            await SendSIPMessage(SIPMethodsEnum.REGISTER);
+            // TODO: do something with the socekterror
+            await this.SendSIPMessage(SIPMethodsEnum.REGISTER);
 
             await WaitFor(
-                () => Registered && !Registering,
-                failureCallback: RegistrationFailed,
-                timeOut: ReceiveTimeout);
+                () => this.Registered && !this.Registering,
+                failureCallback: this.RegistrationFailed,
+                timeOut: this.ReceiveTimeout);
 
             // TODO: make sure this happens after timeout / failure or success
             // remove listener
-            Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
+            this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
 
         }
 
         private async Task ListenForRegistrationAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
-            if (sipResponse.Status == SIPResponseStatusCodesEnum.Accepted
-                && RemoteParticipant != null
-                // TODO: implement this comparison better - is it even needed?
-                //&& remoteEndPoint.GetIPEndPoint().ToString() == this.RemoteParticipant.Endpoint.GetIPEndPoint().ToString()
-
-                //&& sipResponse.Header.To.ToTag == this.SourceTag // TODO: activate. Signaling server does currently not respond with the correct tag
-                )
+            // .IsPartOfDialog does not work yet. RemoteTag not yet set.
+            if (this.SourceTag != sipResponse.Header.To.ToTag
+                || this.CallId != sipResponse.Header.CallId) // TODO: Does not work on old signaling server
             {
-                Debug.WriteLine($"Client received Accepted."); // DEBUG
-
-                RemoteTag = sipResponse.Header.From.FromTag;
-
-                await SendSIPMessage(SIPMethodsEnum.ACK, GetHeaderParams(cSeq: sipResponse.Header.CSeq + 1));
-
-                // success
-                Registered = true;
-                Registering = false;
-
-                // SourceTag should always be set here. 
-                OnRegistered?.Invoke(this, new SIPDialogEventArgs(this.SourceTag, this.RemoteTag));
+                // sip message is not part of the dialog - ignore
                 return;
             }
 
-            // Signaling server sends not found if the other peer is not present
-            // TODO: remove afte it has been fixed.
+            // Old Signaling server sends not found if the other peer is not present
+            // TODO: remove when the servers get switched.
             if (sipResponse.Status == SIPResponseStatusCodesEnum.NotFound)
             {
                 return;
             }
 
-            //TODO: Only fail if response is for this dialog (tag matches)
+            if (sipResponse.Status != SIPResponseStatusCodesEnum.Accepted)
+            {
+                // bad request, wrong status
+                RegistrationFailed();
+                return;
+            }
 
-            // failure
-            RegistrationFailed();
+            if (RemoteParticipant == null // Why?
+                || sipResponse.Header.CSeq != 2)
+            {
+                // bad request - header is invalid
+                RegistrationFailed();
+                return;
+            }
+
+            await this.RegistrationAccepted(sipResponse);
         }
 
-        public async Task Unregister()
+        private async Task RegistrationAccepted(SIPResponse sipResponse)
         {
-            if (!Registered)
+            Debug.WriteLine($"Client received Accepted."); // DEBUG
+
+            this.RemoteTag = sipResponse.Header.From.FromTag;
+
+            // TODO: Do something with the socketerror
+            await this.SendSIPMessage(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: sipResponse.Header.CSeq + 1));
+
+            // success
+            this.Registered = true;
+            this.Registering = false;
+
+            // SourceTag is not null here. Got set on initial request.
+            // TODO: what happens if we unregister just before this gets invoked?
+            this.OnRegistered?.Invoke(this, new SIPDialogEventArgs(this.SourceTag!, this.RemoteTag));
+        }
+
+        private async Task Unregister()
+        {
+            if (!this.Registered)
             {
                 // TODO: log. Not registered
                 return;
             }
 
-            if (Registering)
+            if (this.Registering)
             {
                 // TODO: cancel registering and check if we have to continue
+                //       Unregister after is has finished?
+
+                //await WaitFor(
+                //    () => this.Registering == false && this.Registered == true,
+                //    timeOut: this.ReceiveTimeout,
+                //    successCallback: this.Unregister());
                 return;
             }
 
-            //string tag = CallProperties.CreateNewTag();
-
             // set response listener
-            Connection.SIPResponseReceived += ListenForDisconnectAccept;
+            this.Connection.SIPResponseReceived += ListenForDisconnectAccept;
 
             // send disconnect message
-            await SendSIPMessage(SIPMethodsEnum.BYE);
+            // TODO: do something with the socket error
+            await this.SendSIPMessage(SIPMethodsEnum.BYE);
 
             // TODO: add failurecallback --> log failure to disconnect. Retry?
             await WaitFor(
@@ -143,26 +170,31 @@ namespace WebRTCClient.Dialogs.ClientDialogs
             Connection.SIPResponseReceived -= ListenForDisconnectAccept; // remove listener
         }
 
-        private async Task ListenForDisconnectAccept(
-            SIPEndPoint localEndPoint,
-            SIPEndPoint remoteEndPoint,
-            SIPResponse sipResponse)
+        private async Task ListenForDisconnectAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
-            if (sipResponse.Status == SIPResponseStatusCodesEnum.Accepted
-                && RemoteParticipant != null
-                // TODO: implement this comparison better - is it even needed?
-                //&& remoteEndPoint.GetIPEndPoint().ToString() == this.RemoteParticipant.Endpoint.GetIPEndPoint().ToString()
-
-                //&& sipResponse.Header.To.ToTag == requestFromTag // TODO: activate. Signaling server does currently not respond with the correct tag
-                )
+            if (!this.IsPartOfDialog(sipResponse))
             {
-                // TODO should this be Acknowledged aswell? What if the accept doesn't reach the peer. We still think we are registered.
-
-                ResetRegistration();
+                // sip message is not part of the dialog - ignore
                 return;
             }
 
-            // failed
+            if (sipResponse.Status != SIPResponseStatusCodesEnum.Accepted)
+            {
+                // bad request - wrong status code
+                
+                // TODO: What to do on Unregister failed?
+                return;
+            }
+
+            if (RemoteParticipant == null
+                || sipResponse.Header.CSeq != 2)
+            {
+                // bad request - header is invalid
+                // TODO: Unregister failed? - Server sent an invalid accepted
+                return;
+            }
+    
+            ResetRegistration();
         }
 
         private void RegistrationFailed()

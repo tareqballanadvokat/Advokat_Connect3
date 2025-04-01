@@ -1,5 +1,4 @@
-﻿using SIPSorcery.SIP;
-using System.Net;
+﻿using System.Net;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.Utils;
@@ -20,23 +19,20 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         public ClientDialog(
             SIPParticipant sourceParticipant,
-            string remoteUser,
-            SIPEndPoint signalingServer,
+            SIPParticipant remoteParticipant,
             SIPConnection connection,
             string? callId = null,
             string? sourceTag = null,
             string? remoteTag = null)
             : base(
                 sourceParticipant,
-                new(remoteUser, SIPEndPoint.Empty), // we do not know the enpoint ip yet. Not even the public one.
+                remoteParticipant,
                 connection,
                 callId,
                 sourceTag,
                 remoteTag)
         {
-            // send registration addressed to SIPParticipant with username of remote and endpoint of signaling server. We don't know the remoteparticipants endpoint yet.
-            SIPParticipant signalingServerAsRemote = new SIPParticipant(this.RemoteParticipant.Name, signalingServer);
-            RegistrationDialog = new ClientRegistrationDialog(SourceParticipant, signalingServerAsRemote, Connection, CallId);
+            RegistrationDialog = new ClientRegistrationDialog(this.SourceParticipant, this.RemoteParticipant, Connection, CallId);
             RegistrationDialog.SendTimeout = SendTimeout;
             RegistrationDialog.ReceiveTimeout = ReceiveTimeout;
 

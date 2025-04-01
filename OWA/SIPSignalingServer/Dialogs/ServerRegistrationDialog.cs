@@ -4,66 +4,54 @@ using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 using System.Diagnostics;
+using WebRTCLibrary.Utils;
+
+using static WebRTCLibrary.Utils.TaskHelpers;
+using SIPSignalingServer.Utils;
 
 namespace SIPSignalingServer.Dialogs
 {
     internal class ServerRegistrationDialog : SIPDialog
     {
-        private SIPRegisty Registy { get; set; }
+        private SIPRegistry Registry { get; set; }
 
-        private SIPParticipant SignalingServerParticipant { get => this.SourceParticipant; }
+        private new SIPParticipant RemoteParticipant { get => this.SourceParticipant; }
 
         private SIPParticipant ClientParticipant { get => this.RemoteParticipant; }
 
         private SIPRequest InitialRequest { get; set; }
 
+        public event Action<ServerRegistrationDialog, RegistrationEventArgs>? OnRegistered;
+
+        public event Action<ServerRegistrationDialog, FailedRegistrationEventArgs>? OnRegistrationFailed;
+
+
+        //public event Action<ServerRegistrationDialog, SIPDialogEventArgs>? OnUnRegistered;
+
         public ServerRegistrationDialog(
             SIPRequest initialRequest,
-            SIPParticipant signalingServerParticipant,
+            SIPParticipant remoteParticipant,
             SIPParticipant clientParticipant,
             SIPConnection connection,
-            SIPRegisty registy,
+            SIPRegistry registry,
             string callId,
-            string remoteTag)
+            string remoteTag,
+            string sourceTag)
             : base(
-                  signalingServerParticipant,
+                  remoteParticipant,
                   clientParticipant,
                   connection,
                   callId,
-                  null,
+                  sourceTag,
                   remoteTag)
         {
             this.InitialRequest = initialRequest;
-            this.Registy = registy;
+            this.Registry = registry;
         }
 
         public async override Task Start()
         {
-            if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
-            {
-                // registration failed. Was not a registration request
-                return;
-            }
-
-            SIPRegistration registration = new SIPRegistration(this.ClientParticipant, this.SignalingServerParticipant.Name);
-
-            if (this.Registy.IsRegistered(registration))
-            {
-                // already registered
-                return;
-            }
-
-            // register
-            this.Registy.Register(registration); // TODO: register on first request or on ACK?
-
-            this.Connection.SIPRequestReceived += this.ACKListener;
-
-            // send Accepted response
-            this.SourceTag = CallProperties.CreateNewTag();
-            SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
-            Debug.WriteLine($"Server sending Accepted."); // DEBUG
-
-            await this.Connection.SendSIPResponse(accpetedResponse);
+            await this.StartRegistartion();
         }
 
         public override Task Stop()
@@ -72,9 +60,51 @@ namespace SIPSignalingServer.Dialogs
             throw new NotImplementedException();
         }
 
+        private async Task StartRegistartion()
+        {
+            if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
+            {
+                //this.RegistrationFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Registration failed. Was not a registration request.");
+                // TODO: Not a registration request. Registration failed event or ignore?
+                return;
+            }
+
+            if (this.InitialRequest.Header.CSeq != 1)
+            {
+                this.RegistrationFailed(SIPResponseStatusCodesEnum.BadRequest, "Registration failed. Header was invalid.");
+                return;
+            }
+
+            SIPRegistration registration = new SIPRegistration(this.ClientParticipant, this.SourceParticipant.Name);
+
+            if (this.Registry.IsRegistered(registration))
+            {
+                // already registered
+                return;
+            }
+
+            // register
+            this.Registry.Register(registration);
+
+            this.Connection.SIPRequestReceived += this.ACKListener;
+
+            // send Accepted response
+            SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
+            Debug.WriteLine($"Server sending Accepted."); // DEBUG
+            await this.Connection.SendSIPResponse(accpetedResponse);
+
+            await WaitFor(
+                () => this.Registry.IsConfirmed(registration),
+                timeOut: this.ReceiveTimeout,
+                failureCallback: () => this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out.", registration));
+
+            // remove listener
+            this.Connection.SIPRequestReceived -= this.ACKListener;
+        }
+
         private SIPResponse GetRegisteredAcceptedResponse()
         {
-            SIPHeaderParams headerParams = this.GetHeaderParams(2);
+            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: 2);
 
             // TODO: get scheme from request and respond in this scheme - or set scheme globally
             SIPSchemesEnum sipScheme = SIPSchemesEnum.sip;
@@ -85,30 +115,42 @@ namespace SIPSignalingServer.Dialogs
         {
             if (!this.IsPartOfDialog(request))
             {
-                // not part of dialog
+                // not part of dialog - ignore
                 return;
             }
 
-            if (!this.IsValidACKRequest(request))
+            if (request.Method != SIPMethodsEnum.ACK)
             {
-                // invalid ack request
-                // TODO: do something?
+                this.RegistrationFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Not a ACK request.");
+                return;
+            }
+
+            if (request.Header.CSeq != 3)
+            {
+                this.RegistrationFailed(SIPResponseStatusCodesEnum.BadRequest, "Confirmation failed. Header was invalid.");
                 return;
             }
 
             Debug.WriteLine($"Server received ACK"); // DEBUG
-                                                         
-            // remove listener
-            // TODO: also remove on invalid request?
-            this.Connection.SIPRequestReceived -= this.ACKListener;
+            SIPRegistration registration = new SIPRegistration(this.ClientParticipant, this.SourceParticipant.Name);
+            this.Registry.Confirm(registration);
 
-            // TODO: do something?
+            this.OnRegistered?.Invoke(this, new RegistrationEventArgs(registration));
         }
 
-        private bool IsValidACKRequest(SIPRequest request)
+        private void RegistrationFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null, SIPRegistration? registration = null)
         {
-            return request.Method == SIPMethodsEnum.ACK
-                && request.Header.CSeq == 3;
+            if (registration != null)
+            {
+                this.Registry.Unregister(registration);
+            }
+
+            FailedRegistrationEventArgs eventArgs = new FailedRegistrationEventArgs();
+            eventArgs.StatusCode = statusCode;
+            eventArgs.Message = message;
+            eventArgs.Registration = registration;
+
+            this.OnRegistrationFailed?.Invoke(this, eventArgs);
         }
     }
 }

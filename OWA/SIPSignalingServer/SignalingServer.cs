@@ -11,7 +11,7 @@ namespace SIPSignalingServer
         private IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:8081");
 
 
-        private SIPRegisty Registry = new SIPRegisty();
+        private SIPRegistry Registry = new SIPRegistry();
 
         private SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip;
 
@@ -45,8 +45,11 @@ namespace SIPSignalingServer
         /// <version date="20.03.2025" sb="MAC"></version>
         private async Task RegistraionRequestListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
         {
-            GeneralDialog generalDialog = new GeneralDialog(sipRequest, localEndPoint, this.Connection, this.Registry);
-            await generalDialog.Start();
+            //if (sipRequest.Method == SIPMethodsEnum.REGISTER) // TODO: check here?
+            //{
+                GeneralDialog generalDialog = new GeneralDialog(sipRequest, localEndPoint, this.Connection, this.Registry);
+                await generalDialog.Start();
+            //}
         }
     }
 }

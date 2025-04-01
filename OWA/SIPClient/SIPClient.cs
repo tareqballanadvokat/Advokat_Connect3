@@ -9,24 +9,20 @@ namespace WebRTCClient
     {
         public SIPParticipant SourceParticipant { get; private set; }
 
-        public SIPEndPoint SignalingServer { get; private set; }
-
-        public string RemoteUser { get; private set; }
+        public SIPParticipant RemoteParticipant { get; private set; }
 
         private ClientDialog Dialog { get; set; } 
 
         public SIPClient(
             SIPParticipant sourceParticipant,
-            SIPEndPoint SignalingServer,
-            string RemoteUser,
+            SIPParticipant remoteParticipant,
             SIPSchemesEnum sipScheme)
         {
             this.SourceParticipant = sourceParticipant;
-            this.SignalingServer = SignalingServer;
-            this.RemoteUser = RemoteUser;
+            this.RemoteParticipant = remoteParticipant;
 
             SIPConnection connection = this.GetConnection(sipScheme);
-            this.Dialog = new ClientDialog(this.SourceParticipant, RemoteUser, this.SignalingServer, connection);            
+            this.Dialog = new ClientDialog(this.SourceParticipant, this.RemoteParticipant, connection);            
         }
 
         public async Task StartDialog()
@@ -38,7 +34,6 @@ namespace WebRTCClient
         {
             await this.Dialog.Stop();
         }
-
 
         private SIPConnection GetConnection(SIPSchemesEnum sipScheme)
         {

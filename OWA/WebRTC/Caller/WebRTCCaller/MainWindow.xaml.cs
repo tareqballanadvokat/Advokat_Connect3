@@ -76,7 +76,10 @@ namespace WebRTCCaller
 
             SIPParticipant caller = new SIPParticipant(this.RegistrationName.Text, new SIPEndPoint(new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.Text), int.Parse(DnsIPAndPort.Text))));
             
-            this.UserAgent = new SIPClient(caller, new SIPEndPoint(IPEndPoint.Parse(this.SipSignalingServer.Text)), this.DestinationName.Text, SIPSchemesEnum.sip);
+            // remote name + signaling server IPEndpoint
+            SIPParticipant remote = new SIPParticipant(this.DestinationName.Text, new SIPEndPoint(IPEndPoint.Parse(this.SipSignalingServer.Text)));
+
+            this.UserAgent = new SIPClient(caller, remote, SIPSchemesEnum.sip);
             await this.UserAgent.StartDialog();
         }
 

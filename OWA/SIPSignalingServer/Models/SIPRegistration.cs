@@ -9,20 +9,32 @@ namespace SIPSignalingServer.Models
 
         public string RemoteUser { get; private set; }
 
+        public bool Confirmed { get; set; }
+
         public SIPRegistration(SIPParticipant sourceParticipant, string remoteUser)
         {
             this.SourceParticipant = sourceParticipant;
             this.RemoteUser = remoteUser;
         }
 
-
-        public static bool operator ==(SIPRegistration left, SIPRegistration right)
+        public override bool Equals(object? obj)
         {
-            return left.RemoteUser == right.RemoteUser
-                && left.SourceParticipant.Name == right.SourceParticipant.Name
-                && left.SourceParticipant.Endpoint == right.SourceParticipant.Endpoint;
+            var other = obj as SIPRegistration;
+
+            if (other == null) return false;
+
+            return this.RemoteUser == other.RemoteUser
+                && this.SourceParticipant.Name == other.SourceParticipant.Name
+                && this.SourceParticipant.Endpoint == other.SourceParticipant.Endpoint;
         }
-        public static bool operator !=(SIPRegistration left, SIPRegistration right)
+
+        public static bool operator ==(SIPRegistration? left, SIPRegistration? right)
+        {
+            return (left is null && right is null) // TODO: both null, are equal?
+                || (left is not null && left.Equals(right));
+                
+        }
+        public static bool operator !=(SIPRegistration? left, SIPRegistration? right)
         {
             return !(left == right);
         }

@@ -41,13 +41,13 @@ namespace WebRTCLibrary.SIP
             return await this.WaitForSendConfirmation(requestTask, timeOut);
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
-        {
-            // TODO: Make ct Mandatory
+        //public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
+        //{
+        //    // TODO: Make ct Mandatory
 
-            SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams, message);
-            return await this.SendSIPResponse(response, ct, timeOut);
-        }
+        //    SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams, message);
+        //    return await this.SendSIPResponse(response, ct, timeOut);
+        //}
 
         public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken? ct = null, int? timeOut = null)
         {
@@ -76,24 +76,24 @@ namespace WebRTCLibrary.SIP
         //    };
         //}
 
-        /// <summary>Returns an eventlistener for incoming requests that gets passed previous assigned tags.
-        ///          This is useful to compare the tags of the request and the previous request in the callback function.
-        ///          We can make sure the request is part of a specific dialog like this.</summary>
-        /// <param name="callback">callback function that actually handles the request. Tag parameters get passed in the order fromTag, toTag</param>
-        /// <param name="requestFromTag">The from tag of the original request.</param>
-        /// <param name="requestToTag">The to tag of the original request.</param>
-        /// <returns></returns>
-        /// <version date="19.03.2025" sb="MAC"></version>
-        public static SIPTransportRequestAsyncDelegate GetRequestListener(
-            Func<SIPEndPoint, SIPEndPoint, SIPRequest, string?, string?, Task> callback,
-            string? fromTag = null,
-            string? toTag = null)
-        {
-            return (SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest) =>
-            {
-                return callback.Invoke(localEndPoint, remoteEndPoint, sipRequest, fromTag, toTag);
-            };
-        }
+        ///// <summary>Returns an eventlistener for incoming requests that gets passed previous assigned tags.
+        /////          This is useful to compare the tags of the request and the previous request in the callback function.
+        /////          We can make sure the request is part of a specific dialog like this.</summary>
+        ///// <param name="callback">callback function that actually handles the request. Tag parameters get passed in the order fromTag, toTag</param>
+        ///// <param name="requestFromTag">The from tag of the original request.</param>
+        ///// <param name="requestToTag">The to tag of the original request.</param>
+        ///// <returns></returns>
+        ///// <version date="19.03.2025" sb="MAC"></version>
+        //public static SIPTransportRequestAsyncDelegate GetRequestListener(
+        //    Func<SIPEndPoint, SIPEndPoint, SIPRequest, string?, string?, Task> callback,
+        //    string? fromTag = null,
+        //    string? toTag = null)
+        //{
+        //    return (SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest) =>
+        //    {
+        //        return callback.Invoke(localEndPoint, remoteEndPoint, sipRequest, fromTag, toTag);
+        //    };
+        //}
 
         private async Task OnResponseRecieved(SIPEndPoint localSIPEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
