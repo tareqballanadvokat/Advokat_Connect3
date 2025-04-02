@@ -1,7 +1,9 @@
 ﻿using SIPSignalingServer.Dialogs;
+using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using System.Net;
 using WebRTCLibrary.SIP;
+using WebRTCLibrary.SIP.Models;
 
 namespace SIPSignalingServer
 {
@@ -13,20 +15,23 @@ namespace SIPSignalingServer
 
         private SIPRegistry Registry = new SIPRegistry();
 
-        private SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip;
+        //private SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip;
 
-        private SIPConnection Connection;
+        private SIPTransport Transport;
 
         public SignalingServer()
         {
-            this.Connection = this.GetConnection(this.ServerEndpoint);
+            // DEBUG - remote already registered
+            this.Registry.Register(new SIPRegistration(new SIPParticipant("macs", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8091))), "macc"));
+
+            this.Transport = this.GetConnection(this.ServerEndpoint);
             Console.WriteLine($"listening on {ServerEndpoint}");
-            this.Connection.SIPRequestReceived += this.RegistraionRequestListener;
+            this.Transport.SIPTransportRequestReceived += this.RegistraionRequestListener;
             //this.Connection.SIPResponseReceived += this.RequestListener;
 
         }
 
-        private SIPConnection GetConnection(IPEndPoint sourceEndpoint)
+        private SIPTransport GetConnection(IPEndPoint sourceEndpoint)
         {
             SIPTransport transport = new SIPTransport();
 
@@ -38,7 +43,7 @@ namespace SIPSignalingServer
             // TODO: add factory for channels
             transport.AddSIPChannel(channel);
 
-            return new SIPConnection(SIPScheme, transport);
+            return transport;
         }
 
         /// <summary>General listener for all requests from clients.</summary>
@@ -47,7 +52,7 @@ namespace SIPSignalingServer
         {
             //if (sipRequest.Method == SIPMethodsEnum.REGISTER) // TODO: check here?
             //{
-                GeneralDialog generalDialog = new GeneralDialog(sipRequest, localEndPoint, this.Connection, this.Registry);
+                GeneralDialog generalDialog = new GeneralDialog(sipRequest, localEndPoint, this.Transport, this.Registry);
                 await generalDialog.Start();
             //}
         }

@@ -111,12 +111,6 @@ namespace SIPSignalingServer.Dialogs
 
         private async Task ACKListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
         {
-            if (!this.IsPartOfDialog(request))
-            {
-                // not part of dialog - ignore
-                return;
-            }
-
             if (request.Method != SIPMethodsEnum.ACK)
             {
                 this.RegistrationFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Not a ACK request.");

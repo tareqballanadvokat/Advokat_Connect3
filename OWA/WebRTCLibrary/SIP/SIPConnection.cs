@@ -5,9 +5,13 @@ using WebRTCLibrary.SIP.Utils;
 
 namespace WebRTCLibrary.SIP
 {
-    public class SIPConnection : IDisposable
+    public class SIPConnection // : IDisposable
     {
-        public int MessageTimeout = 2000;
+        public static readonly int defaultMessageTimeout = 2000;
+
+        public int MessageTimeout { get; set; } = defaultMessageTimeout;
+
+        public Func<SIPMessageBase, bool>? MessagePredicate { get; set; }
 
         public SIPSchemesEnum SIPScheme { get; private set; }
 
@@ -17,11 +21,11 @@ namespace WebRTCLibrary.SIP
 
         public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 
-        // TODO: Maybe pass callId and tags / create another wrapping classs - only fire events when response/request is part of the dialog
-        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport)
+        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, Func<SIPMessageBase, bool>? messagePredicate = null)
         {
-            SIPScheme = scheme;
-            Transport = transport;
+            this.MessagePredicate = messagePredicate;
+            this.SIPScheme = scheme;
+            this.Transport = transport;
             this.Transport.SIPTransportResponseReceived += this.OnResponseRecieved;
             this.Transport.SIPTransportRequestReceived += this.OnRequestRecieved;
         }
@@ -98,14 +102,20 @@ namespace WebRTCLibrary.SIP
 
         private async Task OnResponseRecieved(SIPEndPoint localSIPEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
-            // we can filter for current connection, but it should only recieve current connections anyway.
-            this.SIPResponseReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipResponse);
+            if (this.MessagePredicate?.Invoke(sipResponse) ?? true)
+            {
+                // we can filter for current connection, but it should only recieve current connections anyway.
+                this.SIPResponseReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipResponse);
+            }
         }
 
         private async Task OnRequestRecieved(SIPEndPoint localSIPEndPoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
         {
-            // we can filter for current connection, but it should only recieve current connections anyway.
-            this.SIPRequestReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipRequest);
+            if (this.MessagePredicate?.Invoke(sipRequest) ?? true)
+            {
+                // we can filter for current connection, but it should only recieve current connections anyway.
+                this.SIPRequestReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipRequest);
+            }
         }
 
         private async Task<SocketError> WaitForSendConfirmation(Task<SocketError> request, int? timeOut = null)
@@ -125,72 +135,10 @@ namespace WebRTCLibrary.SIP
             }
         }
 
- 
-        //private SIPRequest GetRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string? message = null)
+        //public void Dispose()
         //{
-        //    // branch?
-        //    SIPRequest request = SIPRequest.GetRequest(
-        //        method,
-        //        new SIPURI(
-        //            this.SIPScheme,
-        //            headerParams.DestinationParticipant.Endpoint.Address,
-        //            headerParams.DestinationParticipant.Endpoint.Port));
-
-        //    SIPURI FromUri = this.GetSIPURIFor(headerParams.SourceParticipant);
-        //    SIPURI ToUri = this.GetSIPURIFor(headerParams.DestinationParticipant);
-
-        //    request.Header.From = new SIPFromHeader(headerParams.SourceParticipant.Name, FromUri, headerParams.FromTag);
-        //    request.Header.To = new SIPToHeader(headerParams.DestinationParticipant.Name, ToUri, headerParams.ToTag);
-        //    request.Header.CSeq = headerParams.CSeq;
-        //    request.Header.CallId = headerParams.CallID;
-        //    //request.Header.MaxForwards = 70; // 70 is an arbitrary number
-
-        //    // TODO: add message
-        //    //request.Body = "";
-        //    //request.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(SIPScheme, this.SourceParticipant.Endpoint)) };
-
-        //    return request;
+        //    // TODO: should we even do this here?
+        //    this.Transport.Dispose();
         //}
-
-        //private SIPResponse GetResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string? message = null)
-        //{
-        //    // branch?
-        //    SIPResponse response = SIPResponse.GetResponse(
-        //        headerParams.SourceParticipant.Endpoint,
-        //        headerParams.DestinationParticipant.Endpoint,
-        //        statusCode,
-        //        message);
-        //    //new SIPURI(
-        //    //    this.SIPScheme,
-        //    //    headerParams.RemoteParticipant.Endpoint.Address,
-        //    //    headerParams.RemoteParticipant.Endpoint.Port));
-
-        //    //SIPURI FromUri = this.GetSIPURIFor(headerParams.SourceParticipant);
-        //    //SIPURI ToUri = this.GetSIPURIFor(headerParams.RemoteParticipant);
-
-        //    //request.Header.From = new SIPFromHeader(headerParams.SourceParticipant.Name, FromUri, headerParams.FromTag);
-        //    //request.Header.To = new SIPToHeader(headerParams.RemoteParticipant.Name, ToUri, headerParams.ToTag);
-        //    response.Header.CSeq = headerParams.CSeq;
-        //    response.Header.CallId = headerParams.CallID;
-
-        //    return response;
-        //}
-
-
-        //private SIPURI GetSIPURIFor(SIPParticipant participant, string? paramsAndHeaders = null)
-        //{
-        //    return new SIPURI(
-        //        participant.Name,
-        //        participant.Endpoint.GetIPEndPoint().ToString(),
-        //        paramsAndHeaders,
-        //        this.SIPScheme, // can the scheme differ for each participant?
-        //        participant.Endpoint.Protocol);
-        //}
-
-        public void Dispose()
-        {
-            // TODO: should we even do this here?
-            this.Transport.Dispose();
-        }
     }
 }

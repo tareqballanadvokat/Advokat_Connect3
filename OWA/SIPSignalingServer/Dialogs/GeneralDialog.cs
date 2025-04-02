@@ -34,16 +34,21 @@ namespace SIPSignalingServer.Dialogs
         public GeneralDialog(
             SIPRequest request,
             SIPEndPoint signalingServer,
-            SIPConnection connection,
+            SIPTransport transport,
             SIPRegistry registry) 
             :base(
                  sourceParticipant: GetRemoteParticipant(request, signalingServer),
                  remoteParticipant: GetCallerParticipant(request),
-                 connection,
+
+                 // TODO: get sipscheme passed or from request
+                 connection: new SIPConnection(SIPSchemesEnum.sip, transport),
                  request.Header.CallId,
                  sourceTag: CallProperties.CreateNewTag(),
                  remoteTag: request.Header.From.FromTag)
         {
+            this.Connection.MessagePredicate = this.IsPartOfDialog;
+            this.Connection.MessageTimeout = this.SendTimeout;
+
             this.InitialRequest = request;
             this.Registry = registry;
 

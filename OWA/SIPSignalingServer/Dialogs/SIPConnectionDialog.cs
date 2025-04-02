@@ -125,12 +125,6 @@ namespace SIPSignalingServer.Dialogs
 
         private async Task ListenForAck(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
         {
-            if (!this.IsPartOfDialog(request))
-            {
-                // not part of the dialog - ignore
-                return;
-            }
-
             if (request.Method != SIPMethodsEnum.ACK) // This could be a problem if the client is still sending pings
             {
                 this.ConnectionFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Request was not an ACK request.");
