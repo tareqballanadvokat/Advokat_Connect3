@@ -13,10 +13,11 @@ namespace WebRTCLibrary.SIP
 
         public SIPTransport Transport { get; private set; }
 
-        public event SIPTransportResponseAsyncDelegate SIPResponseReceived;
+        public event SIPTransportResponseAsyncDelegate? SIPResponseReceived;
 
-        public event SIPTransportRequestAsyncDelegate SIPRequestReceived;
+        public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 
+        // TODO: Maybe pass callId and tags / create another wrapping classs - only fire events when response/request is part of the dialog
         public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport)
         {
             SIPScheme = scheme;
@@ -188,6 +189,7 @@ namespace WebRTCLibrary.SIP
 
         public void Dispose()
         {
+            // TODO: should we even do this here?
             this.Transport.Dispose();
         }
     }

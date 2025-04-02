@@ -8,12 +8,13 @@ namespace WebRTCLibrary.SIP
         //private static readonly int DefaultTimeOut = 2000;
         private static readonly int DefaultTimeOut = 20000; // DEBUG
 
+        private static readonly SIPSchemesEnum defaultSipScheme = SIPSchemesEnum.sip;
 
         public int SendTimeout { get; set; } = DefaultTimeOut;
 
         public int ReceiveTimeout { get; set; } = DefaultTimeOut;
 
-        //public SIPSchemesEnum SIPScheme { get; private set; }
+        public SIPSchemesEnum SIPScheme { get; protected set; } = defaultSipScheme;
 
         public SIPParticipant SourceParticipant { get; private set; }
 

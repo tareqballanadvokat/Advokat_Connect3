@@ -7,7 +7,7 @@ using System.Diagnostics;
 using WebRTCLibrary.Utils;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
-using SIPSignalingServer.Utils;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SIPSignalingServer.Dialogs
 {
@@ -15,9 +15,10 @@ namespace SIPSignalingServer.Dialogs
     {
         private SIPRegistry Registry { get; set; }
 
+        // Signaling server acts as the remote participant
         private new SIPParticipant RemoteParticipant { get => this.SourceParticipant; }
 
-        private SIPParticipant ClientParticipant { get => this.RemoteParticipant; }
+        private SIPParticipant ClientParticipant { get => base.RemoteParticipant; }
 
         private SIPRequest InitialRequest { get; set; }
 
@@ -75,7 +76,7 @@ namespace SIPSignalingServer.Dialogs
                 return;
             }
 
-            SIPRegistration registration = new SIPRegistration(this.ClientParticipant, this.SourceParticipant.Name);
+            SIPRegistration registration = new SIPRegistration(this.ClientParticipant, this.RemoteParticipant.Name);
 
             if (this.Registry.IsRegistered(registration))
             {
@@ -105,10 +106,7 @@ namespace SIPSignalingServer.Dialogs
         private SIPResponse GetRegisteredAcceptedResponse()
         {
             SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: 2);
-
-            // TODO: get scheme from request and respond in this scheme - or set scheme globally
-            SIPSchemesEnum sipScheme = SIPSchemesEnum.sip;
-            return SIPHelper.GetResponse(sipScheme, SIPResponseStatusCodesEnum.Accepted, headerParams);
+            return SIPHelper.GetResponse(this.SIPScheme, SIPResponseStatusCodesEnum.Accepted, headerParams);
         }
 
         private async Task ACKListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
@@ -132,7 +130,7 @@ namespace SIPSignalingServer.Dialogs
             }
 
             Debug.WriteLine($"Server received ACK"); // DEBUG
-            SIPRegistration registration = new SIPRegistration(this.ClientParticipant, this.SourceParticipant.Name);
+            SIPRegistration registration = new SIPRegistration(this.ClientParticipant, this.RemoteParticipant.Name);
             this.Registry.Confirm(registration);
 
             this.OnRegistered?.Invoke(this, new RegistrationEventArgs(registration));

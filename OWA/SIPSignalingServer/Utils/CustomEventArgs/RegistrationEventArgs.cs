@@ -1,7 +1,7 @@
 ﻿using SIPSignalingServer.Models;
 using WebRTCLibrary.Utils;
 
-namespace SIPSignalingServer.Utils
+namespace SIPSignalingServer.Utils.CustomEventArgs
 {
     internal class RegistrationEventArgs : EventArgs
     {
@@ -9,7 +9,7 @@ namespace SIPSignalingServer.Utils
 
         public RegistrationEventArgs(SIPRegistration registration)
         {
-            this.Registration = registration;
+            Registration = registration;
         }
     }
 }

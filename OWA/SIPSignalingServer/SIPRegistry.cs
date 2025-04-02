@@ -43,6 +43,10 @@ namespace SIPSignalingServer
         {
             return this.RegisteredConnections.Contains(registration);
         }
+        public bool IsRegistered(string name)
+        {
+            return this.GetRegisteredObject(name) != null;
+        }
 
         public SIPRegistration? GetRegisteredObject(SIPRegistration registration)
         {
@@ -53,6 +57,20 @@ namespace SIPSignalingServer
             }
 
             return this.RegisteredConnections.Single(r => r == registration);
+        }
+
+        public SIPRegistration? GetRegisteredObject(string name)
+        {
+            // TODO: What to do on multiple registartions with the same name? Only allow the name once when adding?
+            return this.RegisteredConnections.SingleOrDefault(r => r.SourceParticipant.Name == name);
+        }
+
+        public bool PeerIsRegistered(SIPRegistration registration)
+        {
+            SIPRegistration? peerRegistration = this.GetRegisteredObject(registration.RemoteUser);
+            return peerRegistration != null
+                && peerRegistration.RemoteUser == registration.SourceParticipant.Name; 
+
         }
     }
 }
