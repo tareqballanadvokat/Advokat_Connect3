@@ -65,9 +65,11 @@ namespace WebRTCLibrary.SIP
         /// <version date="21.03.2025" sb="MAC"></version>
         protected virtual bool IsPartOfDialog(SIPMessageBase message)
         {
-            return message.Header.CallId == this.CallId
-                && message.Header.To.ToTag == this.SourceTag
-                && message.Header.From.FromTag == this.RemoteTag;
+            bool CallIdMatches = message.Header.CallId == this.CallId;
+            bool ToTagIsValid = this.SourceTag == null || message.Header.To.ToTag == this.SourceTag;
+            bool FromTagIsValid = this.RemoteTag == null || message.Header.From.FromTag == this.RemoteTag;
+
+            return CallIdMatches && ToTagIsValid && FromTagIsValid;
         }
     }
 }

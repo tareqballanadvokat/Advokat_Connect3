@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using SIPSorcery.SIP;
+using System.Net;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.Utils;
@@ -20,19 +21,14 @@ namespace WebRTCClient.Dialogs.ClientDialogs
         public ClientDialog(
             SIPParticipant sourceParticipant,
             SIPParticipant remoteParticipant,
-            SIPConnection connection,
-            string? callId = null,
-            string? sourceTag = null,
-            string? remoteTag = null)
+            SIPTransport transport,
+            SIPSchemesEnum sipScheme)
             : base(
-                sourceParticipant,
-                remoteParticipant,
-                connection,
-                callId,
-                sourceTag,
-                remoteTag)
+                sourceParticipant: sourceParticipant,
+                remoteParticipant: remoteParticipant,
+                connection: new SIPConnection(sipScheme, transport))
         {
-            RegistrationDialog = new ClientRegistrationDialog(this.SourceParticipant, this.RemoteParticipant, Connection, CallId);
+            RegistrationDialog = new ClientRegistrationDialog(this.SourceParticipant, this.RemoteParticipant, this.Connection, this.CallId);
             RegistrationDialog.SendTimeout = SendTimeout;
             RegistrationDialog.ReceiveTimeout = ReceiveTimeout;
 
@@ -47,6 +43,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         public override async Task Stop()
         {
+            // TODO: assign new callId? Otherwise we could get another start with the same call id
             await RegistrationDialog.Stop();
         }
 

@@ -16,13 +16,13 @@ namespace WebRTCClient
         public SIPClient(
             SIPParticipant sourceParticipant,
             SIPParticipant remoteParticipant,
+            SIPTransport transport,
             SIPSchemesEnum sipScheme)
         {
             this.SourceParticipant = sourceParticipant;
             this.RemoteParticipant = remoteParticipant;
 
-            SIPConnection connection = this.GetConnection(sipScheme);
-            this.Dialog = new ClientDialog(this.SourceParticipant, this.RemoteParticipant, connection);            
+            this.Dialog = new ClientDialog(this.SourceParticipant, this.RemoteParticipant, transport, sipScheme);            
         }
 
         public async Task StartDialog()
@@ -33,19 +33,6 @@ namespace WebRTCClient
         public async Task StopDialog()
         {
             await this.Dialog.Stop();
-        }
-
-        private SIPConnection GetConnection(SIPSchemesEnum sipScheme)
-        {
-            SIPTransport transport = new SIPTransport();
-
-            // set listening channel
-            SIPUDPChannel channel = new SIPUDPChannel(this.SourceParticipant.Endpoint.GetIPEndPoint());
-            //SIPUDPChannel channel = new SIPUDPChannel(sourceEndpoint);
-
-            transport.AddSIPChannel(channel);
-
-            return new SIPConnection(sipScheme, transport);
         }
     }
 }

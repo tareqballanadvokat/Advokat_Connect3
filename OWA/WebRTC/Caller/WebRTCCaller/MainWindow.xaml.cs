@@ -2,6 +2,7 @@
 using System.Net;
 using System.Windows;
 using WebRTCClient;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCCaller
@@ -79,8 +80,22 @@ namespace WebRTCCaller
             // remote name + signaling server IPEndpoint
             SIPParticipant remote = new SIPParticipant(this.DestinationName.Text, new SIPEndPoint(IPEndPoint.Parse(this.SipSignalingServer.Text)));
 
-            this.UserAgent = new SIPClient(caller, remote, SIPSchemesEnum.sip);
+            SIPTransport transport = this.GetTransport(caller);
+            this.UserAgent = new SIPClient(caller, remote, transport, SIPSchemesEnum.sip);
             await this.UserAgent.StartDialog();
+        }
+
+        private SIPTransport GetTransport(SIPParticipant caller)
+        {
+            SIPTransport transport = new SIPTransport();
+
+            // set listening channel
+            SIPUDPChannel channel = new SIPUDPChannel(caller.Endpoint.GetIPEndPoint());
+            //SIPUDPChannel channel = new SIPUDPChannel(sourceEndpoint);
+
+            transport.AddSIPChannel(channel);
+
+            return transport;
         }
 
         private void P2PAddStunBtn_Click(object sender, RoutedEventArgs e)

@@ -33,6 +33,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                   connection,
                   callId)
         {
+            this.Connection.MessagePredicate = this.IsPartOfDialog;
         }
 
         public override async Task Start()
@@ -82,14 +83,6 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private async Task ListenForRegistrationAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
-            // .IsPartOfDialog does not work yet. RemoteTag not yet set.
-            if (this.SourceTag != sipResponse.Header.To.ToTag
-                || this.CallId != sipResponse.Header.CallId) // TODO: Does not work on old signaling server
-            {
-                // sip message is not part of the dialog - ignore
-                return;
-            }
-
             // Old Signaling server sends not found if the other peer is not present
             // TODO: remove when the servers get switched.
             if (sipResponse.Status == SIPResponseStatusCodesEnum.NotFound)
@@ -172,12 +165,6 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private async Task ListenForDisconnectAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
-            if (!this.IsPartOfDialog(sipResponse))
-            {
-                // sip message is not part of the dialog - ignore
-                return;
-            }
-
             if (sipResponse.Status != SIPResponseStatusCodesEnum.Accepted)
             {
                 // bad request - wrong status code
