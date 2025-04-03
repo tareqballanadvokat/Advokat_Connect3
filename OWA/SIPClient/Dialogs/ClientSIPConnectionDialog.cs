@@ -13,28 +13,10 @@ namespace WebRTCClient.Dialogs
 
         private ClientKeepAliveDialog KeepAliveDialog { get; set;}
 
-        public ClientSIPConnectionDialog(
-            SIPParticipant sourceParticipant,
-            SIPParticipant remoteParticipant,
-            SIPConnection connection,
-            string callId,
-            string sourceTag,
-            string remoteTag)
-            : base(
-                  sourceParticipant,
-                  remoteParticipant,
-                  connection,
-                  callId,
-                  sourceTag,
-                  remoteTag)
+        public ClientSIPConnectionDialog(DialogParams dialogParams, SIPConnection connection)
+            : base(dialogParams, connection)
         {
-            this.KeepAliveDialog = new ClientKeepAliveDialog(
-                this.SourceParticipant,
-                this.RemoteParticipant,
-                this.Connection,
-                this.CallId,
-                this.SourceTag,
-                this.RemoteTag);
+            this.KeepAliveDialog = new ClientKeepAliveDialog(this.Params, this.Connection);
         }
 
         public async override Task Start()

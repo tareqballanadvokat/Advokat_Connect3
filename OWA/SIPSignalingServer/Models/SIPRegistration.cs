@@ -17,6 +17,11 @@ namespace SIPSignalingServer.Models
             this.RemoteUser = remoteUser;
         }
 
+        public SIPRegistration(SIPParticipant sourceParticipant, SIPParticipant remoteParticipant)
+            :this(sourceParticipant, remoteParticipant.Name)
+        {
+        }
+
         public override bool Equals(object? obj)
         {
             var other = obj as SIPRegistration;

@@ -10,7 +10,7 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace SIPSignalingServer.Dialogs
 {
-    internal class SIPConnectionDialog : SIPDialog
+    internal class SIPConnectionDialog : ServerSideSIPDialog
     {
         public int StartCSeq { get; set; }
 
@@ -28,32 +28,12 @@ namespace SIPSignalingServer.Dialogs
 
         public event Action<SIPConnectionDialog, FailureEventArgs>? OnConnectionFailed;
 
-        public SIPConnectionDialog(
-            SIPRegistry registry,
-            SIPRegistration registration,
-            SIPParticipant sourceParticipant,
-            SIPConnection connection,
-            string callId,
-            string sourceTag,
-            string remoteTag,
-            int startCSeq = 1)
-            : base(
-                  sourceParticipant,
-                  registration.SourceParticipant,
-                  connection,
-                  callId,
-                  sourceTag,
-                  remoteTag)
+        public SIPConnectionDialog(ServerSideDialogParams dialogParams, SIPConnection connection, SIPRegistry registry, int startCSeq = 1)
+            : base(dialogParams, connection)
         {
-            this.Registration = registration;
             this.Registry = registry;
 
-            if (this.Registration.RemoteUser != sourceParticipant.Name)
-            {
-                // TODO: connection failed?
-                throw new ArgumentException("Sourceparticipant must match registered remote user");
-            }
-
+            this.Registration = new SIPRegistration(this.Params.ClientParticipant, this.Params.RemoteParticipant.Name);
             this.StartCSeq = startCSeq;
         }
 
@@ -71,6 +51,14 @@ namespace SIPSignalingServer.Dialogs
                 return;
             }
 
+            if (!this.Registry.IsRegistered(this.Registration))
+            {
+                // Not registered. Cannot connect
+                this.ConnectionFailed(SIPResponseStatusCodesEnum.FlowFailed, "Cannot connect. Not Registered."); // TODO: is FlowFailed right?
+                return;
+            }
+
+
             if (this.Registry.PeerIsRegistered(this.Registration))
             {
                 await this.Connect();
@@ -78,6 +66,7 @@ namespace SIPSignalingServer.Dialogs
             else
             {
                 // peer not yet registered.
+                // TODO: start keep alive dialog
             }
         }
 
@@ -138,7 +127,6 @@ namespace SIPSignalingServer.Dialogs
             }
 
             Debug.WriteLine($"Server recieved ACK for connection."); // DEBUG
-
 
             this.Connected = true;
             this.Connecting = false;

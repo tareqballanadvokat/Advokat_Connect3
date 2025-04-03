@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using SIPSignalingServer.Models;
+using System.Net.Http.Headers;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -9,24 +10,13 @@ namespace SIPSignalingServer.Dialogs
     ///          
     ///          We need to keep the connection open for the server to notify the peer once the other peer has connected.</summary>
     /// <version date="01.04.2025" sb="MAC"></version>
-    internal class KeepAliveDialog : SIPDialog
+    internal class KeepAliveDialog : ServerSideSIPDialog
     {
         private static readonly int defaultInterval = 14000; // 14 seconds. We assume a default timeout of 15 seconds for UDP connections.
+                                                             // TODO: A future implementation could find this timeout dynamically.
 
-        public KeepAliveDialog(
-            SIPParticipant sourceParticipant,
-            SIPParticipant remoteParticipant,
-            SIPConnection connection,
-            string callId,
-            string sourceTag,
-            string remoteTag)
-            : base(
-                  sourceParticipant,
-                  remoteParticipant,
-                  connection,
-                  callId,
-                  sourceTag,
-                  remoteTag)
+        public KeepAliveDialog(ServerSideDialogParams dialogParams, SIPConnection connection)
+            : base(dialogParams, connection)
         {
         }
 

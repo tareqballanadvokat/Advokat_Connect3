@@ -10,9 +10,9 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace SIPSignalingServer.Dialogs
 {
-    internal class GeneralDialog : SIPDialog // ,IAsyncDisposable  
+    internal class GeneralDialog : ServerSideSIPDialog // ,IAsyncDisposable  
     {
-        private bool Registered { get; set; }
+        private bool Registered { get => this.RegistrationDialog.Registered; }
 
         private bool Connected { get => this.ConnectionDialog?.Connected ?? false;}
 
@@ -24,43 +24,26 @@ namespace SIPSignalingServer.Dialogs
 
         private SIPConnectionDialog? ConnectionDialog { get; set; }
 
-        private SIPRegistration? CurrentRegistration { get; set; }
-
-        // Signaling server acts as the remote participant
-        private new SIPParticipant RemoteParticipant { get => this.SourceParticipant; }
-
-        private SIPParticipant ClientParticipant { get => base.RemoteParticipant; }
-
-        public GeneralDialog(
-            SIPRequest request,
-            SIPEndPoint signalingServer,
-            SIPTransport transport,
-            SIPRegistry registry) 
-            :base(
-                 sourceParticipant: GetRemoteParticipant(request, signalingServer),
-                 remoteParticipant: GetCallerParticipant(request),
+        public GeneralDialog(SIPRequest initialRequest, SIPEndPoint signalingServer, SIPTransport transport, SIPRegistry registry)
+            : base(
+                 new ServerSideDialogParams(
+                     GetRemoteParticipant(initialRequest, signalingServer),
+                     GetCallerParticipant(initialRequest),
+                     sourceTag: CallProperties.CreateNewTag(),
+                     remoteTag: initialRequest.Header.From.FromTag, // TODO: What if request does not contain a tag?
+                     callId: initialRequest.Header.CallId),
 
                  // TODO: get sipscheme passed or from request
-                 connection: new SIPConnection(SIPSchemesEnum.sip, transport),
-                 request.Header.CallId,
-                 sourceTag: CallProperties.CreateNewTag(),
-                 remoteTag: request.Header.From.FromTag)
+                 connection: new SIPConnection(SIPSchemesEnum.sip, transport)
+            )
         {
             this.Connection.MessagePredicate = this.IsPartOfDialog;
             this.Connection.MessageTimeout = this.SendTimeout;
 
-            this.InitialRequest = request;
+            this.InitialRequest = initialRequest;
             this.Registry = registry;
 
-            this.RegistrationDialog = new ServerRegistrationDialog(
-                initialRequest: request,
-                remoteParticipant: this.RemoteParticipant,
-                clientParticipant: this.ClientParticipant,
-                connection: this.Connection,
-                registry: registry,
-                this.CallId,
-                this.RemoteTag, // TODO: what to do if remote tag is not set?
-                this.SourceTag!); // SourceTag gets generated while passing to base
+            this.RegistrationDialog = new ServerRegistrationDialog(initialRequest, this.Params, this.Connection, this.Registry);
         }
 
         public async override Task Start()
@@ -86,7 +69,7 @@ namespace SIPSignalingServer.Dialogs
             //       If not return some specific response or don't respond at all
             Debug.WriteLine($"Server received Register."); // DEBUG
 
-            this.RegistrationDialog.OnRegistered += this.SuccessfullRegistrationListener;
+            //this.RegistrationDialog.OnRegistered += this.SuccessfullRegistrationListener;
             this.RegistrationDialog.OnRegistrationFailed += this.RegistrationFailedListener;
 
             await this.RegistrationDialog.Start();
@@ -97,44 +80,30 @@ namespace SIPSignalingServer.Dialogs
                 //failureCallback: Task.CompletedTask , // TODO: do something on timeout
                 successCallback: this.Connect);
 
-            this.RegistrationDialog.OnRegistered -= this.SuccessfullRegistrationListener;
+            //this.RegistrationDialog.OnRegistered -= this.SuccessfullRegistrationListener;
             this.RegistrationDialog.OnRegistrationFailed -= this.RegistrationFailedListener;
         }
 
-        private void SuccessfullRegistrationListener(ServerRegistrationDialog sender, RegistrationEventArgs e)
-        {
-            this.Registered = true;
-            this.CurrentRegistration = e.Registration;
-        }
-        
+        //private void SuccessfullRegistrationListener(ServerRegistrationDialog sender, RegistrationEventArgs e)
+        //{
+        //    this.Registered = true;
+        //    this.CurrentRegistration = e.Registration;
+        //}
+
         private void RegistrationFailedListener(ServerRegistrationDialog sender, FailedRegistrationEventArgs e)
         {
             // TODO: Dispose on Registation fail / timeout
-            // TODO: Do something with 
-            this.Registered = false;
-            this.CurrentRegistration = null;
+            //       Stop waiting for registration
+            //this.Registered = false;
+            //this.CurrentRegistration = null;
         }
 
         private async Task Connect()
-        {
-            if (!this.Registered)
-            {
-                return;
-            }
-
-            this.ConnectionDialog = new SIPConnectionDialog(
-                this.Registry,
-                this.CurrentRegistration!, // is not null if registered
-                this.SourceParticipant,
-                this.Connection,
-                this.CallId,
-                this.SourceTag,
-                this.RemoteTag,
-                startCSeq: 4);
-
+        {            
+            this.ConnectionDialog = new SIPConnectionDialog(this.Params, this.Connection, this.Registry, startCSeq: 4);
 
             // Add listeners
-            this.ConnectionDialog.OnConnectionFailed += this.OnConnectionFailed;
+            this.ConnectionDialog.OnConnectionFailed += this.ConnectionFailedListener;
 
             CancellationTokenSource cts = new CancellationTokenSource(); // TODO: add some sort of timeout for connection?
             CancellationToken ct = cts.Token;
@@ -146,7 +115,7 @@ namespace SIPSignalingServer.Dialogs
                 ct,
                 failureCallback: () => { }); // timeout - token got cancelled
 
-            this.ConnectionDialog.OnConnectionFailed -= this.OnConnectionFailed;
+            this.ConnectionDialog.OnConnectionFailed -= this.ConnectionFailedListener;
         }
 
         //private void OnConnectionSuccessfull(SIPConnectionDialog sender)
@@ -154,7 +123,7 @@ namespace SIPSignalingServer.Dialogs
 
         //}
 
-        private void OnConnectionFailed(SIPConnectionDialog sender, FailureEventArgs e)
+        private void ConnectionFailedListener(SIPConnectionDialog sender, FailureEventArgs e)
         {
 
         }

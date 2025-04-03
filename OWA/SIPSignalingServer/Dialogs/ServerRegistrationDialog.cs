@@ -11,43 +11,28 @@ using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SIPSignalingServer.Dialogs
 {
-    internal class ServerRegistrationDialog : SIPDialog
+    internal class ServerRegistrationDialog : ServerSideSIPDialog
     {
+        public bool Registered { get; private set; }
+
         private SIPRegistry Registry { get; set; }
-
-        // Signaling server acts as the remote participant
-        private new SIPParticipant RemoteParticipant { get => this.SourceParticipant; }
-
-        private SIPParticipant ClientParticipant { get => base.RemoteParticipant; }
 
         private SIPRequest InitialRequest { get; set; }
 
-        public event Action<ServerRegistrationDialog, RegistrationEventArgs>? OnRegistered;
+        private SIPRegistration Registration { get; set; }
+
+        //public event Action<ServerRegistrationDialog, RegistrationEventArgs>? OnRegistered;
 
         public event Action<ServerRegistrationDialog, FailedRegistrationEventArgs>? OnRegistrationFailed;
 
-
         //public event Action<ServerRegistrationDialog, SIPDialogEventArgs>? OnUnRegistered;
 
-        public ServerRegistrationDialog(
-            SIPRequest initialRequest,
-            SIPParticipant remoteParticipant,
-            SIPParticipant clientParticipant,
-            SIPConnection connection,
-            SIPRegistry registry,
-            string callId,
-            string remoteTag,
-            string sourceTag)
-            : base(
-                  remoteParticipant,
-                  clientParticipant,
-                  connection,
-                  callId,
-                  sourceTag,
-                  remoteTag)
+        public ServerRegistrationDialog(SIPRequest initialRequest, ServerSideDialogParams dialogParams, SIPConnection connection, SIPRegistry registry)
+            : base(dialogParams, connection)
         {
             this.InitialRequest = initialRequest;
             this.Registry = registry;
+            this.Registration = new SIPRegistration(this.Params.ClientParticipant, this.Params.RemoteParticipant.Name);
         }
 
         public async override Task Start()
@@ -55,10 +40,20 @@ namespace SIPSignalingServer.Dialogs
             await this.StartRegistartion();
         }
 
-        public override Task Stop()
+        public async override Task Stop()
         {
-            // TODO: something to unregister from signaling server side? Nothing like that is currently implement 
-            throw new NotImplementedException();
+            if (!this.Registered)
+            {
+                // Not registered
+                return;
+            }
+
+            // TODO: something to unregister from signaling server side? Nothing like that is currently implement.
+            //       Send message to client?
+            this.Registry.Unregister(this.Registration);
+
+            this.Registered = false;
+            // TODO: send event - registering stopped
         }
 
         private async Task StartRegistartion()
@@ -76,16 +71,19 @@ namespace SIPSignalingServer.Dialogs
                 return;
             }
 
-            SIPRegistration registration = new SIPRegistration(this.ClientParticipant, this.RemoteParticipant.Name);
-
-            if (this.Registry.IsRegistered(registration))
+            if (this.Registry.IsRegistered(this.Registration))
             {
                 // already registered
                 return;
             }
 
-            // register
-            this.Registry.Register(registration);
+            await this.Register();
+
+        }
+
+        private async Task Register()
+        {
+            this.Registry.Register(this.Registration);
 
             this.Connection.SIPRequestReceived += this.ACKListener;
 
@@ -95,9 +93,10 @@ namespace SIPSignalingServer.Dialogs
             await this.Connection.SendSIPResponse(accpetedResponse);
 
             await WaitFor(
-                () => this.Registry.IsConfirmed(registration),
+                () => this.Registry.IsConfirmed(this.Registration),
                 timeOut: this.ReceiveTimeout,
-                failureCallback: () => this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out.", registration));
+                successCallback: () => { this.Registered = true; },
+                failureCallback: () => this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."));
 
             // remove listener
             this.Connection.SIPRequestReceived -= this.ACKListener;
@@ -124,23 +123,22 @@ namespace SIPSignalingServer.Dialogs
             }
 
             Debug.WriteLine($"Server received ACK"); // DEBUG
-            SIPRegistration registration = new SIPRegistration(this.ClientParticipant, this.RemoteParticipant.Name);
-            this.Registry.Confirm(registration);
+            this.Registry.Confirm(this.Registration);
 
-            this.OnRegistered?.Invoke(this, new RegistrationEventArgs(registration));
+            //this.OnRegistered?.Invoke(this, new RegistrationEventArgs(registration));
         }
 
-        private void RegistrationFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null, SIPRegistration? registration = null)
+        private void RegistrationFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
         {
-            if (registration != null)
+            if (this.Registry.IsRegistered(this.Registration))
             {
-                this.Registry.Unregister(registration);
+                this.Registry.Unregister(this.Registration);
             }
 
             FailedRegistrationEventArgs eventArgs = new FailedRegistrationEventArgs();
             eventArgs.StatusCode = statusCode;
             eventArgs.Message = message;
-            eventArgs.Registration = registration;
+            eventArgs.Registration = this.Registration; // TODO: is this even needed?
 
             this.OnRegistrationFailed?.Invoke(this, eventArgs);
         }

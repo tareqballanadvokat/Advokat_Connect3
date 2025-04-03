@@ -7,9 +7,6 @@ using WebRTCLibrary.Utils;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 
-//using static WebRTCLibrary.SIP.SIPConnection;
-
-
 namespace WebRTCClient.Dialogs.ClientDialogs
 {
     internal class ClientRegistrationDialog : SIPDialog, IAsyncDisposable
@@ -22,16 +19,8 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnUnRegistered;
 
-        public ClientRegistrationDialog(
-            SIPParticipant sourceParticipant,
-            SIPParticipant signalingServer,
-            SIPConnection connection,
-            string callId)
-            : base(
-                  sourceParticipant,
-                  signalingServer,
-                  connection,
-                  callId)
+        public ClientRegistrationDialog(DialogParams dialogParams, SIPConnection connection)
+            : base(dialogParams, connection)
         {
         }
 
@@ -60,7 +49,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
             }
 
             this.Registering = true;
-            this.SourceTag = CallProperties.CreateNewTag();
+            this.Params.SourceTag = CallProperties.CreateNewTag();
 
             // set response delegate
             this.Connection.SIPResponseReceived += this.ListenForRegistrationAccept;
@@ -96,7 +85,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                 return;
             }
 
-            if (RemoteParticipant == null // Why?
+            if (this.Params.RemoteParticipant == null // Why?
                 || sipResponse.Header.CSeq != 2)
             {
                 // bad request - header is invalid
@@ -111,7 +100,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
         {
             Debug.WriteLine($"Client received Accepted."); // DEBUG
 
-            this.RemoteTag = sipResponse.Header.From.FromTag;
+            this.Params.RemoteTag = sipResponse.Header.From.FromTag;
 
             // TODO: Do something with the socketerror
             await this.SendSIPMessage(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: sipResponse.Header.CSeq + 1));
@@ -172,7 +161,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                 return;
             }
 
-            if (RemoteParticipant == null
+            if (this.Params.RemoteParticipant == null // why
                 || sipResponse.Header.CSeq != 2)
             {
                 // bad request - header is invalid
@@ -192,9 +181,9 @@ namespace WebRTCClient.Dialogs.ClientDialogs
         private void ResetRegistration()
         {
             // TODO: event that Registration was reset?
-            SourceTag = null;
-            RemoteTag = null;
-            Registered = false;
+            this.Params.SourceTag = null;
+            this.Params.RemoteTag = null;
+            this.Registered = false;
         }
 
         private async Task SendSIPMessage(SIPMethodsEnum method, SIPHeaderParams? headerParams = null, string? message = null, CancellationToken? ct = null)

@@ -8,20 +8,8 @@ namespace WebRTCClient.Dialogs
     {
         public bool WaitingForPeer { get; set; }
 
-        public ClientKeepAliveDialog(
-            SIPParticipant sourceParticipant,
-            SIPParticipant remoteParticipant,
-            SIPConnection connection,
-            string callId,
-            string sourceTag,
-            string remoteTag)
-            : base(
-                  sourceParticipant,
-                  remoteParticipant,
-                  connection,
-                  callId,
-                  sourceTag,
-                  remoteTag)
+        public ClientKeepAliveDialog(DialogParams dialogParams, SIPConnection connection)
+            : base(dialogParams, connection)
         {
         }
 

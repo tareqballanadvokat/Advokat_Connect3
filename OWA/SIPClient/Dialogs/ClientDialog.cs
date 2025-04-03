@@ -2,7 +2,6 @@
 using System.Net;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.Utils;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -15,36 +14,20 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         public bool Connected { get => this.ConnectionDialog?.Connected ?? false; }
 
-        //public bool ConnectionPending { get => this.Registered && !this.Connected; }
-
-        public override string? SourceTag { get => this.RegistrationDialog.SourceTag;}
-
-        public override string? RemoteTag { get => this.RegistrationDialog.RemoteTag; }
-
         private ClientRegistrationDialog RegistrationDialog { get; set; }
 
         private ClientSIPConnectionDialog? ConnectionDialog { get; set; }
 
         public IPEndPoint SignalingServer { get; private set; }
 
-        public ClientDialog(
-            SIPParticipant sourceParticipant,
-            SIPParticipant remoteParticipant,
-            SIPTransport transport,
-            SIPSchemesEnum sipScheme)
-            : base(
-                sourceParticipant: sourceParticipant,
-                remoteParticipant: remoteParticipant,
-                connection: new SIPConnection(sipScheme, transport))
+        public ClientDialog(SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, SIPTransport transport, SIPSchemesEnum sipScheme)
+            : base(new DialogParams(sourceParticipant, remoteParticipant), new SIPConnection(sipScheme, transport))
         {
             this.Connection.MessagePredicate = this.IsPartOfDialog;
 
-            this.RegistrationDialog = new ClientRegistrationDialog(this.SourceParticipant, this.RemoteParticipant, this.Connection, this.CallId);
+            this.RegistrationDialog = new ClientRegistrationDialog(this.Params, this.Connection);
             this.RegistrationDialog.SendTimeout = SendTimeout;
             this.RegistrationDialog.ReceiveTimeout = ReceiveTimeout;
-
-            //RegistrationDialog.OnRegistered += RegistationSuccessful;
-            //RegistrationManager.OnUnRegistered += OnUnRegistered;
         }
 
         public override async Task Start()
@@ -67,14 +50,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private async Task RegistationSuccessful()
         {
-            this.ConnectionDialog = new ClientSIPConnectionDialog(
-                this.SourceParticipant,
-                this.RemoteParticipant,
-                this.Connection,
-                this.CallId,
-                this.SourceTag,
-                this.RemoteTag);
-
+            this.ConnectionDialog = new ClientSIPConnectionDialog(this.Params, this.Connection);
             await this.ConnectionDialog.Start();
 
             await WaitFor(

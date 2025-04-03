@@ -16,33 +16,15 @@ namespace WebRTCLibrary.SIP
 
         public SIPSchemesEnum SIPScheme { get; protected set; } = defaultSipScheme;
 
-        public SIPParticipant SourceParticipant { get; private set; }
+        public DialogParams Params { get; protected set; }
 
-        public SIPParticipant RemoteParticipant { get; private set; }
-
-        public virtual string? SourceTag { get; protected set; }
-
-        public virtual string? RemoteTag { get; protected set; }
-
-        public string CallId { get; private set; }
 
         public SIPConnection Connection { get; private set; }
 
-        public SIPDialog(
-            SIPParticipant sourceParticipant,
-            SIPParticipant remoteParticipant,
-            //SIPParticipant signalingServer,
-            SIPConnection connection,
-            string? callId = null,
-            string? sourceTag = null,
-            string? remoteTag = null)
+        public SIPDialog(DialogParams dialogParams, SIPConnection connection)
         {
-            SourceParticipant = sourceParticipant;
-            RemoteParticipant = remoteParticipant;
-            Connection = connection;
-            CallId = callId ?? CallProperties.CreateNewCallId();
-            SourceTag = sourceTag;
-            RemoteTag = remoteTag;
+            this.Params = dialogParams;
+            this.Connection = connection;
         }
 
         public abstract Task Start();
@@ -52,12 +34,12 @@ namespace WebRTCLibrary.SIP
         protected virtual SIPHeaderParams GetHeaderParams(int cSeq = 1)
         {
             return new SIPHeaderParams(
-                this.SourceParticipant,
-                this.RemoteParticipant,
-                fromTag: this.SourceTag,
-                toTag: this.RemoteTag,
+                this.Params.SourceParticipant,
+                this.Params.RemoteParticipant,
+                fromTag: this.Params.SourceTag,
+                toTag: this.Params.RemoteTag,
                 cSeq: cSeq,
-                callID: this.CallId);
+                callID: this.Params.CallId);
         }
 
         /// <summary>Checks if an incoming message is part of this dialog.</summary>
@@ -65,9 +47,10 @@ namespace WebRTCLibrary.SIP
         /// <version date="21.03.2025" sb="MAC"></version>
         protected virtual bool IsPartOfDialog(SIPMessageBase message)
         {
-            bool CallIdMatches = message.Header.CallId == this.CallId;
-            bool ToTagIsValid = this.SourceTag == null || message.Header.To.ToTag == this.SourceTag;
-            bool FromTagIsValid = this.RemoteTag == null || message.Header.From.FromTag == this.RemoteTag;
+            // TODO: check from / to participant
+            bool CallIdMatches = message.Header.CallId == this.Params.CallId;
+            bool ToTagIsValid = this.Params.SourceTag == null || message.Header.To.ToTag == this.Params.SourceTag;
+            bool FromTagIsValid = this.Params.RemoteTag == null || message.Header.From.FromTag == this.Params.RemoteTag;
 
             return CallIdMatches && ToTagIsValid && FromTagIsValid;
         }
