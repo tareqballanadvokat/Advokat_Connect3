@@ -18,7 +18,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private bool Registering { get; set; }
 
-        public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnRegistered;
+        //public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnRegistered;
 
         public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnUnRegistered;
 
@@ -33,7 +33,6 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                   connection,
                   callId)
         {
-            this.Connection.MessagePredicate = this.IsPartOfDialog;
         }
 
         public override async Task Start()
@@ -123,7 +122,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
             // SourceTag is not null here. Got set on initial request.
             // TODO: what happens if we unregister just before this gets invoked?
-            this.OnRegistered?.Invoke(this, new SIPDialogEventArgs(this.SourceTag!, this.RemoteTag));
+            //this.OnRegistered?.Invoke(this, new SIPDialogEventArgs(this.SourceTag!, this.RemoteTag));
         }
 
         private async Task Unregister()
@@ -192,6 +191,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private void ResetRegistration()
         {
+            // TODO: event that Registration was reset?
             SourceTag = null;
             RemoteTag = null;
             Registered = false;

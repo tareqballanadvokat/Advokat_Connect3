@@ -20,9 +20,9 @@ namespace WebRTCLibrary.SIP
 
         public SIPParticipant RemoteParticipant { get; private set; }
 
-        public string? SourceTag { get; set; }
+        public virtual string? SourceTag { get; protected set; }
 
-        public string? RemoteTag { get; set; }
+        public virtual string? RemoteTag { get; protected set; }
 
         public string CallId { get; private set; }
 

@@ -137,6 +137,9 @@ namespace SIPSignalingServer.Dialogs
                 return;
             }
 
+            Debug.WriteLine($"Server recieved ACK for connection."); // DEBUG
+
+
             this.Connected = true;
             this.Connecting = false;
         }
