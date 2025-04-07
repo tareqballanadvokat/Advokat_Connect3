@@ -5,96 +5,100 @@
 
 /* global document, Office */
 
-Office.onReady((info) => {
-
-  if (info.host === Office.HostType.Outlook) {
+Office.onReady(async (info) => { 
  
-    document.getElementById("sideload-msg").style.display = "none";
-    document.getElementById("app-body").style.display = "flex";
-    document.getElementById("uniqueId").onclick = getUniqueId;
-    document.getElementById("uniqueId2").onclick = getUniqueId2;
-    document.getElementById("downloadId").onclick = getAsFileAsync;
+  if (info.host === Office.HostType.Outlook) {
+    document.getElementById("caseStructureDownloaded").onclick = CaseDownloadStructure;
+ 
   }
 });
-export async function getUniqueId() {
-  /**
-   * Insert your Outlook code here
-   */
 
-  const item = Office.context.mailbox.item;
-  const options = Office.AsyncContextOptions = { asyncContext: { currentItem: item,  } };
-  Office.context.mailbox.item.getItemIdAsync(options, (result) => {
-     const emailContent = result.value;
-     debugger;
-     const element = document.createElement("span");
-     element.innerHTML= encodeURIComponent(emailContent);
 
-     document.body.appendChild(element);
- 
-  });  
 
-  Office.onReady(() => {
-    const item = Office.context.mailbox.item;
-  
-    item.getAllInternetHeadersAsync((asyncResult) => {
-      if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-        const headers = asyncResult.value;
-        const internetMessageId = headers.match(/Message-ID: (.+)/i);
-  
-        if (internetMessageId) {
-          console.log("Internet Message ID:", internetMessageId[1].trim());
-        } else {
-          console.warn("Missing Message-ID in header.");
-        }
-      } else {
-        console.error("Error:", asyncResult.error);
+export async function CaseDownloadStructure() {
+// Define the API URL
+  //  const apiUrl = 'https://localhost:7231/WeatherForecast';
+    debugger;
+    var structureData ;
+    var itemsData ;
+    $.ajax({
+      type: 'GET',
+      url: 'https://localhost:7231/WeatherForecast/GetStructure',
+      contentType: "application/json",
+      //headers: { 'Authorization': 'Bearer ' + accessToken },
+      async: false,
+      success: function (data) {
+        console.log(data);
+        structureData = data;
+      },
+      error: function (textStatus, errorThrown) {
+        console.log(errorThrown);
       }
     });
-  });
-}
-export async function getUniqueId2() {
-  /**
-   * Insert your Outlook code here
-   */
 
- 
 
-  Office.onReady(() => {
-    const item = Office.context.mailbox.item;
-  
-    item.getAllInternetHeadersAsync((asyncResult) => {
-      if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-        const headers = asyncResult.value;
-        const internetMessageId = headers.match(/Message-ID: (.+)/i);
-  
-        if (internetMessageId) {
-          console.log("Internet Message ID:", internetMessageId[1].trim());
-        } else {
-          console.warn("Nie znaleziono Message-ID w nagłówkach.");
-        }
-      } else {
-        console.error("Błąd pobierania nagłówków:", asyncResult.error);
+    $.ajax({
+      type: 'GET',
+      url: 'https://localhost:7231/WeatherForecast/GetMyItems',
+      contentType: "application/json",
+      //headers: { 'Authorization': 'Bearer ' + accessToken },
+      async: false,
+      success: function (data) {
+        console.log(data);
+        itemsData = data;
+        // CreateCaseStructure(data);
+      },
+      error: function (textStatus, errorThrown) {
+        console.log(errorThrown);
       }
+
     });
-  });
+
+    CreateCaseStructure(structureData,itemsData );
 }
 
-
-export async function getAsFileAsync() {
  
-  const item = Office.context.mailbox.item;
-  const options = Office.AsyncContextOptions = { asyncContext: { currentItem: item,  } };
-  Office.context.mailbox.item.getAsFileAsync(options, (result) => {
-     const emailContent = result.value;
-     debugger;
-    // const fileName = `${Office.context.mailbox.item.subject}.eml`;
-    const fileName = "test.eml";
-    const element = document.createElement("a");
-    element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(emailContent));
-    element.setAttribute("download", `/Users/{user}/Desktop/${fileName}`);
-    element.style.display = "none";
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+export async function CreateCaseStructure(data, items) 
+{
+  var $rootElement = $("#caseStructure");
+
+  // Grupujemy elementy po rootId
+  var grouped = {};
+  data.forEach(item => {
+      const key = item.rootId ?? 'root'; // null → 'root'
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(item);
   });
+
+  function buildTree(rootId, container) {
+      if (!grouped[rootId]) return;
+
+      grouped[rootId].forEach(node => {
+          var $div = $("<div>", { class: "folder", id: "folder-" + node.id });
+
+          // Title node
+          var $toggle = $("<span>", {
+              class: "toggle",
+              text: "+ " + node.name
+          });
+
+          $div.append($toggle);
+
+          // container for childrens
+          var $childContainer = $("<div>", { class: "children", css: { "margin-left": "20px", "display": "none" } });
+          $div.append($childContainer);
+
+          // OnClick
+          $toggle.on("click", function () {
+              $childContainer.toggle();
+          });
+
+          container.append($div);
+
+          // Rekurencja – budujemy podfoldery
+          buildTree(node.id, $childContainer);
+      });
+  }
+
+  buildTree('root', $rootElement);
 }
