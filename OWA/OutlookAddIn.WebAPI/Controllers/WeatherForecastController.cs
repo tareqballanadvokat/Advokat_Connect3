@@ -1,0 +1,67 @@
+using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.Mvc;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+
+namespace OutlookAddIn.WebAPI.Controllers;
+
+[ApiController]
+[Route("[controller]/[action]")]
+[EnableCors("AllowAll")]
+public class WeatherForecastController : ControllerBase
+{
+    private List<HierarchyTree> customTree = new List<HierarchyTree>();
+    private List<HierarchyItem> customItems = new List<HierarchyItem>();
+
+
+    private readonly ILogger<WeatherForecastController> _logger;
+
+    public WeatherForecastController(ILogger<WeatherForecastController> logger)
+    {
+        _logger = logger;
+        customTree.Add(new HierarchyTree { Id = 1, Name = "ADVOKAT", RootId = null });
+        customTree.Add(new HierarchyTree { Id = 2, Name = "Test", RootId = 1 });
+        customTree.Add(new HierarchyTree { Id = 3, Name = "Outlook", RootId = 1 });
+        customTree.Add(new HierarchyTree { Id = 4, Name = "Zusammenarbeit", RootId = 1 });
+
+        customTree.Add(new HierarchyTree { Id = 5, Name = "Briefe", RootId = 4 });
+        customTree.Add(new HierarchyTree { Id = 25, Name = "Briefe2", RootId = 4 });
+
+        customTree.Add(new HierarchyTree { Id = 6, Name = "Briefe", RootId = 3 });
+        customTree.Add(new HierarchyTree { Id = 7, Name = "Schriftsätze", RootId = 3 });
+
+        customItems.Add(new HierarchyItem { Id = 1, Name = "Test1.pdf", RootId = 4 });
+        customItems.Add(new HierarchyItem { Id = 2, Name = "Test2.pdf", RootId = 4 });
+        customItems.Add(new HierarchyItem { Id = 3, Name = "Test3.pdf", RootId = 4 });
+        customItems.Add(new HierarchyItem { Id = 4, Name = "Test4.pdf", RootId = 5 });
+        customItems.Add(new HierarchyItem { Id = 5, Name = "Test5.pdf", RootId = 5 });
+    }
+
+    [HttpGet(Name = "GetStructure")]
+    public ActionResult<HierarchyTree> GetStructure()
+    {
+        return new JsonResult(customTree);
+    }
+
+
+    [HttpGet(Name = "GetMyItems")]
+    public ActionResult<HierarchyItem> GetMyItems()
+    {
+        return new JsonResult(customItems);
+    }
+
+}
+
+public class HierarchyTree
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public int? RootId { get; set; }
+}
+
+public class HierarchyItem
+{
+    public int Id { get; set; }
+    public int? RootId { get; set; }
+    public string Name { get; set; }
+
+}
