@@ -23,5 +23,11 @@ namespace SIPSignalingServer.Models
                   remoteTag)
         {
         }
+
+        public static ServerSideDialogParams Empty()
+        {
+            // very experimental
+            return new ServerSideDialogParams(null, null);
+        }
     }
 }

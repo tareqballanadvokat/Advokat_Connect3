@@ -12,7 +12,7 @@ namespace WebRTCLibrary.SIP.Models
 
         public string? RemoteTag { get; set; } // set as a method - should be discuraged
 
-        public string CallId { get; private set; }
+        public string? CallId { get; set; }
 
         public DialogParams(
             SIPParticipant sourceParticipant,
@@ -23,7 +23,7 @@ namespace WebRTCLibrary.SIP.Models
         {
             SourceParticipant = sourceParticipant;
             RemoteParticipant = remoteParticipant;
-            CallId = callId ?? CallProperties.CreateNewCallId(); ;
+            CallId = callId;
             SourceTag = sourceTag;
             RemoteTag = remoteTag;
         }

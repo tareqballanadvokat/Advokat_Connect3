@@ -1,7 +1,5 @@
 ﻿using SIPSignalingServer.Models;
-using System.Net.Http.Headers;
 using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Models;
 
 namespace SIPSignalingServer.Dialogs
 {

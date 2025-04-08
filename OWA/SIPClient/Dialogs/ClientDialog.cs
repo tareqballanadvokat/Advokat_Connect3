@@ -18,16 +18,22 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private ClientSIPConnectionDialog? ConnectionDialog { get; set; }
 
+        private SIPTransport Transport { get; set; }
+
         public IPEndPoint SignalingServer { get; private set; }
 
         public ClientDialog(SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, SIPTransport transport, SIPSchemesEnum sipScheme)
-            : base(new DialogParams(sourceParticipant, remoteParticipant), new SIPConnection(sipScheme, transport))
+            : base(
+                  new DialogParams(sourceParticipant, remoteParticipant, callId:CallProperties.CreateNewCallId()),
+                  new SIPConnection(sipScheme, transport))
         {
             this.Connection.MessagePredicate = this.IsPartOfDialog;
 
             this.RegistrationDialog = new ClientRegistrationDialog(this.Params, this.Connection);
             this.RegistrationDialog.SendTimeout = SendTimeout;
             this.RegistrationDialog.ReceiveTimeout = ReceiveTimeout;
+
+            this.Transport = transport;
         }
 
         public override async Task Start()
@@ -50,7 +56,12 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private async Task RegistationSuccessful()
         {
-            this.ConnectionDialog = new ClientSIPConnectionDialog(this.Params, this.Connection);
+            DialogParams dialogParams = new DialogParams(
+                this.Params.SourceParticipant,
+                this.Params.RemoteParticipant,
+                sourceTag: this.Params.SourceTag);
+
+            this.ConnectionDialog = new ClientSIPConnectionDialog(dialogParams, this.Transport);
             await this.ConnectionDialog.Start();
 
             await WaitFor(

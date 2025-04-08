@@ -4,7 +4,6 @@ using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 using System.Diagnostics;
-using WebRTCLibrary.Utils;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 using SIPSignalingServer.Utils.CustomEventArgs;
@@ -27,12 +26,39 @@ namespace SIPSignalingServer.Dialogs
 
         //public event Action<ServerRegistrationDialog, SIPDialogEventArgs>? OnUnRegistered;
 
+        public ServerRegistrationDialog(SIPRequest initialRequest, SIPEndPoint signalingServer, SIPTransport transport, SIPRegistry registry)
+            : this(
+                  initialRequest,
+                  new ServerSideDialogParams(
+                      GetRemoteParticipant(initialRequest, signalingServer),
+                      GetCallerParticipant(initialRequest),
+                      sourceTag: CallProperties.CreateNewTag(),
+                      remoteTag: initialRequest.Header.From.FromTag, // TODO: What if request does not contain a tag?
+                      callId: initialRequest.Header.CallId),
+                 transport,
+                 registry)
+        {  
+        }
+
+        public ServerRegistrationDialog(SIPRequest initialRequest, ServerSideDialogParams dialogParams, SIPTransport transport, SIPRegistry registry)
+            :this(
+                 initialRequest,
+                 dialogParams,
+
+                 // TODO: get sipscheme passed or from request
+                 connection: new SIPConnection(SIPSchemesEnum.sip, transport),
+                 registry)
+        {
+            this.Connection.MessagePredicate = this.IsPartOfDialog;
+            this.Connection.MessageTimeout = this.SendTimeout;
+        }
+
         public ServerRegistrationDialog(SIPRequest initialRequest, ServerSideDialogParams dialogParams, SIPConnection connection, SIPRegistry registry)
             : base(dialogParams, connection)
         {
             this.InitialRequest = initialRequest;
             this.Registry = registry;
-            this.Registration = new SIPRegistration(this.Params.ClientParticipant, this.Params.RemoteParticipant.Name);
+            this.Registration = new SIPRegistration(this.Params);
         }
 
         public async override Task Start()
@@ -141,6 +167,18 @@ namespace SIPSignalingServer.Dialogs
             eventArgs.Registration = this.Registration; // TODO: is this even needed?
 
             this.OnRegistrationFailed?.Invoke(this, eventArgs);
+        }
+
+        private static SIPParticipant GetCallerParticipant(SIPRequest request)
+        {
+            string name = request.Header.From.FromName;
+            return new SIPParticipant(name, new SIPEndPoint(request.Header.From.FromURI));
+        }
+
+        private static SIPParticipant GetRemoteParticipant(SIPRequest request, SIPEndPoint signalingServer)
+        {
+            string name = request.Header.To.ToName;
+            return new SIPParticipant(name, signalingServer);
         }
     }
 }

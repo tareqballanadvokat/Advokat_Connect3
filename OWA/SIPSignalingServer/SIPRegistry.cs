@@ -2,6 +2,8 @@
 
 namespace SIPSignalingServer
 {
+    //TODO: make interface - change this to memory registry - registry could be db or file
+ 
     internal class SIPRegistry
     {
         // TODO: locking when adding / removing from list?
@@ -43,6 +45,7 @@ namespace SIPSignalingServer
         {
             return this.RegisteredConnections.Contains(registration);
         }
+
         public bool IsRegistered(string name)
         {
             return this.GetRegisteredObject(name) != null;
@@ -67,10 +70,16 @@ namespace SIPSignalingServer
 
         public bool PeerIsRegistered(SIPRegistration registration)
         {
-            SIPRegistration? peerRegistration = this.GetRegisteredObject(registration.RemoteUser);
+            SIPRegistration? peerRegistration = this.GetPeerRegistration(registration);
             return peerRegistration != null
-                && peerRegistration.RemoteUser == registration.SourceParticipant.Name; 
+                && peerRegistration.RemoteUser == registration.SourceParticipant.Name
+                && peerRegistration.Confirmed;
+        }
 
+        public SIPRegistration? GetPeerRegistration(SIPRegistration registration)
+        {
+            // TODO: We assume the remote connects first. If the remote connects later without a targer client (RemoteUser) this breaks
+            return this.GetRegisteredObject(registration.RemoteUser);
         }
     }
 }

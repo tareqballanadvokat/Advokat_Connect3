@@ -13,9 +13,11 @@ namespace WebRTCClient.Dialogs
 
         private ClientKeepAliveDialog KeepAliveDialog { get; set;}
 
-        public ClientSIPConnectionDialog(DialogParams dialogParams, SIPConnection connection)
-            : base(dialogParams, connection)
+        public ClientSIPConnectionDialog(DialogParams dialogParams, SIPTransport transport)
+            // TODO: pass scheme
+            : base(dialogParams, new SIPConnection(SIPSchemesEnum.sip, transport))
         {
+            this.Connection.MessagePredicate = this.IsPartOfDialog;
             this.KeepAliveDialog = new ClientKeepAliveDialog(this.Params, this.Connection);
         }
 
@@ -44,7 +46,8 @@ namespace WebRTCClient.Dialogs
             {
                 // TODO: Check if it is a ping - ignore if it is
                 //       If is is something else we should fail i think
-
+                //       
+                //       Should not be a problem now - ping is with different tag and callID
                 return;
             }
 
@@ -59,6 +62,9 @@ namespace WebRTCClient.Dialogs
 
             Debug.WriteLine($"Client sending ACK."); // DEBUG
 
+            this.Params.RemoteTag = sipRequest.Header.From.FromTag; // TODO: What if there is no FromTag?
+            this.Params.CallId = sipRequest.Header.CallId; // TODO: What if there is no CalLID?
+
             await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5));
 
             this.Connected = true;
@@ -72,6 +78,9 @@ namespace WebRTCClient.Dialogs
                 // not connected.
                 return;
             }
+
+            this.Params.RemoteTag = null;
+            this.Params.CallId = null;
 
             if (this.Connecting)
             {

@@ -1,5 +1,4 @@
-﻿using SIPSorcery.SIP;
-using WebRTCLibrary.SIP.Models;
+﻿using WebRTCLibrary.SIP.Models;
 
 namespace SIPSignalingServer.Models
 {
@@ -7,19 +6,28 @@ namespace SIPSignalingServer.Models
     {
         public SIPParticipant SourceParticipant { get; private set; }
 
-        public string RemoteUser { get; private set; }
+        public string FromTag { get; private set; }
+
+        // we need this to address this client later?
+        public string ToTag { get; set; }
+
+        public string CallID { get; private set; }
+
+        // null means connect with anyone that wants / knows this participants name
+        public string? RemoteUser { get; private set; }
 
         public bool Confirmed { get; set; }
 
-        public SIPRegistration(SIPParticipant sourceParticipant, string remoteUser)
+        public SIPRegistration(ServerSideDialogParams dialogParams)
         {
-            this.SourceParticipant = sourceParticipant;
-            this.RemoteUser = remoteUser;
-        }
+            this.SourceParticipant = dialogParams.ClientParticipant;
+            this.RemoteUser = dialogParams.RemoteParticipant.Name; // TODO: make nullable in DialogParams
 
-        public SIPRegistration(SIPParticipant sourceParticipant, SIPParticipant remoteParticipant)
-            :this(sourceParticipant, remoteParticipant.Name)
-        {
+            // TODO: might be the other way around
+            this.ToTag = dialogParams.RemoteTag;
+            this.FromTag = dialogParams.SourceTag;
+
+            this.CallID = dialogParams.CallId;
         }
 
         public override bool Equals(object? obj)
@@ -28,6 +36,7 @@ namespace SIPSignalingServer.Models
 
             if (other == null) return false;
 
+            // TODO: include tags and CallID?
             return this.RemoteUser == other.RemoteUser
                 && this.SourceParticipant.Name == other.SourceParticipant.Name
                 && this.SourceParticipant.Endpoint == other.SourceParticipant.Endpoint;

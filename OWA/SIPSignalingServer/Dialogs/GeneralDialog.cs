@@ -2,9 +2,7 @@
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Models;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -12,38 +10,45 @@ namespace SIPSignalingServer.Dialogs
 {
     internal class GeneralDialog : ServerSideSIPDialog // ,IAsyncDisposable  
     {
-        private bool Registered { get => this.RegistrationDialog.Registered; }
+        private bool Registered { get => this.RegistrationDialog.Registered; } // TODO: replace with check if registration is in registry?
 
-        private bool Connected { get => this.ConnectionDialog?.Connected ?? false;}
+        public bool Connected { get => this.ConnectionDialog?.Connected ?? false;} // TODO: do the same with connectionPool
 
         private SIPRequest InitialRequest {get; set;}
 
         private SIPRegistry Registry { get; set; }
 
+        private ConnectionPool ConnectionPool { get; set; }
+
+        private SIPTransport Transport { get; set; }
+
         private ServerRegistrationDialog RegistrationDialog { get; set; }
 
-        private SIPConnectionDialog? ConnectionDialog { get; set; }
+        private SIPConnectionFoundDialog? ConnectionDialog { get; set; }
 
-        public GeneralDialog(SIPRequest initialRequest, SIPEndPoint signalingServer, SIPTransport transport, SIPRegistry registry)
-            : base(
-                 new ServerSideDialogParams(
-                     GetRemoteParticipant(initialRequest, signalingServer),
-                     GetCallerParticipant(initialRequest),
-                     sourceTag: CallProperties.CreateNewTag(),
-                     remoteTag: initialRequest.Header.From.FromTag, // TODO: What if request does not contain a tag?
-                     callId: initialRequest.Header.CallId),
+        public GeneralDialog(SIPRequest initialRequest, SIPEndPoint signalingServer, SIPTransport transport, SIPRegistry registry, ConnectionPool connectionPool)
+            : base(ServerSideDialogParams.Empty(),
+                 //new ServerSideDialogParams(
+                 //    GetRemoteParticipant(initialRequest, signalingServer),
+                 //    GetCallerParticipant(initialRequest),
+                 //    sourceTag: CallProperties.CreateNewTag(),
+                 //    remoteTag: initialRequest.Header.From.FromTag, // TODO: What if request does not contain a tag?
+                 //    callId: initialRequest.Header.CallId),
 
                  // TODO: get sipscheme passed or from request
                  connection: new SIPConnection(SIPSchemesEnum.sip, transport)
             )
         {
-            this.Connection.MessagePredicate = this.IsPartOfDialog;
-            this.Connection.MessageTimeout = this.SendTimeout;
-
             this.InitialRequest = initialRequest;
             this.Registry = registry;
+            this.ConnectionPool = connectionPool;
+            this.Transport = transport;
 
-            this.RegistrationDialog = new ServerRegistrationDialog(initialRequest, this.Params, this.Connection, this.Registry);
+            this.RegistrationDialog = new ServerRegistrationDialog(initialRequest, signalingServer, transport, this.Registry);
+            this.Params = this.RegistrationDialog.Params;
+
+            this.Connection.MessagePredicate = this.IsPartOfDialog;
+            this.Connection.MessageTimeout = this.SendTimeout;
         }
 
         public async override Task Start()
@@ -100,7 +105,7 @@ namespace SIPSignalingServer.Dialogs
 
         private async Task Connect()
         {            
-            this.ConnectionDialog = new SIPConnectionDialog(this.Params, this.Connection, this.Registry, startCSeq: 4);
+            this.ConnectionDialog = new SIPConnectionFoundDialog(this.Params, this.Transport, this.Registry, this.ConnectionPool, startCSeq: 4);
 
             // Add listeners
             this.ConnectionDialog.OnConnectionFailed += this.ConnectionFailedListener;
@@ -123,21 +128,9 @@ namespace SIPSignalingServer.Dialogs
 
         //}
 
-        private void ConnectionFailedListener(SIPConnectionDialog sender, FailureEventArgs e)
+        private void ConnectionFailedListener(SIPConnectionFoundDialog sender, FailureEventArgs e)
         {
 
-        }
-
-        private static SIPParticipant GetCallerParticipant(SIPRequest request)
-        {
-            string name = request.Header.From.FromName;
-            return new SIPParticipant(name, new SIPEndPoint(request.Header.From.FromURI));
-        }
-
-        private static SIPParticipant GetRemoteParticipant(SIPRequest request, SIPEndPoint signalingServer)
-        {
-            string name = request.Header.To.ToName;
-            return new SIPParticipant(name, signalingServer);
         }
     }
 }

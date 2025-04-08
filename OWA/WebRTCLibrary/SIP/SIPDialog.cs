@@ -48,11 +48,11 @@ namespace WebRTCLibrary.SIP
         protected virtual bool IsPartOfDialog(SIPMessageBase message)
         {
             // TODO: check from / to participant
-            bool CallIdMatches = message.Header.CallId == this.Params.CallId;
-            bool ToTagIsValid = this.Params.SourceTag == null || message.Header.To.ToTag == this.Params.SourceTag;
-            bool FromTagIsValid = this.Params.RemoteTag == null || message.Header.From.FromTag == this.Params.RemoteTag;
+            bool callIdIsValid = this.Params.CallId == null || message.Header.CallId == this.Params.CallId;
+            bool toTagIsValid = this.Params.SourceTag == null || message.Header.To.ToTag == this.Params.SourceTag;
+            bool fromTagIsValid = this.Params.RemoteTag == null || message.Header.From.FromTag == this.Params.RemoteTag;
 
-            return CallIdMatches && ToTagIsValid && FromTagIsValid;
+            return callIdIsValid && toTagIsValid && fromTagIsValid;
         }
     }
 }

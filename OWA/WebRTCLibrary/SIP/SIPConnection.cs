@@ -46,13 +46,13 @@ namespace WebRTCLibrary.SIP
             return await this.WaitForSendConfirmation(requestTask, timeOut);
         }
 
-        //public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
-        //{
-        //    // TODO: Make ct Mandatory
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
+        {
+            // TODO: Make ct Mandatory
 
-        //    SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams, message);
-        //    return await this.SendSIPResponse(response, ct, timeOut);
-        //}
+            SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams, message);
+            return await this.SendSIPResponse(response, ct, timeOut);
+        }
 
         public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken? ct = null, int? timeOut = null)
         {
