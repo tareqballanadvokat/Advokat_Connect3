@@ -38,11 +38,14 @@ input[type="text"] {
     padding-top: 10px;
 }
 .folder {
-    margin-left: 20px;
+    margin-left: 5px;
 }
 .file {
     margin-left: 40px;
 }
+
+
+
 .toggle {
     cursor: pointer;
     font-weight: bold;
@@ -70,3 +73,49 @@ input[type="text"] {
 .children {
     margin-left: 15px;
 }
+
+
+
+
+.file-tag {
+    display: inline-block;
+    background-color: #f3f4f6; /* Jasny szary */
+    color: #1f2937;            /* Ciemny tekst */
+    border: 1px solid #d1d5db; /* Obramowanie */
+    border-radius: 8px;        /* Zaokrąglenie */
+    padding: 6px 12px;
+    font-size: 14px;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    margin: 4px;
+    cursor: default;
+    transition: background-color 0.2s ease-in-out;
+  }
+
+  .folder-row {
+ 
+    margin: 5px 0;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  
+  .toggle-icon {
+    font-size: 16px;
+    font-weight: bold;
+    color: #666;
+    width: 16px;
+    margin-right: 8px;
+    cursor: pointer;
+    -webkit-user-select: none;
+  }
+  
+  .folder-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+  }
+  
+  .folder-name {
+    color: #4b5563; /* Neutral dark gray */
+    font-weight: 600;
+    font-size: 14px;
+  }
+  
