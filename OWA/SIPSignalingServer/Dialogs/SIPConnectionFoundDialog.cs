@@ -1,5 +1,4 @@
-﻿using Org.BouncyCastle.Asn1.Ocsp;
-using SIPSignalingServer.Models;
+﻿using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics;
@@ -15,11 +14,12 @@ namespace SIPSignalingServer.Dialogs
     {
         public int StartCSeq { get; set; }
 
-        public bool Connected { get; private set; }
+        public bool Connected { get; private set; } // TODO: ConnectionPool.GetConnection(this.Registration).Confirmed or something like it
 
         public bool WaitingForPeer { get; private set; }
 
-        private bool Connecting { get; set; }
+        private bool Connecting { get; set; } // TODO: ConnectionPool.GetConnection(this.Registration).Confirmed == false -> connection exists but is not confirmed
+                                              //       Or this.PeerRegistration != null && this.Connected == false 
 
         private SIPRegistration Registration { get; set; }
 
@@ -92,10 +92,9 @@ namespace SIPSignalingServer.Dialogs
                 return;
             }
 
-
             if (this.Registry.PeerIsRegistered(this.Registration))
             {
-                await this.Connect(true);
+                await this.Connect();
             }
             else
             {
@@ -103,6 +102,7 @@ namespace SIPSignalingServer.Dialogs
                 // peer not yet registered.
                 // TODO: start keep alive dialog
                 // TODO: Find out how to stop keep alive dialog when the peer is connected
+                //       wait for peer is registered?
             }
         }
 
@@ -111,7 +111,7 @@ namespace SIPSignalingServer.Dialogs
             throw new NotImplementedException();
         }
 
-        private async Task Connect(bool second = false)
+        private async Task Connect()
         {
             if (this.Connected)
             {
@@ -127,36 +127,32 @@ namespace SIPSignalingServer.Dialogs
 
             this.Connecting = true;
             this.SetPeerRegistration();
+            this.CreateConnection();
 
-            SIPTransportRequestAsyncDelegate ackListener = async (SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request) => 
-            { 
-                await this.ListenForAck(request, second); 
-            };
+            this.Connection.SIPRequestReceived += this.ListenForAck;
 
-            this.Connection.SIPRequestReceived += ackListener;
-
-            SIPRequest notifyRequest = this.GetNotifyRequest();
+            SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCSeq);
             Debug.WriteLine($"Server sending Notify."); // DEBUG
             await this.Connection.SendSIPRequest(notifyRequest);
 
             await WaitFor(
-                () => this.Connected,
+                () => this.Connected, // TODO: wait for ack if prop changes - Connected means both sides acknowledged
                 timeOut: this.ReceiveTimeout,
                 //successCallback: () => { this.OnConnected?.Invoke(this); },
                 failureCallback: () => { this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Client took to long to respond to connection notify. Timeout."); });
 
-            this.Connection.SIPRequestReceived -= ackListener;
+            this.Connection.SIPRequestReceived -= this.ListenForAck;
         }
 
-        private SIPRequest GetNotifyRequest()
+        private SIPRequest GetNotifyRequest(int cSeq)
         {
-            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: this.StartCSeq);
+            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: cSeq);
             return SIPHelper.GetRequest(this.SIPScheme, SIPMethodsEnum.NOTIFY, headerParams);
         }
 
-        private async Task ListenForAck(SIPRequest request, bool second = false)
+        private async Task ListenForAck(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
         {
-            if (request.Method != SIPMethodsEnum.ACK) // This could be a problem if the client is still sending pings
+            if (request.Method != SIPMethodsEnum.ACK) // This could be a problem if the client is still sending pings - should be ok, pings happen with defferent params
             {
                 this.ConnectionFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Request was not an ACK request.");
                 return;
@@ -170,20 +166,57 @@ namespace SIPSignalingServer.Dialogs
 
             Debug.WriteLine($"Server recieved ACK for connection."); // DEBUG
 
-            if (second)
+            SIPTunnelEndpoint? endPoint = this.ConnectionPool.GetTunnelEndpoint(this.Registration, this.Params.CallId);
+
+            if (endPoint == null)
             {
-                // TODO: We don't know if the other peer acknowledged
-                // create list in ConnectionPool - pending connections?
-                this.CreateConnection(second);
+                // no endpoint to confirm
+                this.ConnectionFailed(SIPResponseStatusCodesEnum.FlowFailed, "No connection to confirm.");
+                return;
             }
+
+            endPoint.Confirmed = true;
+
+
+
+            await WaitFor(
+                () =>
+                {
+                    SIPTunnel? connection = this.ConnectionPool.GetConnection(endPoint, this.Params.CallId);
+                    // TODO: can we cancel token in here on success :)?
+
+                    return connection != null && connection.Left.Confirmed && connection.Right.Confirmed;
+                },
+                this.ReceiveTimeout, // TODO: pass ct
+                successCallback: this.SendConnectionNotify
+                );
+
+
+            // TODO: Set own Endpoint as confirmed
+            // Wait for both to be confirmed --> start relay --> send Notify
+
+
+
 
             this.Connected = true;
             this.Connecting = false;
         }
 
-        private void CreateConnection(bool second = false)
+        private void SendConnectionNotify()
         {
-            //this.ConnectionPool.Connections // this should only happen on one sided
+            // TODO: send connection Notify.
+            // TODO: start relay dialogs?
+        }
+
+        private void CreateConnection()
+        {
+            // adds connection, does not start it
+            RelayDialog relayDialog = new RelayDialog(this.Params, this.Connection); // pass transport?
+
+            SIPTunnelEndpoint tunnelEndpoint = new SIPTunnelEndpoint(this.Params.ClientParticipant, this.Params.RemoteTag, this.Registration.RemoteUser, relayDialog);
+
+            // Should we just pass the dialog? All of the info is in the params
+            this.ConnectionPool.Connect(tunnelEndpoint, this.Params.CallId);
         }
 
         private void SetPeerRegistration()

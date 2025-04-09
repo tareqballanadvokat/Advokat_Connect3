@@ -2,17 +2,23 @@
 {
     internal class SIPTunnel
     {
-        public SIPRegistration Left { get; private set; }
+        public SIPTunnelEndpoint Left { get; private set; }
 
-        public SIPRegistration Right { get; private set; }
+        //private DialogRelay LeftRelay 
+
+        public SIPTunnelEndpoint Right { get; private set; }
 
         public string CallID { get; private set; }
 
-        public SIPTunnel(SIPRegistration left, SIPRegistration right, string callID)
+        public bool Confirmed { get; set; }
+
+        public SIPTunnel(SIPTunnelEndpoint left, SIPTunnelEndpoint right, string callID)
         {
             Left = left;
             Right = right;
             CallID = callID;
+
+            //this.Left.
         }
     }
 }

@@ -118,6 +118,7 @@ namespace SIPSignalingServer.Dialogs
 
             await WaitFor(() => this.Connected,
                 ct,
+                // TODO: Success --> start relay dialogs?
                 failureCallback: () => { }); // timeout - token got cancelled
 
             this.ConnectionDialog.OnConnectionFailed -= this.ConnectionFailedListener;
