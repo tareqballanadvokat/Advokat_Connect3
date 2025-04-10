@@ -10,20 +10,18 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace SIPSignalingServer.Dialogs
 {
-    internal class SIPConnectionFoundDialog : ServerSideSIPDialog
+    internal class SIPConnectionDialog : ServerSideSIPDialog
     {
         public int StartCSeq { get; set; }
-
-        public bool Connected { get; private set; } // TODO: ConnectionPool.GetConnection(this.Registration).Confirmed or something like it
 
         public bool WaitingForPeer { get; private set; }
 
         private bool Connecting { get; set; } // TODO: ConnectionPool.GetConnection(this.Registration).Confirmed == false -> connection exists but is not confirmed
                                               //       Or this.PeerRegistration != null && this.Connected == false 
 
-        private SIPRegistration Registration { get; set; }
+        private bool ConnectionAcknowledged { get; set; }
 
-        private SIPRegistration? PeerRegistration { get; set; }
+        private SIPRegistration Registration { get; set; }
 
         private SIPRegistry Registry { get; set; }
 
@@ -35,60 +33,62 @@ namespace SIPSignalingServer.Dialogs
 
         //public event Action<SIPConnectionFoundDialog>? OnConnected;
 
-        public event Action<SIPConnectionFoundDialog, FailureEventArgs>? OnConnectionFailed;
+        public event Action<SIPConnectionDialog, FailureEventArgs>? OnConnectionFailed;
 
-        public SIPConnectionFoundDialog(ServerSideDialogParams signalingServerDialogParams, SIPTransport transport, SIPRegistry registry, ConnectionPool connectionPool, int startCSeq = 1)
+        public SIPConnectionDialog(ServerSideDialogParams signalingServerDialogParams, SIPTransport transport, SIPRegistry registry, ConnectionPool connectionPool, int startCSeq = 1)
             : base(
                  new ServerSideDialogParams(
                      signalingServerDialogParams.RemoteParticipant,
                      signalingServerDialogParams.ClientParticipant,
-                     callId: CallProperties.CreateNewCallId(),
-                     sourceTag: null, // explicitly null - gets set when connection is found - remoteTag of peer
-                     remoteTag: signalingServerDialogParams.RemoteTag // TODO: Check if this is the right tag
+                     remoteTag: null, // explicitly set to null - gets set when connection is found - fromTag of peer
+                     clientTag: signalingServerDialogParams.ClientTag,
+                     callId: CallProperties.CreateNewCallId()
                      ),
 
-                 //signalingServerDialogParams,
                  // TODO: Get scheme passed
                  new SIPConnection(SIPSchemesEnum.sip, transport))
         {
-            this.Connection.MessagePredicate = this.IsPartOfDialog;
-
+            this.SignalingServerDialogParams = signalingServerDialogParams;
             this.Transport = transport;
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
+            
+            this.Connection.MessagePredicate = this.IsPartOfDialog;
 
-            this.Registration = new SIPRegistration(this.Params); // TODO: Check if this should be signalingserver params
+            this.Registration = new SIPRegistration(this.SignalingServerDialogParams);
             this.StartCSeq = startCSeq;
         }
 
-        //private SIPConnectionFoundDialog(ServerSideDialogParams dialogParams, SIPConnection connection, SIPRegistry registry, ConnectionPool connectionPool, int startCSeq = 1)
-        //    : base(dialogParams, connection)
-        //{
-        //    this.Registry = registry;
-        //    this.ConnectionPool = connectionPool;
-
-        //    this.Registration = new SIPRegistration(this.Params);
-        //    this.StartCSeq = startCSeq;
-        //}
+        public bool IsConnected()
+        {
+            return this.ConnectionPool.IsConnected(this.Params);
+        }
 
         public async override Task Start()
         {
-            if (this.Connected)
-            {
-                // Already connected
-                return;
-            }
-
             if (this.WaitingForPeer)
             {
                 // Another connection process is already running
                 return;
             }
 
+            if (this.Connecting)
+            {
+                // Another connection process is already running
+                return;
+            }
+
+            if (this.IsConnected())
+            {
+                // Already connected
+                return;
+            }
+
+            // TODO: Check if connection is pending
+
             if (!this.Registry.IsRegistered(this.Registration))
             {
-                // Not registered. Cannot connect
-                this.ConnectionFailed(SIPResponseStatusCodesEnum.FlowFailed, "Cannot connect. Not Registered."); // TODO: is FlowFailed right?
+                this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Cannot connect. Not Registered.");
                 return;
             }
 
@@ -113,20 +113,20 @@ namespace SIPSignalingServer.Dialogs
 
         private async Task Connect()
         {
-            if (this.Connected)
-            {
-                // Already connected
-                return;
-            }
+            //if (this.IsConnected()) // TODO: Gets called twice
+            //{
+            //    // Already connected
+            //    return;
+            //}
 
-            if (this.Connecting)
-            {
-                // Another connection process is already running
-                return;
-            }
+            //if (this.Connecting)
+            //{
+            //    // Another connection process is already running
+            //    return;
+            //}
 
             this.Connecting = true;
-            this.SetPeerRegistration();
+            this.SetRemoteTag();
             this.CreateConnection();
 
             this.Connection.SIPRequestReceived += this.ListenForAck;
@@ -136,9 +136,8 @@ namespace SIPSignalingServer.Dialogs
             await this.Connection.SendSIPRequest(notifyRequest);
 
             await WaitFor(
-                () => this.Connected, // TODO: wait for ack if prop changes - Connected means both sides acknowledged
+                () => this.ConnectionAcknowledged,
                 timeOut: this.ReceiveTimeout,
-                //successCallback: () => { this.OnConnected?.Invoke(this); },
                 failureCallback: () => { this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Client took to long to respond to connection notify. Timeout."); });
 
             this.Connection.SIPRequestReceived -= this.ListenForAck;
@@ -165,78 +164,58 @@ namespace SIPSignalingServer.Dialogs
             }
 
             Debug.WriteLine($"Server recieved ACK for connection."); // DEBUG
+            this.ConnectionAcknowledged = true;
 
-            SIPTunnelEndpoint? endPoint = this.ConnectionPool.GetTunnelEndpoint(this.Registration, this.Params.CallId);
+            RelayDialog? relayDialog = this.ConnectionPool.GetDialog(this.Params);
 
-            if (endPoint == null)
+            if (relayDialog == null)
             {
-                // no endpoint to confirm
-                this.ConnectionFailed(SIPResponseStatusCodesEnum.FlowFailed, "No connection to confirm.");
+                this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Connection not found. Could not confirm connection.");
                 return;
             }
 
-            endPoint.Confirmed = true;
+            await relayDialog.Start();
 
-
-
-            await WaitFor(
-                () =>
-                {
-                    SIPTunnel? connection = this.ConnectionPool.GetConnection(endPoint, this.Params.CallId);
-                    // TODO: can we cancel token in here on success :)?
-
-                    return connection != null && connection.Left.Confirmed && connection.Right.Confirmed;
-                },
+            await WaitFor(this.IsConnected,
                 this.ReceiveTimeout, // TODO: pass ct
                 successCallback: this.SendConnectionNotify
                 );
 
-
-            // TODO: Set own Endpoint as confirmed
-            // Wait for both to be confirmed --> start relay --> send Notify
-
-
-
-
-            this.Connected = true;
+            //this.Connected = true;
             this.Connecting = false;
         }
 
         private void SendConnectionNotify()
         {
             // TODO: send connection Notify.
-            // TODO: start relay dialogs?
         }
 
         private void CreateConnection()
         {
             // adds connection, does not start it
             RelayDialog relayDialog = new RelayDialog(this.Params, this.Connection); // pass transport?
-
-            SIPTunnelEndpoint tunnelEndpoint = new SIPTunnelEndpoint(this.Params.ClientParticipant, this.Params.RemoteTag, this.Registration.RemoteUser, relayDialog);
-
-            // Should we just pass the dialog? All of the info is in the params
-            this.ConnectionPool.Connect(tunnelEndpoint, this.Params.CallId);
+            this.ConnectionPool.Connect(relayDialog);
         }
 
-        private void SetPeerRegistration()
+        private void SetRemoteTag()
         {
-            this.PeerRegistration = this.Registry.GetPeerRegistration(this.Registration);
+            SIPRegistration? peerRegistration = this.Registry.GetPeerRegistration(this.Registration);
 
-            if (this.PeerRegistration == null)
+            if (peerRegistration == null)
             {
                 // TODO: peer no longer registered. What to do here? Connection failed? Start waiting again?
                 return;
             }
 
-            this.Params.SourceTag = this.PeerRegistration.FromTag; // TODO: Check if this is the right tag
+            this.Params.RemoteTag = peerRegistration.FromTag;
         }
 
         private void ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
         {
+            // TODO: stop and disconnect dialog if necessary
+
             this.Connecting = false;
-            this.Connected = false;
-            this.PeerRegistration = null;
+            this.ConnectionAcknowledged = false;
             this.Params.SourceTag = null;
 
             FailureEventArgs eventArgs = new FailureEventArgs();

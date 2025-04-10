@@ -1,6 +1,4 @@
-﻿using SIPSorcery.SIP;
-
-namespace WebRTCLibrary.SIP.Models
+﻿namespace WebRTCLibrary.SIP.Models
 {
     public class DialogParams
     {
@@ -17,15 +15,15 @@ namespace WebRTCLibrary.SIP.Models
         public DialogParams(
             SIPParticipant sourceParticipant,
             SIPParticipant remoteParticipant,
-            string? callId = null,
             string? sourceTag = null,
-            string? remoteTag = null)
+            string? remoteTag = null,
+            string? callId = null)
         {
             SourceParticipant = sourceParticipant;
             RemoteParticipant = remoteParticipant;
-            CallId = callId;
             SourceTag = sourceTag;
             RemoteTag = remoteTag;
+            CallId = callId;
         }
     }
 }

@@ -1,24 +1,32 @@
-﻿namespace SIPSignalingServer.Models
+﻿using SIPSignalingServer.Dialogs;
+
+namespace SIPSignalingServer.Models
 {
     internal class SIPTunnel
     {
-        public SIPTunnelEndpoint Left { get; private set; }
+        public RelayDialog Left { get; private set; }
 
-        //private DialogRelay LeftRelay 
+        public RelayDialog Right { get; private set; }
 
-        public SIPTunnelEndpoint Right { get; private set; }
+        public bool Connected { get => this.Left.Relaying && this.Right.Relaying; }
 
-        public string CallID { get; private set; }
-
-        public bool Confirmed { get; set; }
-
-        public SIPTunnel(SIPTunnelEndpoint left, SIPTunnelEndpoint right, string callID)
+        public SIPTunnel(RelayDialog left, RelayDialog right)
         {
+            // TODO: Check params if they match?
             Left = left;
             Right = right;
-            CallID = callID;
+        }
 
-            //this.Left.
+        public async Task Connect()
+        {
+            await this.Left.Start();
+            await this.Right.Start();
+        }
+
+        public async Task Disconnect()
+        {
+            await this.Left.Stop();
+            await this.Right.Stop();
         }
     }
 }

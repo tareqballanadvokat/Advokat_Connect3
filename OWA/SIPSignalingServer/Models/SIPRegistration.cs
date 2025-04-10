@@ -25,7 +25,7 @@ namespace SIPSignalingServer.Models
 
             // TODO: might be the other way around
             this.ToTag = dialogParams.RemoteTag;
-            this.FromTag = dialogParams.SourceTag;
+            this.FromTag = dialogParams.ClientTag;
 
             this.CallID = dialogParams.CallId;
         }

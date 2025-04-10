@@ -4,9 +4,9 @@ using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 using System.Diagnostics;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
-using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SIPSignalingServer.Dialogs
 {
@@ -20,11 +20,7 @@ namespace SIPSignalingServer.Dialogs
 
         private SIPRegistration Registration { get; set; }
 
-        //public event Action<ServerRegistrationDialog, RegistrationEventArgs>? OnRegistered;
-
         public event Action<ServerRegistrationDialog, FailedRegistrationEventArgs>? OnRegistrationFailed;
-
-        //public event Action<ServerRegistrationDialog, SIPDialogEventArgs>? OnUnRegistered;
 
         public ServerRegistrationDialog(SIPRequest initialRequest, SIPEndPoint signalingServer, SIPTransport transport, SIPRegistry registry)
             : this(
@@ -32,8 +28,8 @@ namespace SIPSignalingServer.Dialogs
                   new ServerSideDialogParams(
                       GetRemoteParticipant(initialRequest, signalingServer),
                       GetCallerParticipant(initialRequest),
-                      sourceTag: CallProperties.CreateNewTag(),
-                      remoteTag: initialRequest.Header.From.FromTag, // TODO: What if request does not contain a tag?
+                      remoteTag: CallProperties.CreateNewTag(),
+                      clientTag: initialRequest.Header.From.FromTag, // TODO: What if request does not contain a tag?
                       callId: initialRequest.Header.CallId),
                  transport,
                  registry)
@@ -104,7 +100,6 @@ namespace SIPSignalingServer.Dialogs
             }
 
             await this.Register();
-
         }
 
         private async Task Register()
@@ -114,8 +109,8 @@ namespace SIPSignalingServer.Dialogs
             this.Connection.SIPRequestReceived += this.ACKListener;
 
             // send Accepted response
-            SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
             Debug.WriteLine($"Server sending Accepted."); // DEBUG
+            SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
             await this.Connection.SendSIPResponse(accpetedResponse);
 
             await WaitFor(
@@ -150,8 +145,6 @@ namespace SIPSignalingServer.Dialogs
 
             Debug.WriteLine($"Server received ACK"); // DEBUG
             this.Registry.Confirm(this.Registration);
-
-            //this.OnRegistered?.Invoke(this, new RegistrationEventArgs(registration));
         }
 
         private void RegistrationFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)

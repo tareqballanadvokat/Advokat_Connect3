@@ -12,8 +12,6 @@ namespace SIPSignalingServer.Dialogs
     {
         private bool Registered { get => this.RegistrationDialog.Registered; } // TODO: replace with check if registration is in registry?
 
-        public bool Connected { get => this.ConnectionDialog?.Connected ?? false;} // TODO: do the same with connectionPool
-
         private SIPRequest InitialRequest {get; set;}
 
         private SIPRegistry Registry { get; set; }
@@ -24,16 +22,10 @@ namespace SIPSignalingServer.Dialogs
 
         private ServerRegistrationDialog RegistrationDialog { get; set; }
 
-        private SIPConnectionFoundDialog? ConnectionDialog { get; set; }
+        private SIPConnectionDialog? ConnectionDialog { get; set; }
 
         public GeneralDialog(SIPRequest initialRequest, SIPEndPoint signalingServer, SIPTransport transport, SIPRegistry registry, ConnectionPool connectionPool)
             : base(ServerSideDialogParams.Empty(),
-                 //new ServerSideDialogParams(
-                 //    GetRemoteParticipant(initialRequest, signalingServer),
-                 //    GetCallerParticipant(initialRequest),
-                 //    sourceTag: CallProperties.CreateNewTag(),
-                 //    remoteTag: initialRequest.Header.From.FromTag, // TODO: What if request does not contain a tag?
-                 //    callId: initialRequest.Header.CallId),
 
                  // TODO: get sipscheme passed or from request
                  connection: new SIPConnection(SIPSchemesEnum.sip, transport)
@@ -53,6 +45,7 @@ namespace SIPSignalingServer.Dialogs
 
         public async override Task Start()
         {
+            // TODO: let it pass through to the registrationDialog?
             if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
             {
                 // request was not a register request.
@@ -68,13 +61,17 @@ namespace SIPSignalingServer.Dialogs
             throw new NotImplementedException();
         }
 
+        public bool IsConnected()
+        {
+            return this.ConnectionDialog?.IsConnected() ?? false;
+        }
+
         private async Task Register()
         {
             // TODO: Check somewhere if the request is valid.
             //       If not return some specific response or don't respond at all
             Debug.WriteLine($"Server received Register."); // DEBUG
 
-            //this.RegistrationDialog.OnRegistered += this.SuccessfullRegistrationListener;
             this.RegistrationDialog.OnRegistrationFailed += this.RegistrationFailedListener;
 
             await this.RegistrationDialog.Start();
@@ -85,27 +82,18 @@ namespace SIPSignalingServer.Dialogs
                 //failureCallback: Task.CompletedTask , // TODO: do something on timeout
                 successCallback: this.Connect);
 
-            //this.RegistrationDialog.OnRegistered -= this.SuccessfullRegistrationListener;
             this.RegistrationDialog.OnRegistrationFailed -= this.RegistrationFailedListener;
         }
-
-        //private void SuccessfullRegistrationListener(ServerRegistrationDialog sender, RegistrationEventArgs e)
-        //{
-        //    this.Registered = true;
-        //    this.CurrentRegistration = e.Registration;
-        //}
 
         private void RegistrationFailedListener(ServerRegistrationDialog sender, FailedRegistrationEventArgs e)
         {
             // TODO: Dispose on Registation fail / timeout
             //       Stop waiting for registration
-            //this.Registered = false;
-            //this.CurrentRegistration = null;
         }
 
         private async Task Connect()
         {            
-            this.ConnectionDialog = new SIPConnectionFoundDialog(this.Params, this.Transport, this.Registry, this.ConnectionPool, startCSeq: 4);
+            this.ConnectionDialog = new SIPConnectionDialog(this.Params, this.Transport, this.Registry, this.ConnectionPool, startCSeq: 4);
 
             // Add listeners
             this.ConnectionDialog.OnConnectionFailed += this.ConnectionFailedListener;
@@ -116,20 +104,14 @@ namespace SIPSignalingServer.Dialogs
 
             await this.ConnectionDialog.Start();
 
-            await WaitFor(() => this.Connected,
+            await WaitFor(this.IsConnected,
                 ct,
-                // TODO: Success --> start relay dialogs?
                 failureCallback: () => { }); // timeout - token got cancelled
 
             this.ConnectionDialog.OnConnectionFailed -= this.ConnectionFailedListener;
         }
 
-        //private void OnConnectionSuccessfull(SIPConnectionDialog sender)
-        //{
-
-        //}
-
-        private void ConnectionFailedListener(SIPConnectionFoundDialog sender, FailureEventArgs e)
+        private void ConnectionFailedListener(SIPConnectionDialog sender, FailureEventArgs e)
         {
 
         }

@@ -10,6 +10,8 @@ namespace SIPSignalingServer.Dialogs
     /// <version date="01.04.2025" sb="MAC"></version>
     internal class KeepAliveDialog : ServerSideSIPDialog
     {
+        // TODO: Not necessary with websockets i think
+
         private static readonly int defaultInterval = 14000; // 14 seconds. We assume a default timeout of 15 seconds for UDP connections.
                                                              // TODO: A future implementation could find this timeout dynamically.
 

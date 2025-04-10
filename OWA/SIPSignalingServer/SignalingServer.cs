@@ -17,19 +17,17 @@ namespace SIPSignalingServer
 
         private SIPTransport Transport;
 
-        //private ConversationPool ConversationPool;
-        
         private ConnectionPool ConnectionPool;
 
         public SignalingServer()
         {
             // DEBUG - remote already registered
             ServerSideDialogParams dialogParams = new(
-                new SIPParticipant("macc", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8081))),
-                new SIPParticipant("macs", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8091))),
+                remoteParticipant: new SIPParticipant("macc", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8081))),
+                clientParticipant: new SIPParticipant("macs", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8091))),
                 callId: "5678",
-                sourceTag: "3",
-                remoteTag: "4"
+                remoteTag: "4",
+                clientTag: "3"
                 );
 
             SIPRegistration registration = new SIPRegistration(dialogParams);
@@ -42,9 +40,7 @@ namespace SIPSignalingServer
             this.Transport = this.GetConnection(this.ServerEndpoint);
             Console.WriteLine($"listening on {ServerEndpoint}");
             this.Transport.SIPTransportRequestReceived += this.RegistraionListener;
-            //this.Connection.SIPResponseReceived += this.RequestListener;
 
-            //this.ConversationPool = new ConversationPool(this.Transport);
             this.ConnectionPool = new ConnectionPool();
         }
 
@@ -53,7 +49,6 @@ namespace SIPSignalingServer
             SIPTransport transport = new SIPTransport();
 
             // set listening channel
-            //SIPUDPChannel channel = new SIPUDPChannel(this.SourceParticipant.Endpoint.GetIPEndPoint());
             SIPUDPChannel channel = new SIPUDPChannel(sourceEndpoint);
 
             // TODO: add more channels for TCP / ws support
@@ -74,10 +69,7 @@ namespace SIPSignalingServer
             }
 
             GeneralDialog generalDialog = new GeneralDialog(sipRequest, localEndPoint, this.Transport, this.Registry, this.ConnectionPool);
-            //await this.ConversationPool.AddNewDialog(generalDialog);
             await generalDialog.Start();
-
-            //WaitFor(); // TODO: wait for disconnection?
         }
     }
 }

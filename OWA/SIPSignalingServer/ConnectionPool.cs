@@ -1,122 +1,120 @@
-﻿using SIPSignalingServer.Models;
+﻿using SIPSignalingServer.Dialogs;
+using SIPSignalingServer.Models;
 
 namespace SIPSignalingServer
 {
     internal class ConnectionPool
     {
         // TODO: lock list
+        private readonly List<SIPTunnel> Connections = new List<SIPTunnel>();
 
-        private List<SIPTunnel> Connections = new List<SIPTunnel>();
-
-        private List<(SIPTunnelEndpoint EndPoint, string CallID)> PendingConnections = new List<(SIPTunnelEndpoint EndPoint, string CallID)>();
-
-        public void Connect(SIPTunnelEndpoint endpoint, string callID)
+        private readonly List<RelayDialog> PendingConnections = new List<RelayDialog>();
+        
+        public void Connect(RelayDialog dialog)
         {
-            if (this.GetConnection(endpoint, callID) != null)
+            if (!ParamsAreValid(dialog.Params))
+            {
+                // params are invalid - cannot create any connection
+                return;
+            }
+
+            if (this.GetConnection(dialog) != null)
             {
                 // connection does already exist
                 return;
             }
 
-            SIPTunnelEndpoint? peerEndpoint = this.GetPendingPeer(endpoint , callID);
+            RelayDialog? peerDialog = this.GetPendingPeer(dialog);
 
-            if (peerEndpoint == null)
+            if (peerDialog == null)
             {
-                this.CreatePending(endpoint, callID);
+                this.AddPending(dialog);
                 return;
             }
 
-            this.CreateNewConnection(endpoint, peerEndpoint, callID);
-            this.RemovePending(peerEndpoint, callID);
+            this.CreateNewConnection(dialog, peerDialog);
+            this.PendingConnections.Remove(dialog);
         }
 
-        public SIPTunnelEndpoint? GetTunnelEndpoint(SIPRegistration registration, string callID)
+        public bool IsConnected(ServerSideDialogParams dialogParams)
         {
-            SIPTunnelEndpoint? pendingEndPoint = this.GetPendingEndpoint(registration.SourceParticipant.Name, callID);
-
-            if (pendingEndPoint != null)
+            if (!ParamsAreValid(dialogParams))
             {
-                return pendingEndPoint;
+                // params are invalid. Cannot be connected
+                return false;
             }
 
-            SIPTunnelEndpoint? connectionLeft = this.Connections
-                .SingleOrDefault(t =>
-                    t.CallID == callID
-                    && t.Left.SourceParticipant == registration.SourceParticipant
-                    && t.Left.RemoteUser == registration.RemoteUser
-                    && t.Left.FromTag == registration.FromTag)?
-                .Left;
-
-            if (connectionLeft != null)
-            {
-                return connectionLeft;
-            }
-
-            SIPTunnelEndpoint? connectionRight = this.Connections
-                .SingleOrDefault(t =>
-                    t.CallID == callID
-                    && t.Right.SourceParticipant == registration.SourceParticipant
-                    && t.Right.RemoteUser == registration.RemoteUser
-                    && t.Right.FromTag == registration.FromTag)?
-                .Right;
-
-            if (connectionRight != null)
-            {
-                return connectionRight;
-            }
-
-            return null;
+            return this.GetConnection(dialogParams)?.Connected ?? false;
         }
 
-        public SIPTunnel? GetConnection(SIPTunnelEndpoint endpoint, string callID)
+        public RelayDialog? GetDialog(ServerSideDialogParams dialogParams)
         {
-            return this.Connections.SingleOrDefault(t =>
-                t.CallID == callID
-                && (t.Left == endpoint || t.Right == endpoint)); // TODO: Implement equality operator?
+            return this.GetPendingDialog(dialogParams)
+                ?? this.Connections.SingleOrDefault(t => t.Left.Params == dialogParams)?.Left
+                ?? this.Connections.SingleOrDefault(t => t.Right.Params == dialogParams)?.Right;
         }
 
-        private SIPTunnelEndpoint? GetPendingPeer(SIPTunnelEndpoint endpoint, string callID)
+        // TODO: do we net it? (does this mean "do we need it?")
+        public SIPTunnel? GetConnection(ServerSideDialogParams dialogParams)
         {
-            return this.GetPendingEndpoint(endpoint.RemoteUser, callID); // TODO: empty remoteUser?
+            return this.Connections.SingleOrDefault(t => t.Left.Params == dialogParams || t.Right.Params == dialogParams);
         }
 
-        private (SIPTunnelEndpoint EndPoint, string callID)? GetPendingObject(string name, string callID)
+        private static bool ParamsAreValid(ServerSideDialogParams dialogParams)
         {
-            return this.PendingConnections.SingleOrDefault(p =>
-                p.CallID == callID
-                // TODO: tag?
-                && p.EndPoint.SourceParticipant.Name == name);
+            return dialogParams.CallId != null
+                || dialogParams.ClientTag != null
+                || dialogParams.RemoteTag != null;
         }
 
-        private SIPTunnelEndpoint? GetPendingEndpoint(string name, string callID)
+        private SIPTunnel? GetConnection(RelayDialog dialog)
         {
-            return this.GetPendingObject(name, callID)?.EndPoint;
+            // TODO: also get connections with same parameters nut just same reference? Equality comparer in dialog?
+            return this.Connections.SingleOrDefault(t => t.Left == dialog || t.Right == dialog);
         }
 
-        private void CreatePending(SIPTunnelEndpoint endpoint, string callID)
+        private RelayDialog? GetPendingPeer(RelayDialog dialog)
         {
-            this.PendingConnections.Add((endpoint, callID));
-        }
-
-        private void RemovePending(SIPTunnelEndpoint endpoint, string callID)
-        {
-            // can we just construct the tuple or is that a new object then - i would expect so
-            // otherwise we could remove this call
-            (SIPTunnelEndpoint EndPoint, string callID)? pendingObject = this.GetPendingObject(endpoint.SourceParticipant.Name, callID);
+            string callId = dialog.Params.CallId;
             
-            if (pendingObject == null)
+            string peerClientTag = dialog.Params.RemoteTag; // TODO: could not be set
+            string peerRemoteTag = dialog.Params.ClientTag;
+
+            string peerUsername = dialog.Params.RemoteParticipant.Name;
+            string peerRemoteUser = dialog.Params.ClientParticipant.Name;
+
+            return this.PendingConnections.SingleOrDefault(r => 
+                r.Params.CallId == callId
+                && r.Params.ClientTag == peerClientTag
+                && r.Params.RemoteTag == peerRemoteTag // could not be set?
+
+                // TODO: names could be null?
+                && r.Params.ClientParticipant.Name == peerUsername
+                && r.Params.RemoteParticipant.Name == peerRemoteUser
+                );
+        }
+
+        private RelayDialog? GetPendingDialog(ServerSideDialogParams dialogParams)
+        {
+            // TODO: implement equality comparer
+            return this.PendingConnections.SingleOrDefault(r => r.Params == dialogParams);
+        }
+
+        private void AddPending(RelayDialog dialog)
+        {
+            // TODO: which equality comparer gets used? override?
+            if (this.PendingConnections.Contains(dialog))
             {
-                // not in pending
+                // already contains dialog
                 return;
             }
 
-            // does not work without the cast
-            this.PendingConnections.Remove(((SIPTunnelEndpoint EndPoint, string callID))pendingObject);
+            this.PendingConnections.Add(dialog);
         }
 
-        private void CreateNewConnection(SIPTunnelEndpoint leftEndPoint, SIPTunnelEndpoint rightEndPoint, string callID)
+        private void CreateNewConnection(RelayDialog dialog, RelayDialog peerDialog)
         {
-            this.Connections.Add(new SIPTunnel(leftEndPoint, rightEndPoint, callID));
+            this.Connections.Add(new SIPTunnel(dialog, peerDialog));
         }
     }
 }

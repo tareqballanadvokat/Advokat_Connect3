@@ -6,7 +6,10 @@ namespace SIPSignalingServer.Dialogs
 {
     internal class RelayDialog : ServerSideSIPDialog
     {
-        public RelayDialog(ServerSideDialogParams dialogParams, SIPConnection connection) : base(dialogParams, connection)
+        public bool Relaying { get; private set; }
+
+        public RelayDialog(ServerSideDialogParams dialogParams, SIPConnection connection)
+            : base(dialogParams, connection)
         {
         }
 
@@ -25,14 +28,28 @@ namespace SIPSignalingServer.Dialogs
 
         public async override Task Start()
         {
+            if (this.Relaying)
+            {
+                // already relaying
+                return;
+            }
+
             this.Connection.SIPRequestReceived += this.RelayMessage;
             this.Connection.SIPResponseReceived += this.RelayMessage;
+            this.Relaying = true;
         }
 
         public async override Task Stop()
         {
+            if (!this.Relaying)
+            {
+                // not started
+                return;
+            }
+
             this.Connection.SIPRequestReceived -= this.RelayMessage;
             this.Connection.SIPResponseReceived -= this.RelayMessage;
+            this.Relaying = false;
         }
     }
 }

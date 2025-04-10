@@ -9,18 +9,30 @@ namespace SIPSignalingServer.Models
 
         public SIPParticipant ClientParticipant { get => base.RemoteParticipant; }
 
+        public string? ClientTag
+        { 
+            get => base.RemoteTag;
+            set => base.RemoteTag = value;
+        }
+
+        public new string? RemoteTag
+        {
+            get => this.SourceTag;
+            set => this.SourceTag = value;
+        }
+
         public ServerSideDialogParams(
             SIPParticipant remoteParticipant,
             SIPParticipant clientParticipant,
             string? callId = null,
-            string? sourceTag = null,
-            string? remoteTag = null) 
+            string? remoteTag = null,
+            string? clientTag = null) 
             : base(
-                  remoteParticipant,
-                  clientParticipant,
-                  callId,
-                  sourceTag,
-                  remoteTag)
+                  sourceParticipant: remoteParticipant,
+                  remoteParticipant: clientParticipant,
+                  remoteTag,
+                  clientTag,
+                  callId)
         {
         }
 
