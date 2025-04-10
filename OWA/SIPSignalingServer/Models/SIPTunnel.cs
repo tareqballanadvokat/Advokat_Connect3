@@ -15,18 +15,20 @@ namespace SIPSignalingServer.Models
             // TODO: Check params if they match?
             Left = left;
             Right = right;
+
+            // TODO: connect the two dialogs together
         }
 
-        public async Task Connect()
-        {
-            await this.Left.Start();
-            await this.Right.Start();
-        }
+        //public async Task Connect()
+        //{
+        //    await this.Left.Start();
+        //    await this.Right.Start();
+        //}
 
-        public async Task Disconnect()
-        {
-            await this.Left.Stop();
-            await this.Right.Stop();
-        }
+        //public async Task Disconnect()
+        //{
+        //    await this.Left.Stop();
+        //    await this.Right.Stop();
+        //}
     }
 }

@@ -24,11 +24,10 @@ namespace SIPSignalingServer.Dialogs
 
         private SIPConnectionDialog? ConnectionDialog { get; set; }
 
-        public GeneralDialog(SIPRequest initialRequest, SIPEndPoint signalingServer, SIPTransport transport, SIPRegistry registry, ConnectionPool connectionPool)
-            : base(ServerSideDialogParams.Empty(),
-
-                 // TODO: get sipscheme passed or from request
-                 connection: new SIPConnection(SIPSchemesEnum.sip, transport)
+        public GeneralDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, SIPEndPoint signalingServer, SIPRegistry registry, ConnectionPool connectionPool)
+            : base(sipScheme,
+                  transport,
+                  ServerSideDialogParams.Empty()
             )
         {
             this.InitialRequest = initialRequest;
@@ -36,11 +35,8 @@ namespace SIPSignalingServer.Dialogs
             this.ConnectionPool = connectionPool;
             this.Transport = transport;
 
-            this.RegistrationDialog = new ServerRegistrationDialog(initialRequest, signalingServer, transport, this.Registry);
+            this.RegistrationDialog = new ServerRegistrationDialog(this.SIPScheme, transport, initialRequest, signalingServer, this.Registry);
             this.Params = this.RegistrationDialog.Params;
-
-            this.Connection.MessagePredicate = this.IsPartOfDialog;
-            this.Connection.MessageTimeout = this.SendTimeout;
         }
 
         public async override Task Start()
@@ -93,7 +89,7 @@ namespace SIPSignalingServer.Dialogs
 
         private async Task Connect()
         {            
-            this.ConnectionDialog = new SIPConnectionDialog(this.Params, this.Transport, this.Registry, this.ConnectionPool, startCSeq: 4);
+            this.ConnectionDialog = new SIPConnectionDialog(this.SIPScheme, this.Transport, this.Params, this.Registry, this.ConnectionPool, startCSeq: 4);
 
             // Add listeners
             this.ConnectionDialog.OnConnectionFailed += this.ConnectionFailedListener;

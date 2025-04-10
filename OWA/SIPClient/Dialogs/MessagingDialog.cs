@@ -14,8 +14,8 @@ namespace WebRTCClient.Dialogs
         public bool Listening { get; private set; }
 
         // TODO: pass transport and set the connection messagePredicate
-        public MessagingDialog(DialogParams dialogParams, SIPConnection connection)
-            : base(dialogParams, connection)
+        public MessagingDialog(SIPConnection connection, DialogParams dialogParams)
+            : base(connection, dialogParams)
         {
         }
 

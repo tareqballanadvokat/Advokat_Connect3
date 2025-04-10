@@ -8,20 +8,35 @@ namespace WebRTCLibrary.SIP
         //private static readonly int DefaultTimeOut = 2000;
         private static readonly int DefaultTimeOut = 20000; // DEBUG
 
-        private static readonly SIPSchemesEnum defaultSipScheme = SIPSchemesEnum.sip;
+        private int sendTimeout = DefaultTimeOut;
 
-        public int SendTimeout { get; set; } = DefaultTimeOut;
+        public int SendTimeout
+        {
+            get => this.sendTimeout;
+            set
+            {
+                this.sendTimeout = value;
+                this.Connection.MessageTimeout = this.SendTimeout;
+            }
+        }
 
         public int ReceiveTimeout { get; set; } = DefaultTimeOut;
 
-        public SIPSchemesEnum SIPScheme { get; protected set; } = defaultSipScheme;
+        public SIPSchemesEnum SIPScheme { get => this.Connection.SIPScheme; }
 
         public DialogParams Params { get; protected set; }
 
-
         public SIPConnection Connection { get; private set; }
 
-        public SIPDialog(DialogParams dialogParams, SIPConnection connection)
+        // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
+        public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, DialogParams dialogParams)
+            : this(new SIPConnection(sipScheme, transport), dialogParams)
+        {
+            this.Connection.MessagePredicate = this.IsPartOfDialog;
+            this.Connection.MessageTimeout = this.SendTimeout;
+        }
+
+        public SIPDialog(SIPConnection connection, DialogParams dialogParams)
         {
             this.Params = dialogParams;
             this.Connection = connection;

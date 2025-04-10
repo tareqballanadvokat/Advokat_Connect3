@@ -15,8 +15,8 @@ namespace SIPSignalingServer.Dialogs
         private static readonly int defaultInterval = 14000; // 14 seconds. We assume a default timeout of 15 seconds for UDP connections.
                                                              // TODO: A future implementation could find this timeout dynamically.
 
-        public KeepAliveDialog(ServerSideDialogParams dialogParams, SIPConnection connection)
-            : base(dialogParams, connection)
+        public KeepAliveDialog(SIPConnection connection, ServerSideDialogParams dialogParams)
+            : base(connection, dialogParams)
         {
         }
 

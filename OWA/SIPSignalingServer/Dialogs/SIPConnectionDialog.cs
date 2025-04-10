@@ -31,30 +31,30 @@ namespace SIPSignalingServer.Dialogs
 
         private ServerSideDialogParams SignalingServerDialogParams { get; set; }
 
-        //public event Action<SIPConnectionFoundDialog>? OnConnected;
-
         public event Action<SIPConnectionDialog, FailureEventArgs>? OnConnectionFailed;
 
-        public SIPConnectionDialog(ServerSideDialogParams signalingServerDialogParams, SIPTransport transport, SIPRegistry registry, ConnectionPool connectionPool, int startCSeq = 1)
+        public SIPConnectionDialog(
+            SIPSchemesEnum sipScheme,
+            SIPTransport transport,
+            ServerSideDialogParams signalingServerDialogParams,
+            SIPRegistry registry,
+            ConnectionPool connectionPool,
+            int startCSeq = 1)
             : base(
-                 new ServerSideDialogParams(
+                  sipScheme,
+                  transport,
+                  new ServerSideDialogParams(
                      signalingServerDialogParams.RemoteParticipant,
                      signalingServerDialogParams.ClientParticipant,
                      remoteTag: null, // explicitly set to null - gets set when connection is found - fromTag of peer
                      clientTag: signalingServerDialogParams.ClientTag,
-                     callId: CallProperties.CreateNewCallId()
-                     ),
-
-                 // TODO: Get scheme passed
-                 new SIPConnection(SIPSchemesEnum.sip, transport))
+                     callId: CallProperties.CreateNewCallId()))
         {
             this.SignalingServerDialogParams = signalingServerDialogParams;
             this.Transport = transport;
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
             
-            this.Connection.MessagePredicate = this.IsPartOfDialog;
-
             this.Registration = new SIPRegistration(this.SignalingServerDialogParams);
             this.StartCSeq = startCSeq;
         }
@@ -193,7 +193,7 @@ namespace SIPSignalingServer.Dialogs
         private void CreateConnection()
         {
             // adds connection, does not start it
-            RelayDialog relayDialog = new RelayDialog(this.Params, this.Connection); // pass transport?
+            RelayDialog relayDialog = new RelayDialog(this.Connection, this.Params); // pass transport?
             this.ConnectionPool.Connect(relayDialog);
         }
 

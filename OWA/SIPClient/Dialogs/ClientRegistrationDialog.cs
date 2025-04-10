@@ -19,8 +19,13 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnUnRegistered;
 
-        public ClientRegistrationDialog(DialogParams dialogParams, SIPConnection connection)
-            : base(dialogParams, connection)
+        public ClientRegistrationDialog(SIPConnection connection, DialogParams dialogParams)
+            : base(connection, dialogParams)
+        {
+        }
+
+        public ClientRegistrationDialog(SIPSchemesEnum sipScheme, SIPTransport transport, DialogParams dialogParams)
+            : base(sipScheme, transport, dialogParams)
         {
         }
 

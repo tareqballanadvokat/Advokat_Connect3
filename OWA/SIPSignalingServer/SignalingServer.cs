@@ -13,7 +13,7 @@ namespace SIPSignalingServer
 
         private SIPRegistry Registry = new SIPRegistry();
 
-        //private SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip;
+        private SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip;
 
         private SIPTransport Transport;
 
@@ -68,7 +68,7 @@ namespace SIPSignalingServer
                 return;
             }
 
-            GeneralDialog generalDialog = new GeneralDialog(sipRequest, localEndPoint, this.Transport, this.Registry, this.ConnectionPool);
+            GeneralDialog generalDialog = new GeneralDialog(SIPScheme, this.Transport, sipRequest, localEndPoint, this.Registry, this.ConnectionPool);
             await generalDialog.Start();
         }
     }

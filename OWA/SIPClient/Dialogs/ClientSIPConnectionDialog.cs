@@ -17,14 +17,9 @@ namespace WebRTCClient.Dialogs
 
         private bool Connecting { get; set; }
 
-        private ClientKeepAliveDialog KeepAliveDialog { get; set;}
-
-        public ClientSIPConnectionDialog(DialogParams dialogParams, SIPTransport transport)
-            // TODO: pass scheme
-            : base(dialogParams, new SIPConnection(SIPSchemesEnum.sip, transport))
+        public ClientSIPConnectionDialog(SIPSchemesEnum sipScheme, SIPTransport transport, DialogParams dialogParams)
+            : base(sipScheme, transport, dialogParams)
         {
-            this.Connection.MessagePredicate = this.IsPartOfDialog;
-            this.KeepAliveDialog = new ClientKeepAliveDialog(this.Params, this.Connection);
         }
 
         public async override Task Start()
@@ -42,7 +37,6 @@ namespace WebRTCClient.Dialogs
             }
 
             this.Connecting = true;
-            await this.KeepAliveDialog.Start();
             this.Connection.SIPRequestReceived += this.InitialNotifyListener;
         }
 
@@ -65,14 +59,13 @@ namespace WebRTCClient.Dialogs
                 return;
             }
 
-            await this.KeepAliveDialog.Stop(); // TODO: this probably has to keep running while messaging to keep the tunnel open
             this.Connection.SIPRequestReceived -= this.InitialNotifyListener;
             this.Connection.SIPRequestReceived += this.ConnectionNotifyListener;
 
             this.Params.RemoteTag = sipRequest.Header.From.FromTag;
             this.Params.CallId = sipRequest.Header.CallId;
 
-            MessagingDialog messagingDialog = new MessagingDialog(this.Params, this.Connection);
+            MessagingDialog messagingDialog = new MessagingDialog(this.Connection, this.Params);
             await messagingDialog.Start();
 
             Debug.WriteLine($"Client sending ACK."); // DEBUG
@@ -125,7 +118,6 @@ namespace WebRTCClient.Dialogs
 
             if (this.Connecting)
             {
-                await this.KeepAliveDialog.Stop();
                 this.Connection.SIPRequestReceived -= this.InitialNotifyListener;
 
                 // TODO: what to do here? send disconnect message?

@@ -22,7 +22,7 @@ namespace WebRTCClient
             this.SourceParticipant = sourceParticipant;
             this.RemoteParticipant = remoteParticipant;
 
-            this.Dialog = new ClientDialog(this.SourceParticipant, this.RemoteParticipant, transport, sipScheme);            
+            this.Dialog = new ClientDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant);            
         }
 
         public async Task StartDialog()

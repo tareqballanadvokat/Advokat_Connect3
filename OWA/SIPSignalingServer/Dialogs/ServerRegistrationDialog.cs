@@ -22,35 +22,20 @@ namespace SIPSignalingServer.Dialogs
 
         public event Action<ServerRegistrationDialog, FailedRegistrationEventArgs>? OnRegistrationFailed;
 
-        public ServerRegistrationDialog(SIPRequest initialRequest, SIPEndPoint signalingServer, SIPTransport transport, SIPRegistry registry)
+        public ServerRegistrationDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, SIPEndPoint signalingServer, SIPRegistry registry)
             : this(
-                  initialRequest,
-                  new ServerSideDialogParams(
-                      GetRemoteParticipant(initialRequest, signalingServer),
-                      GetCallerParticipant(initialRequest),
-                      remoteTag: CallProperties.CreateNewTag(),
-                      clientTag: initialRequest.Header.From.FromTag, // TODO: What if request does not contain a tag?
-                      callId: initialRequest.Header.CallId),
-                 transport,
-                 registry)
+                sipScheme,
+                transport,
+                initialRequest,
+                GetParamsFromRequest(initialRequest, signalingServer),
+                registry)
         {  
         }
 
-        public ServerRegistrationDialog(SIPRequest initialRequest, ServerSideDialogParams dialogParams, SIPTransport transport, SIPRegistry registry)
-            :this(
-                 initialRequest,
-                 dialogParams,
-
-                 // TODO: get sipscheme passed or from request
-                 connection: new SIPConnection(SIPSchemesEnum.sip, transport),
-                 registry)
-        {
-            this.Connection.MessagePredicate = this.IsPartOfDialog;
-            this.Connection.MessageTimeout = this.SendTimeout;
-        }
-
-        public ServerRegistrationDialog(SIPRequest initialRequest, ServerSideDialogParams dialogParams, SIPConnection connection, SIPRegistry registry)
-            : base(dialogParams, connection)
+        public ServerRegistrationDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, ServerSideDialogParams dialogParams, SIPRegistry registry)
+            :base(sipScheme,
+                 transport,
+                 dialogParams)
         {
             this.InitialRequest = initialRequest;
             this.Registry = registry;
@@ -173,5 +158,15 @@ namespace SIPSignalingServer.Dialogs
             string name = request.Header.To.ToName;
             return new SIPParticipant(name, signalingServer);
         }
+
+        private static ServerSideDialogParams GetParamsFromRequest(SIPRequest request, SIPEndPoint signalingServer)
+        {
+            return new ServerSideDialogParams(
+                GetRemoteParticipant(request, signalingServer),
+                GetCallerParticipant(request),
+                remoteTag: CallProperties.CreateNewTag(),
+                clientTag: request.Header.From.FromTag, // TODO: What if request does not contain a tag?
+                callId: request.Header.CallId);
+        } 
     }
 }

@@ -8,8 +8,8 @@ namespace SIPSignalingServer.Dialogs
     {
         public bool Relaying { get; private set; }
 
-        public RelayDialog(ServerSideDialogParams dialogParams, SIPConnection connection)
-            : base(dialogParams, connection)
+        public RelayDialog(SIPConnection connection, ServerSideDialogParams dialogParams)
+            : base(connection, dialogParams)
         {
         }
 

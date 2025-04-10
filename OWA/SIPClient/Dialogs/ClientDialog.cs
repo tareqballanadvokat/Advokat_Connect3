@@ -18,18 +18,21 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private ClientSIPConnectionDialog? ConnectionDialog { get; set; }
 
+        private ClientKeepAliveDialog KeepAliveDialog { get; set; }
+
         private SIPTransport Transport { get; set; }
 
         public IPEndPoint SignalingServer { get; private set; }
 
-        public ClientDialog(SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, SIPTransport transport, SIPSchemesEnum sipScheme)
+        public ClientDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant)
             : base(
-                  new DialogParams(sourceParticipant, remoteParticipant, callId:CallProperties.CreateNewCallId()),
-                  new SIPConnection(sipScheme, transport))
+                  sipScheme,
+                  transport,
+                  new DialogParams(sourceParticipant, remoteParticipant, callId:CallProperties.CreateNewCallId()))
         {
-            this.Connection.MessagePredicate = this.IsPartOfDialog;
+            this.RegistrationDialog = new ClientRegistrationDialog(this.Connection, this.Params);
+            this.KeepAliveDialog = new ClientKeepAliveDialog(this.Connection, this.Params);
 
-            this.RegistrationDialog = new ClientRegistrationDialog(this.Params, this.Connection);
             this.RegistrationDialog.SendTimeout = SendTimeout;
             this.RegistrationDialog.ReceiveTimeout = ReceiveTimeout;
 
@@ -61,12 +64,14 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                 this.Params.RemoteParticipant,
                 sourceTag: this.Params.SourceTag);
 
-            this.ConnectionDialog = new ClientSIPConnectionDialog(dialogParams, this.Transport);
+            this.ConnectionDialog = new ClientSIPConnectionDialog(this.SIPScheme, this.Transport, dialogParams);
+
             await this.ConnectionDialog.Start();
+            await this.KeepAliveDialog.Start(); // TODO: stop dialog on stop / unregister
 
             await WaitFor(
                 () => this.Connected,
-                this.ReceiveTimeout // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register have a timeout at all?
+                this.ReceiveTimeout // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register. have a timeout at all?
                 // TODO: failed?
                 );
         }

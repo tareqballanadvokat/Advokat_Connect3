@@ -1,4 +1,5 @@
 ﻿using SIPSignalingServer.Models;
+using SIPSorcery.SIP;
 using WebRTCLibrary.SIP;
 
 namespace SIPSignalingServer.Dialogs
@@ -11,8 +12,13 @@ namespace SIPSignalingServer.Dialogs
             set => base.Params = value;
         }
 
-        public ServerSideSIPDialog(ServerSideDialogParams dialogParams, SIPConnection connection)
-            : base(dialogParams, connection)
+        public ServerSideSIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, ServerSideDialogParams dialogParams)
+            : base(sipScheme, transport, dialogParams)
+        {
+        }
+
+        public ServerSideSIPDialog(SIPConnection connection, ServerSideDialogParams dialogParams)
+            : base(connection, dialogParams)
         {
         }
     }
