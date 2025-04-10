@@ -102,16 +102,12 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
             this.Params.RemoteTag = sipResponse.Header.From.FromTag;
 
-            // TODO: Do something with the socketerror
-            await this.SendSIPMessage(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: sipResponse.Header.CSeq + 1));
-
             // success
             this.Registered = true;
             this.Registering = false;
 
-            // SourceTag is not null here. Got set on initial request.
-            // TODO: what happens if we unregister just before this gets invoked?
-            //this.OnRegistered?.Invoke(this, new SIPDialogEventArgs(this.SourceTag!, this.RemoteTag));
+            // TODO: Do something with the socketerror
+            await this.SendSIPMessage(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: sipResponse.Header.CSeq + 1));
         }
 
         private async Task Unregister()

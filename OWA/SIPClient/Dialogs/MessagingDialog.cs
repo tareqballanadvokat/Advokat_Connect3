@@ -11,19 +11,34 @@ namespace WebRTCClient.Dialogs
         public event Action<MessagingDialog, SIPRequest>? OnRequest;
         public event Action<MessagingDialog, SIPResponse>? OnResponse;
 
+        public bool Listening { get; private set; }
+
         // TODO: pass transport and set the connection messagePredicate
-        public MessagingDialog(DialogParams dialogParams, SIPConnection connection) : base(dialogParams, connection)
+        public MessagingDialog(DialogParams dialogParams, SIPConnection connection)
+            : base(dialogParams, connection)
         {
         }
 
         public async override Task Start()
         {
+            if (this.Listening)
+            {
+                // already started
+                return;
+            }
+
             this.Connection.SIPRequestReceived += this.RequestRecieved;
             this.Connection.SIPResponseReceived += this.ResponseRecieved;
         }
 
         public async override Task Stop()
         {
+            if (!this.Listening)
+            {
+                // not started
+                return;
+            }
+
             this.Connection.SIPRequestReceived -= this.RequestRecieved;
             this.Connection.SIPResponseReceived -= this.ResponseRecieved;
         }
@@ -43,23 +58,11 @@ namespace WebRTCClient.Dialogs
 
         private async Task RequestRecieved(SIPEndPoint remoteEndpoint, SIPEndPoint localEndpoint, SIPRequest sipRequest)
         {
-            if (!this.IsPartOfDialog(sipRequest))
-            {
-                // not part of dialog - ignore
-                return;
-            }
-
             this.OnRequest?.Invoke(this, sipRequest);
         }
 
         private async Task ResponseRecieved(SIPEndPoint remoteEndpoint, SIPEndPoint localEndpoint, SIPResponse sipResponse)
         {
-            if (!this.IsPartOfDialog(sipResponse))
-            {
-                // not part of dialog - ignore
-                return;
-            }
-
             this.OnResponse?.Invoke(this, sipResponse);
         }
     }

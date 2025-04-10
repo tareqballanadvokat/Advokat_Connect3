@@ -67,6 +67,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
             await WaitFor(
                 () => this.Connected,
                 this.ReceiveTimeout // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register have a timeout at all?
+                // TODO: failed?
                 );
         }
     }
