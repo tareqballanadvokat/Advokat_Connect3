@@ -5,27 +5,32 @@
 
 /* global document, Office */
 
+import { formatDate } from "../helpers/helper";
 Office.onReady(async (info) => { 
  
   if (info.host === Office.HostType.Outlook) {
-    document.getElementById("caseStructureDownloaded").onclick = CaseDownloadStructure;
+    document.getElementById("caseStructureDownloaded").onclick = CaseDownloadStructure; 
     document.getElementById("search-case-id").onclick = CaseSearchStructure;
+    ///test
+    console.log(formatDate(new Date()));
   }
+ 
 });
 
 
  
-function initCaseStructure(initialData) 
+function initCaseStructure(initialData, isRootLoaded) 
 {
   var $rootElement = $("#caseStructure");
 
-  function buildTree(nodes, container) 
+  function buildTree(nodes, container, isRoot) 
   {
-      nodes.forEach(node => {
+      nodes.forEach(node => 
+        {
           var $div = $("<div>", { class: "folder-row", id: "folder-" + node.id });
 
           var $img = $("<img>", {
-            src: "assets/icon-16.png",
+            src: "assets/folder-16.png",
             class: "folder-icon"
            });
           // Tytuł + toggle
@@ -33,15 +38,42 @@ function initCaseStructure(initialData)
               class: "toggle",
               text: "+ ",
               "data-node-id": node.id,
-              "data-last-node": node.lastNode
+              "data-last-node": node.lastNode,
+              "data-is-root-loaded": isRootLoaded
           });
           var $name= $("<span>", {
               class: "folder-name toggle",
               text: node.name
           });
+
           $div.append($toggle);
           $div.append($img);
-          $div.append( $name);
+          $div.append($name);
+
+          if (isRoot)
+          {
+              var $actionLink= $("<button>", {  
+                text:"Remove" ,href: "", 
+                "data-node-id" :node.id,
+                style:"float:right",
+                
+              });
+              $actionLink.on("click", async function () {
+
+                const nodeId = $(this).data("node-id"); 
+  
+                try { 
+                  removeCaseFromFavorites(nodeId);
+                  $(this).parent().remove();
+                } catch (error) {
+                }
+              
+   
+              });
+        
+              $div.append($actionLink);
+          }
+
 
           // Placeholder na dzieci
           var $childContainer = $("<div>", {
@@ -62,62 +94,51 @@ function initCaseStructure(initialData)
               if (!isVisible && !$childContainer.data("loaded")) {
                   const nodeId = $(this).data("node-id");
                   const isLastNodeId = $(this).data("last-node");
-                  if (isLastNodeId)
-                    {
-                      // try {
-                      //   const subNodes = await createItemStructure(nodeId); // async load
-                      //   buildItemsTree(subNodes, $childContainer);
-                      //   $childContainer.data("loaded", true); // flag that it's loaded
-                      // } catch (error) {
-                      //     console.error("Błąd ładowania itemów:", error);
-                      // }
-                      
-                      loadItems(nodeId, $childContainer);
-                    }
-                    else 
-                    {
-                      try {
-                          const subNodes = await createCaseStructure(nodeId); // async load
-                          buildTree(subNodes, $childContainer);
-                          $childContainer.data("loaded", true); // flag that it's loaded
-                      } catch (error) {
-                          console.error("Błąd ładowania podstruktury:", error);
-                      }
-                  }
+              
+                  const subNodesee = await getStructure(nodeId); //async load
+                  var structure =  subNodesee.filter((x) => x.isStructure == true);
+                  var files =  subNodesee.filter(x => x.isStructure==false);
+                  buildTree(structure, $childContainer, false);
+                  buildItemsTree(files, $childContainer);//where(x=> x.IsStruture==true)
+                  $childContainer.data("loaded", true); // flag that it's loaded
+ 
               }
           });
       });
   }
 
-
-
   // Początkowe ładowanie root'ów
-  buildTree(initialData, $rootElement);
+  buildTree(initialData, $rootElement, true);
 }
+
 
 
 function buildItemsTree(nodes, container) {
   nodes.forEach(node => {
       var $div = $("<div>", { class: "file-tag", id: "file-" + node.id });
 
+      var $img = $("<img>", {
+        src: "assets/item-16.png",
+        class: "folder-icon"
+       });
       // Tytuł + toggle
       var $toggle = $("<span>", {
-          class: "toggle",
           text: node.name,
           "data-node-id": node.id,
           "data-last-node": node.lastNode,
-          "data-url": "url"
+          "data-url": node.url
       });
-
+      $div.append($img);
       $div.append($toggle);
+      if (node.hasUrl)
+      {
+        var $actionLink= $("<button>", {  
+          text:"Open" ,href: "", 
+          style:"float:right"
+        });
 
-      // Placeholder na dzieci
-      // var $childContainer = $("<div>", {
-      //     class: "children",
-      //     css: { "margin-left": "20px" }
-      // });
-
-      // $div.append($childContainer);
+        $div.append($actionLink);
+      }
       container.append($div);
 
       // Obsługa kliknięcia
@@ -129,65 +150,127 @@ function buildItemsTree(nodes, container) {
 }
 
 
+ 
 
-async function loadItems(nodeId,  childContainer)
-{
-  try {
-    const subNodes = await createItemStructure(nodeId); // async load
-    buildItemsTree(subNodes, childContainer);
-    childContainer.data("loaded", true); // flag that it's loaded
-  } catch (error) {
-      console.error("Błąd ładowania itemów:", error);
-  }
-}
+
 export async function CaseDownloadStructure()
 {
-  const initialData = await createCaseStructure(0); // ładowanie root'ów
-  initCaseStructure(initialData);
+  const initialData = await getMyFavorites(); 
+  initCaseStructure(initialData, true);
 }
 
 export async function CaseSearchStructure()
 {
   const initialData =  document.getElementById('text-search-input').value;
-  // searchCases(initialData);
+ 
   searchCases(initialData)
   .then(data => {
     const $results = $("#results-container");
-    $results.empty(); // czyść stare dane
+    $results.empty();  
 
     data.forEach(item => {
       const $row = $("<div>", { class: "result-row" });
 
-      $row.append($("<div>").text(item.caseId));
-      $row.append($("<div>").text(item.causa));
-      $row.append($("<div>").html(`<button class="fav-btn">Add to favorite</button>`));
+      $row.append($("<div>", {class:"name"}).text(item.name));
+      $row.append($("<div>", {class:"causa"}).text(item.causa));
+
+      const $div = $("<div>", {"data-node-id": item.id, class: "button"})
+      .html(`<button>Add to favorite</button>`)
+      .on("click", async function () 
+         {
+          const nodeId = $(this).data("node-id");
+          console.log(nodeId);
+         var dataToLoad = await addCaseToFavorites(nodeId);
+         initCaseStructure(dataToLoad, true);
+         }
+      );
+
+      $row.append($div);
 
       $results.append($row);
     });
   })
   .catch(err => {
     console.error("Błąd podczas wyszukiwania:", err);
+
   });
 }
-function createItemStructure(nodeId) {
-  return fetch("https://localhost:7231/WeatherForecast/GetItemsByParentId?parentId=" + nodeId)
-      .then(res => res.json());
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+///////
+// Actions
+/////
+function addCaseToFavorites(nodeIsd) {
+  return fetch("https://localhost:7231/WeatherForecast/AddToFavorites", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ nodeId: nodeIsd })
+  })
+    .then(res => res.json())
+    .catch(error => {
+      console.error("Błąd fetch:", error);
+      ErrorHandling(error);
+    });
 }
 
-// function searchCases(searchQuery) {
-//       return fetch("https://localhost:7231/WeatherForecast/SearchCases", {
-//         method: "POST",
-//         headers: {
-//           "Content-Type": "application/json"
-//         },
- 
-//       body: JSON.stringify({ query: searchQuery })
-//     })
-//     .then(res => res.json());
+async function removeCaseFromFavorites(nodeId) {
+  // return fetch("https://localhost:7231/WeatherForecast/RemoveFromFavorites", {
+  //   method: "POST",
+  //   headers: {
+  //     "Content-Type": "application/json"
+  //   },
+  //   body: JSON.stringify({ nodeId: nodeId })
+  // })
+    // .then(res => {
+  
+    // })
+    // .catch(error => {
+    //   console.error("Błąd fetch:", error);
+    //   ErrorHandling(error);
+    // });
 
- 
-// }
+    try {
+      const res = await  fetch("https://localhost:7231/WeatherForecast/RemoveFromFavorites", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ nodeId: nodeId })
+      });
+  
+      if (!res.ok) {
+        throw new Error(`Błąd HTTP ${res.status}: ${res.statusText}`);
+      }
+  
+    //  const data = await res.json();
+      return res;
+  
+    } catch (err) {
+      console.error("Błąd podczas wyszukiwania:", err);
+      throw err; // możesz przekazać dalej lub zwrócić np. null
+    }
 
+
+}
 
 function searchCases(searchQuery) {
   return fetch("https://localhost:7231/WeatherForecast/SearchCases", {
@@ -197,43 +280,37 @@ function searchCases(searchQuery) {
     },
     body: JSON.stringify({ query: searchQuery })
   })
-    .then(res => res.json());
+    .then(res => res.json())
+    .catch(error => {
+      console.error("Błąd fetch:", error);
+      ErrorHandling(error);
+    });
 }
 
-// $("#search-case-id").on("click", function () {
-//   const query = $("#text-search-input").val();
-//   if (!query) return;
-
-//   searchCases(query)
-//     .then(data => {
-//       const $results = $("#results-container");
-//       $results.empty(); // czyść stare dane
-
-//       data.forEach(item => {
-//         const $row = $("<div>", { class: "result-row" });
-
-//         $row.append($("<div>").text(item.caseId));
-//         $row.append($("<div>").text(item.causa));
-//         $row.append($("<div>").html(`<button class="fav-btn">Add to favorite</button>`));
-
-//         $results.append($row);
-//       });
-//     })
-//     .catch(err => {
-//       console.error("Błąd podczas wyszukiwania:", err);
-//     });
-// });
-
-
-function createCaseStructure(nodeId) {
+function getStructure(nodeId) {
   return fetch("https://localhost:7231/WeatherForecast/GetStructureById?parentId=" + nodeId)
-      .then(res => res.json());
+      .then(res => res.json())   
+      .catch(error => {
+        console.error("Błąd fetch:", error);
+        ErrorHandling(error);
+      });
 }
+
+ 
+
+function getMyFavorites(nodeId) {
+  return fetch("https://localhost:7231/WeatherForecast/GetMyFavorites")
+//  .catch(error)   
+      .then(res => res.json())
+      .catch(error => {
+        console.error("Błąd fetch:", error);
+        ErrorHandling(error);
+      });
+ 
+}
+
 
 export async function GetItems(id) {
-  // Define the API URL
-    //  const apiUrl = 'https://localhost:7231/WeatherForecast';
-      debugger;
       var itemsData ;
  
       $.ajax({
@@ -249,6 +326,7 @@ export async function GetItems(id) {
         },
         error: function (textStatus, errorThrown) {
           console.log(errorThrown);
+          ErrorHandling(errorThrown);
         }
   
       });
@@ -256,4 +334,9 @@ export async function GetItems(id) {
        
   }
 
+  function ErrorHandling(message){
+    var $rootElement = $("#error-message");
+ 
+    $rootElement.append(message);
+  }
  

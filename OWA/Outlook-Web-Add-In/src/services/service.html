@@ -36,6 +36,9 @@
 
 
 <body> 
+  <div id="error-message" class="w3-bar w3-black" >
+  </div>
+
 <div class="w3-bar w3-black">
     <div class="w3-bar-item w3-button" onclick="openCity('ASD')">ASD</div>
     <div class="w3-bar-item w3-button" onclick="openCity('Service')">Servie</div>
@@ -77,8 +80,9 @@
 
         <div class="search-panel">
             <div class="search-box">
-              <input id="text-search-input" type="text" placeholder="Search..." />
-              <button id="search-case-id">🔍</button>
+              <input id="text-search-input" style="width:200px" type="text" placeholder="Search..." />
+                <img width="16" height="16" id="search-case-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat" />
+        
         </div>
         
         <!-- <div class="results-header">
