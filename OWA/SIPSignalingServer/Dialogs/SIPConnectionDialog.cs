@@ -48,7 +48,7 @@ namespace SIPSignalingServer.Dialogs
                      signalingServerDialogParams.ClientParticipant,
                      remoteTag: null, // explicitly set to null - gets set when connection is found - fromTag of peer
                      clientTag: signalingServerDialogParams.ClientTag,
-                     callId: CallProperties.CreateNewCallId()))
+                     callId: null)) // explicitly set to null - gets set when connecting
         {
             this.SignalingServerDialogParams = signalingServerDialogParams;
             this.Transport = transport;
@@ -100,9 +100,17 @@ namespace SIPSignalingServer.Dialogs
             {
                 this.WaitingForPeer = true;
                 // peer not yet registered.
-                // TODO: start keep alive dialog
-                // TODO: Find out how to stop keep alive dialog when the peer is connected
-                //       wait for peer is registered?
+
+                CancellationTokenSource cts = new CancellationTokenSource();
+                CancellationToken ct = cts.Token;
+
+                await WaitForAsync(
+                    () => this.Registry.PeerIsRegistered(this.Registration),
+                    ct,
+                    successCallback: this.Connect
+                    );
+
+                // TODO: wait for peer is registered?
             }
         }
 
@@ -124,6 +132,7 @@ namespace SIPSignalingServer.Dialogs
             //    // Another connection process is already running
             //    return;
             //}
+            this.WaitingForPeer = false; // TODO: keep here?
 
             this.Connecting = true;
             this.SetRemoteTag();
@@ -187,6 +196,7 @@ namespace SIPSignalingServer.Dialogs
 
         private void SendConnectionNotify()
         {
+            Debug.WriteLine($"Server sending Notify."); // DEBUG
             // TODO: send connection Notify.
         }
 

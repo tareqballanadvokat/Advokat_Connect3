@@ -22,10 +22,14 @@ namespace WebRTCLibrary.SIP.Utils
             request.Header.To = new SIPToHeader(headerParams.DestinationParticipant.Name, ToUri, headerParams.ToTag);
             request.Header.CSeq = headerParams.CSeq;
             request.Header.CallId = headerParams.CallID;
+
             //request.Header.MaxForwards = 70; // 70 is an arbitrary number
 
-            // TODO: add message
-            //request.Body = "";
+            if (message != null)
+            {
+                request.Body = message;
+            }
+            
             //request.Header.Contact = new List<SIPContactHeader> { new SIPContactHeader(null, new SIPURI(SIPScheme, this.SourceParticipant.Endpoint)) };
 
             return request;

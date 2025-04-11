@@ -13,17 +13,45 @@ namespace SIPSignalingServer.Dialogs
         {
         }
 
-        public event Action<RelayDialog, SIPRequest>? OnRequestReceived;
-        public event Action<RelayDialog, SIPResponse>? OnResponseReceived;
+        public delegate Task RequestReceivedDelegate(RelayDialog sender, SIPRequest request);
+        public delegate Task ResponseReceivedDelegate(RelayDialog sender, SIPResponse response);
 
-        private async Task RelayMessage(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPointl, SIPRequest request)
+        public event RequestReceivedDelegate? OnRequestReceived;
+        public event ResponseReceivedDelegate? OnResponseReceived;
+
+        public async Task RelayRequest(RelayDialog sender, SIPRequest request)
         {
-            this.OnRequestReceived?.Invoke(this, request);
+            if (this.Relaying)
+            {
+                // TODO: maybe check SocketError?
+                // TODO: maybe check if request matches dialogparams?
+                
+                await this.Connection.SendSIPRequest(request.Method, this.GetHeaderParams(request.Header.CSeq), request.Body);
+            }
         }
 
-        private async Task RelayMessage(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPointl, SIPResponse response)
+        public async Task RelayResponse(RelayDialog sender, SIPResponse response)
         {
-            this.OnResponseReceived?.Invoke(this, response);
+            if (this.Relaying)
+            {
+                await this.Connection.SendSIPResponse(response);
+            }
+        }
+
+        private async Task ReceiveMessage(SIPEndPoint _, SIPEndPoint __, SIPRequest request)
+        {
+            if (this.Relaying)
+            {
+                this.OnRequestReceived?.Invoke(this, request);
+            }
+        }
+
+        private async Task ReceiveMessage(SIPEndPoint _, SIPEndPoint __, SIPResponse response)
+        {
+            if (this.Relaying)
+            {
+                this.OnResponseReceived?.Invoke(this, response);
+            }
         }
 
         public async override Task Start()
@@ -34,8 +62,8 @@ namespace SIPSignalingServer.Dialogs
                 return;
             }
 
-            this.Connection.SIPRequestReceived += this.RelayMessage;
-            this.Connection.SIPResponseReceived += this.RelayMessage;
+            this.Connection.SIPRequestReceived += this.ReceiveMessage;
+            this.Connection.SIPResponseReceived += this.ReceiveMessage;
             this.Relaying = true;
         }
 
@@ -47,8 +75,8 @@ namespace SIPSignalingServer.Dialogs
                 return;
             }
 
-            this.Connection.SIPRequestReceived -= this.RelayMessage;
-            this.Connection.SIPResponseReceived -= this.RelayMessage;
+            this.Connection.SIPRequestReceived -= this.ReceiveMessage;
+            this.Connection.SIPResponseReceived -= this.ReceiveMessage;
             this.Relaying = false;
         }
     }

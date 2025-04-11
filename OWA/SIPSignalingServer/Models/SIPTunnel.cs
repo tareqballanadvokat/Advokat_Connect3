@@ -16,7 +16,11 @@ namespace SIPSignalingServer.Models
             Left = left;
             Right = right;
 
-            // TODO: connect the two dialogs together
+            this.Left.OnRequestReceived += this.Right.RelayRequest;
+            this.Left.OnResponseReceived += this.Right.RelayResponse;
+
+            this.Right.OnRequestReceived += this.Left.RelayRequest;
+            this.Right.OnResponseReceived += this.Left.RelayResponse;
         }
 
         //public async Task Connect()

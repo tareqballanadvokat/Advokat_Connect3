@@ -1,4 +1,5 @@
 ﻿using SIPSorcery.SIP;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
@@ -12,6 +13,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
     {
         public bool Registered { get => RegistrationDialog.Registered; }
 
+        [MemberNotNullWhen(true, nameof(this.ConnectionDialog))]
         public bool Connected { get => this.ConnectionDialog?.Connected ?? false; }
 
         private ClientRegistrationDialog RegistrationDialog { get; set; }
@@ -74,6 +76,17 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                 this.ReceiveTimeout // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register. have a timeout at all?
                 // TODO: failed?
                 );
+        }
+
+        public async Task SendRequest(SIPMethodsEnum method, string? message, int cSeq)
+        {
+            if (!this.Connected)
+            {
+                // not conencted
+                return;
+            }
+
+            await this.ConnectionDialog.SendRequest(method, message, cSeq);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using SIPSorcery.SIP;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -9,9 +10,11 @@ namespace WebRTCClient.Dialogs
 {
     internal class ClientSIPConnectionDialog : SIPDialog
     {
+
         public MessagingDialog? MessagingDialog { get; private set; }
 
-        public bool Connected { get => this.MessagingDialog?.Listening ?? false && this.PeerListeningConfirmation; }
+        [MemberNotNullWhen(true, nameof(this.MessagingDialog))]
+        public bool Connected { get => this.MessagingDialog?.Running ?? false && this.PeerListeningConfirmation; }
 
         private bool PeerListeningConfirmation { get; set; }
 
@@ -65,8 +68,8 @@ namespace WebRTCClient.Dialogs
             this.Params.RemoteTag = sipRequest.Header.From.FromTag;
             this.Params.CallId = sipRequest.Header.CallId;
 
-            MessagingDialog messagingDialog = new MessagingDialog(this.Connection, this.Params);
-            await messagingDialog.Start();
+            this.MessagingDialog = new MessagingDialog(this.Connection, this.Params);
+            await this.MessagingDialog.Start();
 
             Debug.WriteLine($"Client sending ACK."); // DEBUG
             await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5));
@@ -128,6 +131,15 @@ namespace WebRTCClient.Dialogs
             // TODO: send a message for disconnect?
         }
 
+        // TODO: return socketError?
+        public async Task SendRequest(SIPMethodsEnum method, string? message, int cSeq)
+        {
+            if (!this.Connected)
+            {
+                return;
+            }
 
+            await this.MessagingDialog.SendRequest(method, message, cSeq);
+        }
     }
 }

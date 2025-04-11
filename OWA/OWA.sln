@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSignalingServer", "SIPSi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCClient", "SIPClient\WebRTCClient.csproj", "{58ADE97A-E7CB-4BDB-864F-48EFC2E60B9C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCRemoteWPF", "WebRTCRemoteWPF\WebRTCRemoteWPF.csproj", "{6F672556-0362-4F6A-9550-CBC32DF13F94}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,6 +75,10 @@ Global
 		{58ADE97A-E7CB-4BDB-864F-48EFC2E60B9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{58ADE97A-E7CB-4BDB-864F-48EFC2E60B9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{58ADE97A-E7CB-4BDB-864F-48EFC2E60B9C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F672556-0362-4F6A-9550-CBC32DF13F94}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F672556-0362-4F6A-9550-CBC32DF13F94}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F672556-0362-4F6A-9550-CBC32DF13F94}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F672556-0362-4F6A-9550-CBC32DF13F94}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

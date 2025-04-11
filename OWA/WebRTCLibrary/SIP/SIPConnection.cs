@@ -11,7 +11,9 @@ namespace WebRTCLibrary.SIP
 
         public int MessageTimeout { get; set; } = defaultMessageTimeout;
 
-        public Func<SIPMessageBase, bool>? MessagePredicate { get; set; }
+        public delegate bool AcceptMessage(SIPMessageBase message);
+
+        public AcceptMessage? MessagePredicate { get; set; }
 
         public SIPSchemesEnum SIPScheme { get; private set; }
 
@@ -21,7 +23,7 @@ namespace WebRTCLibrary.SIP
 
         public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 
-        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, Func<SIPMessageBase, bool>? messagePredicate = null)
+        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, AcceptMessage? messagePredicate = null)
         {
             this.MessagePredicate = messagePredicate;
             this.SIPScheme = scheme;

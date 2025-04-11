@@ -22,18 +22,18 @@ namespace SIPSignalingServer
         public SignalingServer()
         {
             // DEBUG - remote already registered
-            ServerSideDialogParams dialogParams = new(
-                remoteParticipant: new SIPParticipant("macc", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8081))),
-                clientParticipant: new SIPParticipant("macs", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8091))),
-                callId: "5678",
-                remoteTag: "4",
-                clientTag: "3"
-                );
+            //ServerSideDialogParams dialogParams = new(
+            //    remoteParticipant: new SIPParticipant("macc", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8081))),
+            //    clientParticipant: new SIPParticipant("macs", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8091))),
+            //    callId: "5678",
+            //    remoteTag: "4",
+            //    clientTag: "3"
+            //    );
 
-            SIPRegistration registration = new SIPRegistration(dialogParams);
+            //SIPRegistration registration = new SIPRegistration(dialogParams);
 
-            this.Registry.Register(registration);
-            this.Registry.Confirm(registration);
+            //this.Registry.Register(registration);
+            //this.Registry.Confirm(registration);
 
             // DEBUG - END
 

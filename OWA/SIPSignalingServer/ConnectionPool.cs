@@ -1,5 +1,6 @@
 ﻿using SIPSignalingServer.Dialogs;
 using SIPSignalingServer.Models;
+using SIPSorcery.SIP;
 
 namespace SIPSignalingServer
 {
@@ -24,16 +25,16 @@ namespace SIPSignalingServer
                 return;
             }
 
-            RelayDialog? peerDialog = this.GetPendingPeer(dialog);
+            RelayDialog? pendingPeerDialog = this.GetPendingPeer(dialog);
 
-            if (peerDialog == null)
+            if (pendingPeerDialog == null)
             {
                 this.AddPending(dialog);
                 return;
             }
 
-            this.CreateNewConnection(dialog, peerDialog);
-            this.PendingConnections.Remove(dialog);
+            this.CreateNewConnection(dialog, pendingPeerDialog);
+            this.PendingConnections.Remove(pendingPeerDialog);
         }
 
         public bool IsConnected(ServerSideDialogParams dialogParams)
@@ -62,8 +63,9 @@ namespace SIPSignalingServer
 
         private static bool ParamsAreValid(ServerSideDialogParams dialogParams)
         {
-            return dialogParams.CallId != null
-                || dialogParams.ClientTag != null
+            return 
+                //dialogParams.CallId != null
+                dialogParams.ClientTag != null
                 || dialogParams.RemoteTag != null;
         }
 
@@ -75,7 +77,7 @@ namespace SIPSignalingServer
 
         private RelayDialog? GetPendingPeer(RelayDialog dialog)
         {
-            string callId = dialog.Params.CallId;
+            //string callId = dialog.Params.CallId;
             
             string peerClientTag = dialog.Params.RemoteTag; // TODO: could not be set
             string peerRemoteTag = dialog.Params.ClientTag;
@@ -84,8 +86,9 @@ namespace SIPSignalingServer
             string peerRemoteUser = dialog.Params.ClientParticipant.Name;
 
             return this.PendingConnections.SingleOrDefault(r => 
-                r.Params.CallId == callId
-                && r.Params.ClientTag == peerClientTag
+                //r.Params.CallId == callId
+                //&& 
+                r.Params.ClientTag == peerClientTag
                 && r.Params.RemoteTag == peerRemoteTag // could not be set?
 
                 // TODO: names could be null?
@@ -106,15 +109,19 @@ namespace SIPSignalingServer
             if (this.PendingConnections.Contains(dialog))
             {
                 // already contains dialog
+                
                 return;
             }
 
+            dialog.Params.CallId = CallProperties.CreateNewCallId(); // creates new call id for connection
             this.PendingConnections.Add(dialog);
         }
 
-        private void CreateNewConnection(RelayDialog dialog, RelayDialog peerDialog)
+        private void CreateNewConnection(RelayDialog dialog, RelayDialog pendingPeerDialog)
         {
-            this.Connections.Add(new SIPTunnel(dialog, peerDialog));
+
+            dialog.Params.CallId = pendingPeerDialog.Params.CallId;
+            this.Connections.Add(new SIPTunnel(dialog, pendingPeerDialog));
         }
     }
 }

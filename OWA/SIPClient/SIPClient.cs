@@ -25,6 +25,11 @@ namespace WebRTCClient
             this.Dialog = new ClientDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant);            
         }
 
+        public async Task SendRequest(SIPMethodsEnum method, string? message, int cSeq)
+        {
+            await this.Dialog.SendRequest(method, message, cSeq);
+        }
+
         public async Task StartDialog()
         {
             await this.Dialog.Start();

@@ -5,7 +5,7 @@ using WebRTCClient;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
-namespace WebRTCCaller
+namespace WebRTCRemoteWPF
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -15,9 +15,9 @@ namespace WebRTCCaller
         //private static readonly string testingSignalingServer = "92.205.233.81:8081";
         private static readonly string testingSignalingServer = "192.168.1.58:8081";
 
-        private static readonly string testingCallerName = "macc";
-        private static readonly string testingRemoteName = "macs";
-        private static readonly string testingSignalingServerSourcePort = "8098";
+        private static readonly string testingCallerName = "macs";
+        private static readonly string testingRemoteName = "macc";
+        private static readonly string testingSignalingServerSourcePort = "7080";
         private static readonly string testingTimeout = "2000";
 
         //private RegistrationManager SignalingServer = new RegistrationManager("callerIdIsIrrelevantIHope");
@@ -127,13 +127,9 @@ namespace WebRTCCaller
 
         }
 
-        private async void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
+        private void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (this.UserAgent != null)
-            {
-                await this.UserAgent.SendRequest(SIPMethodsEnum.INFO, this.MessageBox.Text, 1);
-                this.MessageBox.Text = string.Empty;
-            }
+
         }
 
         private void DelayMilisecondsTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)

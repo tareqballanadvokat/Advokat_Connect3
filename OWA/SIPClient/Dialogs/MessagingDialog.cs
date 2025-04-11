@@ -11,7 +11,7 @@ namespace WebRTCClient.Dialogs
         public event Action<MessagingDialog, SIPRequest>? OnRequest;
         public event Action<MessagingDialog, SIPResponse>? OnResponse;
 
-        public bool Listening { get; private set; }
+        public bool Running { get; private set; }
 
         // TODO: pass transport and set the connection messagePredicate
         public MessagingDialog(SIPConnection connection, DialogParams dialogParams)
@@ -21,7 +21,7 @@ namespace WebRTCClient.Dialogs
 
         public async override Task Start()
         {
-            if (this.Listening)
+            if (this.Running)
             {
                 // already started
                 return;
@@ -29,11 +29,12 @@ namespace WebRTCClient.Dialogs
 
             this.Connection.SIPRequestReceived += this.RequestRecieved;
             this.Connection.SIPResponseReceived += this.ResponseRecieved;
+            this.Running = true;
         }
 
         public async override Task Stop()
         {
-            if (!this.Listening)
+            if (!this.Running)
             {
                 // not started
                 return;
@@ -41,24 +42,38 @@ namespace WebRTCClient.Dialogs
 
             this.Connection.SIPRequestReceived -= this.RequestRecieved;
             this.Connection.SIPResponseReceived -= this.ResponseRecieved;
+            this.Running = false;
         }
 
-        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string? message = null, int cSeq = 1)
+        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string? message, int cSeq)
         {
+            if (!Running)
+            {
+                // not running
+                return SocketError.NotConnected;
+            }
+
             SIPHeaderParams headerParams = this.GetHeaderParams(cSeq);
             return await this.Connection.SendSIPRequest(method, headerParams, message); //pass this.SendTimeout maybe
         }
 
-        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string? message = null, int cSeq = 1)
+        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string? message, int cSeq)
         {
+            if (!Running)
+            {
+                // not running
+                return SocketError.NotConnected;
+            }
+
             SIPHeaderParams headerParams = this.GetHeaderParams(cSeq);
             return await this.Connection.SendSIPResponse(statusCode, headerParams, message); //pass this.SendTimeout maybe
         }
 
-
         private async Task RequestRecieved(SIPEndPoint remoteEndpoint, SIPEndPoint localEndpoint, SIPRequest sipRequest)
         {
             this.OnRequest?.Invoke(this, sipRequest);
+
+            string message = sipRequest.Body;
         }
 
         private async Task ResponseRecieved(SIPEndPoint remoteEndpoint, SIPEndPoint localEndpoint, SIPResponse sipResponse)
