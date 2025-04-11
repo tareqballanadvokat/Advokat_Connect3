@@ -21,6 +21,7 @@ module.exports = async (env, options) => {
       taskpane: ["./src/taskpane/taskpane.js", "./src/taskpane/taskpane.html"],
       commands: ["./src/commands/commands.js", "./src/commands/commands.html"],
       services: ["./src/services/service.js", "./src/services/service.html"],
+      cases: ["./src/cases/case.js", "./src/cases/case.html"],
     },
     output: {
       clean: true,
@@ -61,6 +62,11 @@ module.exports = async (env, options) => {
         filename: "service.html",
         template: "./src/services/service.html",
         chunks: ["polyfill", "services"],
+      }),
+      new HtmlWebpackPlugin({
+        filename: "case.html",
+        template: "./src/cases/case.html",
+        chunks: ["polyfill", "cases"],
       }),
       new CopyWebpackPlugin({
         patterns: [
