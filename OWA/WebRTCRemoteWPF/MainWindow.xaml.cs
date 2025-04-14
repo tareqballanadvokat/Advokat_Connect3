@@ -1,5 +1,6 @@
 ﻿using SIPSorcery.SIP;
 using System.Net;
+using System.Net.Sockets;
 using System.Windows;
 using WebRTCClient;
 using WebRTCLibrary.SIP;
@@ -75,14 +76,41 @@ namespace WebRTCRemoteWPF
                 return;
             }
 
+            if (this.UserAgent != null)
+            {
+                return;
+            }
+
             SIPParticipant caller = new SIPParticipant(this.RegistrationName.Text, new SIPEndPoint(new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.Text), int.Parse(DnsIPAndPort.Text))));
-            
+
             // remote name + signaling server IPEndpoint
             SIPParticipant remote = new SIPParticipant(this.DestinationName.Text, new SIPEndPoint(IPEndPoint.Parse(this.SipSignalingServer.Text)));
 
             SIPTransport transport = this.GetTransport(caller);
             this.UserAgent = new SIPClient(caller, remote, transport, SIPSchemesEnum.sip);
+
+            this.UserAgent.OnRequestReceived += this.OnRequestRecived;
+            this.UserAgent.OnResponseReceived += this.OnResponseRecived;
+
             await this.UserAgent.StartDialog();
+        }
+
+        private async Task OnRequestRecived(ISIPMessager sender, SIPRequest request)
+        {
+            this.AddLineToTextBox($"{request.Method} - {request.Body}");
+        }
+
+        private async Task OnResponseRecived(ISIPMessager sender, SIPResponse response)
+        {
+            this.AddLineToTextBox($"{response.StatusCode} - {response.Body}");
+        }
+
+        private void AddLineToTextBox(string message, bool sentMessage = false)
+        {
+            string messageType = sentMessage ? $"SENT" : $"RECEIVED";
+
+            Dispatcher.Invoke(() => this.LogBox.AppendText($"[{DateTime.Now} {messageType}] {message}\r\n"));
+            Dispatcher.Invoke(() => LogBox.ScrollToEnd());
         }
 
         private SIPTransport GetTransport(SIPParticipant caller)
@@ -127,9 +155,18 @@ namespace WebRTCRemoteWPF
 
         }
 
-        private void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
+        private async void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
         {
-
+            if (this.UserAgent != null)
+            {
+                SocketError sendStatus = await this.UserAgent.SendRequest(SIPMethodsEnum.INFO, this.MessageBox.Text, 1);
+                if (sendStatus != SocketError.NotConnected)
+                {
+                    this.AddLineToTextBox($"{SIPMethodsEnum.INFO} - {this.MessageBox.Text}", sentMessage: true);
+                }
+                
+                this.MessageBox.Text = string.Empty;
+            }
         }
 
         private void DelayMilisecondsTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
