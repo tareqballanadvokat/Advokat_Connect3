@@ -1,17 +1,22 @@
 ﻿using SIPSorcery.SIP;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Net.Sockets;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
-
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient.Dialogs
 {
-    internal class ClientSIPConnectionDialog : SIPDialog
+    internal class ClientSIPConnectionDialog : SIPDialog, ISIPMessager
     {
+        public event ISIPMessager.RequestReceivedDelegate? OnRequestReceived;
+        
+        public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
-        public MessagingDialog? MessagingDialog { get; private set; }
+
+
+        private MessagingDialog? MessagingDialog { get; set; }
 
         [MemberNotNullWhen(true, nameof(this.MessagingDialog))]
         public bool Connected { get => this.MessagingDialog?.Running ?? false && this.PeerListeningConfirmation; }
@@ -68,7 +73,10 @@ namespace WebRTCClient.Dialogs
             this.Params.RemoteTag = sipRequest.Header.From.FromTag;
             this.Params.CallId = sipRequest.Header.CallId;
 
-            this.MessagingDialog = new MessagingDialog(this.Connection, this.Params);
+            this.MessagingDialog = new MessagingDialog(this.SIPScheme, this.Connection.Transport, this.Params);
+
+            this.MessagingDialog.OnRequestReceived += this.RequestRecieved;
+            this.MessagingDialog.OnResponseReceived += this.ResponseRecieved;
             await this.MessagingDialog.Start();
 
             Debug.WriteLine($"Client sending ACK."); // DEBUG
@@ -131,15 +139,34 @@ namespace WebRTCClient.Dialogs
             // TODO: send a message for disconnect?
         }
 
-        // TODO: return socketError?
-        public async Task SendRequest(SIPMethodsEnum method, string? message, int cSeq)
+        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string? message, int cSeq)
         {
             if (!this.Connected)
             {
-                return;
+                return SocketError.NotConnected;
             }
 
-            await this.MessagingDialog.SendRequest(method, message, cSeq);
+            return await this.MessagingDialog.SendRequest(method, message, cSeq);
+        }
+
+        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string? message, int cSeq)
+        {
+            if (!this.Connected)
+            {
+                return SocketError.NotConnected;
+            }
+
+            return await this.MessagingDialog.SendResponse(statusCode, message, cSeq);
+        }
+
+        private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)
+        {
+            await (this.OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
+        }
+
+        private async Task ResponseRecieved(ISIPMessager sender, SIPResponse sipResponse)
+        {
+            await (this.OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
         }
     }
 }

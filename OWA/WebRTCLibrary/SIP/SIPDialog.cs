@@ -32,7 +32,7 @@ namespace WebRTCLibrary.SIP
         public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, DialogParams dialogParams)
             : this(new SIPConnection(sipScheme, transport), dialogParams)
         {
-            this.Connection.MessagePredicate = this.IsPartOfDialog;
+            this.Connection.MessagePredicate = this.AcceptMessage;
             this.Connection.MessageTimeout = this.SendTimeout;
         }
 
@@ -57,10 +57,15 @@ namespace WebRTCLibrary.SIP
                 callID: this.Params.CallId);
         }
 
+        protected virtual bool AcceptMessage(SIPMessageBase message)
+        {
+            return this.IsPartOfDialog(message);
+        }
+
         /// <summary>Checks if an incoming message is part of this dialog.</summary>
         /// <param name="message">Incoming SIPMessage. SIPRequest or SIPResponse.</param>
         /// <version date="21.03.2025" sb="MAC"></version>
-        protected virtual bool IsPartOfDialog(SIPMessageBase message)
+        private bool IsPartOfDialog(SIPMessageBase message)
         {
             // TODO: check from / to participant
             bool callIdIsValid = this.Params.CallId == null || message.Header.CallId == this.Params.CallId;

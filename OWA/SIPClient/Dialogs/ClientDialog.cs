@@ -1,6 +1,7 @@
 ﻿using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Net.Sockets;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -9,8 +10,12 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient.Dialogs.ClientDialogs
 {
-    internal class ClientDialog : SIPDialog
+    internal class ClientDialog : SIPDialog, ISIPMessager
     {
+        public event ISIPMessager.RequestReceivedDelegate? OnRequestReceived;
+
+        public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
+
         public bool Registered { get => RegistrationDialog.Registered; }
 
         [MemberNotNullWhen(true, nameof(this.ConnectionDialog))]
@@ -68,6 +73,9 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
             this.ConnectionDialog = new ClientSIPConnectionDialog(this.SIPScheme, this.Transport, dialogParams);
 
+            this.ConnectionDialog.OnRequestReceived += this.RequestRecieved;
+            this.ConnectionDialog.OnResponseReceived += this.ResponseRecieved;
+
             await this.ConnectionDialog.Start();
             await this.KeepAliveDialog.Start(); // TODO: stop dialog on stop / unregister
 
@@ -78,15 +86,34 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                 );
         }
 
-        public async Task SendRequest(SIPMethodsEnum method, string? message, int cSeq)
+        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string? message, int cSeq)
         {
             if (!this.Connected)
             {
-                // not conencted
-                return;
+                return SocketError.NotConnected;
             }
 
-            await this.ConnectionDialog.SendRequest(method, message, cSeq);
+            return await this.ConnectionDialog.SendRequest(method, message, cSeq);
+        }
+
+        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string? message, int cSeq)
+        {
+            if (!this.Connected)
+            {
+                return SocketError.NotConnected;
+            }
+
+            return await this.ConnectionDialog.SendResponse(statusCode, message, cSeq);
+        }
+
+        private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)
+        {
+            await (this.OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
+        }
+
+        private async Task ResponseRecieved(ISIPMessager sender, SIPResponse sipResponse)
+        {
+            await (this.OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
         }
     }
 }

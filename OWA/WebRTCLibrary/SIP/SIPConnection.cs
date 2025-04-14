@@ -5,7 +5,7 @@ using WebRTCLibrary.SIP.Utils;
 
 namespace WebRTCLibrary.SIP
 {
-    public class SIPConnection // : IDisposable
+    public class SIPConnection // : IDisposable // TODO: Could also be ISIPMessager
     {
         public static readonly int defaultMessageTimeout = 2000;
 
@@ -69,7 +69,7 @@ namespace WebRTCLibrary.SIP
             if (this.MessagePredicate?.Invoke(sipResponse) ?? true)
             {
                 // we can filter for current connection, but it should only recieve current connections anyway.
-                this.SIPResponseReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipResponse);
+                await (this.SIPResponseReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipResponse) ?? Task.CompletedTask);
             }
         }
 
@@ -77,8 +77,7 @@ namespace WebRTCLibrary.SIP
         {
             if (this.MessagePredicate?.Invoke(sipRequest) ?? true)
             {
-                // we can filter for current connection, but it should only recieve current connections anyway.
-                this.SIPRequestReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipRequest);
+                await (this.SIPRequestReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipRequest) ?? Task.CompletedTask);
             }
         }
 

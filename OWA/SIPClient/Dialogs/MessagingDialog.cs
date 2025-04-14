@@ -2,20 +2,20 @@
 using System.Net.Sockets;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
+using static WebRTCLibrary.SIP.ISIPMessager;
 
 namespace WebRTCClient.Dialogs
 {
-    internal class MessagingDialog : SIPDialog
+    internal class MessagingDialog : SIPDialog, ISIPMessager
     {
+        public event RequestReceivedDelegate? OnRequestReceived;
 
-        public event Action<MessagingDialog, SIPRequest>? OnRequest;
-        public event Action<MessagingDialog, SIPResponse>? OnResponse;
+        public event ResponseReceivedDelegate? OnResponseReceived;
 
         public bool Running { get; private set; }
 
-        // TODO: pass transport and set the connection messagePredicate
-        public MessagingDialog(SIPConnection connection, DialogParams dialogParams)
-            : base(connection, dialogParams)
+        public MessagingDialog(SIPSchemesEnum sipScheme, SIPTransport transport, DialogParams dialogParams)
+            : base(sipScheme, transport, dialogParams)
         {
         }
 
@@ -71,14 +71,18 @@ namespace WebRTCClient.Dialogs
 
         private async Task RequestRecieved(SIPEndPoint remoteEndpoint, SIPEndPoint localEndpoint, SIPRequest sipRequest)
         {
-            this.OnRequest?.Invoke(this, sipRequest);
-
-            string message = sipRequest.Body;
+            await (this.OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
         }
 
         private async Task ResponseRecieved(SIPEndPoint remoteEndpoint, SIPEndPoint localEndpoint, SIPResponse sipResponse)
         {
-            this.OnResponse?.Invoke(this, sipResponse);
+            await (this.OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
+        }
+
+        protected override bool AcceptMessage(SIPMessageBase message)
+        {
+            return base.AcceptMessage(message)
+                && this.Running;
         }
     }
 }
