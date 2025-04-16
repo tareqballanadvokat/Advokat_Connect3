@@ -2,8 +2,8 @@
 using SIPSorcery.SIP;
 using SIPSorcery.Sys;
 using System.Net.Sockets;
-using WebRTCClient.Dialogs;
-using WebRTCClient.Dialogs.ClientDialogs;
+using WebRTCClient.Transactions;
+using WebRTCClient.Transactions.SIP;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -17,7 +17,7 @@ namespace WebRTCClient
 
         public SIPParticipant RemoteParticipant { get; private set; }
 
-        private ClientDialog Dialog { get; set; }
+        private SIPDialog Dialog { get; set; }
 
         private RTCDataChannel? P2PConnection { get; set; }
 
@@ -44,7 +44,7 @@ namespace WebRTCClient
             this.SourceParticipant = sourceParticipant;
             this.RemoteParticipant = remoteParticipant;
 
-            this.Dialog = new ClientDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant);
+            this.Dialog = new SIPDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant);
         }
 
         public async Task<SocketError> SendRequest(SIPMethodsEnum method, string? message, int cSeq)
@@ -70,7 +70,7 @@ namespace WebRTCClient
 
         private async Task ConnectWithPeer(List<RTCIceServer> iceServers)
         {
-            P2PConnectionDialog p2PConnectionDialog = new P2PConnectionDialog(this.Dialog, iceServers);
+            P2PConnection p2PConnectionDialog = new P2PConnection(this.Dialog, iceServers);
             await p2PConnectionDialog.Start();
         }
 

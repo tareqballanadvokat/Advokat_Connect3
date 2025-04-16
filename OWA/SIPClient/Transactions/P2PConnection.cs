@@ -2,13 +2,13 @@
 using SIPSorcery.SIP;
 using SIPSorcery.Sys;
 using System.Text.Json;
-using WebRTCClient.Dialogs.SDP;
+using WebRTCClient.Transactions.SDP;
 using WebRTCClient.Models;
 using WebRTCLibrary.SIP;
 
-namespace WebRTCClient.Dialogs
+namespace WebRTCClient.Transactions
 {
-    internal class P2PConnectionDialog
+    internal class P2PConnection
     {
         private bool IsControllingAgent { get; set; }
 
@@ -16,16 +16,16 @@ namespace WebRTCClient.Dialogs
 
         private RTCPeerConnection PeerConnection { get; set; }
 
-        private SDPDialog? SDPDialog { get; set; }
+        private SDPTransaction? SDPDialog { get; set; }
 
         private ISIPMessager SIPConnection { get; set; }
 
         private bool ICECandidatesReady { get; set; } // TODO: we should wait with the negotiation until this is true?
 
-        public P2PConnectionDialog(ISIPMessager connection, List<RTCIceServer> iceServers)
+        public P2PConnection(ISIPMessager sipConnection, List<RTCIceServer> iceServers)
         {
             this.IceServers = iceServers;
-            this.SIPConnection = connection;
+            this.SIPConnection = sipConnection;
 
             RTCConfiguration config = new RTCConfiguration
             {
@@ -115,11 +115,11 @@ namespace WebRTCClient.Dialogs
 
             if (this.IsControllingAgent)
             {
-                this.SDPDialog = new SDPOfferingClientDialog(this.SIPConnection, this.PeerConnection, 2);
+                this.SDPDialog = new SDPOfferingClientTransaction(this.SIPConnection, this.PeerConnection, 2);
             }
             else
             {
-                this.SDPDialog = new SDPAnsweringClientDialog(this.SIPConnection, this.PeerConnection, 2);
+                this.SDPDialog = new SDPAnsweringClientTransaction(this.SIPConnection, this.PeerConnection, 2);
             }
 
             await this.SDPDialog.Start();

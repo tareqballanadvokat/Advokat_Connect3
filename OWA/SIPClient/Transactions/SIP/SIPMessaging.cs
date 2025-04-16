@@ -2,47 +2,46 @@
 using System.Net.Sockets;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
-using static WebRTCLibrary.SIP.ISIPMessager;
 
-namespace WebRTCClient.Dialogs
+namespace WebRTCClient.Transactions.SIP
 {
-    internal class MessagingDialog : SIPDialog, ISIPMessager
+    internal class SIPMessaging : WebRTCLibrary.SIP.SIPTransaction, ISIPMessager
     {
-        public event RequestReceivedDelegate? OnRequestReceived;
+        public event ISIPMessager.RequestReceivedDelegate? OnRequestReceived;
 
-        public event ResponseReceivedDelegate? OnResponseReceived;
+        public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
         public bool Running { get; private set; }
 
-        public MessagingDialog(SIPSchemesEnum sipScheme, SIPTransport transport, DialogParams dialogParams)
+        public SIPMessaging(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams)
             : base(sipScheme, transport, dialogParams)
         {
         }
 
         public async override Task Start()
         {
-            if (this.Running)
+            if (Running)
             {
                 // already started
                 return;
             }
 
-            this.Connection.SIPRequestReceived += this.RequestRecieved;
-            this.Connection.SIPResponseReceived += this.ResponseRecieved;
-            this.Running = true;
+            Connection.SIPRequestReceived += RequestRecieved;
+            Connection.SIPResponseReceived += ResponseRecieved;
+            Running = true;
         }
 
         public async override Task Stop()
         {
-            if (!this.Running)
+            if (!Running)
             {
                 // not started
                 return;
             }
 
-            this.Connection.SIPRequestReceived -= this.RequestRecieved;
-            this.Connection.SIPResponseReceived -= this.ResponseRecieved;
-            this.Running = false;
+            Connection.SIPRequestReceived -= RequestRecieved;
+            Connection.SIPResponseReceived -= ResponseRecieved;
+            Running = false;
         }
 
         public async Task<SocketError> SendRequest(SIPMethodsEnum method, string? message, int cSeq)
@@ -53,8 +52,8 @@ namespace WebRTCClient.Dialogs
                 return SocketError.NotConnected;
             }
 
-            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq);
-            return await this.Connection.SendSIPRequest(method, headerParams, message); //pass this.SendTimeout maybe
+            SIPHeaderParams headerParams = GetHeaderParams(cSeq);
+            return await Connection.SendSIPRequest(method, headerParams, message); //pass this.SendTimeout maybe
         }
 
         public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string? message, int cSeq)
@@ -65,24 +64,24 @@ namespace WebRTCClient.Dialogs
                 return SocketError.NotConnected;
             }
 
-            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq);
-            return await this.Connection.SendSIPResponse(statusCode, headerParams, message); //pass this.SendTimeout maybe
+            SIPHeaderParams headerParams = GetHeaderParams(cSeq);
+            return await Connection.SendSIPResponse(statusCode, headerParams, message); //pass this.SendTimeout maybe
         }
 
         private async Task RequestRecieved(SIPEndPoint remoteEndpoint, SIPEndPoint localEndpoint, SIPRequest sipRequest)
         {
-            await (this.OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
+            await (OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
         }
 
         private async Task ResponseRecieved(SIPEndPoint remoteEndpoint, SIPEndPoint localEndpoint, SIPResponse sipResponse)
         {
-            await (this.OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
+            await (OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
         }
 
         protected override bool AcceptMessage(SIPMessageBase message)
         {
-            return base.AcceptMessage(message)
-                && this.Running;
+            return this.Running
+                && base.AcceptMessage(message);
         }
     }
 }

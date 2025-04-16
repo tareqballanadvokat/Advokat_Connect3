@@ -1,9 +1,9 @@
 ﻿using SIPSorcery.Net;
 using WebRTCLibrary.SIP;
 
-namespace WebRTCClient.Dialogs.SDP
+namespace WebRTCClient.Transactions.SDP
 {
-    internal abstract class SDPDialog
+    internal abstract class SDPTransaction
     {
         protected RTCPeerConnection PeerConnection { get; private set; }
 
@@ -12,9 +12,9 @@ namespace WebRTCClient.Dialogs.SDP
         protected ISIPMessager Connection {  get; private set; }
 
         // list can be changed from the outside...
-        public SDPDialog(ISIPMessager connection, RTCPeerConnection peerConnection, int startCSeq = 1)
+        public SDPTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, int startCSeq = 1)
         {
-            this.Connection = connection;
+            this.Connection = sipConnection;
             this.PeerConnection = peerConnection;
             this.StartCSeq = startCSeq;
         }

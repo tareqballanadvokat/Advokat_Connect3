@@ -1,4 +1,4 @@
-﻿using SIPSignalingServer.Dialogs;
+﻿using SIPSignalingServer.Transactions;
 using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using System.Net;
@@ -17,31 +17,15 @@ namespace SIPSignalingServer
 
         private SIPTransport Transport;
 
-        private ConnectionPool ConnectionPool;
+        private SIPConnectionPool ConnectionPool;
 
         public SignalingServer()
         {
-            // DEBUG - remote already registered
-            //ServerSideDialogParams dialogParams = new(
-            //    remoteParticipant: new SIPParticipant("macc", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8081))),
-            //    clientParticipant: new SIPParticipant("macs", new SIPEndPoint(new IPEndPoint(IPAddress.Parse("192.168.1.58"), 8091))),
-            //    callId: "5678",
-            //    remoteTag: "4",
-            //    clientTag: "3"
-            //    );
-
-            //SIPRegistration registration = new SIPRegistration(dialogParams);
-
-            //this.Registry.Register(registration);
-            //this.Registry.Confirm(registration);
-
-            // DEBUG - END
-
             this.Transport = this.GetConnection(this.ServerEndpoint);
             Console.WriteLine($"listening on {ServerEndpoint}");
             this.Transport.SIPTransportRequestReceived += this.RegistraionListener;
 
-            this.ConnectionPool = new ConnectionPool();
+            this.ConnectionPool = new SIPConnectionPool();
         }
 
         private SIPTransport GetConnection(IPEndPoint sourceEndpoint)
@@ -68,8 +52,8 @@ namespace SIPSignalingServer
                 return;
             }
 
-            GeneralDialog generalDialog = new GeneralDialog(SIPScheme, this.Transport, sipRequest, localEndPoint, this.Registry, this.ConnectionPool);
-            await generalDialog.Start();
+            SIPDialog SIPDialog = new SIPDialog(SIPScheme, this.Transport, sipRequest, localEndPoint, this.Registry, this.ConnectionPool);
+            await SIPDialog.Start();
         }
     }
 }

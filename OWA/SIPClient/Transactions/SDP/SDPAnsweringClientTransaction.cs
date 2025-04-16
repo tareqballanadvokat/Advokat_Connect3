@@ -1,5 +1,4 @@
-﻿using Org.BouncyCastle.Asn1.Ocsp;
-using SIPSorcery.Net;
+﻿using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Text.Json;
 using WebRTCClient.Models;
@@ -8,16 +7,16 @@ using WebRTCLibrary.SIP;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 
-namespace WebRTCClient.Dialogs.SDP
+namespace WebRTCClient.Transactions.SDP
 {
-    internal class SDPAnsweringClientDialog : SDPDialog
+    internal class SDPAnsweringClientTransaction : SDPTransaction
     {
         private bool OfferReceived { get; set; }
 
         private bool PeerIsOffering { get; set; }
 
-        public SDPAnsweringClientDialog(ISIPMessager connection, RTCPeerConnection peerConnection, int startCSeq = 1)
-            : base(connection, peerConnection, startCSeq)
+        public SDPAnsweringClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, int startCSeq = 1)
+            : base(sipConnection, peerConnection, startCSeq)
         {
         }
 

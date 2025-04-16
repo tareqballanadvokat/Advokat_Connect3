@@ -1,22 +1,22 @@
 ﻿using SIPSignalingServer.Models;
 using WebRTCLibrary.SIP;
 
-namespace SIPSignalingServer.Dialogs
+namespace SIPSignalingServer.Transactions
 {
-    /// <summary>Dialog to keep the connection between the registered peer and the signaling server alive. While we wait for the other peer to connect.
+    /// <summary>Transaction to keep the connection between the registered peer and the signaling server alive. While we wait for the other peer to connect.
     ///          Most firewalls / NATs have a timeout for open UDP /TCP connections.
     ///          
     ///          We need to keep the connection open for the server to notify the peer once the other peer has connected.</summary>
     /// <version date="01.04.2025" sb="MAC"></version>
-    internal class KeepAliveDialog : ServerSideSIPDialog
+    internal class SIPKeepAlive : ServerSideSIPTransaction
     {
         // TODO: Not necessary with websockets i think
 
         private static readonly int defaultInterval = 14000; // 14 seconds. We assume a default timeout of 15 seconds for UDP connections.
                                                              // TODO: A future implementation could find this timeout dynamically.
 
-        public KeepAliveDialog(SIPConnection connection, ServerSideDialogParams dialogParams)
-            : base(connection, dialogParams)
+        public SIPKeepAlive(SIPConnection connection, ServerSideTransactionParams transactionParams)
+            : base(connection, transactionParams)
         {
         }
 

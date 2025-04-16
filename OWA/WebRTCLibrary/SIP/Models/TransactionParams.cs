@@ -1,6 +1,6 @@
 ﻿namespace WebRTCLibrary.SIP.Models
 {
-    public class DialogParams
+    public class TransactionParams
     {
         public SIPParticipant SourceParticipant { get; private set; }
 
@@ -12,7 +12,7 @@
 
         public string? CallId { get; set; }
 
-        public DialogParams(
+        public TransactionParams(
             SIPParticipant sourceParticipant,
             SIPParticipant remoteParticipant,
             string? sourceTag = null,

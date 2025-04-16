@@ -2,7 +2,7 @@
 
 namespace SIPSignalingServer.Models
 {
-    internal class ServerSideDialogParams : DialogParams
+    internal class ServerSideTransactionParams : TransactionParams
     {
         // Signaling server acts as the remote participant
         public new SIPParticipant RemoteParticipant { get => this.SourceParticipant; }
@@ -21,7 +21,7 @@ namespace SIPSignalingServer.Models
             set => this.SourceTag = value;
         }
 
-        public ServerSideDialogParams(
+        public ServerSideTransactionParams(
             SIPParticipant remoteParticipant,
             SIPParticipant clientParticipant,
             string? callId = null,
@@ -36,10 +36,10 @@ namespace SIPSignalingServer.Models
         {
         }
 
-        public static ServerSideDialogParams Empty()
+        public static ServerSideTransactionParams Empty()
         {
             // very experimental
-            return new ServerSideDialogParams(null, null);
+            return new ServerSideTransactionParams(null, null);
         }
     }
 }

@@ -2,21 +2,21 @@
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
-namespace WebRTCClient.Dialogs
+namespace WebRTCClient.Transactions.SIP
 {
-    internal class ClientKeepAliveDialog : SIPDialog
+    internal class SIPKeepAlive : WebRTCLibrary.SIP.SIPTransaction
     {
         public bool WaitingForPeer { get; set; }
 
-        public ClientKeepAliveDialog(SIPConnection connection, DialogParams dialogParams)
+        public SIPKeepAlive(SIPConnection connection, TransactionParams dialogParams)
             : base(connection, dialogParams)
         {
         }
 
         public async override Task Start()
         {
-            this.WaitingForPeer = true;
-            this.Connection.SIPRequestReceived += this.PingListener;
+            WaitingForPeer = true;
+            Connection.SIPRequestReceived += PingListener;
         }
 
         private async Task PingListener(SIPEndPoint localEndpoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
@@ -28,13 +28,13 @@ namespace WebRTCClient.Dialogs
                 return;
             }
 
-            await this.Connection.SendSIPRequest(SIPMethodsEnum.PING, this.GetHeaderParams(sipRequest.Header.CSeq + 1));
+            await Connection.SendSIPRequest(SIPMethodsEnum.PING, GetHeaderParams(sipRequest.Header.CSeq + 1));
         }
 
         public async override Task Stop()
         {
-            this.WaitingForPeer = false;
-            this.Connection.SIPRequestReceived -= this.PingListener;
+            WaitingForPeer = false;
+            Connection.SIPRequestReceived -= PingListener;
         }
     }
 }

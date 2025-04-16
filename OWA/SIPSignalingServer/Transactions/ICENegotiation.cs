@@ -3,7 +3,7 @@ using SIPSorcery.SIP;
 using System.Text.Json;
 using WebRTCClient.Models;
 
-namespace SIPSignalingServer.Dialogs
+namespace SIPSignalingServer.Transactions
 {
     internal class ICENegotiation
     {

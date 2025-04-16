@@ -2,32 +2,31 @@
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics;
-using WebRTCLibrary.SIP;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 
-namespace SIPSignalingServer.Dialogs
+namespace SIPSignalingServer.Transactions
 {
-    internal class GeneralDialog : ServerSideSIPDialog // ,IAsyncDisposable  
+    internal class SIPDialog : ServerSideSIPTransaction // ,IAsyncDisposable  
     {
-        private bool Registered { get => this.RegistrationDialog.Registered; } // TODO: replace with check if registration is in registry?
+        private bool Registered { get => this.SIPRegistrationTransaction.Registered; } // TODO: replace with check if registration is in registry?
 
         private SIPRequest InitialRequest {get; set;}
 
         private SIPRegistry Registry { get; set; }
 
-        private ConnectionPool ConnectionPool { get; set; }
+        private SIPConnectionPool ConnectionPool { get; set; }
 
         private SIPTransport Transport { get; set; }
 
-        private ServerRegistrationDialog RegistrationDialog { get; set; }
+        private SIPRegistrationTransaction SIPRegistrationTransaction { get; set; }
 
-        private SIPConnectionDialog? ConnectionDialog { get; set; }
+        private SIPConnectionTransaction? SIPConnectionTransaction { get; set; }
 
-        public GeneralDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, SIPEndPoint signalingServer, SIPRegistry registry, ConnectionPool connectionPool)
+        public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, SIPEndPoint signalingServer, SIPRegistry registry, SIPConnectionPool connectionPool)
             : base(sipScheme,
                   transport,
-                  ServerSideDialogParams.Empty()
+                  ServerSideTransactionParams.Empty()
             )
         {
             this.InitialRequest = initialRequest;
@@ -35,13 +34,13 @@ namespace SIPSignalingServer.Dialogs
             this.ConnectionPool = connectionPool;
             this.Transport = transport;
 
-            this.RegistrationDialog = new ServerRegistrationDialog(this.SIPScheme, transport, initialRequest, signalingServer, this.Registry);
-            this.Params = this.RegistrationDialog.Params;
+            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.SIPScheme, transport, initialRequest, signalingServer, this.Registry);
+            this.Params = this.SIPRegistrationTransaction.Params;
         }
 
         public async override Task Start()
         {
-            // TODO: let it pass through to the registrationDialog?
+            // TODO: let it pass through to the registrationTransaction?
             if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
             {
                 // request was not a register request.
@@ -59,7 +58,7 @@ namespace SIPSignalingServer.Dialogs
 
         public bool IsConnected()
         {
-            return this.ConnectionDialog?.IsConnected() ?? false;
+            return this.SIPConnectionTransaction?.IsConnected() ?? false;
         }
 
         private async Task Register()
@@ -68,9 +67,9 @@ namespace SIPSignalingServer.Dialogs
             //       If not return some specific response or don't respond at all
             Debug.WriteLine($"Server received Register."); // DEBUG
 
-            this.RegistrationDialog.OnRegistrationFailed += this.RegistrationFailedListener;
+            this.SIPRegistrationTransaction.OnRegistrationFailed += this.RegistrationFailedListener;
 
-            await this.RegistrationDialog.Start();
+            await this.SIPRegistrationTransaction.Start();
 
             await WaitForAsync(
                 () => this.Registered,
@@ -78,10 +77,10 @@ namespace SIPSignalingServer.Dialogs
                 //failureCallback: Task.CompletedTask , // TODO: do something on timeout
                 successCallback: this.Connect);
 
-            this.RegistrationDialog.OnRegistrationFailed -= this.RegistrationFailedListener;
+            this.SIPRegistrationTransaction.OnRegistrationFailed -= this.RegistrationFailedListener;
         }
 
-        private void RegistrationFailedListener(ServerRegistrationDialog sender, FailedRegistrationEventArgs e)
+        private void RegistrationFailedListener(SIPRegistrationTransaction sender, FailedRegistrationEventArgs e)
         {
             // TODO: Dispose on Registation fail / timeout
             //       Stop waiting for registration
@@ -89,16 +88,16 @@ namespace SIPSignalingServer.Dialogs
 
         private async Task Connect()
         {            
-            this.ConnectionDialog = new SIPConnectionDialog(this.SIPScheme, this.Transport, this.Params, this.Registry, this.ConnectionPool, startCSeq: 4);
+            this.SIPConnectionTransaction = new SIPConnectionTransaction(this.SIPScheme, this.Transport, this.Params, this.Registry, this.ConnectionPool, startCSeq: 4);
 
             // Add listeners
-            this.ConnectionDialog.OnConnectionFailed += this.ConnectionFailedListener;
+            this.SIPConnectionTransaction.OnConnectionFailed += this.ConnectionFailedListener;
 
             CancellationTokenSource cts = new CancellationTokenSource(); // TODO: add some sort of timeout for connection?
             CancellationToken ct = cts.Token;
-            // TODO pass ct to ConenctionDialog? Pass it deeper to KeepAliveDialog?
+            // TODO pass ct to ConnectionTransaction? Pass it deeper to KeepAliveDialog?
 
-            await this.ConnectionDialog.Start();
+            await this.SIPConnectionTransaction.Start();
 
             await WaitForAsync(this.IsConnected,
                 ct,
@@ -106,21 +105,21 @@ namespace SIPSignalingServer.Dialogs
                 //failureCallback: () => { } // timeout - token got cancelled
                 ); 
 
-            this.ConnectionDialog.OnConnectionFailed -= this.ConnectionFailedListener;
+            this.SIPConnectionTransaction.OnConnectionFailed -= this.ConnectionFailedListener;
         }
 
         private async Task StartICENegotiation()
         {
             if (this.IsConnected())
             {
-                SIPTunnel? connection = this.ConnectionPool.GetConnection(this.ConnectionDialog.Params);
+                SIPTunnel? connection = this.ConnectionPool.GetConnection(this.SIPConnectionTransaction.Params);
                 if (connection == null)
                 {
                     // not connected
                     return;
                 }
 
-                if (connection.Left.Params == this.ConnectionDialog.Params)
+                if (connection.Left.Params == this.SIPConnectionTransaction.Params)
                 {
                     // only start negotiation once per connection
                     ICENegotiation iceNegotiation = new ICENegotiation(connection);
@@ -130,7 +129,7 @@ namespace SIPSignalingServer.Dialogs
 
         }
 
-        private void ConnectionFailedListener(SIPConnectionDialog sender, FailureEventArgs e)
+        private void ConnectionFailedListener(SIPConnectionTransaction sender, FailureEventArgs e)
         {
 
         }

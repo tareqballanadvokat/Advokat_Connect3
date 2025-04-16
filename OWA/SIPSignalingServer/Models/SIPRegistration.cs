@@ -18,16 +18,16 @@ namespace SIPSignalingServer.Models
 
         public bool Confirmed { get; set; }
 
-        public SIPRegistration(ServerSideDialogParams dialogParams)
+        public SIPRegistration(ServerSideTransactionParams transactionParams)
         {
-            this.SourceParticipant = dialogParams.ClientParticipant;
-            this.RemoteUser = dialogParams.RemoteParticipant.Name; // TODO: make nullable in DialogParams
+            this.SourceParticipant = transactionParams.ClientParticipant;
+            this.RemoteUser = transactionParams.RemoteParticipant.Name; // TODO: make nullable in TransactionParams
 
             // TODO: might be the other way around
-            this.ToTag = dialogParams.RemoteTag;
-            this.FromTag = dialogParams.ClientTag;
+            this.ToTag = transactionParams.RemoteTag;
+            this.FromTag = transactionParams.ClientTag;
 
-            this.CallID = dialogParams.CallId;
+            this.CallID = transactionParams.CallId;
         }
 
         public override bool Equals(object? obj)
@@ -46,7 +46,6 @@ namespace SIPSignalingServer.Models
         {
             return (left is null && right is null) // TODO: both null, are equal?
                 || (left is not null && left.Equals(right));
-                
         }
         public static bool operator !=(SIPRegistration? left, SIPRegistration? right)
         {

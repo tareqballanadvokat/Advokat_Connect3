@@ -8,9 +8,9 @@ using WebRTCLibrary.SIP.Utils;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 
-namespace SIPSignalingServer.Dialogs
+namespace SIPSignalingServer.Transactions
 {
-    internal class SIPConnectionDialog : ServerSideSIPDialog
+    internal class SIPConnectionTransaction : ServerSideSIPTransaction
     {
         public int StartCSeq { get; set; }
 
@@ -27,35 +27,35 @@ namespace SIPSignalingServer.Dialogs
 
         private SIPTransport Transport { get; set; }
 
-        private ConnectionPool ConnectionPool { get; set; }
+        private SIPConnectionPool ConnectionPool { get; set; }
 
-        private ServerSideDialogParams SignalingServerDialogParams { get; set; }
+        private ServerSideTransactionParams ServerSideTransactionParams { get; set; }
 
-        public event Action<SIPConnectionDialog, FailureEventArgs>? OnConnectionFailed;
+        public event Action<SIPConnectionTransaction, FailureEventArgs>? OnConnectionFailed;
 
-        public SIPConnectionDialog(
+        public SIPConnectionTransaction(
             SIPSchemesEnum sipScheme,
             SIPTransport transport,
-            ServerSideDialogParams signalingServerDialogParams,
+            ServerSideTransactionParams signalingServerTransactionParams,
             SIPRegistry registry,
-            ConnectionPool connectionPool,
+            SIPConnectionPool connectionPool,
             int startCSeq = 1)
             : base(
                   sipScheme,
                   transport,
-                  new ServerSideDialogParams(
-                     signalingServerDialogParams.RemoteParticipant,
-                     signalingServerDialogParams.ClientParticipant,
+                  new ServerSideTransactionParams(
+                     signalingServerTransactionParams.RemoteParticipant,
+                     signalingServerTransactionParams.ClientParticipant,
                      remoteTag: null, // explicitly set to null - gets set when connection is found - fromTag of peer
-                     clientTag: signalingServerDialogParams.ClientTag,
+                     clientTag: signalingServerTransactionParams.ClientTag,
                      callId: null)) // explicitly set to null - gets set when connecting
         {
-            this.SignalingServerDialogParams = signalingServerDialogParams;
+            this.ServerSideTransactionParams = signalingServerTransactionParams;
             this.Transport = transport;
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
             
-            this.Registration = new SIPRegistration(this.SignalingServerDialogParams);
+            this.Registration = new SIPRegistration(this.ServerSideTransactionParams);
             this.StartCSeq = startCSeq;
         }
 
@@ -175,15 +175,15 @@ namespace SIPSignalingServer.Dialogs
             Debug.WriteLine($"Server recieved ACK for connection."); // DEBUG
             this.ConnectionAcknowledged = true;
 
-            RelayDialog? relayDialog = this.ConnectionPool.GetDialog(this.Params);
+            SIPMessageRelay? messageRelay = this.ConnectionPool.GetMessageRelay(this.Params);
 
-            if (relayDialog == null)
+            if (messageRelay == null)
             {
                 this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Connection not found. Could not confirm connection.");
                 return;
             }
 
-            await relayDialog.Start();
+            await messageRelay.Start();
 
             await WaitFor(this.IsConnected,
                 this.ReceiveTimeout, // TODO: pass ct
@@ -203,8 +203,8 @@ namespace SIPSignalingServer.Dialogs
         private void CreateConnection()
         {
             // adds connection, does not start it
-            RelayDialog relayDialog = new RelayDialog(this.Connection, this.Params); // pass transport?
-            this.ConnectionPool.Connect(relayDialog);
+            SIPMessageRelay messageRelay = new SIPMessageRelay(this.Connection, this.Params); // pass transport?
+            this.ConnectionPool.Connect(messageRelay);
         }
 
         private void SetRemoteTag()
@@ -222,7 +222,7 @@ namespace SIPSignalingServer.Dialogs
 
         private void ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
         {
-            // TODO: stop and disconnect dialog if necessary
+            // TODO: stop and disconnect if necessary
 
             this.Connecting = false;
             this.ConnectionAcknowledged = false;

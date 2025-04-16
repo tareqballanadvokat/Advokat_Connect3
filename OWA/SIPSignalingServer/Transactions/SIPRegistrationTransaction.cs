@@ -1,6 +1,5 @@
 ﻿using SIPSorcery.SIP;
 using SIPSignalingServer.Models;
-using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 using System.Diagnostics;
@@ -8,9 +7,9 @@ using SIPSignalingServer.Utils.CustomEventArgs;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 
-namespace SIPSignalingServer.Dialogs
+namespace SIPSignalingServer.Transactions
 {
-    internal class ServerRegistrationDialog : ServerSideSIPDialog
+    internal class SIPRegistrationTransaction : ServerSideSIPTransaction
     {
         public bool Registered { get; private set; }
 
@@ -20,9 +19,9 @@ namespace SIPSignalingServer.Dialogs
 
         private SIPRegistration Registration { get; set; }
 
-        public event Action<ServerRegistrationDialog, FailedRegistrationEventArgs>? OnRegistrationFailed;
+        public event Action<SIPRegistrationTransaction, FailedRegistrationEventArgs>? OnRegistrationFailed;
 
-        public ServerRegistrationDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, SIPEndPoint signalingServer, SIPRegistry registry)
+        public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, SIPEndPoint signalingServer, SIPRegistry registry)
             : this(
                 sipScheme,
                 transport,
@@ -32,10 +31,10 @@ namespace SIPSignalingServer.Dialogs
         {  
         }
 
-        public ServerRegistrationDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, ServerSideDialogParams dialogParams, SIPRegistry registry)
+        public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, ServerSideTransactionParams transactionsParams, SIPRegistry registry)
             :base(sipScheme,
                  transport,
-                 dialogParams)
+                 transactionsParams)
         {
             this.InitialRequest = initialRequest;
             this.Registry = registry;
@@ -159,9 +158,9 @@ namespace SIPSignalingServer.Dialogs
             return new SIPParticipant(name, signalingServer);
         }
 
-        private static ServerSideDialogParams GetParamsFromRequest(SIPRequest request, SIPEndPoint signalingServer)
+        private static ServerSideTransactionParams GetParamsFromRequest(SIPRequest request, SIPEndPoint signalingServer)
         {
-            return new ServerSideDialogParams(
+            return new ServerSideTransactionParams(
                 GetRemoteParticipant(request, signalingServer),
                 GetCallerParticipant(request),
                 remoteTag: CallProperties.CreateNewTag(),

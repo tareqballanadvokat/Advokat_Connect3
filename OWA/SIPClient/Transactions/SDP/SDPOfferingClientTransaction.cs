@@ -7,16 +7,16 @@ using WebRTCLibrary.SIP;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 
-namespace WebRTCClient.Dialogs.SDP
+namespace WebRTCClient.Transactions.SDP
 {
-    internal class SDPOfferingClientDialog : SDPDialog
+    internal class SDPOfferingClientTransaction : SDPTransaction
     {
         private bool AnswerReceived { get; set; }
 
         private bool PeerIsAnswering { get; set; }
 
-        public SDPOfferingClientDialog(ISIPMessager connection, RTCPeerConnection peerConnection, int startCseq = 1)
-            : base(connection, peerConnection, startCseq)
+        public SDPOfferingClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, int startCseq = 1)
+            : base(sipConnection, peerConnection, startCseq)
         {
         }
 

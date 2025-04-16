@@ -7,9 +7,9 @@ using WebRTCLibrary.Utils;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 
-namespace WebRTCClient.Dialogs.ClientDialogs
+namespace WebRTCClient.Transactions.SIP
 {
-    internal class ClientRegistrationDialog : SIPDialog, IAsyncDisposable
+    internal class SIPRegistrationTransaction : WebRTCLibrary.SIP.SIPTransaction, IAsyncDisposable
     {
         public bool Registered { get; private set; }
 
@@ -17,14 +17,14 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         //public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnRegistered;
 
-        public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnUnRegistered;
+        public event Action<SIPRegistrationTransaction, SIPDialogEventArgs>? OnUnRegistered;
 
-        public ClientRegistrationDialog(SIPConnection connection, DialogParams dialogParams)
+        public SIPRegistrationTransaction(SIPConnection connection, TransactionParams dialogParams)
             : base(connection, dialogParams)
         {
         }
 
-        public ClientRegistrationDialog(SIPSchemesEnum sipScheme, SIPTransport transport, DialogParams dialogParams)
+        public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams)
             : base(sipScheme, transport, dialogParams)
         {
         }
@@ -41,36 +41,36 @@ namespace WebRTCClient.Dialogs.ClientDialogs
 
         private async Task Register()
         {
-            if (this.Registered)
+            if (Registered)
             {
                 // TODO: log. already registered
                 return;
             }
 
-            if (this.Registering)
+            if (Registering)
             {
                 // TODO: log. already registering. Wait for the previous registering to finish. Retry automatically?
                 return;
             }
 
-            this.Registering = true;
-            this.Params.SourceTag = CallProperties.CreateNewTag();
+            Registering = true;
+            Params.SourceTag = CallProperties.CreateNewTag();
 
             // set response delegate
-            this.Connection.SIPResponseReceived += this.ListenForRegistrationAccept;
+            Connection.SIPResponseReceived += ListenForRegistrationAccept;
 
             // send request
             // TODO: do something with the socekterror
-            await this.SendSIPMessage(SIPMethodsEnum.REGISTER);
+            await SendSIPMessage(SIPMethodsEnum.REGISTER);
 
             await WaitFor(
-                () => this.Registered && !this.Registering,
-                failureCallback: this.RegistrationFailed,
-                timeOut: this.ReceiveTimeout);
+                () => Registered && !Registering,
+                failureCallback: RegistrationFailed,
+                timeOut: ReceiveTimeout);
 
             // TODO: make sure this happens after timeout / failure or success
             // remove listener
-            this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
+            Connection.SIPResponseReceived -= ListenForRegistrationAccept;
 
         }
 
@@ -90,7 +90,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                 return;
             }
 
-            if (this.Params.RemoteParticipant == null // Why?
+            if (Params.RemoteParticipant == null // Why?
                 || sipResponse.Header.CSeq != 2)
             {
                 // bad request - header is invalid
@@ -98,32 +98,32 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                 return;
             }
 
-            await this.RegistrationAccepted(sipResponse);
+            await RegistrationAccepted(sipResponse);
         }
 
         private async Task RegistrationAccepted(SIPResponse sipResponse)
         {
             Debug.WriteLine($"Client received Accepted."); // DEBUG
 
-            this.Params.RemoteTag = sipResponse.Header.From.FromTag;
+            Params.RemoteTag = sipResponse.Header.From.FromTag;
 
             // success
-            this.Registered = true;
-            this.Registering = false;
+            Registered = true;
+            Registering = false;
 
             // TODO: Do something with the socketerror
-            await this.SendSIPMessage(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: sipResponse.Header.CSeq + 1));
+            await SendSIPMessage(SIPMethodsEnum.ACK, GetHeaderParams(cSeq: sipResponse.Header.CSeq + 1));
         }
 
         private async Task Unregister()
         {
-            if (!this.Registered)
+            if (!Registered)
             {
                 // TODO: log. Not registered
                 return;
             }
 
-            if (this.Registering)
+            if (Registering)
             {
                 // TODO: cancel registering and check if we have to continue
                 //       Unregister after is has finished?
@@ -136,11 +136,11 @@ namespace WebRTCClient.Dialogs.ClientDialogs
             }
 
             // set response listener
-            this.Connection.SIPResponseReceived += ListenForDisconnectAccept;
+            Connection.SIPResponseReceived += ListenForDisconnectAccept;
 
             // send disconnect message
             // TODO: do something with the socket error
-            await this.SendSIPMessage(SIPMethodsEnum.BYE);
+            await SendSIPMessage(SIPMethodsEnum.BYE);
 
             // TODO: add failurecallback --> log failure to disconnect. Retry?
             await WaitFor(
@@ -162,7 +162,7 @@ namespace WebRTCClient.Dialogs.ClientDialogs
                 return;
             }
 
-            if (this.Params.RemoteParticipant == null // why
+            if (Params.RemoteParticipant == null // why
                 || sipResponse.Header.CSeq != 2)
             {
                 // bad request - header is invalid
@@ -182,9 +182,9 @@ namespace WebRTCClient.Dialogs.ClientDialogs
         private void ResetRegistration()
         {
             // TODO: event that Registration was reset?
-            this.Params.SourceTag = null;
-            this.Params.RemoteTag = null;
-            this.Registered = false;
+            Params.SourceTag = null;
+            Params.RemoteTag = null;
+            Registered = false;
         }
 
         private async Task SendSIPMessage(SIPMethodsEnum method, SIPHeaderParams? headerParams = null, string? message = null, CancellationToken? ct = null)
@@ -199,9 +199,9 @@ namespace WebRTCClient.Dialogs.ClientDialogs
             //}
 
             Debug.WriteLine($"Client sending {method}."); // DEBUG
-            SocketError result = await this.Connection.SendSIPRequest(
+            SocketError result = await Connection.SendSIPRequest(
                 method,
-                headerParams ?? this.GetHeaderParams(),
+                headerParams ?? GetHeaderParams(),
                 message,
                 ct,
                 SendTimeout);

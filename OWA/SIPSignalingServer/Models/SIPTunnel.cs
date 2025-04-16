@@ -1,16 +1,16 @@
-﻿using SIPSignalingServer.Dialogs;
+﻿using SIPSignalingServer.Transactions;
 
 namespace SIPSignalingServer.Models
 {
     internal class SIPTunnel
     {
-        public RelayDialog Left { get; private set; }
+        public SIPMessageRelay Left { get; private set; }
 
-        public RelayDialog Right { get; private set; }
+        public SIPMessageRelay Right { get; private set; }
 
         public bool Connected { get => this.Left.Relaying && this.Right.Relaying; }
 
-        public SIPTunnel(RelayDialog left, RelayDialog right)
+        public SIPTunnel(SIPMessageRelay left, SIPMessageRelay right)
         {
             // TODO: Check params if they match?
             Left = left;

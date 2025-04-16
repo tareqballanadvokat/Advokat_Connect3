@@ -2,29 +2,29 @@
 using SIPSorcery.SIP;
 using WebRTCLibrary.SIP;
 
-namespace SIPSignalingServer.Dialogs
+namespace SIPSignalingServer.Transactions
 {
-    internal class RelayDialog : ServerSideSIPDialog
+    internal class SIPMessageRelay : ServerSideSIPTransaction
     {
         public bool Relaying { get; private set; }
 
-        public RelayDialog(SIPConnection connection, ServerSideDialogParams dialogParams)
-            : base(connection, dialogParams)
+        public SIPMessageRelay(SIPConnection connection, ServerSideTransactionParams transactionParams)
+            : base(connection, transactionParams)
         {
         }
 
-        public delegate Task RequestReceivedDelegate(RelayDialog sender, SIPRequest request);
-        public delegate Task ResponseReceivedDelegate(RelayDialog sender, SIPResponse response);
+        public delegate Task RequestReceivedDelegate(SIPMessageRelay sender, SIPRequest request);
+        public delegate Task ResponseReceivedDelegate(SIPMessageRelay sender, SIPResponse response);
 
         public event RequestReceivedDelegate? OnRequestReceived;
         public event ResponseReceivedDelegate? OnResponseReceived;
 
-        public async Task RelayRequest(RelayDialog sender, SIPRequest request)
+        public async Task RelayRequest(SIPMessageRelay sender, SIPRequest request)
         {
             if (this.Relaying)
             {
                 // TODO: maybe check SocketError?
-                // TODO: maybe check if request matches dialogparams?
+                // TODO: maybe check if request matches transactionParams?
                 
                 await this.Connection.SendSIPRequest(request.Method, this.GetHeaderParams(request.Header.CSeq), request.Body);
             }
@@ -39,8 +39,7 @@ namespace SIPSignalingServer.Dialogs
             }
         }
 
-
-        public async Task RelayResponse(RelayDialog sender, SIPResponse response)
+        public async Task RelayResponse(SIPMessageRelay sender, SIPResponse response)
         {
             if (this.Relaying)
             {
@@ -52,7 +51,7 @@ namespace SIPSignalingServer.Dialogs
         {
             if (this.Relaying)
             {
-                this.OnRequestReceived?.Invoke(this, request);
+                await (this.OnRequestReceived?.Invoke(this, request) ?? Task.CompletedTask);
             }
         }
 
@@ -60,7 +59,7 @@ namespace SIPSignalingServer.Dialogs
         {
             if (this.Relaying)
             {
-                this.OnResponseReceived?.Invoke(this, response);
+                await (this.OnResponseReceived?.Invoke(this, response) ?? Task.CompletedTask);
             }
         }
 
