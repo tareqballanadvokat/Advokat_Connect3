@@ -100,11 +100,34 @@ namespace SIPSignalingServer.Dialogs
 
             await this.ConnectionDialog.Start();
 
-            await WaitFor(this.IsConnected,
+            await WaitForAsync(this.IsConnected,
                 ct,
-                failureCallback: () => { }); // timeout - token got cancelled
+                successCallback: this.StartICENegotiation
+                //failureCallback: () => { } // timeout - token got cancelled
+                ); 
 
             this.ConnectionDialog.OnConnectionFailed -= this.ConnectionFailedListener;
+        }
+
+        private async Task StartICENegotiation()
+        {
+            if (this.IsConnected())
+            {
+                SIPTunnel? connection = this.ConnectionPool.GetConnection(this.ConnectionDialog.Params);
+                if (connection == null)
+                {
+                    // not connected
+                    return;
+                }
+
+                if (connection.Left.Params == this.ConnectionDialog.Params)
+                {
+                    // only start negotiation once per connection
+                    ICENegotiation iceNegotiation = new ICENegotiation(connection);
+                    await iceNegotiation.Start();
+                }
+            }
+
         }
 
         private void ConnectionFailedListener(SIPConnectionDialog sender, FailureEventArgs e)

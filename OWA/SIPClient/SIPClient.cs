@@ -1,8 +1,13 @@
-﻿using SIPSorcery.SIP;
+﻿using SIPSorcery.Net;
+using SIPSorcery.SIP;
+using SIPSorcery.Sys;
 using System.Net.Sockets;
+using WebRTCClient.Dialogs;
 using WebRTCClient.Dialogs.ClientDialogs;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
+
+using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient
 {
@@ -12,7 +17,11 @@ namespace WebRTCClient
 
         public SIPParticipant RemoteParticipant { get; private set; }
 
-        private ClientDialog Dialog { get; set; } 
+        private ClientDialog Dialog { get; set; }
+
+        private RTCDataChannel? P2PConnection { get; set; }
+
+        public bool SignalingServerConnected { get => this.Dialog.Connected; }
 
         public event ISIPMessager.RequestReceivedDelegate? OnRequestReceived
         {
@@ -48,9 +57,21 @@ namespace WebRTCClient
             return await this.Dialog.SendResponse(statusCode, message, cSeq);
         }
 
-        public async Task StartDialog()
+        public async Task StartDialog(List<RTCIceServer> iceServers)
         {
             await this.Dialog.Start();
+
+            await WaitForAsync(
+                () => this.Dialog.Connected, // TODO: start listening on MessagingDialog set? Request could be dropped between peer confirmation and start of SPD listener
+                timeOut: 5000, // TODO: Get timout for connection
+                successCallback: async () => await this.ConnectWithPeer(iceServers)
+            );
+        }
+
+        private async Task ConnectWithPeer(List<RTCIceServer> iceServers)
+        {
+            P2PConnectionDialog p2PConnectionDialog = new P2PConnectionDialog(this.Dialog, iceServers);
+            await p2PConnectionDialog.Start();
         }
 
         public async Task StopDialog()

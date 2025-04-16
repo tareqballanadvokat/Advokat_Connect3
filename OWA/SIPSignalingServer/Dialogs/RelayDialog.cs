@@ -30,6 +30,16 @@ namespace SIPSignalingServer.Dialogs
             }
         }
 
+        // TODO: Remove? This is currently used for Notify to start SDP negotiation
+        public async Task SendRequest(SIPMethodsEnum method, string? message, int cSeq = 1)
+        {
+            if (this.Relaying)
+            {
+                await this.Connection.SendSIPRequest(method, this.GetHeaderParams(cSeq), message);
+            }
+        }
+
+
         public async Task RelayResponse(RelayDialog sender, SIPResponse response)
         {
             if (this.Relaying)

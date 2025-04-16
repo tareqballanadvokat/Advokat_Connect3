@@ -1,4 +1,5 @@
-﻿using SIPSorcery.SIP;
+﻿using SIPSorcery.Net;
+using SIPSorcery.SIP;
 using System.Net;
 using System.Net.Sockets;
 using System.Windows;
@@ -92,7 +93,24 @@ namespace WebRTCCaller
             this.UserAgent.OnRequestReceived += this.OnRequestRecived;
             this.UserAgent.OnResponseReceived += this.OnResponseRecived;
 
-            await this.UserAgent.StartDialog();
+            List<RTCIceServer> iceServers = this.P2PServersComboBox.Items
+                .Cast<RTCOwnIceServer>()
+                .Select(o =>
+                {
+                    
+                    if (o.type == RTCMethodsEnum.STUN)
+                    {
+                        return new RTCIceServer { urls = o.url };
+                    }
+                    else
+                    {
+                        return new RTCIceServer { urls = o.url, credential = o.credential, credentialType = RTCIceCredentialType.password, username = o.username };
+                    }
+                    
+                })
+                .ToList();
+
+            await this.UserAgent.StartDialog(iceServers);
         }
 
         private async Task OnRequestRecived(ISIPMessager sender, SIPRequest request)
