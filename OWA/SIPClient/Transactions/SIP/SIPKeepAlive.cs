@@ -28,7 +28,10 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
-            await Connection.SendSIPRequest(SIPMethodsEnum.PING, GetHeaderParams(sipRequest.Header.CSeq + 1));
+            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
+            await Connection.SendSIPRequest(SIPMethodsEnum.PING, GetHeaderParams(sipRequest.Header.CSeq + 1), cts.Token);
         }
 
         public async override Task Stop()

@@ -142,7 +142,11 @@ namespace SIPSignalingServer.Transactions
 
             SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCSeq);
             Debug.WriteLine($"Server sending Notify."); // DEBUG
-            await this.Connection.SendSIPRequest(notifyRequest);
+
+            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
+            await this.Connection.SendSIPRequest(notifyRequest, cts.Token);
 
             await WaitFor(
                 () => this.ConnectionAcknowledged,

@@ -95,7 +95,11 @@ namespace SIPSignalingServer.Transactions
             // send Accepted response
             Debug.WriteLine($"Server sending Accepted."); // DEBUG
             SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
-            await this.Connection.SendSIPResponse(accpetedResponse);
+
+            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
+            await this.Connection.SendSIPResponse(accpetedResponse, cts.Token);
 
             await WaitFor(
                 () => this.Registry.IsConfirmed(this.Registration),

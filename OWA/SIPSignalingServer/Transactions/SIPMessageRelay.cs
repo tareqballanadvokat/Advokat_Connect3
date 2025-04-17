@@ -21,29 +21,43 @@ namespace SIPSignalingServer.Transactions
 
         public async Task RelayRequest(SIPMessageRelay sender, SIPRequest request)
         {
+            // TODO: Get cancellationToken passed?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
             if (this.Relaying)
             {
                 // TODO: maybe check SocketError?
                 // TODO: maybe check if request matches transactionParams?
-                
-                await this.Connection.SendSIPRequest(request.Method, this.GetHeaderParams(request.Header.CSeq), request.Body);
+                await this.Connection.SendSIPRequest(
+                    request.Method, 
+                    this.GetHeaderParams(request.Header.CSeq),
+                    request.Body,
+                    request.Header.ContentType,
+                    cts.Token);
             }
         }
 
-        // TODO: Remove? This is currently used for Notify to start SDP negotiation
-        public async Task SendRequest(SIPMethodsEnum method, string? message, int cSeq = 1)
+        // TODO: Remove? or make this a full ISIPMessager? This is currently used for Notify to start SDP negotiation
+        public async Task SendRequest(SIPMethodsEnum method, string message, string contentType, int cSeq = 1)
         {
+            // TODO: Get cancellationToken passed?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
             if (this.Relaying)
             {
-                await this.Connection.SendSIPRequest(method, this.GetHeaderParams(cSeq), message);
+                await this.Connection.SendSIPRequest(method, this.GetHeaderParams(cSeq), message, contentType, cts.Token);
             }
         }
 
         public async Task RelayResponse(SIPMessageRelay sender, SIPResponse response)
         {
+            // TODO: Get cancellationToken passed?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
             if (this.Relaying)
             {
-                await this.Connection.SendSIPResponse(response);
+                // TODO: I think this has to be fixed aswell - Headerparams are not correct
+                await this.Connection.SendSIPResponse(response, cts.Token);
             }
         }
 

@@ -47,14 +47,14 @@ namespace WebRTCClient
             this.Dialog = new SIPDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant);
         }
 
-        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string? message, int cSeq)
+        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {
-            return await this.Dialog.SendRequest(method, message, cSeq);
+            return await this.Dialog.SendRequest(method, message, contentType, cSeq);
         }
 
-        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string? message, int cSeq)
+        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
         {
-            return await this.Dialog.SendResponse(statusCode, message, cSeq);
+            return await this.Dialog.SendResponse(statusCode, message, contentType, cSeq);
         }
 
         public async Task StartDialog(List<RTCIceServer> iceServers)

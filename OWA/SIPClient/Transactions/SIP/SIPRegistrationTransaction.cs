@@ -187,7 +187,7 @@ namespace WebRTCClient.Transactions.SIP
             Registered = false;
         }
 
-        private async Task SendSIPMessage(SIPMethodsEnum method, SIPHeaderParams? headerParams = null, string? message = null, CancellationToken? ct = null)
+        private async Task SendSIPMessage(SIPMethodsEnum method, SIPHeaderParams? headerParams = null)
         {
             // TODO: Make ct Mandatory
 
@@ -198,12 +198,14 @@ namespace WebRTCClient.Transactions.SIP
             //    return;
             //}
 
+            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
             Debug.WriteLine($"Client sending {method}."); // DEBUG
             SocketError result = await Connection.SendSIPRequest(
                 method,
                 headerParams ?? GetHeaderParams(),
-                message,
-                ct,
+                cts.Token,
                 SendTimeout);
 
             // should we return socketerror?

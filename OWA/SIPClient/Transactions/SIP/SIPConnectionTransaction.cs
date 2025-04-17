@@ -79,8 +79,11 @@ namespace WebRTCClient.Transactions.SIP
             MessagingDialog.OnResponseReceived += ResponseRecieved;
             await MessagingDialog.Start();
 
+            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
             Debug.WriteLine($"Client sending ACK."); // DEBUG
-            await Connection.SendSIPRequest(SIPMethodsEnum.ACK, GetHeaderParams(cSeq: 5));
+            await Connection.SendSIPRequest(SIPMethodsEnum.ACK, GetHeaderParams(cSeq: 5), cts.Token);
 
             await WaitFor(
                 () => PeerListeningConfirmation,
@@ -139,24 +142,24 @@ namespace WebRTCClient.Transactions.SIP
             // TODO: send a message for disconnect?
         }
 
-        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string? message, int cSeq)
+        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {
             if (!Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await MessagingDialog.SendRequest(method, message, cSeq);
+            return await MessagingDialog.SendRequest(method, message, contentType, cSeq);
         }
 
-        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string? message, int cSeq)
+        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
         {
             if (!Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await MessagingDialog.SendResponse(statusCode, message, cSeq);
+            return await MessagingDialog.SendResponse(statusCode, message, contentType, cSeq);
         }
 
         private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)

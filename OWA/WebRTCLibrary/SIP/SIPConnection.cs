@@ -32,35 +32,53 @@ namespace WebRTCLibrary.SIP
             this.Transport.SIPTransportRequestReceived += this.OnRequestRecieved;
         }
 
-        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null)
         {
-            // TODO: Make ct Mandatory
-
-            SIPRequest request = SIPHelper.GetRequest(this.SIPScheme, method, headerParams, message);
+            SIPRequest request = SIPHelper.GetRequest(this.SIPScheme, method, headerParams);
             return await this.SendSIPRequest(request, ct, timeOut);
         }
 
-        public async Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken? ct = null, int ? timeOut = null)
+        public async Task<SocketError> SendSIPRequest(
+            SIPMethodsEnum method,
+            SIPHeaderParams headerParams,
+            string message,
+            string contentType,
+            CancellationToken ct,
+            int? timeOut = null)
         {
-            // TODO: Make ct Mandatory
+            SIPRequest request = SIPHelper.GetRequest(this.SIPScheme, method, headerParams, message, contentType);
+            return await this.SendSIPRequest(request, ct, timeOut);
+        }
 
+        public async Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct, int ? timeOut = null)
+        {
+            ct.ThrowIfCancellationRequested();
             Task<SocketError> requestTask = this.Transport.SendRequestAsync(request);
             return await this.WaitForSendConfirmation(requestTask, timeOut);
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string? message = null, CancellationToken? ct = null, int? timeOut = null)
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null)
         {
-            // TODO: Make ct Mandatory
-
-            SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams, message);
+            SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams);
             return await this.SendSIPResponse(response, ct, timeOut);
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken? ct = null, int? timeOut = null)
+        public async Task<SocketError> SendSIPResponse(
+            SIPResponseStatusCodesEnum statusCode,
+            SIPHeaderParams headerParams,
+            string message,
+            string contentType,
+            CancellationToken ct,
+            int? timeOut = null)
         {
-            // TODO: Make ct Mandatory
+            SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams, message, contentType);
+            return await this.SendSIPResponse(response, ct, timeOut);
+        }
 
-            Task<SocketError> responseTask = this.Transport.SendResponseAsync(response);
+        public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct, int? timeOut = null)
+        {
+            ct.ThrowIfCancellationRequested();
+            Task<SocketError> responseTask = this.Transport.SendResponseAsync(response); // TODO: Should we specify the endpoint? 
             return await this.WaitForSendConfirmation(responseTask, timeOut);
         }
 

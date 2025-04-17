@@ -177,7 +177,7 @@ namespace WebRTCCaller
         {
             if (this.UserAgent != null)
             {
-                SocketError sendStatus = await this.UserAgent.SendRequest(SIPMethodsEnum.INFO, this.MessageBox.Text, 1);
+                SocketError sendStatus = await this.UserAgent.SendRequest(SIPMethodsEnum.INFO, this.MessageBox.Text, "message/sip", 1);
                 if (sendStatus != SocketError.NotConnected)
                 {
                     this.AddLineToTextBox($"{SIPMethodsEnum.INFO} - {this.MessageBox.Text}", sentMessage: true);

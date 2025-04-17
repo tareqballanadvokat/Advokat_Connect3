@@ -28,7 +28,7 @@ namespace SIPSignalingServer.Transactions
             controllingConfig.IsControllingAgent = true;
             string controllingConfigJson = JsonSerializer.Serialize(controllingConfig);
 
-            await this.SIPTunnel.Left.SendRequest(SIPMethodsEnum.NOTIFY, controllingConfigJson);
+            await this.SIPTunnel.Left.SendRequest(SIPMethodsEnum.NOTIFY, controllingConfigJson, "application/json");
         }
 
         private async Task SendControlledAgentConfig()
@@ -36,7 +36,7 @@ namespace SIPSignalingServer.Transactions
             SDPExchangeConfig controlledConfig = new SDPExchangeConfig();
             string controlledConfigJson = JsonSerializer.Serialize(controlledConfig);
 
-            await this.SIPTunnel.Right.SendRequest(SIPMethodsEnum.NOTIFY, controlledConfigJson);
+            await this.SIPTunnel.Right.SendRequest(SIPMethodsEnum.NOTIFY, controlledConfigJson, "application/json");
 
         }
     }

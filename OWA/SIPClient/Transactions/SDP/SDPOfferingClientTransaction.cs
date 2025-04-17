@@ -46,7 +46,7 @@ namespace WebRTCClient.Transactions.SDP
 
             string sdpConfigJson = JsonSerializer.Serialize(sdpConfig);
 
-            await this.Connection.SendRequest(SIPMethodsEnum.ACK, sdpConfigJson, this.StartCSeq);
+            await this.Connection.SendRequest(SIPMethodsEnum.ACK, sdpConfigJson, SDPContentType, this.StartCSeq);
         }
 
         private async Task ListenForAck(ISIPMessager sender, SIPRequest request)
@@ -75,11 +75,11 @@ namespace WebRTCClient.Transactions.SDP
                 return;
             }
 
-            //if (request.Header.ContentType != "application/json")
-            //{
-            //    // wrong content type
-            //    return;
-            //}
+            if (request.Header.ContentType != SDPContentType)
+            {
+                // wrong content type
+                return;
+            }
 
             SDPExchangeConfig? peerSDPConfig = JsonSerializer.Deserialize<SDPExchangeConfig>(request.Body);
 
@@ -118,12 +118,11 @@ namespace WebRTCClient.Transactions.SDP
                 return;
             }
 
-            // TODO: contentType is not set yet. Set it
-            //if (request.Header.ContentType != "application/json") // ?
-            //{
-            //    // wrong content type
-            //    return;
-            //}
+            if (request.Header.ContentType != SDPContentType)
+            {
+                // wrong content type
+                return;
+            }
 
             if (!request.Body.Contains("\"sdp\":") || !request.Body.Contains("answer"))
             {
@@ -152,8 +151,7 @@ namespace WebRTCClient.Transactions.SDP
 
             string sdpOfferJson = JsonSerializer.Serialize(new { sdp = offer.sdp, type = "offer" });
 
-            // TODO: set content type header
-            await this.Connection.SendRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, this.StartCSeq + 2);
+            await this.Connection.SendRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 2);
 
             await WaitFor(
                 () => this.AnswerReceived,

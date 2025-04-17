@@ -55,12 +55,11 @@ namespace WebRTCClient.Transactions.SDP
                 return;
             }
 
-            // TODO: contentType is not set yet. Set it
-            //if (request.Header.ContentType != "application/json")
-            //{
-            //    // wrong content type
-            //    return;
-            //}
+            if (request.Header.ContentType != SDPContentType)
+            {
+                // wrong content type
+                return;
+            }
 
 
             SDPExchangeConfig? peerSDPConfig = JsonSerializer.Deserialize<SDPExchangeConfig>(request.Body);
@@ -90,7 +89,7 @@ namespace WebRTCClient.Transactions.SDP
             };
 
             string sdpConfigJson = JsonSerializer.Serialize(sdpConfig);
-            await this.Connection.SendRequest(SIPMethodsEnum.ACK, sdpConfigJson, this.StartCSeq + 1);
+            await this.Connection.SendRequest(SIPMethodsEnum.ACK, sdpConfigJson, SDPContentType, this.StartCSeq + 1);
 
             await WaitForAsync(
                 () => this.OfferReceived,
@@ -124,12 +123,11 @@ namespace WebRTCClient.Transactions.SDP
                 return;
             }
 
-            // TODO: contentType is not set yet. Set it
-            //if (request.Header.ContentType != "application/json")
-            //{
-            //    // wrong content type
-            //    return;
-            //}
+            if (request.Header.ContentType != SDPContentType)
+            {
+                // wrong content type
+                return;
+            }
 
             if (!request.Body.Contains("\"sdp\":") || !request.Body.Contains("offer"))
             {
@@ -157,7 +155,7 @@ namespace WebRTCClient.Transactions.SDP
             string sdpOfferJson = JsonSerializer.Serialize(new { sdp = answer.sdp, type = "answer" });
 
             // TODO: set content type header
-            await this.Connection.SendRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, this.StartCSeq + 3);
+            await this.Connection.SendRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 3);
         }
     }
 }
