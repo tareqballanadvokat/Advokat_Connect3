@@ -5,16 +5,25 @@ using System.Text.Json;
 using WebRTCClient.Transactions.SDP;
 using WebRTCClient.Models;
 using WebRTCLibrary.SIP;
+using System.Diagnostics.CodeAnalysis;
+using System.Text;
+using System.Diagnostics;
 
 namespace WebRTCClient.Transactions
 {
     internal class P2PConnection
     {
+        // TODO: Can the DataChannel even be open when the PeerConnection is closed? Remove the first condition if that's not the case
+        [MemberNotNullWhen(true, nameof(this.DataChannel))]
+        private bool IsConnected { get => this.PeerConnection.connectionState == RTCPeerConnectionState.connected && (this.DataChannel?.IsOpened ?? false); }
+
         private bool IsControllingAgent { get; set; }
 
         private List<RTCIceServer> IceServers { get; set; }
 
         private RTCPeerConnection PeerConnection { get; set; }
+
+        private RTCDataChannel? DataChannel { get; set; }
 
         private SDPTransaction? SDPDialog { get; set; }
 
@@ -35,9 +44,13 @@ namespace WebRTCClient.Transactions
             PortRange portRange = new PortRange(10000, 10010, true); // YES! we can limit portrange - not tested
             this.PeerConnection = new RTCPeerConnection(config, portRange: portRange);
 
-            this.PeerConnection.onnegotiationneeded += () => { this.ICECandidatesReady = true; };
+            this.PeerConnection.onnegotiationneeded += () =>
+            {
+                // TODO: Check if this gets called when STUN servers are reachable. Does not get called when they are not available (current PC)
+                this.ICECandidatesReady = true;
+            };
             this.PeerConnection.onconnectionstatechange += (cstate) => {
-
+                // TODO: Do we need to close the data channel manually?
             };
         }
 
@@ -48,26 +61,63 @@ namespace WebRTCClient.Transactions
 
         public async Task Start()
         {
-            this.SIPConnection.OnRequestReceived += this.ListenForNotify;
+            this.SIPConnection.OnRequestReceived += this.ListenForSDPAllocation;
 
-            RTCDataChannel dataChannel = await this.PeerConnection.createDataChannel("dc1", null);
+            this.PeerConnection.ondatachannel += (RTCDataChannel dataChannel) =>
+            {
+                //RTCPeerConnection connection = this.PeerConnection;
 
-            dataChannel.onopen += () =>
+                bool same = this.DataChannel == dataChannel;
+
+                this.DataChannel = dataChannel;
+            };
+
+            //string label = this.IsControllingAgent ? "offer" : "answer";
+
+            //if (this.IsControllingAgent)
+            //    {
+            this.DataChannel = await this.PeerConnection.createDataChannel("label");
+            
+            this.DataChannel.onopen += () =>
             {
                 //    Log("Data Channel opened.");
             };
 
-            //this.PeerConnection.onmessage += (dc, protocol, data) => { };
-            ////    Log($"Message received: {Encoding.UTF8.GetString(data)}");
-            //this.PeerConnection.onclose += () =>
-            //{
-            //    //Log("Data Channel closed.")
-            //};
+            this.DataChannel.onmessage += (RTCDataChannel dc, DataChannelPayloadProtocols protocol, byte[] data) =>
+            {
+                Debug.WriteLine($"message received {Encoding.UTF8.GetString(data)}"); // DEBUG
+            };
+
+            this.DataChannel.onclose += () =>
+            {
+
+            };
+
+            this.DataChannel.onerror += (string error) =>
+            {
+
+            };
+            //}
 
             // TODO: wait for something?
         }
 
-        private async Task ListenForNotify(ISIPMessager sender, SIPRequest request)
+        public async Task SendMessage(string message)
+        {
+            if (!this.IsConnected)
+            {
+                // Socketerror - not connected?
+                return;
+            }
+
+            byte[] messageBytes = Encoding.UTF8.GetBytes(message);
+            this.DataChannel.send(messageBytes);
+
+            //this.DataChannel.send(message);
+        }
+        
+
+        private async Task ListenForSDPAllocation(ISIPMessager sender, SIPRequest request)
         {
             if (request.Method != SIPMethodsEnum.NOTIFY)
             {
@@ -101,18 +151,13 @@ namespace WebRTCClient.Transactions
                 return;
             }
 
-            this.IsControllingAgent = sdpConfig.IsControllingAgent;
+            this.IsControllingAgent = sdpConfig.IsOffering;
 
             await this.StartICEExchange();
         }
 
         private async Task StartICEExchange()
         {
-
-            //RTCDataChannel channel = await this.PeerConnection.createDataChannel("doWeHaveToMatch?"); // ??
-            //await this.PeerConnection.Start(); // ??
-
-
             if (this.IsControllingAgent)
             {
                 this.SDPDialog = new SDPOfferingClientTransaction(this.SIPConnection, this.PeerConnection, 2);

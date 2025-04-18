@@ -168,16 +168,21 @@ namespace WebRTCCaller
             }
         }
 
-        private void SendMessageBtn_Click(object sender, RoutedEventArgs e)
+        private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
         {
-
+            if (this.UserAgent != null)
+            {
+                await this.UserAgent.SendMessageToPeer(this.MessageBox.Text);
+                this.AddLineToTextBox($"{SIPMethodsEnum.INFO} - {this.MessageBox.Text}", sentMessage: true);
+                this.MessageBox.Text = string.Empty;
+            }
         }
 
         private async void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
         {
             if (this.UserAgent != null)
             {
-                SocketError sendStatus = await this.UserAgent.SendRequest(SIPMethodsEnum.INFO, this.MessageBox.Text, "message/sip", 1);
+                SocketError sendStatus = await this.UserAgent.SendSIPRequest(SIPMethodsEnum.INFO, this.MessageBox.Text, "message/sip", 1);
                 if (sendStatus != SocketError.NotConnected)
                 {
                     this.AddLineToTextBox($"{SIPMethodsEnum.INFO} - {this.MessageBox.Text}", sentMessage: true);

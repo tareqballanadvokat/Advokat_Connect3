@@ -2,6 +2,6 @@
 {
     public class SDPExchangeConfig
     {
-        public bool IsControllingAgent { get; set; }
+        public bool IsOffering { get; set; }
     }
 }

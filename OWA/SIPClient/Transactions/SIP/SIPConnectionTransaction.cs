@@ -142,24 +142,24 @@ namespace WebRTCClient.Transactions.SIP
             // TODO: send a message for disconnect?
         }
 
-        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {
             if (!Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await MessagingDialog.SendRequest(method, message, contentType, cSeq);
+            return await MessagingDialog.SendSIPRequest(method, message, contentType, cSeq);
         }
 
-        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
         {
             if (!Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await MessagingDialog.SendResponse(statusCode, message, contentType, cSeq);
+            return await MessagingDialog.SendSIPResponse(statusCode, message, contentType, cSeq);
         }
 
         private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)

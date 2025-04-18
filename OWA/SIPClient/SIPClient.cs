@@ -19,7 +19,7 @@ namespace WebRTCClient
 
         private SIPDialog Dialog { get; set; }
 
-        private RTCDataChannel? P2PConnection { get; set; }
+        private P2PConnection? P2PConnection { get; set; }
 
         public bool SignalingServerConnected { get => this.Dialog.Connected; }
 
@@ -47,14 +47,25 @@ namespace WebRTCClient
             this.Dialog = new SIPDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant);
         }
 
-        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {
-            return await this.Dialog.SendRequest(method, message, contentType, cSeq);
+            return await this.Dialog.SendSIPRequest(method, message, contentType, cSeq);
         }
 
-        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
         {
-            return await this.Dialog.SendResponse(statusCode, message, contentType, cSeq);
+            return await this.Dialog.SendSIPResponse(statusCode, message, contentType, cSeq);
+        }
+
+        public async Task SendMessageToPeer(string message)
+        {
+            if(this.P2PConnection == null)
+            {
+                // connection not set
+                return;
+            }
+
+            await this.P2PConnection.SendMessage(message);
         }
 
         public async Task StartDialog(List<RTCIceServer> iceServers)
@@ -70,8 +81,10 @@ namespace WebRTCClient
 
         private async Task ConnectWithPeer(List<RTCIceServer> iceServers)
         {
-            P2PConnection p2PConnectionDialog = new P2PConnection(this.Dialog, iceServers);
-            await p2PConnectionDialog.Start();
+            this.P2PConnection = new P2PConnection(this.Dialog, iceServers);
+            await this.P2PConnection.Start();
+
+            // TODO: Wait for connection?
         }
 
         public async Task StopDialog()

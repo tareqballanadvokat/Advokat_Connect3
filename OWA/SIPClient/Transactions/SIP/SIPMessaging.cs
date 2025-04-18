@@ -44,7 +44,7 @@ namespace WebRTCClient.Transactions.SIP
             Running = false;
         }
 
-        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {
             if (!Running)
             {
@@ -60,7 +60,7 @@ namespace WebRTCClient.Transactions.SIP
             return await Connection.SendSIPRequest(method, headerParams, message, contentType, cts.Token); //pass this.SendTimeout maybe
         }
 
-        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
         {
             if (!Running)
             {

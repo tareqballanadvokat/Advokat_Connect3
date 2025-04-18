@@ -11,7 +11,7 @@ namespace WebRTCLibrary.SIP
         public event RequestReceivedDelegate? OnRequestReceived;
         public event ResponseReceivedDelegate? OnResponseReceived;
 
-        public Task<SocketError> SendRequest(SIPMethodsEnum method, string message, string contentType, int cSeq);
-        public Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq);
+        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq);
+        public Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq);
     }
 }

@@ -41,12 +41,12 @@ namespace WebRTCClient.Transactions.SDP
         {
             SDPExchangeConfig sdpConfig = new SDPExchangeConfig()
             {
-                IsControllingAgent = true,
+                IsOffering = true,
             };
 
             string sdpConfigJson = JsonSerializer.Serialize(sdpConfig);
 
-            await this.Connection.SendRequest(SIPMethodsEnum.ACK, sdpConfigJson, SDPContentType, this.StartCSeq);
+            await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, sdpConfigJson, SDPContentType, this.StartCSeq);
         }
 
         private async Task ListenForAck(ISIPMessager sender, SIPRequest request)
@@ -89,7 +89,7 @@ namespace WebRTCClient.Transactions.SDP
                 return;
             }
 
-            if (peerSDPConfig.IsControllingAgent)
+            if (peerSDPConfig.IsOffering)
             {
                 // Peer is set to offer - should be answering. Fail
                 return;
@@ -151,7 +151,7 @@ namespace WebRTCClient.Transactions.SDP
 
             string sdpOfferJson = JsonSerializer.Serialize(new { sdp = offer.sdp, type = "offer" });
 
-            await this.Connection.SendRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 2);
+            await this.Connection.SendSIPRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 2);
 
             await WaitFor(
                 () => this.AnswerReceived,

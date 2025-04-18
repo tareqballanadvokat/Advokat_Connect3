@@ -86,24 +86,24 @@ namespace WebRTCClient.Transactions.SIP
                 );
         }
 
-        public async Task<SocketError> SendRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {
             if (!Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await SIPConnectionTransaction.SendRequest(method, message, contentType, cSeq);
+            return await SIPConnectionTransaction.SendSIPRequest(method, message, contentType, cSeq);
         }
 
-        public async Task<SocketError> SendResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
         {
             if (!Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await SIPConnectionTransaction.SendResponse(statusCode, message, contentType, cSeq);
+            return await SIPConnectionTransaction.SendSIPResponse(statusCode, message, contentType, cSeq);
         }
 
         private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)

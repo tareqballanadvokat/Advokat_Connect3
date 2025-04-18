@@ -70,7 +70,7 @@ namespace WebRTCClient.Transactions.SDP
                 return;
             }
 
-            if (!peerSDPConfig.IsControllingAgent)
+            if (!peerSDPConfig.IsOffering)
             {
                 // peer did is set to answering - should be offering. Fail?
                 return;
@@ -85,11 +85,11 @@ namespace WebRTCClient.Transactions.SDP
 
             SDPExchangeConfig sdpConfig = new SDPExchangeConfig
             {
-                IsControllingAgent = false
+                IsOffering = false
             };
 
             string sdpConfigJson = JsonSerializer.Serialize(sdpConfig);
-            await this.Connection.SendRequest(SIPMethodsEnum.ACK, sdpConfigJson, SDPContentType, this.StartCSeq + 1);
+            await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, sdpConfigJson, SDPContentType, this.StartCSeq + 1);
 
             await WaitForAsync(
                 () => this.OfferReceived,
@@ -155,7 +155,7 @@ namespace WebRTCClient.Transactions.SDP
             string sdpOfferJson = JsonSerializer.Serialize(new { sdp = answer.sdp, type = "answer" });
 
             // TODO: set content type header
-            await this.Connection.SendRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 3);
+            await this.Connection.SendSIPRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 3);
         }
     }
 }

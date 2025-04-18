@@ -25,7 +25,7 @@ namespace SIPSignalingServer.Transactions
         private async Task SendControllingAgentConfig()
         {
             SDPExchangeConfig controllingConfig = new SDPExchangeConfig();
-            controllingConfig.IsControllingAgent = true;
+            controllingConfig.IsOffering = true;
             string controllingConfigJson = JsonSerializer.Serialize(controllingConfig);
 
             await this.SIPTunnel.Left.SendRequest(SIPMethodsEnum.NOTIFY, controllingConfigJson, "application/json");
