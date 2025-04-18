@@ -38,16 +38,28 @@
 </head>
 
 
-<body> 
-  <div id="error-message" class="w3-bar w3-black" >
-  </div>
+<body>     
+<div id="tab-content" class="city"></div>
 
 <div class="w3-bar w3-black">
     <div class="w3-bar-item w3-button" onclick="openCity('ASD')">ASD</div>
     <div class="w3-bar-item w3-button" onclick="openCity('Service')">Servie</div>
     <div class="w3-bar-item w3-button" onclick="openCity('Case')">Case</div>
   </div>
-  
+  <div id="Email" class="w3-container city" style="display:none">
+      <div class="search-panel">
+          <div class="search-box">
+            <input id="text-search-input" style="width:200px" type="text" placeholder="Search..." />
+            <img width="16" height="16" id="search-case-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat" />
+          </div>
+        </div>
+      <div id="results-container" class="results-container">
+      </div>
+
+      <div class="cases-container" id="caseStructure">
+              <h3>Cases ★</h3>
+      </div>
+  </div>
   <div id="ASD" class="w3-container city">
  
     <header class="ms-welcome__header ms-bgColor-neutralLighter">
@@ -55,8 +67,7 @@
         <h1 class="ms-font-su">Service</h1>
     </header>
   
-    <main id="app-body"  style="display: none;">
-        
+    <main id="app-body"  style="display: none;">        
         <p class="ms-font-l">Modify the source files, then click <b>Run</b>.</p>
         <div role="button" id="uniqueId" class="ms-welcome__action ms-Button ms-Button--hero ms-font-xl">
             <span class="ms-Button-label">Get Unique Id</span>
@@ -77,7 +88,8 @@
   </div>
   
   <div id="Case" class="w3-container city" style="display:none">     
-      <div role="button" id="caseStructureDownloaded"  >
+
+        <div role="button" id="caseStructureDownloaded"  >
             <span class="ms-Button">Download Case Structure</span>
         </div>
 
@@ -85,44 +97,15 @@
             <div class="search-box">
               <input id="text-search-input" style="width:200px" type="text" placeholder="Search..." />
               <img width="16" height="16" id="search-case-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat" />
-        
         </div>
         
-        <!-- <div class="results-header">
-              <div>Case ID</div>
-              <div>Causa</div>
-              <div></div>
-        </div> -->
         <div id="results-container" class="results-container">
-          <!-- Tu wpadną wyniki -->
         </div>
 
         <div class="cases-container" id="caseStructure">
                 <h3>Cases ★</h3>
         </div>
-  </div>
-       
-    
-      
-    
- 
- 
-    
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  </div>       
 </body>
 
 </html>

@@ -2,19 +2,36 @@
  * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
  * See LICENSE in the project root for license information.
  */
-import { showSuccess, showError, setOptions } from "../helpers/toastrHelper";
-import { addCaseToFavorites, removeCaseFromFavorites, getMyFavorites, getStructure, searchCases } from "../helpers/webApiReqests";
+
+/* global document, Office */
+
+import { formatDate } from "../helpers/helper";
+import toastr from "toastr";
+
+export function initASD() {
+    console.log("ASD tab initialized");
+  
+    document.getElementById("search-case-id")?.addEventListener("click", () => {
+      toastr.info("Szukam spraw...");
+      // searchCases(...) itd.
+    });
+  }
+
+Office.onReady(async (info) => { 
  
- 
-export function initCase() 
-{
+  if (info.host === Office.HostType.Outlook) {
     document.getElementById("caseStructureDownloaded").onclick = CaseDownloadStructure; 
     document.getElementById("search-case-id").onclick = CaseSearchStructure;
-    setOptions();
-    showSuccess("Your Message Header", "Your Message"); 
-}
+    ///test
+    console.log(formatDate(new Date()));
+    toastr.success("Add In loaded correctly"); 
+  }
  
-export function initCaseStructure(initialData, isRootLoaded) 
+});
+
+
+ 
+function initCaseStructure(initialData, isRootLoaded) 
 {
   var $rootElement = $("#caseStructure");
 
@@ -60,10 +77,10 @@ export function initCaseStructure(initialData, isRootLoaded)
                 { 
                   removeCaseFromFavorites(nodeId);
                   $(this).parent().remove();                  
-                 showSuccess("Successful removed from Favorites list"); 
+                  toastr.success("Successful removed from Favorites list"); 
                 } catch (error) 
                 {                  
-                  showError("Removed from Favorites list failed!", "Removing item"); 
+                  toastr.error("Removed from Favorites list failed!"); 
                 }
               });
         
@@ -106,7 +123,10 @@ export function initCaseStructure(initialData, isRootLoaded)
   // Początkowe ładowanie root'ów
   buildTree(initialData, $rootElement, true);
 }
-export function buildItemsTree(nodes, container) {
+
+
+
+function buildItemsTree(nodes, container) {
   nodes.forEach(node => {
       var $div = $("<div>", { class: "file-tag", id: "file-" + node.id });
 
@@ -137,12 +157,16 @@ export function buildItemsTree(nodes, container) {
       // Obsługa kliknięcia
       $toggle.on("click", async function () {
         
-        showSuccess("Successful cliecked URL"); 
+        toastr.success("Successful cliecked URL"); 
           var url=  $(this).data("url");
           console.log(url); 
       });
   });
 }
+
+
+ 
+
 
 export async function CaseDownloadStructure()
 {
@@ -177,10 +201,114 @@ export async function CaseSearchStructure()
       );
 
       $row.append($div);
+
       $results.append($row);
     });
   })
   .catch(err => {
-    showError(err, "Search case failed"); 
+    console.error("Błąd podczas wyszukiwania:", err);
+    toastr.error("Search case failed: " + err); 
   });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+///////
+// Actions
+/////
+function addCaseToFavorites(nodeIsd) {
+  return fetch("https://localhost:7231/WeatherForecast/AddToFavorites", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ nodeId: nodeIsd })
+  })
+    .then(res => res.json())
+    .catch(error => {
+      console.error("Błąd fetch:", error);
+      toastr.error("Add to favorites list failed: " + err); 
+    });
+}
+
+async function removeCaseFromFavorites(nodeId) {
+     try {
+      const res = await  fetch("https://localhost:7231/WeatherForecast/RemoveFromFavorites", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ nodeId: nodeId })
+      });
+  
+      if (!res.ok) {
+        
+        toastr.error("Removed from favorites list failed: " + res.status); 
+        throw new Error(`Błąd HTTP ${res.status}: ${res.statusText}`);
+      }
+  
+    //  const data = await res.json();
+      return res;
+  
+    } catch (err) {
+      console.error("Błąd podczas wyszukiwania:", err);
+      
+      toastr.error("Removed from favorites list failed: " + err); 
+      throw err;  
+    }
+
+
+}
+
+function searchCases(searchQuery) {
+  return fetch("https://localhost:7231/WeatherForecast/SearchCases", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ query: searchQuery })
+  })
+    .then(res => res.json())
+    .catch(error => {
+      console.error("Błąd fetch:", error);
+      toastr.error("Search failed: " + error);  
+    });
+}
+
+function getStructure(nodeId) {
+  return fetch("https://localhost:7231/WeatherForecast/GetStructureById?parentId=" + nodeId)
+      .then(res => res.json())   
+      .catch(error => {
+        console.error("Błąd fetch:", error); 
+        toastr.error("Get struture failed: " + error);  
+      });
+}
+
+ 
+
+function getMyFavorites(nodeId) {
+  return fetch("https://localhost:7231/WeatherForecast/GetMyFavorites")
+      .then(res => res.json())
+      .catch(error => {
+        console.error("Błąd fetch:", error); 
+        toastr.error("Get my Favorites failed: " + error);  
+      });
+ 
+}
+ 

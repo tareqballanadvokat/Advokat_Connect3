@@ -20,11 +20,14 @@ module.exports = async (env, options) => {
       polyfill: ["core-js/stable", "regenerator-runtime/runtime"],
       taskpane: ["./src/taskpane/taskpane.js", "./src/taskpane/taskpane.html"],
       commands: ["./src/commands/commands.js", "./src/commands/commands.html"],
-      services: ["./src/services/service.js", "./src/services/service.html"],
-      cases: ["./src/cases/case.js", "./src/cases/case.html"],
+      services: ["./src/services/service.js", "./src/services/service.html"],     
+      index: ["./src/index.js","./src/index.html"],
     },
-    output: {
-      clean: true,
+    output: {    
+        filename: "[name].bundle.js",
+        clean: true,
+        publicPath: "/",
+      
     },
     resolve: {
       extensions: [".html", ".js"],
@@ -62,11 +65,19 @@ module.exports = async (env, options) => {
         filename: "service.html",
         template: "./src/services/service.html",
         chunks: ["polyfill", "services"],
-      }),
+      }), 
       new HtmlWebpackPlugin({
-        filename: "case.html",
-        template: "./src/cases/case.html",
-        chunks: ["polyfill", "cases"],
+        filename: "index.html",
+        template: "./src/index.html",
+        chunks: ["polyfill", "index"],
+      }),
+      new CopyWebpackPlugin({
+        patterns: [
+          {
+            from: "src/cases/case.html",
+            to: "cases/case.html"
+          }
+        ]
       }),
       new CopyWebpackPlugin({
         patterns: [
@@ -114,4 +125,68 @@ module.exports = async (env, options) => {
   };
 
   return config;
-};
+}; 
+
+
+
+
+//   const path = require("path");
+// // const HtmlWebpackPlugin = require("html-webpack-plugin");
+
+// module.exports = {
+//   mode: "development",
+//   entry: "./src/index.html",
+//   output: {
+//     path: path.resolve(__dirname, "dist"),
+//     filename: "[name].[contenthash].js",
+//     clean: true,
+//   },
+//   module: {
+//     rules: [
+//       {
+//         test: /\.html$/,
+//         use: "html-loader"
+//       },
+//       {
+//         test: /\.js$/,
+//         exclude: /node_modules/,
+//         use: "babel-loader"
+//       },
+//       {
+//         test: /\.css$/,
+//         use: ["style-loader", "css-loader"]
+//       },
+//       {
+//         test: /\.(png|jpg|jpeg|gif|svg)$/,
+//         type: "asset/resource",
+//         generator: {
+//           filename: "assets/[name][ext]"
+//         }
+//       },
+//       {
+//         test: /\.(png|jpg|jpeg|gif|ico)$/,
+//         type: "asset/resource",
+//         generator: {
+//           filename: "assets/[name][ext][query]",
+//         }
+//       }
+//     ]
+//   },
+//   plugins: [
+//     new HtmlWebpackPlugin({
+//       template: "./src/index.html",
+//       filename: "index.html"
+//     })
+//   ],
+//   devServer: {
+//     static: {
+//       directory: path.join(__dirname, "dist")
+//     },
+//     port: 3000,
+//     https: true,
+//     open: true,
+//     headers: {
+//       "Access-Control-Allow-Origin": "*"
+//     }
+//   }
+// };

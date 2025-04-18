@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Service Task Pane Add-in</title>
+
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+
+    <!-- For more information on Fluent UI, visit https://developer.microsoft.com/fluentui#/. -->
+    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <!-- Template styles --> 
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
+<!-- Toastr CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+ 
+  
+</head>
+<body>
+ 
+<h2>Przeciągnij tutaj coś 👇</h2>
+<div id="dropzone">Drop text or file here</div>
+
+
+
+<br/>
+<br/>
+<br/>
+<br/>
+
+<h2>🔽 Przeciągnij ten plik na pulpit, aby go zapisać</h2>
+
+<div id="dragFile" draggable="true">📄 hello.txt</div>
+
+<a id="downloadLink" 
+   href="data:application/octet-stream;charset=utf-8,Hello%20from%20drag!" 
+   download="hello.txt" 
+   style="display: none;">
+  Pobierz
+</a>
+
+
+
+<a id="downloadLink" 
+   href="data:application/octet-stream;charset=utf-8,Hello%20from%20drag!" 
+   download="hello.txt" 
+   style="display: none;">
+  Pobierz
+</a>
+
+ <br/>
+ <br/>
+ <br/>
+ <br/>
+<script>
+  const dragFile = document.getElementById("dragFile");
+  const downloadLink = document.getElementById("downloadLink");
+
+  dragFile.addEventListener("dragstart", (e) => {
+    const url = downloadLink.href;
+    const name = downloadLink.getAttribute("download");
+    const mime = "application/octet-stream";
+
+    const downloadURL = `${mime}:${name}:${url}`;
+    e.dataTransfer.setData("DownloadURL", downloadURL);
+
+    // Alternatywne formaty (niestety nie działają poza desktopem)
+    e.dataTransfer.setData("text/plain", "Plik: " + name);
+    e.dataTransfer.effectAllowed = "copy";
+  });
+</script>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+
+dropzone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropzone.style.borderColor = "#00f";
+});
+
+dropzone.addEventListener('dragleave', () => {
+  dropzone.style.borderColor = "#aaa";
+});
+
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.style.borderColor = "#0a0";
+
+  if (e.dataTransfer.items) {
+    for (let item of e.dataTransfer.items) {
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        console.log("Plik: " + file.name);
+      } else if (item.kind === "string") {
+        item.getAsString(str => {
+          console.log("Tekst: " + str);
+        });
+      }
+    }
+  }
+});
+</script>
+
+</body>
+
+
+</html>
