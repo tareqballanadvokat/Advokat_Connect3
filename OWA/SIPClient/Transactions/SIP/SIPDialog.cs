@@ -1,12 +1,10 @@
 ﻿using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
-using System.Net;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
-
 
 namespace WebRTCClient.Transactions.SIP
 {
@@ -29,31 +27,29 @@ namespace WebRTCClient.Transactions.SIP
 
         private SIPTransport Transport { get; set; }
 
-        //public IPEndPoint SignalingServer { get; private set; }
-
         public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant)
             : base(
                   sipScheme,
                   transport,
                   new TransactionParams(sourceParticipant, remoteParticipant, callId:CallProperties.CreateNewCallId()))
         {
-            SIPRegistrationTransaction = new SIPRegistrationTransaction(Connection, Params);
-            SIPKeepAlive = new SIPKeepAlive(Connection, Params);
+            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.Connection, this.Params);
+            this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params);
 
-            SIPRegistrationTransaction.SendTimeout = SendTimeout;
-            SIPRegistrationTransaction.ReceiveTimeout = ReceiveTimeout;
+            this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
+            this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
 
-            Transport = transport;
+            this.Transport = transport;
         }
 
         public override async Task Start()
         {
-            await SIPRegistrationTransaction.Start();
+            await this.SIPRegistrationTransaction.Start();
 
             await WaitForAsync(
-                () => Registered,
-                ReceiveTimeout, // TODO: Find suitable timeout for registration process
-                successCallback: RegistationSuccessful,
+                () => this.Registered,
+                this.ReceiveTimeout, // TODO: Find suitable timeout for registration process
+                successCallback: this.RegistationSuccessful,
                 failureCallback: async () => { }); // TODO: what to do on registering failure / timeout
         }
 
@@ -67,53 +63,55 @@ namespace WebRTCClient.Transactions.SIP
         private async Task RegistationSuccessful()
         {
             TransactionParams dialogParams = new TransactionParams(
-                Params.SourceParticipant,
-                Params.RemoteParticipant,
-                sourceTag: Params.SourceTag);
+                this.Params.SourceParticipant,
+                this.Params.RemoteParticipant,
+                sourceTag: this.Params.SourceTag);
 
-            SIPConnectionTransaction = new SIPConnectionTransaction(SIPScheme, Transport, dialogParams);
+            this.SIPConnectionTransaction = new SIPConnectionTransaction(SIPScheme, Transport, dialogParams);
 
-            SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
-            SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;
+            this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
+            this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;
 
-            await SIPConnectionTransaction.Start();
-            await SIPKeepAlive.Start(); // TODO: stop dialog on stop / unregister
+            await this.SIPConnectionTransaction.Start();
+            await this.SIPKeepAlive.Start(); // TODO: stop dialog on stop / unregister
+                                        //       Also, should keep alive send pings starting from peer or from server
+                                        //       Is not needed if there is no timeout for our signaling server
 
             await WaitFor(
-                () => Connected,
-                ReceiveTimeout // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register. have a timeout at all?
-                               // TODO: failed?
+                () => this.Connected,
+                this.ReceiveTimeout // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register. have a timeout at all?
+                                    // TODO: failed?
                 );
         }
 
         public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {
-            if (!Connected)
+            if (!this.Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await SIPConnectionTransaction.SendSIPRequest(method, message, contentType, cSeq);
+            return await this.SIPConnectionTransaction.SendSIPRequest(method, message, contentType, cSeq);
         }
 
         public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
         {
-            if (!Connected)
+            if (!this.Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await SIPConnectionTransaction.SendSIPResponse(statusCode, message, contentType, cSeq);
+            return await this.SIPConnectionTransaction.SendSIPResponse(statusCode, message, contentType, cSeq);
         }
 
         private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)
         {
-            await (OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
+            await (this.OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
         }
 
         private async Task ResponseRecieved(ISIPMessager sender, SIPResponse sipResponse)
         {
-            await (OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
+            await (this.OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
         }
     }
 }

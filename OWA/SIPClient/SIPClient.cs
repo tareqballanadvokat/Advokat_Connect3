@@ -1,8 +1,6 @@
-﻿using SIPSorcery.Net;
-using SIPSorcery.SIP;
-using SIPSorcery.Sys;
+﻿using SIPSorcery.SIP;
 using System.Net.Sockets;
-using WebRTCClient.Transactions;
+using WebRTCClient.Models;
 using WebRTCClient.Transactions.SIP;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
@@ -11,19 +9,23 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient
 {
+    // TODO: Do we need this abstraction?
+
     public class SIPClient : ISIPMessager
     {
         public delegate Task MessageReceivedDelegate(SIPClient sender, byte[] data);
 
+        public delegate Task ConnectedDelegate(SIPClient sender);
+
         public event MessageReceivedDelegate? OnMessageReceived;
+
+        public event ConnectedDelegate? OnConnected;
 
         public SIPParticipant SourceParticipant { get; private set; }
 
         public SIPParticipant RemoteParticipant { get; private set; }
 
         private SIPDialog Dialog { get; set; }
-
-        private P2PConnection? P2PConnection { get; set; }
 
         public bool SignalingServerConnected { get => this.Dialog.Connected; }
 
@@ -38,12 +40,20 @@ namespace WebRTCClient
             add => this.Dialog.OnResponseReceived += value;
             remove => this.Dialog.OnResponseReceived -= value;
         }
+        public SIPClient(SignalingServerParams connectionParams)
+            :this(
+                 connectionParams.SIPScheme,
+                 transport: GetTransport(connectionParams.SourceParticipant, connectionParams.SIPChannels),
+                 sourceParticipant: connectionParams.SourceParticipant,
+                 remoteParticipant: connectionParams.RemoteParticipant)
+        {
+        }
 
         public SIPClient(
-            SIPParticipant sourceParticipant,
-            SIPParticipant remoteParticipant,
+            SIPSchemesEnum sipScheme,
             SIPTransport transport,
-            SIPSchemesEnum sipScheme)
+            SIPParticipant sourceParticipant,
+            SIPParticipant remoteParticipant)
         {
             this.SourceParticipant = sourceParticipant;
             this.RemoteParticipant = remoteParticipant;
@@ -61,44 +71,41 @@ namespace WebRTCClient
             return await this.Dialog.SendSIPResponse(statusCode, message, contentType, cSeq);
         }
 
-        public async Task SendMessageToPeer(string message)
-        {
-            if(this.P2PConnection == null)
-            {
-                // connection not set
-                return;
-            }
-
-            await this.P2PConnection.SendMessage(message);
-        }
-
-        public async Task StartDialog(List<RTCIceServer> iceServers)
+        public async Task StartDialog() //List<RTCIceServer> iceServers)
         {
             await this.Dialog.Start();
 
             await WaitForAsync(
                 () => this.Dialog.Connected, // TODO: start listening on MessagingDialog set? Request could be dropped between peer confirmation and start of SPD listener
                 timeOut: 5000, // TODO: Get timout for connection
-                successCallback: async () => await this.ConnectWithPeer(iceServers)
+                //successCallback: async () => await this.ConnectWithPeer(iceServers)
+                successCallback: async () => await (this.OnConnected?.Invoke(this) ?? Task.CompletedTask)
+                // failureCallback: TODO: Timeout behaviour
             );
-        }
-
-        private async Task ConnectWithPeer(List<RTCIceServer> iceServers)
-        {
-            this.P2PConnection = new P2PConnection(this.Dialog, iceServers);
-            this.P2PConnection.OnMessageReceived += async (P2PConnection connection, byte[] data) =>
-            {
-                await (this.OnMessageReceived?.Invoke(this, data) ?? Task.CompletedTask);
-            };
-
-            await this.P2PConnection.Start();
-
-            // TODO: Wait for connection?
         }
 
         public async Task StopDialog()
         {
             await this.Dialog.Stop();
+        }
+
+        private static SIPTransport GetTransport(SIPParticipant caller, HashSet<SIPChannelsEnum> sipChannelEnums)
+        {
+            SIPTransport transport = new SIPTransport();
+
+            if (sipChannelEnums.Count == 0)
+            {
+                // TODO: find suitable exception
+                throw new Exception("No SIPChannel set. Cannot create SIP connection.");
+            }
+
+            // set listening channels
+            foreach (SIPChannelsEnum sipChannelEnum in sipChannelEnums)
+            {
+                transport.AddSIPChannel(sipChannelEnum.GetChannelInstance(caller));
+            }
+
+            return transport;
         }
     }
 }

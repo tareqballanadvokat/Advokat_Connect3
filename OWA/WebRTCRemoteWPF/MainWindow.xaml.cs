@@ -1,7 +1,6 @@
 ﻿using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
 using System.Windows;
 using WebRTCClient;
@@ -25,7 +24,7 @@ namespace WebRTCRemoteWPF
 
         //private RegistrationManager SignalingServer = new RegistrationManager("callerIdIsIrrelevantIHope");
 
-        private SIPClient? UserAgent;
+        private WebRTCPeer? UserAgent;
 
         public MainWindow()
         {
@@ -83,17 +82,6 @@ namespace WebRTCRemoteWPF
                 return;
             }
 
-            SIPParticipant caller = new SIPParticipant(this.RegistrationName.Text, new SIPEndPoint(new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.Text), int.Parse(DnsIPAndPort.Text))));
-
-            // remote name + signaling server IPEndpoint
-            SIPParticipant remote = new SIPParticipant(this.DestinationName.Text, new SIPEndPoint(IPEndPoint.Parse(this.SipSignalingServer.Text)));
-
-            SIPTransport transport = this.GetTransport(caller);
-            this.UserAgent = new SIPClient(caller, remote, transport, SIPSchemesEnum.sip);
-
-            this.UserAgent.OnRequestReceived += this.OnRequestRecived;
-            this.UserAgent.OnResponseReceived += this.OnResponseRecived;
-
             List<RTCIceServer> iceServers = this.P2PServersComboBox.Items
                 .Cast<RTCOwnIceServer>()
                 .Select(o =>
@@ -111,12 +99,29 @@ namespace WebRTCRemoteWPF
                 })
                 .ToList();
 
-            this.UserAgent.OnMessageReceived += async (SIPClient sender, byte[] data) =>
-            {
-                this.AddLineToTextBox(data);
-            };
 
-            await this.UserAgent.StartDialog(iceServers);
+            this.UserAgent = new WebRTCPeer(
+                sourceUser: this.RegistrationName.Text,
+                remoteUser: this.DestinationName.Text,
+                sourceEndpoint: new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.Text), int.Parse(DnsIPAndPort.Text)),
+                signalingServer: IPEndPoint.Parse(this.SipSignalingServer.Text),
+                iceServers: iceServers
+                );
+            
+            this.UserAgent.OnMessageReceived += this.OnMessage;
+
+            this.UserAgent.OnConnected += this.OnConnected;
+
+            await this.UserAgent.Connect();
+        }
+        private async Task OnMessage(IWebRTCPeer sender, byte[] message)
+        {
+            this.AddLineToTextBox(message);
+        }
+
+        private async Task OnConnected(IWebRTCPeer sender)
+        {
+            Dispatcher.Invoke(() => this.LogBox.AppendText($"[{DateTime.Now}] Connected\r\n"));
         }
 
         private void AddLineToTextBox(byte[] message)
@@ -142,19 +147,6 @@ namespace WebRTCRemoteWPF
             Dispatcher.Invoke(() => LogBox.ScrollToEnd());
         }
 
-        private SIPTransport GetTransport(SIPParticipant caller)
-        {
-            SIPTransport transport = new SIPTransport();
-
-            // set listening channel
-            SIPUDPChannel channel = new SIPUDPChannel(caller.Endpoint.GetIPEndPoint());
-            //SIPUDPChannel channel = new SIPUDPChannel(sourceEndpoint);
-
-            transport.AddSIPChannel(channel);
-
-            return transport;
-        }
-
         private void P2PAddStunBtn_Click(object sender, RoutedEventArgs e)
         {
 
@@ -172,11 +164,11 @@ namespace WebRTCRemoteWPF
 
         private async void P2PDisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
-            Task? task = this.UserAgent?.StopDialog();
-            if (task != null)
-            {
-                await task;
-            }
+            //Task? task = this.UserAgent?.StopDialog();
+            //if (task != null)
+            //{
+            //    await task;
+            //}
         }
 
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)
@@ -191,16 +183,16 @@ namespace WebRTCRemoteWPF
 
         private async void SendMessageViaSignalingServerBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (this.UserAgent != null)
-            {
-                SocketError sendStatus = await this.UserAgent.SendSIPRequest(SIPMethodsEnum.INFO, this.MessageBox.Text, "message/sip", 1);
-                if (sendStatus != SocketError.NotConnected)
-                {
-                    this.AddLineToTextBox($"{SIPMethodsEnum.INFO} - {this.MessageBox.Text}", sentMessage: true);
-                }
+            //if (this.UserAgent != null)
+            //{
+            //    SocketError sendStatus = await this.UserAgent.SendSIPRequest(SIPMethodsEnum.INFO, this.MessageBox.Text, "message/sip", 1);
+            //    if (sendStatus != SocketError.NotConnected)
+            //    {
+            //        this.AddLineToTextBox($"{SIPMethodsEnum.INFO} - {this.MessageBox.Text}", sentMessage: true);
+            //    }
                 
-                this.MessageBox.Text = string.Empty;
-            }
+            //    this.MessageBox.Text = string.Empty;
+            //}
         }
 
         private void DelayMilisecondsTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)

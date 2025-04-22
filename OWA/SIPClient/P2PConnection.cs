@@ -8,21 +8,27 @@ using WebRTCLibrary.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
-namespace WebRTCClient.Transactions
+namespace WebRTCClient
 {
     internal class P2PConnection
     {
+        private static readonly PortRange defaultPortRange = new PortRange(10000, 10010, true); // TODO: Check which portrange to actually use
+
         public delegate Task MessageReceivedDelegate(P2PConnection sender, byte[] data);
         
         public event MessageReceivedDelegate? OnMessageReceived;
 
-        // TODO: Can the DataChannel even be open when the PeerConnection is closed? Remove the first condition if that's not the case
+        // TODO: Can the DataChannels even be open when the PeerConnection is closed? Remove the first condition if that's not the case
         [MemberNotNullWhen(true, nameof(this.SendingDataChannel))]
-        private bool IsConnected { get => this.PeerConnection.connectionState == RTCPeerConnectionState.connected && (this.SendingDataChannel?.IsOpened ?? false); }
+        [MemberNotNullWhen(true, nameof(this.ReceivingDataChannel))]
+        public bool IsConnected
+        {
+            get => this.PeerConnection.connectionState == RTCPeerConnectionState.connected
+                && (this.SendingDataChannel?.IsOpened ?? false)
+                && (this.ReceivingDataChannel?.IsOpened ?? false);
+        }
 
         private bool IsControllingAgent { get; set; }
-
-        private List<RTCIceServer> IceServers { get; set; }
 
         private RTCPeerConnection PeerConnection { get; set; }
 
@@ -36,19 +42,21 @@ namespace WebRTCClient.Transactions
 
         private bool ICECandidatesReady { get; set; } // TODO: we should wait with the negotiation until this is true?
 
-        public P2PConnection(ISIPMessager sipConnection, List<RTCIceServer> iceServers)
+        public P2PConnection(ISIPMessager sipConnection, IReadOnlyList<RTCIceServer> iceServers)
+            :this(sipConnection, iceServers, defaultPortRange)
         {
-            this.IceServers = iceServers;
+        }
+
+        public P2PConnection(ISIPMessager sipConnection, IReadOnlyList<RTCIceServer> iceServers, PortRange portRange)
+        {
             this.SIPConnection = sipConnection;
 
             RTCConfiguration config = new RTCConfiguration
             {
-                iceServers = this.IceServers
+                iceServers = iceServers.ToList(),
             };
 
-            PortRange portRange = new PortRange(10000, 10010, true); // TODO: Get portrange passed
             this.PeerConnection = new RTCPeerConnection(config, portRange: portRange);
-
             this.PeerConnection.onnegotiationneeded += () =>
             {
                 // TODO: Check if this gets called when STUN servers are reachable. Does not get called when they are not available (current PC)
@@ -59,23 +67,14 @@ namespace WebRTCClient.Transactions
             };
         }
 
-        //public P2PConnectionDialog(SIPSchemesEnum sipScheme, SIPTransport transport, DialogParams dialogParams)
-        //    : base(sipScheme, transport, dialogParams)
-        //{
-        //}
-
         public async Task Start()
         {
             // TODO: Check if it is already connected?
 
             this.SIPConnection.OnRequestReceived += this.ListenForSDPAllocation;
 
-            this.PeerConnection.ondatachannel += (RTCDataChannel dataChannel) =>
+            this.PeerConnection.ondatachannel += (dataChannel) =>
             {
-                //RTCPeerConnection connection = this.PeerConnection;
-
-                //bool same = this.SendingDataChannel == dataChannel;
-
                 this.ReceivingDataChannel = dataChannel;
 
                 this.ReceivingDataChannel.onmessage += async (RTCDataChannel dc, DataChannelPayloadProtocols protocol, byte[] data) =>
@@ -88,11 +87,10 @@ namespace WebRTCClient.Transactions
                     // TODO: close sending channel?
                 };
 
-                this.ReceivingDataChannel.onerror += (string error) =>
+                this.ReceivingDataChannel.onerror += (error) =>
                 {
                     // TODO: add event?
                 };
-
             };
         }
 
@@ -106,8 +104,6 @@ namespace WebRTCClient.Transactions
             //string label = new string(Enumerable.Repeat(chars, 10)
             //    .Select(s => s[rand.Next(s.Length)]).ToArray());
 
-            //if (this.IsControllingAgent)
-            //    {
             this.SendingDataChannel = await this.PeerConnection.createDataChannel(label);
 
             this.SendingDataChannel.onopen += () =>
@@ -115,21 +111,15 @@ namespace WebRTCClient.Transactions
                 //    Log("Data Channel opened.");
             };
 
-            //this.SendingDataChannel.onmessage += async (RTCDataChannel dc, DataChannelPayloadProtocols protocol, byte[] data) =>
-            //{
-            //    await (this.OnMessageReceived?.Invoke(this, data) ?? Task.CompletedTask);
-            //};
-
             this.SendingDataChannel.onclose += () =>
             {
                 // TODO: close receiving channel?
             };
 
-            this.SendingDataChannel.onerror += (string error) =>
+            this.SendingDataChannel.onerror += (error) =>
             {
                 // TODO: add event?
             };
-            //}
         }
 
         public async Task SendMessage(string message)
@@ -144,7 +134,6 @@ namespace WebRTCClient.Transactions
             this.SendingDataChannel.send(messageBytes);
         }
         
-
         private async Task ListenForSDPAllocation(ISIPMessager sender, SIPRequest request)
         {
             if (request.Method != SIPMethodsEnum.NOTIFY)
@@ -189,11 +178,11 @@ namespace WebRTCClient.Transactions
         {
             if (this.IsControllingAgent)
             {
-                this.SDPDialog = new SDPOfferingClientTransaction(this.SIPConnection, this.PeerConnection, 2);
+                this.SDPDialog = new SDPOfferingClientTransaction(SIPConnection, PeerConnection, 2);
             }
             else
             {
-                this.SDPDialog = new SDPAnsweringClientTransaction(this.SIPConnection, this.PeerConnection, 2);
+                this.SDPDialog = new SDPAnsweringClientTransaction(SIPConnection, PeerConnection, 2);
             }
 
             await this.SDPDialog.Start();
