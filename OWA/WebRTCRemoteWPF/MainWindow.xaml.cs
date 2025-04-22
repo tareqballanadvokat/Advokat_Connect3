@@ -2,6 +2,7 @@
 using SIPSorcery.SIP;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Windows;
 using WebRTCClient;
 using WebRTCLibrary.SIP;
@@ -110,8 +111,17 @@ namespace WebRTCRemoteWPF
                 })
                 .ToList();
 
+            this.UserAgent.OnMessageReceived += async (SIPClient sender, byte[] data) =>
+            {
+                this.AddLineToTextBox(data);
+            };
 
             await this.UserAgent.StartDialog(iceServers);
+        }
+
+        private void AddLineToTextBox(byte[] message)
+        {
+            this.AddLineToTextBox(Encoding.UTF8.GetString(message));
         }
 
         private async Task OnRequestRecived(ISIPMessager sender, SIPRequest request)

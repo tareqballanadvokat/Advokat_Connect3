@@ -13,6 +13,10 @@ namespace WebRTCClient
 {
     public class SIPClient : ISIPMessager
     {
+        public delegate Task MessageReceivedDelegate(SIPClient sender, byte[] data);
+
+        public event MessageReceivedDelegate? OnMessageReceived;
+
         public SIPParticipant SourceParticipant { get; private set; }
 
         public SIPParticipant RemoteParticipant { get; private set; }
@@ -82,6 +86,11 @@ namespace WebRTCClient
         private async Task ConnectWithPeer(List<RTCIceServer> iceServers)
         {
             this.P2PConnection = new P2PConnection(this.Dialog, iceServers);
+            this.P2PConnection.OnMessageReceived += async (P2PConnection connection, byte[] data) =>
+            {
+                await (this.OnMessageReceived?.Invoke(this, data) ?? Task.CompletedTask);
+            };
+
             await this.P2PConnection.Start();
 
             // TODO: Wait for connection?
