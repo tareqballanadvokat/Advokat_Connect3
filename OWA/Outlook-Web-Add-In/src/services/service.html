@@ -23,7 +23,53 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
 <link href="service.css" rel="stylesheet" type="text/css" />
 
- 
+ <style>
+/* Dropdown Button */
+.dropbtn {
+  background-color: #3498DB;
+  color: white;
+  padding: 16px;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+}
+
+/* Dropdown button on hover & focus */
+.dropbtn:hover, .dropbtn:focus {
+  background-color: #2980B9;
+}
+
+/* The container <div> - needed to position the dropdown content */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+/* Dropdown Content (Hidden by Default) */
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #f1f1f1;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  z-index: 1;
+}
+
+/* Links inside the dropdown */
+.dropdown-content a {
+  color: black;
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+}
+
+/* Change color of dropdown links on hover */
+.dropdown-content a:hover {background-color: #ddd;}
+
+/* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
+.show {display:block;}
+
+ </style>
     <script>
         function openCity(cityName) {
           var i;
@@ -33,6 +79,28 @@
           }
           document.getElementById(cityName).style.display = "block";  
         }
+
+/* When the user clicks on the button,
+toggle between hiding and showing the dropdown content */
+function myFunction() {
+  document.getElementById("item1dropdown").classList.toggle("show");
+}
+
+// Close the dropdown menu if the user clicks outside of it
+window.onclick = function(event) {
+  if (!event.target.matches('.dropbtn')) {
+    var dropdowns = document.getElementsByClassName("dropdown-content");
+    var i;
+    for (i = 0; i < dropdowns.length; i++) {
+      var openDropdown = dropdowns[i];
+      if (openDropdown.classList.contains('show')) {
+        openDropdown.classList.remove('show');
+      }
+    }
+  }
+}
+
+
         </script>
 
 </head>
@@ -41,25 +109,90 @@
 <body>     
 <div id="tab-content" class="city"></div>
 
-<div class="w3-bar w3-black">
-    <div class="w3-bar-item w3-button" onclick="openCity('ASD')">ASD</div>
+<div class="w3-bar w3-black"> 
+  <div class="w3-bar-item w3-button" onclick="openCity('Email')">Email</div>
     <div class="w3-bar-item w3-button" onclick="openCity('Service')">Servie</div>
     <div class="w3-bar-item w3-button" onclick="openCity('Case')">Case</div>
   </div>
   <div id="Email" class="w3-container city" style="display:none">
+     
       <div class="search-panel">
           <div class="search-box">
             <input id="text-search-input" style="width:200px" type="text" placeholder="Search..." />
-            <img width="16" height="16" id="search-case-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat" />
+            <img width="16" height="16" id="search-email-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat" />
           </div>
         </div>
-      <div id="results-container" class="results-container">
+      <div id="email-results-container" class="results-container">
       </div>
 
-      <div class="cases-container" id="caseStructure">
-              <h3>Cases ★</h3>
+      <div class="email-container" id="emailStructure">
       </div>
-  </div>
+  
+          <h3>CASE</h3>
+            <div class="search-panel">
+              <div class="search-box">
+                <input id="case-text-search-input" style="width:100px" type="text" placeholder="Case ID." />
+                <button type="button" width="16" height="16" id="search-email-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat">Transfer to ADVOCAT</button>
+              </div>
+            </div>
+          <div id="email-results-container" class="results-container">
+          </div>
+
+          <hr class="solid"></hr>
+      
+          <h3>Services</h3>
+          <div class="search-panel">
+            <div class="search-box">
+              <input id="case-abbreviation-input" style="width:100px" type="text" placeholder="Abbreviation" />
+              <input id="case-sb-input" style="width:30px" type="text" placeholder="SB" />
+              <input id="case-time-input" style="width:70px" type="text" placeholder="Time" />
+            </div>
+            <div class="search-box">
+              <input id="case-text-input" style="width:200px" type="text" placeholder="Text." />  
+            </div>
+          </div>
+        <div id="email-results-container" class="results-container">
+        </div>
+ 
+        <h3>Transefer email and attachements</h3>
+        <div class="search-panel">
+          <div class="search-box">
+            <input type="checkbox" id="item1checkbox" name="item1" >    
+            <input id="item1text" style="width:100px" >    
+            <div class="dropdown">
+              <button onclick="myFunction()" class="dropbtn">Dropdown</button>
+              <div id="item1dropdown" class="dropdown-content">
+                <a href="#">Link 1</a>
+                <a href="#">Link 2</a>
+                <a href="#">Link 3</a>
+              </div>
+            </div> 
+            <div class="search-box">
+              <input id="case-item1-text-input" style="width:200px" type="text" placeholder="Text." />  
+            </div>
+          </div>
+          <div class="search-panel">
+            <div class="search-box">
+              <input type="checkbox" id="item2checkbox" name="item2" >    
+              <input id="item2text" style="width:100px" >    
+              <div class="dropdown">
+                <button onclick="myFunction()" class="dropbtn">Dropdown</button>
+                <div id="item2dropdown" class="dropdown-content">
+                  <a href="#">Link 1</a>
+                  <a href="#">Link 2</a>
+                  <a href="#">Link 3</a>
+                </div>
+              </div> 
+              <div class="search-box">
+                <input id="case-item2-text-input" style="width:200px" type="text" placeholder="Text." />  
+              </div>
+            </div>
+      
+        </div>
+      <div id="email-results-container" class="results-container">
+      </div>
+    </div> 
+ </div>
   <div id="ASD" class="w3-container city">
  
     <header class="ms-welcome__header ms-bgColor-neutralLighter">
