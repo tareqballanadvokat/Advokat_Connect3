@@ -1,4 +1,5 @@
-﻿using SIPSorcery.SIP;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP;
@@ -10,6 +11,10 @@ namespace WebRTCClient.Transactions.SIP
 {
     internal class SIPDialog : WebRTCLibrary.SIP.SIPTransaction, ISIPMessager
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SIPDialog> logger;
+
         public event ISIPMessager.RequestReceivedDelegate? OnRequestReceived;
 
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
@@ -27,14 +32,18 @@ namespace WebRTCClient.Transactions.SIP
 
         private SIPTransport Transport { get; set; }
 
-        public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant)
+        public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, ILoggerFactory loggerFactory)
             : base(
                   sipScheme,
                   transport,
-                  new TransactionParams(sourceParticipant, remoteParticipant, callId:CallProperties.CreateNewCallId()))
+                  new TransactionParams(sourceParticipant, remoteParticipant, callId:CallProperties.CreateNewCallId()),
+                  loggerFactory)
         {
-            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.Connection, this.Params);
-            this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params);
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SIPDialog>();
+
+            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.Connection, this.Params, this.loggerFactory);
+            this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params, this.loggerFactory);
 
             this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
             this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
@@ -67,7 +76,7 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteParticipant,
                 sourceTag: this.Params.SourceTag);
 
-            this.SIPConnectionTransaction = new SIPConnectionTransaction(SIPScheme, Transport, dialogParams);
+            this.SIPConnectionTransaction = new SIPConnectionTransaction(SIPScheme, Transport, dialogParams, this.loggerFactory);
 
             this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
             this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;

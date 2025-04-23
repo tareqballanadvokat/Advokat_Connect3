@@ -1,4 +1,5 @@
-﻿using SIPSorcery.Net;
+﻿using Microsoft.Extensions.Logging.Abstractions;
+using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Net;
 using System.Text;
@@ -105,7 +106,8 @@ namespace WebRTCRemoteWPF
                 remoteUser: this.DestinationName.Text,
                 sourceEndpoint: new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.Text), int.Parse(DnsIPAndPort.Text)),
                 signalingServer: IPEndPoint.Parse(this.SipSignalingServer.Text),
-                iceServers: iceServers
+                iceServers: iceServers,
+                NullLoggerFactory.Instance
                 );
             
             this.UserAgent.OnMessageReceived += this.OnMessage;

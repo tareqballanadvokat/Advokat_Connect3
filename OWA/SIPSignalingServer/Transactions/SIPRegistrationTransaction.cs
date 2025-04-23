@@ -6,11 +6,16 @@ using System.Diagnostics;
 using SIPSignalingServer.Utils.CustomEventArgs;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
+using Microsoft.Extensions.Logging;
 
 namespace SIPSignalingServer.Transactions
 {
     internal class SIPRegistrationTransaction : ServerSideSIPTransaction
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SIPRegistrationTransaction> logger;
+
         public bool Registered { get; private set; }
 
         private SIPRegistry Registry { get; set; }
@@ -21,21 +26,38 @@ namespace SIPSignalingServer.Transactions
 
         public event Action<SIPRegistrationTransaction, FailedRegistrationEventArgs>? OnRegistrationFailed;
 
-        public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, SIPEndPoint signalingServer, SIPRegistry registry)
+        public SIPRegistrationTransaction(
+            SIPSchemesEnum sipScheme,
+            SIPTransport transport,
+            SIPRequest initialRequest,
+            SIPEndPoint signalingServer,
+            SIPRegistry registry,
+            ILoggerFactory loggerFactory)
             : this(
                 sipScheme,
                 transport,
                 initialRequest,
                 GetParamsFromRequest(initialRequest, signalingServer),
-                registry)
-        {  
+                registry,
+                loggerFactory)
+        {
         }
 
-        public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, ServerSideTransactionParams transactionsParams, SIPRegistry registry)
+        public SIPRegistrationTransaction(
+            SIPSchemesEnum sipScheme,
+            SIPTransport transport,
+            SIPRequest initialRequest,
+            ServerSideTransactionParams transactionsParams,
+            SIPRegistry registry,
+            ILoggerFactory loggerFactory)
             :base(sipScheme,
                  transport,
-                 transactionsParams)
+                 transactionsParams,
+                 loggerFactory)
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SIPRegistrationTransaction>();
+
             this.InitialRequest = initialRequest;
             this.Registry = registry;
             this.Registration = new SIPRegistration(this.Params);

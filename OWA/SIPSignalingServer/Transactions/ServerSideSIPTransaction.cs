@@ -1,4 +1,5 @@
-﻿using SIPSignalingServer.Models;
+﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using WebRTCLibrary.SIP;
 
@@ -12,13 +13,13 @@ namespace SIPSignalingServer.Transactions
             set => base.Params = value;
         }
 
-        public ServerSideSIPTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, ServerSideTransactionParams transactionParams)
-            : base(sipScheme, transport, transactionParams)
+        public ServerSideSIPTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
+            : base(sipScheme, transport, transactionParams, loggerFactory)
         {
         }
 
-        public ServerSideSIPTransaction(SIPConnection connection, ServerSideTransactionParams transactionParams)
-            : base(connection, transactionParams)
+        public ServerSideSIPTransaction(SIPConnection connection, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
+            : base(connection, transactionParams, loggerFactory)
         {
         }
     }

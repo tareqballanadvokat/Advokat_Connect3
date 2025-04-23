@@ -13,7 +13,6 @@ namespace WebRTCClient.Transactions.SDP
 
         protected ISIPMessager Connection {  get; private set; }
 
-        // list can be changed from the outside...
         public SDPTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, int startCSeq = 1)
         {
             this.Connection = sipConnection;

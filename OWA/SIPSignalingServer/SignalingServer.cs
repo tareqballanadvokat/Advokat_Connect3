@@ -3,11 +3,16 @@ using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using System.Net;
 using WebRTCLibrary.SIP.Models;
+using Microsoft.Extensions.Logging;
 
 namespace SIPSignalingServer
 {
     public class SignalingServer
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SignalingServer> logger;
+
         //private IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 8081);
         private IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:8081");
 
@@ -19,13 +24,16 @@ namespace SIPSignalingServer
 
         private SIPConnectionPool ConnectionPool;
 
-        public SignalingServer()
+        public SignalingServer(ILoggerFactory loggerFactory)
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SignalingServer>();
+
             this.Transport = this.GetConnection(this.ServerEndpoint);
             Console.WriteLine($"listening on {ServerEndpoint}");
             this.Transport.SIPTransportRequestReceived += this.RegistraionListener;
 
-            this.ConnectionPool = new SIPConnectionPool();
+            this.ConnectionPool = new SIPConnectionPool(this.loggerFactory);
         }
 
         private SIPTransport GetConnection(IPEndPoint sourceEndpoint)
@@ -52,7 +60,7 @@ namespace SIPSignalingServer
                 return;
             }
 
-            SIPDialog SIPDialog = new SIPDialog(SIPScheme, this.Transport, sipRequest, localEndPoint, this.Registry, this.ConnectionPool);
+            SIPDialog SIPDialog = new SIPDialog(SIPScheme, this.Transport, sipRequest, localEndPoint, this.Registry, this.ConnectionPool, this.loggerFactory);
             await SIPDialog.Start();
         }
     }

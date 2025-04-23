@@ -1,4 +1,5 @@
-﻿using SIPSignalingServer.Models;
+﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics;
@@ -12,6 +13,10 @@ namespace SIPSignalingServer.Transactions
 {
     internal class SIPConnectionTransaction : ServerSideSIPTransaction
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SIPConnectionTransaction> logger;
+
         public int StartCSeq { get; set; }
 
         public bool WaitingForPeer { get; private set; }
@@ -39,6 +44,7 @@ namespace SIPSignalingServer.Transactions
             ServerSideTransactionParams signalingServerTransactionParams,
             SIPRegistry registry,
             SIPConnectionPool connectionPool,
+            ILoggerFactory loggerFactory,
             int startCSeq = 1)
             : base(
                   sipScheme,
@@ -48,8 +54,12 @@ namespace SIPSignalingServer.Transactions
                      signalingServerTransactionParams.ClientParticipant,
                      remoteTag: null, // explicitly set to null - gets set when connection is found - fromTag of peer
                      clientTag: signalingServerTransactionParams.ClientTag,
-                     callId: null)) // explicitly set to null - gets set when connecting
+                     callId: null), // explicitly set to null - gets set when connecting
+                  loggerFactory)
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
+
             this.ServerSideTransactionParams = signalingServerTransactionParams;
             this.Transport = transport;
             this.Registry = registry;
@@ -207,7 +217,7 @@ namespace SIPSignalingServer.Transactions
         private void CreateConnection()
         {
             // adds connection, does not start it
-            SIPMessageRelay messageRelay = new SIPMessageRelay(this.Connection, this.Params); // pass transport?
+            SIPMessageRelay messageRelay = new SIPMessageRelay(this.Connection, this.Params, this.loggerFactory); // pass transport?
             this.ConnectionPool.Connect(messageRelay);
         }
 

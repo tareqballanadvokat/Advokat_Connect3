@@ -1,14 +1,19 @@
-﻿using SIPSignalingServer.Models;
+﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics;
-
+using System.Diagnostics.CodeAnalysis;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace SIPSignalingServer.Transactions
 {
     internal class SIPDialog : ServerSideSIPTransaction // ,IAsyncDisposable  
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SIPDialog> logger;
+
         private bool Registered { get => this.SIPRegistrationTransaction.Registered; } // TODO: replace with check if registration is in registry?
 
         private SIPRequest InitialRequest {get; set;}
@@ -23,18 +28,30 @@ namespace SIPSignalingServer.Transactions
 
         private SIPConnectionTransaction? SIPConnectionTransaction { get; set; }
 
-        public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPRequest initialRequest, SIPEndPoint signalingServer, SIPRegistry registry, SIPConnectionPool connectionPool)
-            : base(sipScheme,
+        public SIPDialog(
+            SIPSchemesEnum sipScheme,
+            SIPTransport transport,
+            SIPRequest initialRequest,
+            SIPEndPoint signalingServer,
+            SIPRegistry registry,
+            SIPConnectionPool connectionPool,
+            ILoggerFactory loggerFactory)
+            : base(
+                  sipScheme,
                   transport,
-                  ServerSideTransactionParams.Empty()
+                  ServerSideTransactionParams.Empty(),
+                  loggerFactory
             )
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SIPDialog>();
+
             this.InitialRequest = initialRequest;
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
             this.Transport = transport;
 
-            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.SIPScheme, transport, initialRequest, signalingServer, this.Registry);
+            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.SIPScheme, transport, initialRequest, signalingServer, this.Registry, this.loggerFactory);
             this.Params = this.SIPRegistrationTransaction.Params;
         }
 
@@ -56,6 +73,7 @@ namespace SIPSignalingServer.Transactions
             throw new NotImplementedException();
         }
 
+        [MemberNotNullWhen(true, nameof(this.SIPConnectionTransaction))]
         public bool IsConnected()
         {
             return this.SIPConnectionTransaction?.IsConnected() ?? false;
@@ -88,7 +106,14 @@ namespace SIPSignalingServer.Transactions
 
         private async Task Connect()
         {            
-            this.SIPConnectionTransaction = new SIPConnectionTransaction(this.SIPScheme, this.Transport, this.Params, this.Registry, this.ConnectionPool, startCSeq: 4);
+            this.SIPConnectionTransaction = new SIPConnectionTransaction(
+                this.SIPScheme,
+                this.Transport,
+                this.Params,
+                this.Registry,
+                this.ConnectionPool,
+                this.loggerFactory,
+                startCSeq: 4);
 
             // Add listeners
             this.SIPConnectionTransaction.OnConnectionFailed += this.ConnectionFailedListener;
@@ -122,7 +147,7 @@ namespace SIPSignalingServer.Transactions
                 if (connection.Left.Params == this.SIPConnectionTransaction.Params)
                 {
                     // only start negotiation once per connection
-                    ICENegotiation iceNegotiation = new ICENegotiation(connection);
+                    ICENegotiation iceNegotiation = new ICENegotiation(connection, this.loggerFactory);
                     await iceNegotiation.Start();
                 }
             }

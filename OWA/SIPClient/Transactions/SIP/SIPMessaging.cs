@@ -1,4 +1,5 @@
-﻿using SIPSorcery.SIP;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.SIP;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
@@ -7,15 +8,18 @@ namespace WebRTCClient.Transactions.SIP
 {
     internal class SIPMessaging : WebRTCLibrary.SIP.SIPTransaction, ISIPMessager
     {
+        private readonly ILogger<SIPMessaging> logger;
+
         public event ISIPMessager.RequestReceivedDelegate? OnRequestReceived;
 
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
         public bool Running { get; private set; }
 
-        public SIPMessaging(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams)
-            : base(sipScheme, transport, dialogParams)
+        public SIPMessaging(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : base(sipScheme, transport, dialogParams, loggerFactory)
         {
+            this.logger = loggerFactory.CreateLogger<SIPMessaging>();
         }
 
         public async override Task Start()

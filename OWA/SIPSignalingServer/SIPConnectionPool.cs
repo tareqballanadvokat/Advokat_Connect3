@@ -1,16 +1,27 @@
 ﻿using SIPSignalingServer.Transactions;
 using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
+using Microsoft.Extensions.Logging;
 
 namespace SIPSignalingServer
 {
     internal class SIPConnectionPool
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SIPConnectionPool> logger;
+
         // TODO: lock list
         private readonly List<SIPTunnel> Connections = new List<SIPTunnel>();
 
         private readonly List<SIPMessageRelay> PendingConnections = new List<SIPMessageRelay>();
         
+        public SIPConnectionPool(ILoggerFactory loggerFactory)
+        {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SIPConnectionPool>();
+        }
+
         public void Connect(SIPMessageRelay messageRelay)
         {
             if (!ParamsAreValid(messageRelay.Params))
@@ -120,7 +131,7 @@ namespace SIPSignalingServer
         private void CreateNewConnection(SIPMessageRelay messageRelay, SIPMessageRelay pendingPeerMessageRelay)
         {
             messageRelay.Params.CallId = pendingPeerMessageRelay.Params.CallId;
-            this.Connections.Add(new SIPTunnel(messageRelay, pendingPeerMessageRelay));
+            this.Connections.Add(new SIPTunnel(messageRelay, pendingPeerMessageRelay, this.loggerFactory));
         }
     }
 }

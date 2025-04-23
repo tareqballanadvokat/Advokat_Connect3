@@ -1,4 +1,5 @@
-﻿using SIPSorcery.SIP;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.SIP;
 using System.Diagnostics;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP;
@@ -11,6 +12,8 @@ namespace WebRTCClient.Transactions.SIP
 {
     internal class SIPRegistrationTransaction : WebRTCLibrary.SIP.SIPTransaction, IAsyncDisposable
     {
+        private readonly ILogger<SIPRegistrationTransaction> logger;
+
         public bool Registered { get; private set; }
 
         private bool Registering { get; set; }
@@ -19,14 +22,16 @@ namespace WebRTCClient.Transactions.SIP
 
         public event Action<SIPRegistrationTransaction, SIPDialogEventArgs>? OnUnRegistered;
 
-        public SIPRegistrationTransaction(SIPConnection connection, TransactionParams dialogParams)
-            : base(connection, dialogParams)
+        public SIPRegistrationTransaction(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : base(connection, dialogParams, loggerFactory)
         {
+            this.logger = loggerFactory.CreateLogger<SIPRegistrationTransaction>();
         }
 
-        public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams)
-            : base(sipScheme, transport, dialogParams)
+        public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : base(sipScheme, transport, dialogParams, loggerFactory)
         {
+            this.logger = loggerFactory.CreateLogger<SIPRegistrationTransaction>();
         }
 
         public override async Task Start()

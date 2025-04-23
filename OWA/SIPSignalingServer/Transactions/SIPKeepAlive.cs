@@ -1,4 +1,5 @@
-﻿using SIPSignalingServer.Models;
+﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Models;
 using WebRTCLibrary.SIP;
 
 namespace SIPSignalingServer.Transactions
@@ -12,12 +13,18 @@ namespace SIPSignalingServer.Transactions
     {
         // TODO: Not necessary with websockets i think
 
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SIPKeepAlive> logger;
+
         private static readonly int defaultInterval = 14000; // 14 seconds. We assume a default timeout of 15 seconds for UDP connections.
                                                              // TODO: A future implementation could find this timeout dynamically.
 
-        public SIPKeepAlive(SIPConnection connection, ServerSideTransactionParams transactionParams)
-            : base(connection, transactionParams)
+        public SIPKeepAlive(SIPConnection connection, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
+            : base(connection, transactionParams, loggerFactory)
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SIPKeepAlive>();
         }
 
         public int Interval { get; set; } = defaultInterval;
@@ -50,7 +57,7 @@ namespace SIPSignalingServer.Transactions
         {
             while (this.Running)
             {
-                // Ping client
+                // TODO:Ping client
                 await Task.Delay(this.Interval);
             }
 

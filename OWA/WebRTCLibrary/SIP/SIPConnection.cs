@@ -1,12 +1,15 @@
-﻿using SIPSorcery.SIP;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.SIP;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 
 namespace WebRTCLibrary.SIP
 {
-    public class SIPConnection // : IDisposable // TODO: Could also be ISIPMessager
+    public class SIPConnection
     {
+        private readonly ILogger<SIPConnection> logger;
+
         public static readonly int defaultMessageTimeout = 2000;
 
         public int MessageTimeout { get; set; } = defaultMessageTimeout;
@@ -23,9 +26,17 @@ namespace WebRTCLibrary.SIP
 
         public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 
-        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, AcceptMessage? messagePredicate = null)
+        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, ILoggerFactory loggerFactory, AcceptMessage messagePredicate)
+            :this(scheme, transport, loggerFactory)
         {
             this.MessagePredicate = messagePredicate;
+            
+        }
+
+        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, ILoggerFactory loggerFactory)
+        {
+            this.logger = loggerFactory.CreateLogger<SIPConnection>();
+
             this.SIPScheme = scheme;
             this.Transport = transport;
             this.Transport.SIPTransportResponseReceived += this.OnResponseRecieved;
@@ -115,11 +126,5 @@ namespace WebRTCLibrary.SIP
                 return SocketError.TimedOut;
             }
         }
-
-        //public void Dispose()
-        //{
-        //    // TODO: should we even do this here?
-        //    this.Transport.Dispose();
-        //}
     }
 }

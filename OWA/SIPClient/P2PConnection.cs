@@ -7,11 +7,16 @@ using WebRTCClient.Models;
 using WebRTCLibrary.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace WebRTCClient
 {
     internal class P2PConnection
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<P2PConnection> logger;
+
         private static readonly PortRange defaultPortRange = new PortRange(10000, 10010, true); // TODO: Check which portrange to actually use
 
         public delegate Task MessageReceivedDelegate(P2PConnection sender, byte[] data);
@@ -42,13 +47,16 @@ namespace WebRTCClient
 
         private bool ICECandidatesReady { get; set; } // TODO: we should wait with the negotiation until this is true?
 
-        public P2PConnection(ISIPMessager sipConnection, IReadOnlyList<RTCIceServer> iceServers)
-            :this(sipConnection, iceServers, defaultPortRange)
+        public P2PConnection(ISIPMessager sipConnection, IReadOnlyList<RTCIceServer> iceServers, ILoggerFactory loggerFactory)
+            :this(sipConnection, iceServers, loggerFactory, defaultPortRange)
         {
         }
 
-        public P2PConnection(ISIPMessager sipConnection, IReadOnlyList<RTCIceServer> iceServers, PortRange portRange)
+        public P2PConnection(ISIPMessager sipConnection, IReadOnlyList<RTCIceServer> iceServers, ILoggerFactory loggerFactory, PortRange portRange)
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<P2PConnection>();
+
             this.SIPConnection = sipConnection;
 
             RTCConfiguration config = new RTCConfiguration
@@ -178,11 +186,11 @@ namespace WebRTCClient
         {
             if (this.IsControllingAgent)
             {
-                this.SDPDialog = new SDPOfferingClientTransaction(SIPConnection, PeerConnection, 2);
+                this.SDPDialog = new SDPOfferingClientTransaction(SIPConnection, PeerConnection, this.loggerFactory, 2);
             }
             else
             {
-                this.SDPDialog = new SDPAnsweringClientTransaction(SIPConnection, PeerConnection, 2);
+                this.SDPDialog = new SDPAnsweringClientTransaction(SIPConnection, PeerConnection, this.loggerFactory, 2);
             }
 
             await this.SDPDialog.Start();

@@ -1,4 +1,5 @@
-﻿using SIPSorcery.Net;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -14,14 +15,16 @@ namespace WebRTCClient
     /// <version date="22.04.2025" sb="MAC">Created.</version>
     public class WebRTCPeer : IWebRTCPeer
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<WebRTCPeer> logger; 
+
         public static readonly SIPSchemesEnum defaultSipScheme = SIPSchemesEnum.sip; // TODO: make SIPS?
         
         public static readonly SIPChannelsEnum defaulSIPChannel = SIPChannelsEnum.UDP; // TODO: make TLS?
 
-
         /// <summary>Event that gets fired when a direct message form the peer is received.</summary>
         public event IWebRTCPeer.MessageReceivedDelegate? OnMessageReceived;
-
 
         /// <summary>Event that gets fired when a connection with the peer is achived via STUN or TURN.
         ///          Messages can now be exchanged between the peers.</summary>
@@ -30,16 +33,16 @@ namespace WebRTCClient
         /// <summary>Boolean representing whether this client is connected to the peer or not.
         ///          If this is true messages can be exchanged between the peers.</summary>
         /// <version date="22.04.2025" sb="MAC">Created.</version>
-        [MemberNotNullWhen(true, nameof(this.P2PConnection))]
-        public bool IsConnected { get => this.P2PConnection?.IsConnected ?? false; }
+        [MemberNotNullWhen(true, nameof(this.p2pConnection))]
+        public bool IsConnected { get => this.p2pConnection?.IsConnected ?? false; }
 
-        private P2PConnection? P2PConnection { get; set; }
+        private P2PConnection? p2pConnection;
 
-        private SIPClient? SIPClient { get; set; }
+        private SIPClient? sipClient;
 
-        private SignalingServerParams SignalingServerParams { get; set; }
+        private readonly SignalingServerParams signalingServerParams;
 
-        private ReadOnlyCollection<RTCIceServer> IceServers { get; set; }
+        private readonly ReadOnlyCollection<RTCIceServer> iceServers;
 
         /// <summary>Constructor that is using the default connection parameters for the signaling server (sipScheme and sipChannel).</summary>
         /// <param name="sourceUser">SIP display name of the calling participant (From header of SIP package).</param>
@@ -53,14 +56,16 @@ namespace WebRTCClient
             string remoteUser,
             IPEndPoint sourceEndpoint,
             IPEndPoint signalingServer,
-            List<RTCIceServer> iceServers)
+            List<RTCIceServer> iceServers,
+            ILoggerFactory loggerFactory)
             : this(
                 new SignalingServerParams(
                     sourceParticipant: new SIPParticipant(sourceUser, new SIPEndPoint(sourceEndpoint)),
                     remoteParticipant: new SIPParticipant(remoteUser, new SIPEndPoint(signalingServer)),
                     sipScheme: defaultSipScheme,
                     sipChannels: [defaulSIPChannel]),
-                iceServers: iceServers
+                iceServers: iceServers,
+                loggerFactory
                 )
         {
         }
@@ -69,10 +74,13 @@ namespace WebRTCClient
         /// <param name="signalingServerParams">Parameters for the connection with the signaling server.</param>
         /// <param name="iceServers">A list of STUN/TURN servers that provide ice candidates for the negotiation of the p2p connection between the participants.</param>
         /// <version date="22.04.2025" sb="MAC">Created.</version>
-        public WebRTCPeer(SignalingServerParams signalingServerParams, List<RTCIceServer> iceServers)
+        public WebRTCPeer(SignalingServerParams signalingServerParams, List<RTCIceServer> iceServers, ILoggerFactory loggerFactory)
         {
-            this.SignalingServerParams = signalingServerParams;
-            this.IceServers = iceServers.AsReadOnly();
+            this.signalingServerParams = signalingServerParams;
+            this.iceServers = iceServers.AsReadOnly();
+            
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<WebRTCPeer>();
         }
 
         /// <summary>Starts the connection process with the signaling server and subsequently with the peer through the signaling server.
@@ -80,24 +88,24 @@ namespace WebRTCClient
         /// <version date="22.04.2025" sb="MAC">Created.</version>
         public async Task Connect()
         {
-            this.SIPClient = new SIPClient(this.SignalingServerParams);
-            this.SIPClient.OnConnected += this.StartP2PConnection;
+            this.sipClient = new SIPClient(this.signalingServerParams, this.loggerFactory);
+            this.sipClient.OnConnected += this.StartP2PConnection;
 
-            await this.SIPClient.StartDialog();
+            await this.sipClient.StartDialog();
         }
 
         private async Task StartP2PConnection(SIPClient sender)
         {
-            this.P2PConnection = new P2PConnection(sender, this.IceServers);
-            this.P2PConnection.OnMessageReceived += async (P2PConnection connection, byte[] data) =>
+            this.p2pConnection = new P2PConnection(sender, this.iceServers, this.loggerFactory);
+            this.p2pConnection.OnMessageReceived += async (P2PConnection connection, byte[] data) =>
             {
                 await (this.OnMessageReceived?.Invoke(this, data) ?? Task.CompletedTask);
             };
 
-            await this.P2PConnection.Start();
+            await this.p2pConnection.Start();
 
             await WaitFor(
-                () => this.P2PConnection.IsConnected,
+                () => this.p2pConnection.IsConnected,
                 timeOut: 5000, // TODO: find suitable timout for p2p connection
                 successCallback: async () => { await (this.OnConnected?.Invoke(this) ?? Task.CompletedTask); }
                 // TODO: Timeout
@@ -116,7 +124,7 @@ namespace WebRTCClient
                 return;
             }
 
-            await this.P2PConnection.SendMessage(message);
+            await this.p2pConnection.SendMessage(message);
         }
 
         /// <summary>This method sends the given bytes as a direct message to the peer.

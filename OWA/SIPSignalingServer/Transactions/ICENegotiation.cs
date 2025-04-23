@@ -1,4 +1,5 @@
-﻿using SIPSignalingServer.Models;
+﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using System.Text.Json;
 using WebRTCClient.Models;
@@ -7,10 +8,17 @@ namespace SIPSignalingServer.Transactions
 {
     internal class ICENegotiation
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<ICENegotiation> logger;
+
         private SIPTunnel SIPTunnel { get; set; }
 
-        public ICENegotiation(SIPTunnel tunnel)
+        public ICENegotiation(SIPTunnel tunnel, ILoggerFactory loggerFactory)
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<ICENegotiation>();
+
             this.SIPTunnel = tunnel;
         }
 

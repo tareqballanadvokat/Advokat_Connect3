@@ -1,4 +1,5 @@
-﻿using SIPSorcery.SIP;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.SIP;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
@@ -10,6 +11,10 @@ namespace WebRTCClient.Transactions.SIP
 {
     internal class SIPConnectionTransaction : WebRTCLibrary.SIP.SIPTransaction, ISIPMessager
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SIPConnectionTransaction> logger;
+
         public event ISIPMessager.RequestReceivedDelegate? OnRequestReceived;
         
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
@@ -25,9 +30,11 @@ namespace WebRTCClient.Transactions.SIP
 
         private bool Connecting { get; set; }
 
-        public SIPConnectionTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams)
-            : base(sipScheme, transport, dialogParams)
+        public SIPConnectionTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : base(sipScheme, transport, dialogParams, loggerFactory)
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
         }
 
         public async override Task Start()
@@ -73,7 +80,7 @@ namespace WebRTCClient.Transactions.SIP
             Params.RemoteTag = sipRequest.Header.From.FromTag;
             Params.CallId = sipRequest.Header.CallId;
 
-            MessagingDialog = new SIPMessaging(SIPScheme, Connection.Transport, Params);
+            MessagingDialog = new SIPMessaging(SIPScheme, Connection.Transport, Params, this.loggerFactory);
 
             MessagingDialog.OnRequestReceived += RequestRecieved;
             MessagingDialog.OnResponseReceived += ResponseRecieved;

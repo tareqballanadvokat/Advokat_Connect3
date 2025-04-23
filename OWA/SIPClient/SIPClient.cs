@@ -1,4 +1,5 @@
-﻿using SIPSorcery.SIP;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.SIP;
 using System.Net.Sockets;
 using WebRTCClient.Models;
 using WebRTCClient.Transactions.SIP;
@@ -13,6 +14,10 @@ namespace WebRTCClient
 
     public class SIPClient : ISIPMessager
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SIPClient> logger;
+
         public delegate Task MessageReceivedDelegate(SIPClient sender, byte[] data);
 
         public delegate Task ConnectedDelegate(SIPClient sender);
@@ -40,12 +45,13 @@ namespace WebRTCClient
             add => this.Dialog.OnResponseReceived += value;
             remove => this.Dialog.OnResponseReceived -= value;
         }
-        public SIPClient(SignalingServerParams connectionParams)
+        public SIPClient(SignalingServerParams connectionParams, ILoggerFactory loggerFactory)
             :this(
                  connectionParams.SIPScheme,
                  transport: GetTransport(connectionParams.SourceParticipant, connectionParams.SIPChannels),
                  sourceParticipant: connectionParams.SourceParticipant,
-                 remoteParticipant: connectionParams.RemoteParticipant)
+                 remoteParticipant: connectionParams.RemoteParticipant,
+                 loggerFactory: loggerFactory)
         {
         }
 
@@ -53,12 +59,16 @@ namespace WebRTCClient
             SIPSchemesEnum sipScheme,
             SIPTransport transport,
             SIPParticipant sourceParticipant,
-            SIPParticipant remoteParticipant)
+            SIPParticipant remoteParticipant,
+            ILoggerFactory loggerFactory)
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SIPClient>();
+
             this.SourceParticipant = sourceParticipant;
             this.RemoteParticipant = remoteParticipant;
 
-            this.Dialog = new SIPDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant);
+            this.Dialog = new SIPDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant, this.loggerFactory);
         }
 
         public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)

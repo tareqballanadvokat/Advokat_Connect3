@@ -1,4 +1,5 @@
-﻿using SIPSorcery.Net;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Text.Json;
 using WebRTCClient.Models;
@@ -11,13 +12,16 @@ namespace WebRTCClient.Transactions.SDP
 {
     internal class SDPAnsweringClientTransaction : SDPTransaction
     {
+        private readonly ILogger<SDPAnsweringClientTransaction> logger;
+
         private bool OfferReceived { get; set; }
 
         private bool PeerIsOffering { get; set; }
 
-        public SDPAnsweringClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, int startCSeq = 1)
+        public SDPAnsweringClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, ILoggerFactory loggerFactory, int startCSeq = 1)
             : base(sipConnection, peerConnection, startCSeq)
         {
+            this.logger = loggerFactory.CreateLogger<SDPAnsweringClientTransaction>();
         }
 
         public async override Task Start()

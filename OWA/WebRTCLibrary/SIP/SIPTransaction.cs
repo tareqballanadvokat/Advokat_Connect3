@@ -1,10 +1,13 @@
-﻿using SIPSorcery.SIP;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.SIP;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCLibrary.SIP
 {
     public abstract class SIPTransaction
     {
+        private readonly ILogger<SIPTransaction> logger;
+
         //private static readonly int DefaultTimeOut = 2000;
         private static readonly int DefaultTimeOut = 20000; // DEBUG
 
@@ -29,15 +32,17 @@ namespace WebRTCLibrary.SIP
         public SIPConnection Connection { get; private set; }
 
         // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
-        public SIPTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams)
-            : this(new SIPConnection(sipScheme, transport), dialogParams)
+        public SIPTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : this(new SIPConnection(sipScheme, transport, loggerFactory), dialogParams, loggerFactory)
         {
             this.Connection.MessagePredicate = this.AcceptMessage;
             this.Connection.MessageTimeout = this.SendTimeout;
         }
 
-        public SIPTransaction(SIPConnection connection, TransactionParams dialogParams)
+        public SIPTransaction(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
         {
+            this.logger = loggerFactory.CreateLogger<SIPTransaction>();
+
             this.Params = dialogParams;
             this.Connection = connection;
         }

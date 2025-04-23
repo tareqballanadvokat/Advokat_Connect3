@@ -1,4 +1,5 @@
-﻿using SIPSorcery.SIP;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.SIP;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -6,11 +7,14 @@ namespace WebRTCClient.Transactions.SIP
 {
     internal class SIPKeepAlive : WebRTCLibrary.SIP.SIPTransaction
     {
+        private readonly ILogger<SIPKeepAlive> logger;
+
         public bool WaitingForPeer { get; set; }
 
-        public SIPKeepAlive(SIPConnection connection, TransactionParams dialogParams)
-            : base(connection, dialogParams)
+        public SIPKeepAlive(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : base(connection, dialogParams, loggerFactory)
         {
+            this.logger = loggerFactory.CreateLogger<SIPKeepAlive>();
         }
 
         public async override Task Start()

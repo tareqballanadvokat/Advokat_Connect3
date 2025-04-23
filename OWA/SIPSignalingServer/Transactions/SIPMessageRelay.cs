@@ -1,4 +1,5 @@
-﻿using SIPSignalingServer.Models;
+﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using WebRTCLibrary.SIP;
 
@@ -6,11 +7,17 @@ namespace SIPSignalingServer.Transactions
 {
     internal class SIPMessageRelay : ServerSideSIPTransaction
     {
+        private readonly ILoggerFactory loggerFactory;
+
+        private readonly ILogger<SIPMessageRelay> logger;
+
         public bool Relaying { get; private set; }
 
-        public SIPMessageRelay(SIPConnection connection, ServerSideTransactionParams transactionParams)
-            : base(connection, transactionParams)
+        public SIPMessageRelay(SIPConnection connection, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
+            : base(connection, transactionParams, loggerFactory)
         {
+            this.loggerFactory = loggerFactory;
+            this.logger = this.loggerFactory.CreateLogger<SIPMessageRelay>();
         }
 
         public delegate Task RequestReceivedDelegate(SIPMessageRelay sender, SIPRequest request);
