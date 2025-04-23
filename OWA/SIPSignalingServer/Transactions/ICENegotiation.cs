@@ -6,6 +6,7 @@ using WebRTCClient.Models;
 
 namespace SIPSignalingServer.Transactions
 {
+    // Initiatior for the ICE negotiation
     internal class ICENegotiation
     {
         private readonly ILoggerFactory loggerFactory;
@@ -24,6 +25,13 @@ namespace SIPSignalingServer.Transactions
 
         public async Task Start()
         {
+            this.logger.LogDebug(
+                "Starting ICE negotiation. {left} - {right}",
+                this.SIPTunnel.Left.Params.ClientParticipant,
+                this.SIPTunnel.Right.Params.ClientParticipant);
+
+            // TODO: this is necessary for now. The peers are not listening for the allocation yet if we don't wait.
+            //       Fix it.
             await Task.Delay(1000).ConfigureAwait(false);
 
             await SendControlledAgentConfig();
@@ -36,6 +44,14 @@ namespace SIPSignalingServer.Transactions
             controllingConfig.IsOffering = true;
             string controllingConfigJson = JsonSerializer.Serialize(controllingConfig);
 
+            this.logger.LogDebug(
+                ">> Sending Notify 1 - to:'{to}' tag:\"{toTag}\"; from:'{from}' tag:\"{fromTag}\". SDP offering allocation.",
+                this.SIPTunnel.Left.Params.ClientParticipant,
+                this.SIPTunnel.Left.Params.ClientTag,
+
+                this.SIPTunnel.Left.Params.RemoteParticipant.Name,
+                this.SIPTunnel.Left.Params.RemoteTag);
+
             await this.SIPTunnel.Left.SendRequest(SIPMethodsEnum.NOTIFY, controllingConfigJson, "application/json");
         }
 
@@ -44,8 +60,15 @@ namespace SIPSignalingServer.Transactions
             SDPExchangeConfig controlledConfig = new SDPExchangeConfig();
             string controlledConfigJson = JsonSerializer.Serialize(controlledConfig);
 
-            await this.SIPTunnel.Right.SendRequest(SIPMethodsEnum.NOTIFY, controlledConfigJson, "application/json");
+            this.logger.LogDebug(
+                ">> Sending Notify 1 - to:'{to}' tag:\"{toTag}\"; from:'{from}' tag:\"{fromTag}\". SDP answering allocation.",
+                this.SIPTunnel.Right.Params.ClientParticipant,
+                this.SIPTunnel.Right.Params.ClientTag,
 
+                this.SIPTunnel.Right.Params.RemoteParticipant,
+                this.SIPTunnel.Right.Params.RemoteTag);
+
+            await this.SIPTunnel.Right.SendRequest(SIPMethodsEnum.NOTIFY, controlledConfigJson, "application/json");
         }
     }
 }

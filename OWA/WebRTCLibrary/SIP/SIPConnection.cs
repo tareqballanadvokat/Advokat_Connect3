@@ -30,7 +30,6 @@ namespace WebRTCLibrary.SIP
             :this(scheme, transport, loggerFactory)
         {
             this.MessagePredicate = messagePredicate;
-            
         }
 
         public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, ILoggerFactory loggerFactory)
@@ -64,6 +63,8 @@ namespace WebRTCLibrary.SIP
         public async Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct, int ? timeOut = null)
         {
             ct.ThrowIfCancellationRequested();
+            this.logger.LogTrace("Sending {method} request. to:'{to}', from: '{from}', payload: '{payload}'.", request.Method, request.Header.To, request.Header.From, request.Body);
+
             Task<SocketError> requestTask = this.Transport.SendRequestAsync(request);
             return await this.WaitForSendConfirmation(requestTask, timeOut);
         }
@@ -89,6 +90,8 @@ namespace WebRTCLibrary.SIP
         public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct, int? timeOut = null)
         {
             ct.ThrowIfCancellationRequested();
+            this.logger.LogTrace("Sending {statuscode} response. to:'{to}', from: '{from}', payload: '{payload}'.", response.StatusCode, response.Header.To, response.Header.From, response.Body);
+
             Task<SocketError> responseTask = this.Transport.SendResponseAsync(response); // TODO: Should we specify the endpoint? 
             return await this.WaitForSendConfirmation(responseTask, timeOut);
         }
@@ -98,6 +101,8 @@ namespace WebRTCLibrary.SIP
             if (this.MessagePredicate?.Invoke(sipResponse) ?? true)
             {
                 // we can filter for current connection, but it should only recieve current connections anyway.
+                this.logger.LogTrace("Response received {statuscode}. to:'{to}', from: '{from}', payload: '{payload}'.", sipResponse.StatusCode, sipResponse.Header.To, sipResponse.Header.From, sipResponse.Body);
+
                 await (this.SIPResponseReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipResponse) ?? Task.CompletedTask);
             }
         }
@@ -106,6 +111,7 @@ namespace WebRTCLibrary.SIP
         {
             if (this.MessagePredicate?.Invoke(sipRequest) ?? true)
             {
+                this.logger.LogTrace("Request received {method}. to:'{to}', from: '{from}', payload: '{payload}'.", sipRequest.Method, sipRequest.Header.To, sipRequest.Header.From, sipRequest.Body);
                 await (this.SIPRequestReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipRequest) ?? Task.CompletedTask);
             }
         }

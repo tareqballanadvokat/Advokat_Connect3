@@ -2,8 +2,6 @@
 using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
-using System.Diagnostics;
-using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 
@@ -109,8 +107,9 @@ namespace SIPSignalingServer.Transactions
             else
             {
                 this.WaitingForPeer = true;
-                // peer not yet registered.
+                this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", this.Registration.RemoteUser, this.Registration.SourceParticipant);
 
+                // TODO: Find place to store ct. Should cancel on unregister.
                 CancellationTokenSource cts = new CancellationTokenSource();
                 CancellationToken ct = cts.Token;
 
@@ -119,8 +118,6 @@ namespace SIPSignalingServer.Transactions
                     ct,
                     successCallback: this.Connect
                     );
-
-                // TODO: wait for peer is registered?
             }
         }
 
@@ -151,10 +148,16 @@ namespace SIPSignalingServer.Transactions
             this.Connection.SIPRequestReceived += this.ListenForAck;
 
             SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCSeq);
-            Debug.WriteLine($"Server sending Notify."); // DEBUG
-
+            
             // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
             using CancellationTokenSource cts = new CancellationTokenSource();
+
+            this.logger.LogDebug(
+                ">> Sending Notify {cSeq} - to:'{to}'; from:\"{fromName}\" tag:\"{fromTag}\".",
+                notifyRequest.Header.CSeq,
+                notifyRequest.Header.To,
+                notifyRequest.Header.From.FromName,
+                notifyRequest.Header.From.FromTag);
 
             await this.Connection.SendSIPRequest(notifyRequest, cts.Token);
 
@@ -174,7 +177,7 @@ namespace SIPSignalingServer.Transactions
 
         private async Task ListenForAck(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
         {
-            if (request.Method != SIPMethodsEnum.ACK) // This could be a problem if the client is still sending pings - should be ok, pings happen with defferent params
+            if (request.Method != SIPMethodsEnum.ACK) // This could be a problem if the client is still sending pings - should be ok, pings happen with different params
             {
                 this.ConnectionFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Request was not an ACK request.");
                 return;
@@ -186,7 +189,13 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            Debug.WriteLine($"Server recieved ACK for connection."); // DEBUG
+            this.logger.LogDebug(
+                "<< Received ACK {cSeq} - from:'{from}'; to:\"{toName}\" tag:\"{toTag}\".",
+                request.Header.CSeq,
+                request.Header.From,
+                request.Header.To.ToName,
+                request.Header.To.ToTag);
+
             this.ConnectionAcknowledged = true;
 
             SIPMessageRelay? messageRelay = this.ConnectionPool.GetMessageRelay(this.Params);
@@ -199,7 +208,7 @@ namespace SIPSignalingServer.Transactions
 
             await messageRelay.Start();
 
-            await WaitFor(this.IsConnected,
+            await WaitForAsync(this.IsConnected,
                 this.ReceiveTimeout, // TODO: pass ct
                 successCallback: this.SendConnectionNotify
                 );
@@ -208,10 +217,22 @@ namespace SIPSignalingServer.Transactions
             this.Connecting = false;
         }
 
-        private void SendConnectionNotify()
+        private async Task SendConnectionNotify()
         {
-            Debug.WriteLine($"Server sending Notify."); // DEBUG
-            // TODO: send connection Notify.
+            SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCSeq + 2);
+
+            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+
+
+            this.logger.LogDebug(
+                ">> Sending Notify {cSeq} - to:'{to}'; from:\"{fromName}\" tag:\"{fromTag}\".",
+                notifyRequest.Header.CSeq,
+                notifyRequest.Header.To,
+                notifyRequest.Header.From.FromName,
+                notifyRequest.Header.From.FromTag);
+
+            await this.Connection.SendSIPRequest(notifyRequest, cts.Token);
         }
 
         private void CreateConnection()
@@ -237,6 +258,8 @@ namespace SIPSignalingServer.Transactions
         private void ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
         {
             // TODO: stop and disconnect if necessary
+
+            this.logger.LogInformation("Connection failed {statusCode}. {message}", statusCode, message);
 
             this.Connecting = false;
             this.ConnectionAcknowledged = false;

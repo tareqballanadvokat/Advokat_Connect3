@@ -2,7 +2,6 @@
 using SIPSignalingServer.Models;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
-using System.Diagnostics;
 using SIPSignalingServer.Utils.CustomEventArgs;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
@@ -105,6 +104,12 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
+            this.logger.LogDebug(
+                "<< Received Register {cSeq} - from:'{from}', to:\"{toName}\".",
+                this.InitialRequest.Header.CSeq,
+                this.InitialRequest.Header.From,
+                this.InitialRequest.Header.To.ToName);
+
             await this.Register();
         }
 
@@ -115,8 +120,13 @@ namespace SIPSignalingServer.Transactions
             this.Connection.SIPRequestReceived += this.ACKListener;
 
             // send Accepted response
-            Debug.WriteLine($"Server sending Accepted."); // DEBUG
             SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
+            this.logger.LogDebug(
+                ">> Sending Accepted {cSeq} - to:'{to}', from:\"{fromName}\" tag:\"{fromTag}\"",
+                accpetedResponse.Header.CSeq,
+                accpetedResponse.Header.To,
+                accpetedResponse.Header.From.FromName,
+                accpetedResponse.Header.From.FromTag);
 
             // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
             using CancellationTokenSource cts = new CancellationTokenSource();
@@ -153,12 +163,20 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            Debug.WriteLine($"Server received ACK"); // DEBUG
+            this.logger.LogDebug(
+                "<< Received ACK {cSeq} - from:'{from}', to:\"{toName}\" tag:\"{toTag}\"",
+                request.Header.CSeq,
+                request.Header.From,
+                request.Header.To.ToName,
+                request.Header.To.ToTag);
+
             this.Registry.Confirm(this.Registration);
         }
 
         private void RegistrationFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
         {
+            this.logger.LogInformation("Registration failed {statusCode}. {message}", statusCode, message);
+
             if (this.Registry.IsRegistered(this.Registration))
             {
                 this.Registry.Unregister(this.Registration);

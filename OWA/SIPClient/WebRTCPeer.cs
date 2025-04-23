@@ -88,6 +88,8 @@ namespace WebRTCClient
         /// <version date="22.04.2025" sb="MAC">Created.</version>
         public async Task Connect()
         {
+            // TODO: maybe expose the SIPClient. Add check if SIPClient is connected in that case
+
             this.sipClient = new SIPClient(this.signalingServerParams, this.loggerFactory);
             this.sipClient.OnConnected += this.StartP2PConnection;
 

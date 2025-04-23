@@ -57,7 +57,8 @@ namespace SIPSignalingServer.Transactions
         {
             while (this.Running)
             {
-                // TODO:Ping client
+                // TODO: Ping client
+                //       Log ping send on debug
                 await Task.Delay(this.Interval);
             }
 

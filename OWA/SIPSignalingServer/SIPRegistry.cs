@@ -1,4 +1,5 @@
-﻿using SIPSignalingServer.Models;
+﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Models;
 
 namespace SIPSignalingServer
 {
@@ -6,13 +7,21 @@ namespace SIPSignalingServer
  
     internal class SIPRegistry
     {
+        private ILogger logger;
+
         // TODO: locking when adding / removing from list?
         private List<SIPRegistration> RegisteredConnections { get; set; } = new List<SIPRegistration>();
+
+        public SIPRegistry(ILoggerFactory loggerFactory)
+        {
+            this.logger = loggerFactory.CreateLogger<SIPRegistry>();
+        }
 
         public void Register(SIPRegistration registration)
         {
             if (!this.IsRegistered(registration))
             {
+                this.logger.LogDebug("Registering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
                 RegisteredConnections.Add(registration);
             }
         }
@@ -22,6 +31,7 @@ namespace SIPSignalingServer
             SIPRegistration? registeredObject = this.GetRegisteredObject(registration);
             if (registeredObject != null)
             {
+                this.logger.LogDebug("Unregistering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
                 RegisteredConnections.Remove(registeredObject);
             }
         }
@@ -31,6 +41,7 @@ namespace SIPSignalingServer
             SIPRegistration? registeredObject = this.GetRegisteredObject(registration);
             if (registeredObject != null)
             {
+                this.logger.LogDebug("Confirming registration. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
                 registeredObject.Confirmed = registration.Confirmed = true;
             }
         }

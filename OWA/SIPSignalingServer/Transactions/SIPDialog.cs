@@ -83,8 +83,7 @@ namespace SIPSignalingServer.Transactions
         {
             // TODO: Check somewhere if the request is valid.
             //       If not return some specific response or don't respond at all
-            Debug.WriteLine($"Server received Register."); // DEBUG
-
+            
             this.SIPRegistrationTransaction.OnRegistrationFailed += this.RegistrationFailedListener;
 
             await this.SIPRegistrationTransaction.Start();

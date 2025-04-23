@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging;
 
 namespace SIPSignalingServer
 {
@@ -6,7 +6,15 @@ namespace SIPSignalingServer
     {
         static void Main(string[] args)
         {
-            new SignalingServer(NullLoggerFactory.Instance);
+            
+            ILoggerFactory loggerFactory = LoggerFactory.Create(
+                (builder) => {
+                    builder.SetMinimumLevel(LogLevel.Debug);
+                    builder.AddConsole();
+                    builder.AddDebug();
+                });
+
+            new SignalingServer(loggerFactory);
             
             while (true)
             {

@@ -7,7 +7,6 @@ namespace SIPSignalingServer
 {
     internal class SIPConnectionPool
     {
-        private readonly ILoggerFactory loggerFactory;
 
         private readonly ILogger<SIPConnectionPool> logger;
 
@@ -18,8 +17,7 @@ namespace SIPSignalingServer
         
         public SIPConnectionPool(ILoggerFactory loggerFactory)
         {
-            this.loggerFactory = loggerFactory;
-            this.logger = this.loggerFactory.CreateLogger<SIPConnectionPool>();
+            this.logger = loggerFactory.CreateLogger<SIPConnectionPool>();
         }
 
         public void Connect(SIPMessageRelay messageRelay)
@@ -125,13 +123,18 @@ namespace SIPSignalingServer
             }
 
             messageRelay.Params.CallId = CallProperties.CreateNewCallId(); // creates new call id for connection
+
+            this.logger.LogDebug("Added new pending connection. From:'{caller}', to:'{remote}'.", messageRelay.Params.ClientParticipant, messageRelay.Params.RemoteParticipant);
             this.PendingConnections.Add(messageRelay);
         }
 
         private void CreateNewConnection(SIPMessageRelay messageRelay, SIPMessageRelay pendingPeerMessageRelay)
         {
             messageRelay.Params.CallId = pendingPeerMessageRelay.Params.CallId;
-            this.Connections.Add(new SIPTunnel(messageRelay, pendingPeerMessageRelay, this.loggerFactory));
+
+            // TODO: Check if we should have ip addresses in logs on info level
+            this.logger.LogInformation("Connection established. '{caller}' - '{remote}'.", messageRelay.Params.ClientParticipant, pendingPeerMessageRelay.Params.ClientParticipant);
+            this.Connections.Add(new SIPTunnel(messageRelay, pendingPeerMessageRelay));
         }
     }
 }

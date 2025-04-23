@@ -13,5 +13,10 @@ namespace WebRTCLibrary.SIP.Models
         public string Name { get; set; }
 
         public SIPEndPoint Endpoint { get; set; }
+
+        public override string ToString()
+        {
+            return $"\"{this.Name}\" {this.Endpoint}";
+        }
     }
 }

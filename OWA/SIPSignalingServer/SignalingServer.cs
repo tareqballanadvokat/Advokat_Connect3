@@ -16,7 +16,7 @@ namespace SIPSignalingServer
         //private IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 8081);
         private IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:8081");
 
-        private SIPRegistry Registry = new SIPRegistry();
+        private SIPRegistry registry;
 
         private SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip;
 
@@ -29,6 +29,7 @@ namespace SIPSignalingServer
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SignalingServer>();
 
+            this.registry = new SIPRegistry(this.loggerFactory);
             this.Transport = this.GetConnection(this.ServerEndpoint);
             Console.WriteLine($"listening on {ServerEndpoint}");
             this.Transport.SIPTransportRequestReceived += this.RegistraionListener;
@@ -60,7 +61,7 @@ namespace SIPSignalingServer
                 return;
             }
 
-            SIPDialog SIPDialog = new SIPDialog(SIPScheme, this.Transport, sipRequest, localEndPoint, this.Registry, this.ConnectionPool, this.loggerFactory);
+            SIPDialog SIPDialog = new SIPDialog(SIPScheme, this.Transport, sipRequest, localEndPoint, this.registry, this.ConnectionPool, this.loggerFactory);
             await SIPDialog.Start();
         }
     }
