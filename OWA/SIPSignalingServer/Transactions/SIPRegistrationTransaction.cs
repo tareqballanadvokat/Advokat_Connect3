@@ -193,7 +193,7 @@ namespace SIPSignalingServer.Transactions
         private static SIPParticipant GetCallerParticipant(SIPRequest request)
         {
             string name = request.Header.From.FromName;
-            return new SIPParticipant(name, new SIPEndPoint(request.Header.From.FromURI));
+            return new SIPParticipant(name, request.RemoteSIPEndPoint);
         }
 
         private static SIPParticipant GetRemoteParticipant(SIPRequest request, SIPEndPoint signalingServer)
