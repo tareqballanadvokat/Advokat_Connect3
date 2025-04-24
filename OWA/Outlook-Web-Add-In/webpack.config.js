@@ -21,6 +21,7 @@ module.exports = async (env, options) => {
       taskpane: ["./src/taskpane/taskpane.js", "./src/taskpane/taskpane.html"],
       commands: ["./src/commands/commands.js", "./src/commands/commands.html"],
       services: ["./src/services/service.js", "./src/services/service.html"],     
+      emails: ["./src/email/email.js"],     
       index: ["./src/index.js","./src/index.html"],
     },
     output: {    

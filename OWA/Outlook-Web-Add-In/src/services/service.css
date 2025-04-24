@@ -79,7 +79,9 @@
 }
 
 
-
+.results-container {
+  font-size: small;
+}
 
 .file-tag { 
     border-radius: 8px;        /* Zaokrąglenie */

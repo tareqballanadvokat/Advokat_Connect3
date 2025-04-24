@@ -18,10 +18,10 @@
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <!-- Template styles --> 
-<link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
-<!-- Toastr CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
-<link href="service.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
+    <!-- Toastr CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+    <link href="service.css" rel="stylesheet" type="text/css" />
 
  <style>
 /* Dropdown Button */
@@ -68,8 +68,41 @@
 
 /* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
 .show {display:block;}
+</style>
 
- </style>
+<style>
+/*
+NEW for email:
+*/
+ 
+    select{
+      height: 30px;
+    }
+    input{
+      height: 32px;
+    }
+    input[type="checkbox"]{
+      height: 15px;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 4px;
+    }
+    .green-button {
+      background-color: #0a0;
+      color: white;
+      padding: 10px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+    }
+    hr.solid {
+      border-top: 2px solid #bbb;
+      margin: 10px 0;
+    }
+  </style>
+
     <script>
         function openCity(cityName) {
           var i;
@@ -101,7 +134,7 @@ window.onclick = function(event) {
 }
 
 
-        </script>
+    </script>
 
 </head>
 
@@ -115,8 +148,86 @@ window.onclick = function(event) {
     <div class="w3-bar-item w3-button" onclick="openCity('Case')">Case</div>
   </div>
   <div id="Email" class="w3-container city" style="display:none">
-     
+          
+
       <div class="search-panel">
+        <h3>- Search panel</h3>
+        <div class="search-box">
+          <input type="text" id="email-search-button"  class="email_style"  placeholder="Search..." style="width:150px">
+          <img width="16" height="16" src="/assets/icon-16.png" alt="Search" title="Search">
+        </div>
+        <div  class="results-container">        
+          <div class="result-row">
+              <div class="name">Name</div>
+              <div class="causa">Causa</div>
+              <div data-node-id="1" class="button">&nbsp;</div>
+            </div>
+        </div>
+        <div id="email-search-results-container" class="results-container">
+            <div class="result-row">
+              <div class="name">ADVOKAT</div>
+              <div class="causa">Root</div>
+              <div data-node-id="1" class="button"><button>Add</button></div>
+            </div>
+        </div>
+ 
+      </div>
+
+      <div class="search-panel">
+        <h3>Case</h3>
+        <div class="search-box">
+          <input type="text" placeholder="Case ID"  class="email_style" >
+          <button class="green-button">Transfer to ADVOKAT</button>
+        </div>
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Services</h3> 
+        <select class="email_style" style="width:110px;" >
+          <option>Email</option>
+        </select>
+        <input  class="email_style"  type="text" placeholder="SB"  style="width:40px; padding: 5px;">
+        <input  class="email_style"  type="text" placeholder="Time"  style="width:70px;">     
+      </div>
+      <div class="search-panel">
+        <input  class="email_style"  type="text" placeholder="Text"  style="width:230px; padding: 5px;">
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Transfer e-mail and attachments</h3>
+        <div class="search-box" style="padding-bottom: 5px">
+          <input  type="checkbox" style="width:15px" >
+          <input  class="email_style"  type="text"  style="width:140px"  value="Dietmar.harb@advokat.at">
+          <select style="width:65px"  class="email_style"  >
+            <option>Email</option>
+          </select>       
+        </div>       
+        <div class="search-box" style="padding-bottom: 5px">
+          <input type="text"  class="email_style"  style="width:230px;"  placeholder="Text" >
+        </div>
+        <div class="search-box" style="padding-bottom: 5px">
+          <input type="checkbox"  style="width:15px" >
+          <input  class="email_style"  type="text"  style="width:140px;height:30px"  value="Zusatzvereinbarung">
+          <select style="width:65px"  class="email_style" >
+            <option>Aktenordner</option>
+          </select></div>
+          <div class="search-box" style="padding-bottom: 5px">
+            <input  class="email_style" type="text" placeholder="Text" style="width:230px;">
+          </div>
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Registered E-Mails <span style="font-weight:normal;">(last 7 days)</span></h3>
+        <div id="email-tab-last-7-days-registered"></div>
+      </div>
+
+      <!-- <div class="search-panel">
           <div class="search-box">
             <input id="text-search-input" style="width:200px" type="text" placeholder="Search..." />
             <img width="16" height="16" id="search-email-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat" />
@@ -132,7 +243,7 @@ window.onclick = function(event) {
             <div class="search-panel">
               <div class="search-box">
                 <input id="case-text-search-input" style="width:100px" type="text" placeholder="Case ID." />
-                <button type="button" width="16" height="16" id="search-email-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat">Transfer to ADVOCAT</button>
+                <img width="32" height="32" id="search-email-id" src="/assets/icon-16.png" alt="Advokat" title="Transfer to ADVOCAT">
               </div>
             </div>
           <div id="email-results-container" class="results-container">
@@ -191,7 +302,7 @@ window.onclick = function(event) {
         </div>
       <div id="email-results-container" class="results-container">
       </div>
-    </div> 
+    </div>  -->
  </div>
   <div id="ASD" class="w3-container city">
  

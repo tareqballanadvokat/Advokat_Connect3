@@ -1,7 +1,12 @@
 const url="https://localhost:7231/WeatherForecast/";
+const caseAddToFavorites = "AddToFavorites";
+const caseSearchCases = "SearchCases";
+const caseGetStructureById = "GetStructureById";
+const caseGetMyFavorites = "GetMyFavorites";
+const caseRemoveFromFavorites = "RemoveFromFavorites";
 
 export  function   addCaseToFavorites(nodeIsd) {
-  return fetch(url+"AddToFavorites", {
+  return fetch(url + caseAddToFavorites, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -16,7 +21,7 @@ export  function   addCaseToFavorites(nodeIsd) {
 
 export async function removeCaseFromFavorites(nodeId) {
      try {
-      const res = await  fetch(url+"RemoveFromFavorites", {
+      const res = await  fetch(url + caseRemoveFromFavorites, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -44,7 +49,7 @@ export async function removeCaseFromFavorites(nodeId) {
 }
 
 export function searchCases(searchQuery) {
-  return fetch(url+"SearchCases", {
+  return fetch(url + caseSearchCases, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -59,7 +64,7 @@ export function searchCases(searchQuery) {
 }
 
 export function getStructure(nodeId) {
-  return fetch(url+"GetStructureById?parentId=" + nodeId)
+  return fetch(url + caseGetStructureById+"?parentId=" + nodeId)
       .then(res => res.json())   
       .catch(error => {
         console.error("Błąd fetch:", error); 
@@ -69,7 +74,7 @@ export function getStructure(nodeId) {
 
  
 export function getMyFavorites(nodeId) {
-  return fetch(url+"GetMyFavorites")
+  return fetch(url + caseGetMyFavorites)
       .then(res => res.json())
       .catch(error => {
         console.error("Błąd fetch:", error); 
