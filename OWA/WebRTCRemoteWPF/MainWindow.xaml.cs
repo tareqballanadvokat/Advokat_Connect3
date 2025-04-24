@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Net;
@@ -23,7 +23,7 @@ namespace WebRTCRemoteWPF
         private static readonly string testingSignalingServerSourcePort = "7080";
         private static readonly string testingTimeout = "2000";
 
-        //private RegistrationManager SignalingServer = new RegistrationManager("callerIdIsIrrelevantIHope");
+        private ILoggerFactory loggerFactory;
 
         private WebRTCPeer? UserAgent;
 
@@ -31,6 +31,12 @@ namespace WebRTCRemoteWPF
         {
             InitializeComponent();
             LoadTestingValues();
+
+            this.loggerFactory = LoggerFactory.Create(
+                (builder) => {
+                    builder.SetMinimumLevel(LogLevel.Debug);
+                    builder.AddDebug();
+                });
         }
 
         private void LoadLocalIps()
@@ -107,7 +113,7 @@ namespace WebRTCRemoteWPF
                 sourceEndpoint: new IPEndPoint(IPAddress.Parse(SipSignalingServerComboBox.Text), int.Parse(DnsIPAndPort.Text)),
                 signalingServer: IPEndPoint.Parse(this.SipSignalingServer.Text),
                 iceServers: iceServers,
-                NullLoggerFactory.Instance
+                this.loggerFactory
                 );
             
             this.UserAgent.OnMessageReceived += this.OnMessage;
@@ -156,7 +162,8 @@ namespace WebRTCRemoteWPF
 
         private void P2PRemoveStunBtn_Click(object sender, RoutedEventArgs e)
         {
-
+            var index = P2PServersComboBox.SelectedIndex;
+            P2PServersComboBox.Items.RemoveAt(index);
         }
 
         private void P2PAddTurnBtn_Click(object sender, RoutedEventArgs e)

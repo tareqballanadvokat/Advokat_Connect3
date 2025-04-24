@@ -96,6 +96,7 @@ namespace WebRTCClient
             await this.sipClient.StartDialog();
         }
 
+        // To fix the waiting issue for sdp offers we need to start p2p before sipclient. Adds listener
         private async Task StartP2PConnection(SIPClient sender)
         {
             this.p2pConnection = new P2PConnection(sender, this.iceServers, this.loggerFactory);
@@ -106,12 +107,20 @@ namespace WebRTCClient
 
             await this.p2pConnection.Start();
 
-            await WaitFor(
+            await WaitForAsync(
                 () => this.p2pConnection.IsConnected,
                 timeOut: 5000, // TODO: find suitable timout for p2p connection
-                successCallback: async () => { await (this.OnConnected?.Invoke(this) ?? Task.CompletedTask); }
+                successCallback: this.DirectConnectionOpen
                 // TODO: Timeout
                 );
+        }
+
+        private async Task DirectConnectionOpen()
+        {
+            this.logger.LogInformation("Direct connection open. \"{callerName}\" - \"{remoteName}\"", this.sipClient?.SourceParticipant.Name, this.sipClient?.RemoteParticipant.Name);
+            await (this.OnConnected?.Invoke(this) ?? Task.CompletedTask);
+
+            //  TODO: Close sip connection?
         }
 
         /// <summary>This method sends the given string as a direct message to the peer.

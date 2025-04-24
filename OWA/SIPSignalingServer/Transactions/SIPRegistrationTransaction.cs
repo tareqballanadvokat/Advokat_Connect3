@@ -6,6 +6,7 @@ using SIPSignalingServer.Utils.CustomEventArgs;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 using Microsoft.Extensions.Logging;
+using WebRTCLibrary.SIP;
 
 namespace SIPSignalingServer.Transactions
 {
@@ -26,15 +27,12 @@ namespace SIPSignalingServer.Transactions
         public event Action<SIPRegistrationTransaction, FailedRegistrationEventArgs>? OnRegistrationFailed;
 
         public SIPRegistrationTransaction(
-            SIPSchemesEnum sipScheme,
-            SIPTransport transport,
+            SIPConnection connection,
             SIPRequest initialRequest,
             SIPEndPoint signalingServer,
             SIPRegistry registry,
             ILoggerFactory loggerFactory)
-            : this(
-                sipScheme,
-                transport,
+            : this(connection,
                 initialRequest,
                 GetParamsFromRequest(initialRequest, signalingServer),
                 registry,
@@ -43,14 +41,12 @@ namespace SIPSignalingServer.Transactions
         }
 
         public SIPRegistrationTransaction(
-            SIPSchemesEnum sipScheme,
-            SIPTransport transport,
+            SIPConnection connection,
             SIPRequest initialRequest,
             ServerSideTransactionParams transactionsParams,
             SIPRegistry registry,
             ILoggerFactory loggerFactory)
-            :base(sipScheme,
-                 transport,
+            : base(connection,
                  transactionsParams,
                  loggerFactory)
         {
@@ -104,12 +100,6 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            this.logger.LogDebug(
-                "<< Received Register {cSeq} - from:'{from}', to:\"{toName}\".",
-                this.InitialRequest.Header.CSeq,
-                this.InitialRequest.Header.From,
-                this.InitialRequest.Header.To.ToName);
-
             await this.Register();
         }
 
@@ -121,12 +111,6 @@ namespace SIPSignalingServer.Transactions
 
             // send Accepted response
             SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
-            this.logger.LogDebug(
-                ">> Sending Accepted {cSeq} - to:'{to}', from:\"{fromName}\" tag:\"{fromTag}\"",
-                accpetedResponse.Header.CSeq,
-                accpetedResponse.Header.To,
-                accpetedResponse.Header.From.FromName,
-                accpetedResponse.Header.From.FromTag);
 
             // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
             using CancellationTokenSource cts = new CancellationTokenSource();
@@ -162,13 +146,6 @@ namespace SIPSignalingServer.Transactions
                 this.RegistrationFailed(SIPResponseStatusCodesEnum.BadRequest, "Confirmation failed. Header was invalid.");
                 return;
             }
-
-            this.logger.LogDebug(
-                "<< Received ACK {cSeq} - from:'{from}', to:\"{toName}\" tag:\"{toTag}\"",
-                request.Header.CSeq,
-                request.Header.From,
-                request.Header.To.ToName,
-                request.Header.To.ToTag);
 
             this.Registry.Confirm(this.Registration);
         }

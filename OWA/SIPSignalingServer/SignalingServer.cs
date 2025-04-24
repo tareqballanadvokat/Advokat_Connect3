@@ -1,9 +1,8 @@
 ﻿using SIPSignalingServer.Transactions;
-using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using System.Net;
-using WebRTCLibrary.SIP.Models;
 using Microsoft.Extensions.Logging;
+using WebRTCLibrary.SIP;
 
 namespace SIPSignalingServer
 {
@@ -22,6 +21,8 @@ namespace SIPSignalingServer
 
         private SIPTransport Transport;
 
+        private SIPConnection connection;
+
         private SIPConnectionPool ConnectionPool;
 
         public SignalingServer(ILoggerFactory loggerFactory)
@@ -32,9 +33,19 @@ namespace SIPSignalingServer
             this.registry = new SIPRegistry(this.loggerFactory);
             this.Transport = this.GetConnection(this.ServerEndpoint);
             Console.WriteLine($"listening on {ServerEndpoint}");
-            this.Transport.SIPTransportRequestReceived += this.RegistraionListener;
+
+            this.connection = new SIPConnection(this.SIPScheme, this.Transport, this.loggerFactory, this.IsRegistrationRequest);
+            this.connection.SIPRequestReceived += this.RegistraionListener;
 
             this.ConnectionPool = new SIPConnectionPool(this.loggerFactory);
+        }
+
+        private bool IsRegistrationRequest(SIPMessageBase message)
+        {
+            // TODO: check here? - pretty sure yes
+            return (message is SIPRequest request
+                && request.Method == SIPMethodsEnum.REGISTER
+                && request.Header.CSeq == 1);
         }
 
         private SIPTransport GetConnection(IPEndPoint sourceEndpoint)
@@ -55,13 +66,7 @@ namespace SIPSignalingServer
         /// <version date="20.03.2025" sb="MAC"></version>
         private async Task RegistraionListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
         {
-            if (sipRequest.Method != SIPMethodsEnum.REGISTER) // TODO: check here?
-            {
-                // not a registration request
-                return;
-            }
-
-            SIPDialog SIPDialog = new SIPDialog(SIPScheme, this.Transport, sipRequest, localEndPoint, this.registry, this.ConnectionPool, this.loggerFactory);
+            SIPDialog SIPDialog = new SIPDialog(this.SIPScheme, this.Transport, sipRequest, localEndPoint, this.registry, this.ConnectionPool, this.loggerFactory);
             await SIPDialog.Start();
         }
     }

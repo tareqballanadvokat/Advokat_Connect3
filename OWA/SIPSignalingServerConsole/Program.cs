@@ -11,7 +11,7 @@ namespace SIPSignalingServer
                 (builder) => {
                     builder.SetMinimumLevel(LogLevel.Debug);
                     builder.AddConsole();
-                    builder.AddDebug();
+                    //builder.AddDebug();
                 });
 
             new SignalingServer(loggerFactory);

@@ -30,8 +30,6 @@ namespace WebRTCClient.Transactions.SIP
 
         private SIPKeepAlive SIPKeepAlive { get; set; }
 
-        private SIPTransport Transport { get; set; }
-
         public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, ILoggerFactory loggerFactory)
             : base(
                   sipScheme,
@@ -47,8 +45,6 @@ namespace WebRTCClient.Transactions.SIP
 
             this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
             this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
-
-            this.Transport = transport;
         }
 
         public override async Task Start()
@@ -76,7 +72,7 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteParticipant,
                 sourceTag: this.Params.SourceTag);
 
-            this.SIPConnectionTransaction = new SIPConnectionTransaction(SIPScheme, Transport, dialogParams, this.loggerFactory);
+            this.SIPConnectionTransaction = new SIPConnectionTransaction(SIPScheme, this.Connection.Transport, dialogParams, this.loggerFactory);
 
             this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
             this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;
@@ -88,8 +84,14 @@ namespace WebRTCClient.Transactions.SIP
 
             await WaitFor(
                 () => this.Connected,
-                this.ReceiveTimeout // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register. have a timeout at all?
-                                    // TODO: failed?
+                this.ReceiveTimeout, // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register. have a timeout at all?
+                successCallback: () =>
+                {
+                    this.logger.LogInformation("SIP Connection established. {caller} - {remote}",
+                        this.Params.SourceParticipant.Name,
+                        this.Params.RemoteParticipant.Name);
+                }
+                // TODO: failed?
                 );
         }
 

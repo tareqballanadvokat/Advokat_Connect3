@@ -16,8 +16,11 @@ namespace WebRTCClient.Transactions.SIP
 
         public bool Running { get; private set; }
 
-        public SIPMessaging(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
-            : base(sipScheme, transport, dialogParams, loggerFactory)
+
+
+
+        public SIPMessaging(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : base(connection, dialogParams, loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPMessaging>();
         }

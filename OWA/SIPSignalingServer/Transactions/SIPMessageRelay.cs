@@ -34,7 +34,8 @@ namespace SIPSignalingServer.Transactions
                 SIPHeaderParams headerParams = this.GetHeaderParams(request.Header.CSeq);
                 
                 this.logger.LogDebug(
-                    "<> Relaying message {cSeq} - from: '{from}', to:\"{to}\" toTag:\"{toTag}\".",
+                    "<> Relaying {method} {cSeq} - from: '{from}', to:\"{to}\" toTag:\"{toTag}\".",
+                    request.Method,
                     headerParams.CSeq,
                     request.Header.From,
                     headerParams.DestinationParticipant,
@@ -60,15 +61,7 @@ namespace SIPSignalingServer.Transactions
                 // TODO: Get cancellationToken passed?
                 using CancellationTokenSource cts = new CancellationTokenSource();
                 SIPHeaderParams headersParams = this.GetHeaderParams(cSeq);
-                this.logger.LogDebug(
-                    ">> Sending {method} {cSeq} - to:'{to}' tag:\"{toTag}\", from:\"{fromName}\" tag:\"{fromTag}\"",
-                    method,
-                    headersParams.CSeq,
-                    headersParams.DestinationParticipant,
-                    headersParams.ToTag,
-                    headersParams.SourceParticipant.Name,
-                    headersParams.FromTag);
-
+                
                 await this.Connection.SendSIPRequest(
                     method,
                     this.GetHeaderParams(cSeq),
@@ -85,7 +78,13 @@ namespace SIPSignalingServer.Transactions
             {
                 // TODO: Get cancellationToken passed?
                 using CancellationTokenSource cts = new CancellationTokenSource();
-                //this.logger.LogDebug("<> Relaying message {cSeq}. From: '{From}', to:\"{to}\"", headerParams.CSeq, request.Header.From, headerParams.DestinationParticipant);
+                //this.logger.LogDebug(
+                //    "<> Relaying {statusCode} {cSeq} - from: '{from}', to:\"{to}\" toTag:\"{toTag}\".",
+                //    response.StatusCode,
+                //    headerParams.CSeq,
+                //    response.Header.From,
+                //    headerParams.DestinationParticipant,
+                //    headerParams.ToTag);
 
                 // TODO: I think this has to be fixed aswell - Headerparams are not correct
                 await this.Connection.SendSIPResponse(response, cts.Token);

@@ -41,7 +41,7 @@ namespace SIPSignalingServer
             SIPRegistration? registeredObject = this.GetRegisteredObject(registration);
             if (registeredObject != null)
             {
-                this.logger.LogDebug("Confirming registration. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
+                this.logger.LogDebug("Confirmed registration. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
                 registeredObject.Confirmed = registration.Confirmed = true;
             }
         }

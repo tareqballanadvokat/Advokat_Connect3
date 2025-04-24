@@ -63,7 +63,17 @@ namespace WebRTCLibrary.SIP
         public async Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct, int ? timeOut = null)
         {
             ct.ThrowIfCancellationRequested();
-            this.logger.LogTrace("Sending {method} request. to:'{to}', from: '{from}', payload: '{payload}'.", request.Method, request.Header.To, request.Header.From, request.Body);
+
+            this.logger.LogDebug(
+                ">> Sending {method} {cSeq} - to:'{to}'; from:\"{fromName}\" tag:\"{fromTag}\"; callId:\"{callId}\"",
+                request.Method,
+                request.Header.CSeq,
+                request.Header.To,
+                request.Header.From.FromName,
+                request.Header.From.FromTag,
+                request.Header.CallId);
+            this.logger.LogTrace("payload: {payload}", request.Body);
+            //this.logger.LogTrace("Sending {method} request. to:'{to}', from: '{from}', payload: '{payload}'.", request.Method, request.Header.To, request.Header.From, request.Body);
 
             Task<SocketError> requestTask = this.Transport.SendRequestAsync(request);
             return await this.WaitForSendConfirmation(requestTask, timeOut);
@@ -90,7 +100,18 @@ namespace WebRTCLibrary.SIP
         public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct, int? timeOut = null)
         {
             ct.ThrowIfCancellationRequested();
-            this.logger.LogTrace("Sending {statuscode} response. to:'{to}', from: '{from}', payload: '{payload}'.", response.StatusCode, response.Header.To, response.Header.From, response.Body);
+
+            this.logger.LogDebug(
+                ">> Sending {statusCode} {cSeq} - to:'{to}'; from:\"{fromName}\" tag:\"{fromTag}\"; callId:\"{callId}\"",
+                response.StatusCode,
+                response.Header.CSeq,
+                response.Header.To,
+                response.Header.From.FromName,
+                response.Header.From.FromTag,
+                response.Header.CallId);
+            this.logger.LogTrace("payload: {payload}", response.Body);
+
+            //this.logger.LogTrace("Sending {statuscode} response. to:'{to}', from: '{from}', payload: '{payload}'.", response.StatusCode, response.Header.To, response.Header.From, response.Body);
 
             Task<SocketError> responseTask = this.Transport.SendResponseAsync(response); // TODO: Should we specify the endpoint? 
             return await this.WaitForSendConfirmation(responseTask, timeOut);
@@ -101,7 +122,20 @@ namespace WebRTCLibrary.SIP
             if (this.MessagePredicate?.Invoke(sipResponse) ?? true)
             {
                 // we can filter for current connection, but it should only recieve current connections anyway.
-                this.logger.LogTrace("Response received {statuscode}. to:'{to}', from: '{from}', payload: '{payload}'.", sipResponse.StatusCode, sipResponse.Header.To, sipResponse.Header.From, sipResponse.Body);
+
+
+                this.logger.LogDebug(
+                    "<< Receiving {statusCode} {cSeq} - from:'{from}'; to:\"{toName}\" tag:\"{toTag}\"; callId:\"{callId}\"",
+                    sipResponse.StatusCode,
+                    sipResponse.Header.CSeq,
+                    sipResponse.Header.From,
+                    sipResponse.Header.To.ToName,
+                    sipResponse.Header.To.ToTag,
+                    sipResponse.Header.CallId);
+                this.logger.LogTrace("payload: {payload}", sipResponse.Body);
+
+
+                //this.logger.LogTrace("Response received {statuscode}. to:'{to}', from: '{from}', payload: '{payload}'.", sipResponse.StatusCode, sipResponse.Header.To, sipResponse.Header.From, sipResponse.Body);
 
                 await (this.SIPResponseReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipResponse) ?? Task.CompletedTask);
             }
@@ -111,7 +145,17 @@ namespace WebRTCLibrary.SIP
         {
             if (this.MessagePredicate?.Invoke(sipRequest) ?? true)
             {
-                this.logger.LogTrace("Request received {method}. to:'{to}', from: '{from}', payload: '{payload}'.", sipRequest.Method, sipRequest.Header.To, sipRequest.Header.From, sipRequest.Body);
+                this.logger.LogDebug(
+                    "<< Receiving {method} {cSeq} - from:'{from}'; to:\"{toName}\" tag:\"{toTag}\"; callId:\"{callId}\"",
+                    sipRequest.Method,
+                    sipRequest.Header.CSeq,
+                    sipRequest.Header.From,
+                    sipRequest.Header.To.ToName,
+                    sipRequest.Header.To.ToTag,
+                    sipRequest.Header.CallId);
+                this.logger.LogTrace("payload: {payload}", sipRequest.Body);
+
+                //this.logger.LogTrace("Request received {method}. to:'{to}', from: '{from}', payload: '{payload}'.", sipRequest.Method, sipRequest.Header.To, sipRequest.Header.From, sipRequest.Body);
                 await (this.SIPRequestReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipRequest) ?? Task.CompletedTask);
             }
         }

@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP;
@@ -18,8 +17,6 @@ namespace WebRTCClient.Transactions.SIP
         public event ISIPMessager.RequestReceivedDelegate? OnRequestReceived;
         
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
-
-
 
         private SIPMessaging? MessagingDialog { get; set; }
 
@@ -39,22 +36,23 @@ namespace WebRTCClient.Transactions.SIP
 
         public async override Task Start()
         {
-            if (Connected) // TODO: messagingDialogRunning
+            if (this.Connected) // TODO: messagingDialogRunning
             {
                 // already connected
                 return;
             }
 
-            if (Connecting)
+            if (this.Connecting)
             {
                 // another connection is already running
                 return;
             }
 
-            Connecting = true;
-            Connection.SIPRequestReceived += InitialNotifyListener;
+            this.Connecting = true;
+            this.Connection.SIPRequestReceived += this.InitialNotifyListener;
         }
 
+        // TODO: This method does too much
         private async Task InitialNotifyListener(SIPEndPoint localEndpoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
         {
             if (sipRequest.Method != SIPMethodsEnum.NOTIFY)
@@ -74,36 +72,42 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
-            Connection.SIPRequestReceived -= InitialNotifyListener;
-            Connection.SIPRequestReceived += ConnectionNotifyListener;
+            this.Connection.SIPRequestReceived -= this.InitialNotifyListener;
+            this.Connection.SIPRequestReceived += this.ConnectionNotifyListener;
 
-            Params.RemoteTag = sipRequest.Header.From.FromTag;
-            Params.CallId = sipRequest.Header.CallId;
+            this.Params.RemoteTag = sipRequest.Header.From.FromTag;
+            this.Params.CallId = sipRequest.Header.CallId;
 
-            MessagingDialog = new SIPMessaging(SIPScheme, Connection.Transport, Params, this.loggerFactory);
+            this.logger.LogDebug(
+                "Now listening for SIP messages. caller:\"{caller}\" tag:\"{fromTag}\" -  remote:\"{remote}\" tag:\"{toTag}\"",
+                this.Params.SourceParticipant.Name,
+                this.Params.SourceTag,
 
-            MessagingDialog.OnRequestReceived += RequestRecieved;
-            MessagingDialog.OnResponseReceived += ResponseRecieved;
-            await MessagingDialog.Start();
+                this.Params.RemoteParticipant.Name,
+                this.Params.RemoteTag);
+
+            this.MessagingDialog = new SIPMessaging(this.Connection, this.Params, this.loggerFactory);
+
+            this.MessagingDialog.OnRequestReceived += this.RequestRecieved;
+            this.MessagingDialog.OnResponseReceived += this.ResponseRecieved;
+            await this.MessagingDialog.Start();
 
             // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
             using CancellationTokenSource cts = new CancellationTokenSource();
 
-            Debug.WriteLine($"Client sending ACK."); // DEBUG
-            await Connection.SendSIPRequest(SIPMethodsEnum.ACK, GetHeaderParams(cSeq: 5), cts.Token);
+            await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5), cts.Token);
 
             await WaitFor(
-                () => PeerListeningConfirmation,
-                ReceiveTimeout,
+                () => this.PeerListeningConfirmation,
+                this.ReceiveTimeout,
                 failureCallback: () => { } // TODO: fail connection
                 );
 
-            Connection.SIPRequestReceived -= ConnectionNotifyListener;
-
-            //this.Connected = true;
-            Connecting = false;
+            this.Connection.SIPRequestReceived -= this.ConnectionNotifyListener;
+            this.Connecting = false;
         }
 
+        // TODO: Move this listener to messaging dialog. Only allow sending once this is has been received.
         private async Task ConnectionNotifyListener(SIPEndPoint localEndpoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
         {
             if (sipRequest.Method != SIPMethodsEnum.NOTIFY)
@@ -121,25 +125,25 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
-            PeerListeningConfirmation = true;
+            this.PeerListeningConfirmation = true;
         }
 
         public async override Task Stop()
         {
             // TODO: Rework completely
 
-            if (!Connected)
+            if (!this.Connected)
             {
                 // not connected.
                 return;
             }
 
-            Params.RemoteTag = null;
-            Params.CallId = null;
+            this.Params.RemoteTag = null;
+            this.Params.CallId = null;
 
-            if (Connecting)
+            if (this.Connecting)
             {
-                Connection.SIPRequestReceived -= InitialNotifyListener;
+                this.Connection.SIPRequestReceived -= this.InitialNotifyListener;
 
                 // TODO: what to do here? send disconnect message?
                 return;
@@ -151,32 +155,32 @@ namespace WebRTCClient.Transactions.SIP
 
         public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {
-            if (!Connected)
+            if (!this.Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await MessagingDialog.SendSIPRequest(method, message, contentType, cSeq);
+            return await this.MessagingDialog.SendSIPRequest(method, message, contentType, cSeq);
         }
 
         public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq)
         {
-            if (!Connected)
+            if (!this.Connected)
             {
                 return SocketError.NotConnected;
             }
 
-            return await MessagingDialog.SendSIPResponse(statusCode, message, contentType, cSeq);
+            return await this.MessagingDialog.SendSIPResponse(statusCode, message, contentType, cSeq);
         }
 
         private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)
         {
-            await (OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
+            await (this.OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
         }
 
         private async Task ResponseRecieved(ISIPMessager sender, SIPResponse sipResponse)
         {
-            await (OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
+            await (this.OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
         }
     }
 }

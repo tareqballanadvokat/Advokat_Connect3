@@ -152,13 +152,6 @@ namespace SIPSignalingServer.Transactions
             // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
             using CancellationTokenSource cts = new CancellationTokenSource();
 
-            this.logger.LogDebug(
-                ">> Sending Notify {cSeq} - to:'{to}'; from:\"{fromName}\" tag:\"{fromTag}\".",
-                notifyRequest.Header.CSeq,
-                notifyRequest.Header.To,
-                notifyRequest.Header.From.FromName,
-                notifyRequest.Header.From.FromTag);
-
             await this.Connection.SendSIPRequest(notifyRequest, cts.Token);
 
             await WaitFor(
@@ -189,13 +182,6 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            this.logger.LogDebug(
-                "<< Received ACK {cSeq} - from:'{from}'; to:\"{toName}\" tag:\"{toTag}\".",
-                request.Header.CSeq,
-                request.Header.From,
-                request.Header.To.ToName,
-                request.Header.To.ToTag);
-
             this.ConnectionAcknowledged = true;
 
             SIPMessageRelay? messageRelay = this.ConnectionPool.GetMessageRelay(this.Params);
@@ -224,14 +210,6 @@ namespace SIPSignalingServer.Transactions
             // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
             using CancellationTokenSource cts = new CancellationTokenSource();
 
-
-            this.logger.LogDebug(
-                ">> Sending Notify {cSeq} - to:'{to}'; from:\"{fromName}\" tag:\"{fromTag}\".",
-                notifyRequest.Header.CSeq,
-                notifyRequest.Header.To,
-                notifyRequest.Header.From.FromName,
-                notifyRequest.Header.From.FromTag);
-
             await this.Connection.SendSIPRequest(notifyRequest, cts.Token);
         }
 
@@ -259,7 +237,8 @@ namespace SIPSignalingServer.Transactions
         {
             // TODO: stop and disconnect if necessary
 
-            this.logger.LogInformation("Connection failed {statusCode}. {message}", statusCode, message);
+            // TODO: add some identifier for request that failed. (caller ip/name/tag, remote name/tag)
+            this.logger.LogInformation("Connection failed {statusCode}. {message}", statusCode, message); 
 
             this.Connecting = false;
             this.ConnectionAcknowledged = false;

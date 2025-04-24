@@ -158,7 +158,7 @@ namespace WebRTCClient.Transactions.SDP
 
             string sdpOfferJson = JsonSerializer.Serialize(new { sdp = answer.sdp, type = "answer" });
 
-            // TODO: set content type header
+            this.logger.LogDebug("Sending SDP answer.");
             await this.Connection.SendSIPRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 3);
         }
     }

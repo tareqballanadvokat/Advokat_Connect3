@@ -155,6 +155,7 @@ namespace WebRTCClient.Transactions.SDP
 
             string sdpOfferJson = JsonSerializer.Serialize(new { sdp = offer.sdp, type = "offer" });
 
+            this.logger.LogDebug("Sending SDP offer.");
             await this.Connection.SendSIPRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 2);
 
             await WaitFor(

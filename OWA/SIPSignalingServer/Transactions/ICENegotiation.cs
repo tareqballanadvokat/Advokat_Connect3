@@ -45,12 +45,9 @@ namespace SIPSignalingServer.Transactions
             string controllingConfigJson = JsonSerializer.Serialize(controllingConfig);
 
             this.logger.LogDebug(
-                ">> Sending Notify 1 - to:'{to}' tag:\"{toTag}\"; from:'{from}' tag:\"{fromTag}\". SDP offering allocation.",
+                "Sending SDP offering allocation - to:'{to}' tag:\"{toTag}\"",
                 this.SIPTunnel.Left.Params.ClientParticipant,
-                this.SIPTunnel.Left.Params.ClientTag,
-
-                this.SIPTunnel.Left.Params.RemoteParticipant.Name,
-                this.SIPTunnel.Left.Params.RemoteTag);
+                this.SIPTunnel.Left.Params.ClientTag);
 
             await this.SIPTunnel.Left.SendRequest(SIPMethodsEnum.NOTIFY, controllingConfigJson, "application/json");
         }
@@ -61,12 +58,9 @@ namespace SIPSignalingServer.Transactions
             string controlledConfigJson = JsonSerializer.Serialize(controlledConfig);
 
             this.logger.LogDebug(
-                ">> Sending Notify 1 - to:'{to}' tag:\"{toTag}\"; from:'{from}' tag:\"{fromTag}\". SDP answering allocation.",
+                "Sending SDP answering allocation - to:'{to}' tag:\"{toTag}\"",
                 this.SIPTunnel.Right.Params.ClientParticipant,
-                this.SIPTunnel.Right.Params.ClientTag,
-
-                this.SIPTunnel.Right.Params.RemoteParticipant,
-                this.SIPTunnel.Right.Params.RemoteTag);
+                this.SIPTunnel.Right.Params.ClientTag);
 
             await this.SIPTunnel.Right.SendRequest(SIPMethodsEnum.NOTIFY, controlledConfigJson, "application/json");
         }

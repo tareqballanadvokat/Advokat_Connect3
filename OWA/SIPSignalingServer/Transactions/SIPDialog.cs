@@ -22,8 +22,6 @@ namespace SIPSignalingServer.Transactions
 
         private SIPConnectionPool ConnectionPool { get; set; }
 
-        private SIPTransport Transport { get; set; }
-
         private SIPRegistrationTransaction SIPRegistrationTransaction { get; set; }
 
         private SIPConnectionTransaction? SIPConnectionTransaction { get; set; }
@@ -49,9 +47,8 @@ namespace SIPSignalingServer.Transactions
             this.InitialRequest = initialRequest;
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
-            this.Transport = transport;
 
-            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.SIPScheme, transport, initialRequest, signalingServer, this.Registry, this.loggerFactory);
+            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.Connection, initialRequest, signalingServer, this.Registry, this.loggerFactory);
             this.Params = this.SIPRegistrationTransaction.Params;
         }
 
@@ -107,7 +104,7 @@ namespace SIPSignalingServer.Transactions
         {            
             this.SIPConnectionTransaction = new SIPConnectionTransaction(
                 this.SIPScheme,
-                this.Transport,
+                this.Connection.Transport, // TODO: Check if we sohuld pass connection
                 this.Params,
                 this.Registry,
                 this.ConnectionPool,

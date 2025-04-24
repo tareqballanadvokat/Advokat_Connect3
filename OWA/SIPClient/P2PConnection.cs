@@ -83,6 +83,8 @@ namespace WebRTCClient
 
             this.PeerConnection.ondatachannel += (dataChannel) =>
             {
+                this.logger.LogDebug("Direct connection established.");
+
                 this.ReceivingDataChannel = dataChannel;
 
                 this.ReceivingDataChannel.onmessage += async (RTCDataChannel dc, DataChannelPayloadProtocols protocol, byte[] data) =>
@@ -184,13 +186,17 @@ namespace WebRTCClient
 
         private async Task StartICEExchange()
         {
+            this.logger.LogDebug(
+                "Starting ICE negotioation."// caller:\"{callerName}\" tag:\"{fromTag}\"; remote:\"{remoteName}\" tag:\"{toTag}\"; callId\"{callId}\"",
+                );
+
             if (this.IsControllingAgent)
             {
-                this.SDPDialog = new SDPOfferingClientTransaction(SIPConnection, PeerConnection, this.loggerFactory, 2);
+                this.SDPDialog = new SDPOfferingClientTransaction(this.SIPConnection, this.PeerConnection, this.loggerFactory, 2);
             }
             else
             {
-                this.SDPDialog = new SDPAnsweringClientTransaction(SIPConnection, PeerConnection, this.loggerFactory, 2);
+                this.SDPDialog = new SDPAnsweringClientTransaction(this.SIPConnection, this.PeerConnection, this.loggerFactory, 2);
             }
 
             await this.SDPDialog.Start();
