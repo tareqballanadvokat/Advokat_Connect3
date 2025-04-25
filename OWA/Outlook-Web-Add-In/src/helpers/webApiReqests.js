@@ -1,12 +1,17 @@
-const url="https://localhost:7231/WeatherForecast/";
-const caseAddToFavorites = "AddToFavorites";
-const caseSearchCases = "SearchCases";
-const caseGetStructureById = "GetStructureById";
-const caseGetMyFavorites = "GetMyFavorites";
-const caseRemoveFromFavorites = "RemoveFromFavorites";
+
+import { showSuccess, showError, setOptions } from "../helpers/toastrHelper";
+
+const baseUrl="https://localhost:7231/";
+const caseAddToFavorites = "WeatherForecast/AddToFavorites";          //favorites/add
+const caseSearchCases = "WeatherForecast/SearchCases";                //case/search
+const caseGetStructureById = "WeatherForecast/GetStructureById";      //structure/get-structure-by-id
+const caseGetMyFavorites = "WeatherForecast/GetMyFavorites";          //favorites/get
+const caseRemoveFromFavorites = "WeatherForecast/RemoveFromFavorites"; //favorites/delete
+
+const emailAddToAdvocat = "api/email/add-to-advocat";
 
 export  function   addCaseToFavorites(nodeIsd) {
-  return fetch(url + caseAddToFavorites, {
+  return fetch(baseUrl + caseAddToFavorites, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -21,7 +26,7 @@ export  function   addCaseToFavorites(nodeIsd) {
 
 export async function removeCaseFromFavorites(nodeId) {
      try {
-      const res = await  fetch(url + caseRemoveFromFavorites, {
+      const res = await  fetch(baseUrl + caseRemoveFromFavorites, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -49,7 +54,7 @@ export async function removeCaseFromFavorites(nodeId) {
 }
 
 export function searchCases(searchQuery) {
-  return fetch(url + caseSearchCases, {
+  return fetch(baseUrl + caseSearchCases, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -64,7 +69,7 @@ export function searchCases(searchQuery) {
 }
 
 export function getStructure(nodeId) {
-  return fetch(url + caseGetStructureById+"?parentId=" + nodeId)
+  return fetch(baseUrl + caseGetStructureById+"?parentId=" + nodeId)
       .then(res => res.json())   
       .catch(error => {
         console.error("Błąd fetch:", error); 
@@ -74,12 +79,35 @@ export function getStructure(nodeId) {
 
  
 export function getMyFavorites(nodeId) {
-  return fetch(url + caseGetMyFavorites)
+  return fetch(baseUrl + caseGetMyFavorites)
       .then(res => res.json())
       .catch(error => {
         console.error("Błąd fetch:", error); 
        showError("Get my Favorites failed: " + error);  
       });
  
+}
+  
+
+//////
+//EMAIL Tab
+export function addToAdvocat(emailModel) {
+
+  return fetch(baseUrl + emailAddToAdvocat, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(emailModel)
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .catch(error => {
+    console.error("Błąd fetch:", error);
+    showError("Add To Advocat failed: " + error);
+  });
+
 }
   

@@ -153,8 +153,8 @@ window.onclick = function(event) {
       <div class="search-panel">
         <h3>- Search panel</h3>
         <div class="search-box">
-          <input type="text" id="email-search-button"  class="email_style"  placeholder="Search..." style="width:150px">
-          <img width="16" height="16" src="/assets/icon-16.png" alt="Search" title="Search">
+          <input type="text" class="email_style"  id="email-search-structure-input"  placeholder="Search..." style="width:150px">
+          <img width="16"  id="email-search-button"  height="16" src="/assets/icon-16.png" alt="Search" title="Search">
         </div>
         <div  class="results-container">        
           <div class="result-row">
@@ -176,8 +176,8 @@ window.onclick = function(event) {
       <div class="search-panel">
         <h3>Case</h3>
         <div class="search-box">
-          <input type="text" placeholder="Case ID"  class="email_style" >
-          <button class="green-button">Transfer to ADVOKAT</button>
+          <input id="email-case-id-input" type="text" placeholder="Case ID"  class="email_style" >
+          <div id="email-transfer-btn" ><img  class="green-button">Transfer to ADVOKAT</img></div>
         </div>
       </div>
 
@@ -185,14 +185,15 @@ window.onclick = function(event) {
 
       <div class="search-panel">
         <h3>Services</h3> 
-        <select class="email_style" style="width:110px;" >
-          <option>Email</option>
+        <select class="email_style" id="email-abbreviation-select" style="width:110px;" >
+          <option value="email1">Email</option>
+          <option value="email2">Email2</option>
         </select>
-        <input  class="email_style"  type="text" placeholder="SB"  style="width:40px; padding: 5px;">
-        <input  class="email_style"  type="text" placeholder="Time"  style="width:70px;">     
+        <input  id="email-sb-input" class="email_style"  type="text" placeholder="SB"  style="width:40px; padding: 5px;">
+        <input  id="email-time-input" class="email_style"  type="text" placeholder="Time"  style="width:70px;">     
       </div>
       <div class="search-panel">
-        <input  class="email_style"  type="text" placeholder="Text"  style="width:230px; padding: 5px;">
+        <input  id="email-text-input"  class="email_style"  type="text" placeholder="Text"  style="width:230px; padding: 5px;">
       </div>
 
       <hr class="solid">
@@ -227,82 +228,6 @@ window.onclick = function(event) {
         <div id="email-tab-last-7-days-registered"></div>
       </div>
 
-      <!-- <div class="search-panel">
-          <div class="search-box">
-            <input id="text-search-input" style="width:200px" type="text" placeholder="Search..." />
-            <img width="16" height="16" id="search-email-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat" />
-          </div>
-        </div>
-      <div id="email-results-container" class="results-container">
-      </div>
-
-      <div class="email-container" id="emailStructure">
-      </div>
-  
-          <h3>CASE</h3>
-            <div class="search-panel">
-              <div class="search-box">
-                <input id="case-text-search-input" style="width:100px" type="text" placeholder="Case ID." />
-                <img width="32" height="32" id="search-email-id" src="/assets/icon-16.png" alt="Advokat" title="Transfer to ADVOCAT">
-              </div>
-            </div>
-          <div id="email-results-container" class="results-container">
-          </div>
-
-          <hr class="solid"></hr>
-      
-          <h3>Services</h3>
-          <div class="search-panel">
-            <div class="search-box">
-              <input id="case-abbreviation-input" style="width:100px" type="text" placeholder="Abbreviation" />
-              <input id="case-sb-input" style="width:30px" type="text" placeholder="SB" />
-              <input id="case-time-input" style="width:70px" type="text" placeholder="Time" />
-            </div>
-            <div class="search-box">
-              <input id="case-text-input" style="width:200px" type="text" placeholder="Text." />  
-            </div>
-          </div>
-        <div id="email-results-container" class="results-container">
-        </div>
- 
-        <h3>Transefer email and attachements</h3>
-        <div class="search-panel">
-          <div class="search-box">
-            <input type="checkbox" id="item1checkbox" name="item1" >    
-            <input id="item1text" style="width:100px" >    
-            <div class="dropdown">
-              <button onclick="myFunction()" class="dropbtn">Dropdown</button>
-              <div id="item1dropdown" class="dropdown-content">
-                <a href="#">Link 1</a>
-                <a href="#">Link 2</a>
-                <a href="#">Link 3</a>
-              </div>
-            </div> 
-            <div class="search-box">
-              <input id="case-item1-text-input" style="width:200px" type="text" placeholder="Text." />  
-            </div>
-          </div>
-          <div class="search-panel">
-            <div class="search-box">
-              <input type="checkbox" id="item2checkbox" name="item2" >    
-              <input id="item2text" style="width:100px" >    
-              <div class="dropdown">
-                <button onclick="myFunction()" class="dropbtn">Dropdown</button>
-                <div id="item2dropdown" class="dropdown-content">
-                  <a href="#">Link 1</a>
-                  <a href="#">Link 2</a>
-                  <a href="#">Link 3</a>
-                </div>
-              </div> 
-              <div class="search-box">
-                <input id="case-item2-text-input" style="width:200px" type="text" placeholder="Text." />  
-              </div>
-            </div>
-      
-        </div>
-      <div id="email-results-container" class="results-container">
-      </div>
-    </div>  -->
  </div>
   <div id="ASD" class="w3-container city">
  

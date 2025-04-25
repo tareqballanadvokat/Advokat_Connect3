@@ -4,10 +4,6 @@
  */
 
 /* global document, Office */
-
-import { formatDate } from "../helpers/helper.js";
-import { showSuccess, showError, setOptions } from "../helpers/toastrHelper";
-import { addCaseToFavorites, removeCaseFromFavorites, getMyFavorites, getStructure, searchCases } from "../helpers/webApiReqests";
 import { initCase } from "../cases/case.js";
 import { initEmail } from "../email/email.js";
  
