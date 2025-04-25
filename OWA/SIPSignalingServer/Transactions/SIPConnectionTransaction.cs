@@ -28,8 +28,6 @@ namespace SIPSignalingServer.Transactions
 
         private SIPRegistry Registry { get; set; }
 
-        private SIPTransport Transport { get; set; }
-
         private SIPConnectionPool ConnectionPool { get; set; }
 
         private ServerSideTransactionParams ServerSideTransactionParams { get; set; }
@@ -59,7 +57,6 @@ namespace SIPSignalingServer.Transactions
             this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
 
             this.ServerSideTransactionParams = signalingServerTransactionParams;
-            this.Transport = transport;
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
             
