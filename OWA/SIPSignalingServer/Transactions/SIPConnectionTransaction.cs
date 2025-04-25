@@ -194,8 +194,9 @@ namespace SIPSignalingServer.Transactions
 
             await messageRelay.Start();
 
-            await WaitForAsync(this.IsConnected,
-                this.ReceiveTimeout, // TODO: pass ct
+            await WaitForAsync(
+                this.IsConnected,
+                timeOut: this.ReceiveTimeout, // TODO: pass ct
                 successCallback: this.SendConnectionNotify
                 );
 

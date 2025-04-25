@@ -16,6 +16,10 @@ namespace SIPSignalingServer.Transactions
 
         private readonly ILogger<SIPRegistrationTransaction> logger;
 
+        // TODO: Check if this can be out of sync.
+        // Flag to reduce the times registry IsConfirmed is called.
+        //private bool registrationConfirmed;
+
         public bool Registered { get; private set; }
 
         private SIPRegistry Registry { get; set; }
@@ -74,7 +78,8 @@ namespace SIPSignalingServer.Transactions
             // TODO: something to unregister from signaling server side? Nothing like that is currently implement.
             //       Send message to client?
             this.Registry.Unregister(this.Registration);
-
+            
+            //this.registrationConfirmed = false;
             this.Registered = false;
             // TODO: send event - registering stopped
         }
@@ -83,8 +88,7 @@ namespace SIPSignalingServer.Transactions
         {
             if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
             {
-                //this.RegistrationFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Registration failed. Was not a registration request.");
-                // TODO: Not a registration request. Registration failed event or ignore?
+                this.RegistrationFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Registration failed. Was not a registration request.");
                 return;
             }
 
@@ -119,6 +123,7 @@ namespace SIPSignalingServer.Transactions
 
             await WaitFor(
                 () => this.Registry.IsConfirmed(this.Registration),
+                //() => this.registrationConfirmed && this.Registry.IsConfirmed(this.Registration),
                 timeOut: this.ReceiveTimeout,
                 successCallback: () => { this.Registered = true; },
                 failureCallback: () => this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."));
@@ -147,6 +152,7 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
+            //this.registrationConfirmed = true;
             this.Registry.Confirm(this.Registration);
         }
 

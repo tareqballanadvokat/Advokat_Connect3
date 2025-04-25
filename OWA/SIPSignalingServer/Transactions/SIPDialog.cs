@@ -2,7 +2,6 @@
 using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -14,7 +13,22 @@ namespace SIPSignalingServer.Transactions
 
         private readonly ILogger<SIPDialog> logger;
 
-        private bool Registered { get => this.SIPRegistrationTransaction.Registered; } // TODO: replace with check if registration is in registry?
+        public readonly static int defaultRegistrationTimeout = 3000;
+
+        /// <summary>Timeout for the peer to finish the registration process. Must be set before starting.</summary>
+        /// <value>Defualt value specified in the <see cref="defaultRegistrationTimeout"/> field.</value>
+        /// <version date="25.04.2025" sb="MAC">Created.</version>
+        public int RegistrationTimeout { get; set; } = defaultRegistrationTimeout; // TODO: add flag if it already started - prevent setting then.
+
+        /// <summary>Timeout for the connection process after the registration.
+        ///          How long the connection should wait for the peer to register.
+        ///          If set to null the connection will wait indeffinetly.
+        ///          Must be set before starting.
+        ///          
+        ///          This could be adjusted in the future and sent by the client in the registration.</summary>
+        /// <value>Default value is null.</value>
+        /// <version date="25.04.2025" sb="MAC">Created.</version>
+        public int? ConnectionTimeout { get; set; } = null; // TODO: add flag if it already started - prevent setting then.
 
         private SIPRequest InitialRequest {get; set;}
 
@@ -80,15 +94,18 @@ namespace SIPSignalingServer.Transactions
         {
             // TODO: Check somewhere if the request is valid.
             //       If not return some specific response or don't respond at all
-            
+
+            this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
+            this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
+
             this.SIPRegistrationTransaction.OnRegistrationFailed += this.RegistrationFailedListener;
 
             await this.SIPRegistrationTransaction.Start();
 
             await WaitForAsync(
-                () => this.Registered,
-                timeOut: this.ReceiveTimeout,
-                //failureCallback: Task.CompletedTask , // TODO: do something on timeout
+                () => this.SIPRegistrationTransaction.Registered,
+                timeOut: this.RegistrationTimeout,
+                //failureCallback: // StopRegistration , // TODO: do something on timeout
                 successCallback: this.Connect);
 
             this.SIPRegistrationTransaction.OnRegistrationFailed -= this.RegistrationFailedListener;
@@ -111,10 +128,12 @@ namespace SIPSignalingServer.Transactions
                 this.loggerFactory,
                 startCSeq: 4);
 
-            // Add listeners
+            this.SIPConnectionTransaction.ReceiveTimeout = this.ReceiveTimeout;
+            this.SIPConnectionTransaction.SendTimeout = this.SendTimeout;
+
             this.SIPConnectionTransaction.OnConnectionFailed += this.ConnectionFailedListener;
 
-            CancellationTokenSource cts = new CancellationTokenSource(); // TODO: add some sort of timeout for connection?
+            CancellationTokenSource cts = this.ConnectionTimeout == null ? new CancellationTokenSource() : new CancellationTokenSource((int)this.ConnectionTimeout);
             CancellationToken ct = cts.Token;
             // TODO pass ct to ConnectionTransaction? Pass it deeper to KeepAliveDialog?
 
@@ -123,12 +142,13 @@ namespace SIPSignalingServer.Transactions
             await WaitForAsync(this.IsConnected,
                 ct,
                 successCallback: this.StartICENegotiation
-                //failureCallback: () => { } // timeout - token got cancelled
+                //failureCallback: () => { } // timeout - token got cancelled // TODO: Stop Connection and unregister?
                 ); 
 
             this.SIPConnectionTransaction.OnConnectionFailed -= this.ConnectionFailedListener;
         }
 
+        // TODO: Move to Signaling server. Outside of this class.
         private async Task StartICENegotiation()
         {
             if (this.IsConnected())
@@ -147,7 +167,6 @@ namespace SIPSignalingServer.Transactions
                     await iceNegotiation.Start();
                 }
             }
-
         }
 
         private void ConnectionFailedListener(SIPConnectionTransaction sender, FailureEventArgs e)
