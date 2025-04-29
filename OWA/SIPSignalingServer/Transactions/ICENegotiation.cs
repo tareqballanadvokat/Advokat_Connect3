@@ -30,10 +30,6 @@ namespace SIPSignalingServer.Transactions
                 this.SIPTunnel.Left.Params.ClientParticipant,
                 this.SIPTunnel.Right.Params.ClientParticipant);
 
-            // TODO: this is necessary for now. The peers are not listening for the allocation yet if we don't wait.
-            //       Fix it.
-            await Task.Delay(1000).ConfigureAwait(false);
-
             await SendControlledAgentConfig();
             await SendControllingAgentConfig();
         }

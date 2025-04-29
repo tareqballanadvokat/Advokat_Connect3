@@ -33,12 +33,11 @@ namespace WebRTCClient
         /// <summary>Boolean representing whether this client is connected to the peer or not.
         ///          If this is true messages can be exchanged between the peers.</summary>
         /// <version date="22.04.2025" sb="MAC">Created.</version>
-        [MemberNotNullWhen(true, nameof(this.p2pConnection))]
         public bool IsConnected { get => this.p2pConnection?.IsConnected ?? false; }
 
-        private P2PConnection? p2pConnection;
+        private P2PConnection p2pConnection;
 
-        private SIPClient? sipClient;
+        private SIPClient sipClient;
 
         private readonly SignalingServerParams signalingServerParams;
 
@@ -81,6 +80,9 @@ namespace WebRTCClient
             
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<WebRTCPeer>();
+
+            this.sipClient = new SIPClient(this.signalingServerParams, this.loggerFactory);
+            this.p2pConnection = new P2PConnection(this.sipClient, this.iceServers, this.loggerFactory);
         }
 
         /// <summary>Starts the connection process with the signaling server and subsequently with the peer through the signaling server.
@@ -90,23 +92,16 @@ namespace WebRTCClient
         {
             // TODO: maybe expose the SIPClient. Add check if SIPClient is connected in that case
 
-            this.sipClient = new SIPClient(this.signalingServerParams, this.loggerFactory);
-            this.sipClient.OnConnected += this.StartP2PConnection;
+            this.p2pConnection.OnMessageReceived += this.DirectMessageReceived;
+            this.sipClient.OnConnected += this.WaitForDirectConnection;
 
+            // direct connection has to start first. To set the eventlisteners before the first events.
+            await this.p2pConnection.Start();
             await this.sipClient.StartDialog();
         }
 
-        // To fix the waiting issue for sdp offers we need to start p2p before sipclient. Adds listener
-        private async Task StartP2PConnection(SIPClient sender)
+        private async Task WaitForDirectConnection(SIPClient sender)
         {
-            this.p2pConnection = new P2PConnection(sender, this.iceServers, this.loggerFactory);
-            this.p2pConnection.OnMessageReceived += async (P2PConnection connection, byte[] data) =>
-            {
-                await (this.OnMessageReceived?.Invoke(this, data) ?? Task.CompletedTask);
-            };
-
-            await this.p2pConnection.Start();
-
             await WaitForAsync(
                 () => this.p2pConnection.IsConnected,
                 timeOut: 5000, // TODO: find suitable timout for p2p connection
@@ -117,7 +112,11 @@ namespace WebRTCClient
 
         private async Task DirectConnectionOpen()
         {
-            this.logger.LogInformation("Direct connection open. \"{callerName}\" - \"{remoteName}\"", this.sipClient?.SourceParticipant.Name, this.sipClient?.RemoteParticipant.Name);
+            this.logger.LogInformation(
+                "Direct connection open. \"{callerName}\" - \"{remoteName}\"",
+                this.sipClient?.SourceParticipant.Name,
+                this.sipClient?.RemoteParticipant.Name);
+
             await (this.OnConnected?.Invoke(this) ?? Task.CompletedTask);
 
             //  TODO: Close sip connection?
@@ -153,6 +152,11 @@ namespace WebRTCClient
             //}
 
             //await this.P2PConnection.SendMessage(message);
+        }
+
+        private async Task DirectMessageReceived(P2PConnection connection, byte[] data)
+        {
+            await (this.OnMessageReceived?.Invoke(this, data) ?? Task.CompletedTask);
         }
     }
 }
