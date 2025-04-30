@@ -154,30 +154,32 @@ window.onclick = function(event) {
         <h3>- Search panel</h3>
         <div class="search-box">
           <input type="text" class="email_style"  id="email-search-structure-input"  placeholder="Search..." style="width:150px">
-          <img width="16"  id="email-search-button"  height="16" src="/assets/icon-16.png" alt="Search" title="Search">
+          <img width="16"  id="email-search-button"  height="16" src="/assets/icon-16.png"  alt="Search" title="Search"/>
         </div>
         <div  class="results-container">        
           <div class="result-row">
-              <div class="name">Name</div>
+              <div class="name" style="width:350px">Name</div>
               <div class="causa">Causa</div>
               <div data-node-id="1" class="button">&nbsp;</div>
             </div>
         </div>
         <div id="email-search-results-container" class="results-container">
-            <div class="result-row">
+            <!-- <div class="result-row">
               <div class="name">ADVOKAT</div>
               <div class="causa">Root</div>
               <div data-node-id="1" class="button"><button>Add</button></div>
-            </div>
-        </div>
+            </div> -->
+        </div>  
  
       </div>
 
       <div class="search-panel">
         <h3>Case</h3>
         <div class="search-box">
-          <input id="email-case-id-input" type="text" placeholder="Case ID"  class="email_style" >
-          <div id="email-transfer-btn" ><img  class="green-button">Transfer to ADVOKAT</img></div>
+          <input id="email-case-id-input" type="text" placeholder="Case ID" style="width:100px;"   class="email_style" >
+        
+            <img width="16"  id="email-transfer-btn"  height="16" src="/assets/icon-16.png"  alt="Search" title="Transfer to ADVOKAT"/>
+         
         </div>
       </div>
 
@@ -201,7 +203,7 @@ window.onclick = function(event) {
       <div class="search-panel">
         <h3>Transfer e-mail and attachments</h3>
         <div class="search-box" style="padding-bottom: 5px">
-          <input  type="checkbox" style="width:15px" >
+          <input id="email-transfer-btn-checkbox" type="checkbox" style="width:15px" >
           <input  class="email_style"  type="text"  style="width:140px"  value="Dietmar.harb@advokat.at">
           <select style="width:65px"  class="email_style"  >
             <option>Email</option>
@@ -211,7 +213,7 @@ window.onclick = function(event) {
           <input type="text"  class="email_style"  style="width:230px;"  placeholder="Text" >
         </div>
         <div class="search-box" style="padding-bottom: 5px">
-          <input type="checkbox"  style="width:15px" >
+          <input  id="email-transfer-attachement-btn-checkbox"  type="checkbox"  style="width:15px" >
           <input  class="email_style"  type="text"  style="width:140px;height:30px"  value="Zusatzvereinbarung">
           <select style="width:65px"  class="email_style" >
             <option>Aktenordner</option>

@@ -5,7 +5,7 @@
 
 /* global document, Office */
 import { initCase } from "../cases/case.js";
-import { initEmail } from "../email/email.js";
+import { initEmail, GetEmailsInLast7Days } from "../email/email.js";
  
 Office.onReady(async (info) => { 
 
@@ -13,6 +13,7 @@ Office.onReady(async (info) => {
   {
       initCase();
       initEmail();
+      GetEmailsInLast7Days();
   }
 });
 

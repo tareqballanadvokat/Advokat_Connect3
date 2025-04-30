@@ -161,8 +161,8 @@ export async function CaseSearchStructure()
 
     data.forEach(item => {
       const $row = $("<div>", { class: "result-row" });
-
-      $row.append($("<div>", {class:"name"}).text(item.name));
+ 
+      $row.append($("<div style='width:350px'>", {class:"name"}).text(item.name));
       $row.append($("<div>", {class:"causa"}).text(item.causa));
 
       const $div = $("<div>", {"data-node-id": item.id, class: "button"})

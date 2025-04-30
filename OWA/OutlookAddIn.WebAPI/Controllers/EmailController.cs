@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using OutlookAddIn.WebAPI.Models;
+using OutlookAddIn.WebAPI.Services;
 
 namespace OutlookAddIn.WebAPI.Controllers;
  
@@ -9,19 +11,33 @@ namespace OutlookAddIn.WebAPI.Controllers;
 [Route("api/email")]
  
 public class EmailController : ControllerBase
-{
-    public static List<AddToEmailModel> currentList = new List<AddToEmailModel>();
+{ 
+
+    public EmailController()
+    {
+
+    }
 
     [HttpPost("add-to-advocat")]
     public ActionResult AddToFavorites([FromBody] AddToEmailModel query)
     {
-        if (currentList.Where(x=> x.CaseId == query.CaseId).Any())
+        if (DatabaseServiceMock.customEmails.Where(x => x.CaseId == query.CaseId).Any())
         {
-            return BadRequest();
+            //return Ok(DatabaseServiceMock.customEmails);
+            return new JsonResult(DatabaseServiceMock.customEmails);
         }
+     
 
-        currentList.Add(query);
-        return Ok();
+            DatabaseServiceMock.customEmails.Add(query);
+
+        return new JsonResult(DatabaseServiceMock.customEmails);
+    }
+
+
+    [HttpGet("get-registered")]
+    public ActionResult<AddToEmailModel> GetRegistered()
+    {
+        return new JsonResult(DatabaseServiceMock.customEmails);
     }
 }
 
