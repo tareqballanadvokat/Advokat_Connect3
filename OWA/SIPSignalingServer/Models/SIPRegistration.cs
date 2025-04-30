@@ -32,6 +32,11 @@ namespace SIPSignalingServer.Models
 
         public override bool Equals(object? obj)
         {
+            if (base.Equals(obj))
+            {
+                return true;
+            }
+
             var other = obj as SIPRegistration;
 
             if (other == null) return false;

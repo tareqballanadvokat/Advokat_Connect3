@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
+using System.Net.Sockets;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -41,15 +42,20 @@ namespace SIPSignalingServer.Transactions
                     headerParams.DestinationParticipant,
                     headerParams.ToTag);
 
-                // TODO: maybe check SocketError?
                 // TODO: maybe check if request matches transactionParams?
 
-                await this.Connection.SendSIPRequest(
+                SocketError sendingStatus = await this.Connection.SendSIPRequest(
                     request.Method,
                     headerParams,
                     request.Body,
                     request.Header.ContentType,
                     cts.Token);
+
+                if (sendingStatus != SocketError.Success)
+                {
+                    // TODO: do something here. Relay failed
+                    //       Maybe send message to sending client
+                }
             }
         }
 
@@ -87,7 +93,13 @@ namespace SIPSignalingServer.Transactions
                 //    headerParams.ToTag);
 
                 // TODO: I think this has to be fixed aswell - Headerparams are not correct
-                await this.Connection.SendSIPResponse(response, cts.Token);
+                SocketError sendingStatus = await this.Connection.SendSIPResponse(response, cts.Token);
+
+                if (sendingStatus != SocketError.Success)
+                {
+                    // TODO: do something here. Relay failed.
+                    //       Maybe send message to sending client
+                }
             }
         }
 

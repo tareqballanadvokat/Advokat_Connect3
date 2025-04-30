@@ -46,23 +46,34 @@ namespace SIPSignalingServer
             this.PendingConnections.Remove(pendingPeerMessageRelay);
         }
 
-        public bool IsConnected(ServerSideTransactionParams transactionParams)
+        //public bool IsConnected(ServerSideTransactionParams transactionParams)
+        //{
+        //    if (!ParamsAreValid(transactionParams))
+        //    {
+        //        // params are invalid. Cannot be connected
+        //        return false;
+        //    }
+
+        //    return this.GetConnection(transactionParams)?.Connected ?? false;
+        //}
+
+        public bool IsConnected(SIPMessageRelay messageRelay)
         {
-            if (!ParamsAreValid(transactionParams))
+            if (!ParamsAreValid(messageRelay.Params))
             {
                 // params are invalid. Cannot be connected
                 return false;
             }
 
-            return this.GetConnection(transactionParams)?.Connected ?? false;
+            return this.GetConnection(messageRelay)?.Connected ?? false;
         }
 
-        public SIPMessageRelay? GetMessageRelay(ServerSideTransactionParams transactionParams)
-        {
-            return this.GetPendingMessageRelay(transactionParams)
-                ?? this.Connections.SingleOrDefault(t => t.Left.Params == transactionParams)?.Left
-                ?? this.Connections.SingleOrDefault(t => t.Right.Params == transactionParams)?.Right;
-        }
+        //public SIPMessageRelay? GetMessageRelay(ServerSideTransactionParams transactionParams)
+        //{
+        //    return this.GetPendingMessageRelay(transactionParams)
+        //        ?? this.Connections.SingleOrDefault(t => t.Left.Params == transactionParams)?.Left
+        //        ?? this.Connections.SingleOrDefault(t => t.Right.Params == transactionParams)?.Right;
+        //}
 
         // TODO: do we net it? (does this mean "do we need it?")
         public SIPTunnel? GetConnection(ServerSideTransactionParams transactionParams)
@@ -106,11 +117,11 @@ namespace SIPSignalingServer
                 );
         }
 
-        private SIPMessageRelay? GetPendingMessageRelay(ServerSideTransactionParams transactionParams)
-        {
-            // TODO: implement equality comparer
-            return this.PendingConnections.SingleOrDefault(r => r.Params == transactionParams);
-        }
+        //private SIPMessageRelay? GetPendingMessageRelay(ServerSideTransactionParams transactionParams)
+        //{
+        //    // TODO: implement equality comparer
+        //    return this.PendingConnections.SingleOrDefault(r => r.Params == transactionParams);
+        //}
 
         private void AddPending(SIPMessageRelay messageRelay)
         {

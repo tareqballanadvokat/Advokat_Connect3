@@ -17,7 +17,7 @@ namespace SIPSignalingServer.Transactions
 
         public int StartCSeq { get; set; }
 
-        public bool WaitingForPeer { get; private set; }
+        private bool WaitingForPeer { get; set; }
 
         private bool Connecting { get; set; } // TODO: ConnectionPool.GetConnection(this.Registration).Confirmed == false -> connection exists but is not confirmed
                                               //       Or this.PeerRegistration != null && this.Connected == false 
@@ -32,7 +32,11 @@ namespace SIPSignalingServer.Transactions
 
         private ServerSideTransactionParams ServerSideTransactionParams { get; set; }
 
+        private readonly SIPMessageRelay messageRelay;
+
         public event Action<SIPConnectionTransaction, FailureEventArgs>? OnConnectionFailed;
+
+        private CancellationTokenSource? PeerRegisteringCts { get; set; }
 
         public SIPConnectionTransaction(
             SIPSchemesEnum sipScheme,
@@ -59,14 +63,17 @@ namespace SIPSignalingServer.Transactions
             this.ServerSideTransactionParams = signalingServerTransactionParams;
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
-            
+
             this.Registration = new SIPRegistration(this.ServerSideTransactionParams);
             this.StartCSeq = startCSeq;
+
+            this.messageRelay = new SIPMessageRelay(this.Connection, this.Params, this.loggerFactory);
+            this.messageRelay.SendTimeout = this.SendTimeout;
         }
 
         public bool IsConnected()
         {
-            return this.ConnectionPool.IsConnected(this.Params);
+            return this.ConnectionPool.IsConnected(this.messageRelay);
         }
 
         public async override Task Start()
@@ -106,39 +113,29 @@ namespace SIPSignalingServer.Transactions
                 this.WaitingForPeer = true;
                 this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", this.Registration.RemoteUser, this.Registration.SourceParticipant);
 
-                // TODO: Find place to store ct. Should cancel on unregister.
-                CancellationTokenSource cts = new CancellationTokenSource();
-                CancellationToken ct = cts.Token;
+                this.PeerRegisteringCts = new CancellationTokenSource();
 
                 await WaitForAsync(
-                    () => this.Registry.PeerIsRegistered(this.Registration),
-                    ct,
+                    () => this.Registry.PeerIsRegistered(this.Registration), // TODO: make PeerIsRegistered an event. If registry is a db we shouldn't hit it this often.
+                    this.PeerRegisteringCts.Token,
                     successCallback: this.Connect
                     );
             }
         }
 
-        public override Task Stop()
+        public async override Task Stop()
         {
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
+            
+            await this.StopSIPTunnel();
+            this.ResetFlags();
         }
 
         private async Task Connect()
-        {
-            //if (this.IsConnected()) // TODO: Gets called twice
-            //{
-            //    // Already connected
-            //    return;
-            //}
-
-            //if (this.Connecting)
-            //{
-            //    // Another connection process is already running
-            //    return;
-            //}
-            this.WaitingForPeer = false; // TODO: keep here?
-
+        { 
             this.Connecting = true;
+
+            this.StopWaitingForPeer();
             this.SetRemoteTag();
             this.CreateConnection();
 
@@ -181,23 +178,17 @@ namespace SIPSignalingServer.Transactions
 
             this.ConnectionAcknowledged = true;
 
-            SIPMessageRelay? messageRelay = this.ConnectionPool.GetMessageRelay(this.Params);
-
-            if (messageRelay == null)
-            {
-                this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Connection not found. Could not confirm connection.");
-                return;
-            }
-
-            await messageRelay.Start();
+            await this.messageRelay.Start();
 
             await WaitForAsync(
                 this.IsConnected,
                 timeOut: this.ReceiveTimeout, // TODO: pass ct
-                successCallback: this.SendConnectionNotify
+                                              //       ACK from both clients has to be received for IsConnected to be true.
+                                              //       How long should the timeout be? Probably a bit longer than default Receive timeout
+                successCallback: this.SendConnectionNotify,
+                failureCallback: this.AckTimeout
                 );
 
-            //this.Connected = true;
             this.Connecting = false;
         }
 
@@ -211,11 +202,16 @@ namespace SIPSignalingServer.Transactions
             await this.Connection.SendSIPRequest(notifyRequest, cts.Token);
         }
 
+        private async Task AckTimeout()
+        {
+            await this.StopSIPTunnel();
+            this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.");
+        }
+
         private void CreateConnection()
         {
             // adds connection, does not start it
-            SIPMessageRelay messageRelay = new SIPMessageRelay(this.Connection, this.Params, this.loggerFactory); // pass transport?
-            this.ConnectionPool.Connect(messageRelay);
+            this.ConnectionPool.Connect(this.messageRelay);
         }
 
         private void SetRemoteTag()
@@ -231,6 +227,35 @@ namespace SIPSignalingServer.Transactions
             this.Params.RemoteTag = peerRegistration.FromTag;
         }
 
+        private async Task StopSIPTunnel()
+        {
+            if (this.IsConnected())
+            {
+                // TODO: Close SIP Tunnel
+                // TODO: send something to the clients to let them know that the Tunnel has been closed
+                //       On which channel should we send the bye message? On the tunnel it is indistinguishable from a bye of the peer.
+                //       The signaling server has a bye for registration i think.
+            }
+            
+            await this.messageRelay.Stop();
+        }
+
+        private void StopWaitingForPeer()
+        {
+            this.WaitingForPeer = false;
+            this.PeerRegisteringCts?.Cancel();
+            this.PeerRegisteringCts = null;
+        }
+
+        private void ResetFlags()
+        {
+            this.StopWaitingForPeer();
+
+            this.Connecting = false;
+            this.ConnectionAcknowledged = false;
+            this.Params.SourceTag = null;
+        }
+
         private void ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
         {
             // TODO: stop and disconnect if necessary
@@ -238,9 +263,7 @@ namespace SIPSignalingServer.Transactions
             // TODO: add some identifier for request that failed. (caller ip/name/tag, remote name/tag)
             this.logger.LogInformation("Connection failed {statusCode}. {message}", statusCode, message); 
 
-            this.Connecting = false;
-            this.ConnectionAcknowledged = false;
-            this.Params.SourceTag = null;
+            this.ResetFlags();
 
             FailureEventArgs eventArgs = new FailureEventArgs();
             eventArgs.StatusCode = statusCode;

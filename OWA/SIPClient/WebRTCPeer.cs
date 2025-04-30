@@ -105,6 +105,7 @@ namespace WebRTCClient
             await WaitForAsync(
                 () => this.p2pConnection.IsConnected,
                 timeOut: 5000, // TODO: find suitable timout for p2p connection
+                               //       This is the reason why the waiting peer does not fire the OnConnected event when we wait a bit
                 successCallback: this.DirectConnectionOpen
                 // TODO: Timeout
                 );
