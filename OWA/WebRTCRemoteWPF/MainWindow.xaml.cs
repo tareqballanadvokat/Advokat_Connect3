@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Serilog;
 using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Net;
@@ -7,6 +8,9 @@ using System.Windows;
 using WebRTCClient;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
+using Serilog.Sinks.LogList;
+using System.Collections.ObjectModel;
+using System.Windows.Data;
 
 namespace WebRTCRemoteWPF
 {
@@ -24,6 +28,8 @@ namespace WebRTCRemoteWPF
         private static readonly string testingTimeout = "2000";
 
         private ILoggerFactory loggerFactory;
+        private Microsoft.Extensions.Logging.ILogger logger;
+        private ObservableCollection<string> LogsCollection = new LimitedObservableCollection<string>(2048);
 
         private WebRTCPeer? UserAgent;
 
@@ -31,12 +37,41 @@ namespace WebRTCRemoteWPF
         {
             InitializeComponent();
             LoadTestingValues();
+            SetSerilogLogger();
+
+            this.LogsList.ItemsSource = LogsCollection;
+            //this.LogsCollection.CollectionChanged += (sender, e) =>
+            //{
+            //    if (LogsCollection.Any())
+            //    {
+            //        this.LogsList.SelectedIndex = this.LogsList.Items.Count - 1;
+            //        this.LogsList.ScrollIntoView(this.LogsList.SelectedItem);
+            //    }
+            //};
 
             this.loggerFactory = LoggerFactory.Create(
                 (builder) => {
                     builder.SetMinimumLevel(LogLevel.Debug);
-                    builder.AddDebug();
+                    builder.AddSerilog();
+
+                    //builder.AddDebug();
                 });
+
+            this.logger = this.loggerFactory.CreateLogger<MainWindow>();
+            this.logger.LogInformation("------------------------------------------");
+        }
+
+        private void SetSerilogLogger()
+        {
+            object lockObject = new object();
+
+            BindingOperations.EnableCollectionSynchronization(LogsCollection, lockObject);
+
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.File("logs/remote-logs.txt", rollingInterval: RollingInterval.Day, shared: true)
+                .WriteTo.LogList(LogsCollection, lockObject: lockObject)
+                .CreateLogger();
         }
 
         private void LoadLocalIps()
@@ -118,7 +153,7 @@ namespace WebRTCRemoteWPF
             
             this.UserAgent.OnMessageReceived += this.OnMessage;
 
-            this.UserAgent.OnConnected += this.OnConnected;
+            //this.UserAgent.OnConnected += this.OnConnected;
 
             await this.UserAgent.Connect();
         }
@@ -127,10 +162,10 @@ namespace WebRTCRemoteWPF
             this.AddLineToTextBox(message);
         }
 
-        private async Task OnConnected(IWebRTCPeer sender)
-        {
-            Dispatcher.Invoke(() => this.LogBox.AppendText($"[{DateTime.Now}] Connected\r\n"));
-        }
+        //private async Task OnConnected(IWebRTCPeer sender)
+        //{
+        //    Dispatcher.Invoke(() => this.LogBox.AppendText($"[{DateTime.Now}] Connected\r\n"));
+        //}
 
         private void AddLineToTextBox(byte[] message)
         {

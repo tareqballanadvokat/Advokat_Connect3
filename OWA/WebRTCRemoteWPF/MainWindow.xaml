@@ -75,7 +75,25 @@
             <TextBox Name="MessageBox" Margin="5" Height="30"  />
             <Button Name="SendMessageBtn" Content="📨 Send message via P2P" Click="SendMessageBtn_Click" Margin="5" IsEnabled="True"/>
             <Button Name="SendMessageViaSignalingServerBtn" Content="📨 Send message via Signaling server" Click="SendMessageViaSignalingServerBtn_Click" Margin="5" IsEnabled="True"/>
-            <TextBox x:Name="LogBox" Height="320" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
-                    </StackPanel>
+            
+            <TextBox x:Name="LogBox" Height="150" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+
+            <ListBox
+                x:Name="LogsList"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                Height="184">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+        </StackPanel>
     </Grid>
 </Window>
