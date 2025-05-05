@@ -208,11 +208,7 @@ namespace WebRTCRemoteWPF
 
         private async void P2PDisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
-            //Task? task = this.UserAgent?.StopDialog();
-            //if (task != null)
-            //{
-            //    await task;
-            //}
+            await (this.UserAgent?.Disconnect() ?? Task.CompletedTask);
         }
 
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)

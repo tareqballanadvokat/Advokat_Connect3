@@ -100,6 +100,11 @@ namespace WebRTCClient
             await this.sipClient.StartDialog();
         }
 
+        public async Task Disconnect()
+        {
+            await this.sipClient.StopDialog();
+        }
+
         private async Task WaitForDirectConnection(SIPClient sender)
         {
             await WaitForAsync(

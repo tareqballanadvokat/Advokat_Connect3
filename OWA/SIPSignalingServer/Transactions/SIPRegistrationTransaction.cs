@@ -7,6 +7,7 @@ using SIPSignalingServer.Utils.CustomEventArgs;
 using static WebRTCLibrary.Utils.TaskHelpers;
 using Microsoft.Extensions.Logging;
 using WebRTCLibrary.SIP;
+using System.Net.Sockets;
 
 namespace SIPSignalingServer.Transactions
 {
@@ -75,28 +76,26 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            // TODO: something to unregister from signaling server side? Nothing like that is currently implement.
-            //       Send message to client?
-            this.Registry.Unregister(this.Registration);
-            
-            //this.registrationConfirmed = false;
-            this.Registered = false;
-            // TODO: send event - registering stopped
+            this.Unregister();
+            await this.SendBYEMessage(4);
+            // TODO: send event - registering stopped?
         }
 
         private async Task StartRegistartion()
         {
             if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
             {
-                this.RegistrationFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Registration failed. Was not a registration request.");
+                await this.RegistrationFailed(2, SIPResponseStatusCodesEnum.MethodNotAllowed, "Registration failed. Initial request was not a registration request.");
                 return;
             }
 
-            if (this.InitialRequest.Header.CSeq != 1)
-            {
-                this.RegistrationFailed(SIPResponseStatusCodesEnum.BadRequest, "Registration failed. Header was invalid.");
-                return;
-            }
+            // TODO: Set startCseq as request cseq + 1?
+
+            //if (this.InitialRequest.Header.CSeq != 1)
+            //{
+            //    this.RegistrationFailed(SIPResponseStatusCodesEnum.BadRequest, "Registration failed. Header was invalid.");
+            //    return;
+            //}
 
             if (this.Registry.IsRegistered(this.Registration))
             {
@@ -109,6 +108,7 @@ namespace SIPSignalingServer.Transactions
 
         private async Task Register()
         {
+            this.Connection.SIPRequestReceived += this.BYEListener;
             this.Registry.Register(this.Registration);
 
             this.Connection.SIPRequestReceived += this.ACKListener;
@@ -121,12 +121,12 @@ namespace SIPSignalingServer.Transactions
 
             await this.Connection.SendSIPResponse(accpetedResponse, cts.Token);
 
-            await WaitFor(
+            await WaitForAsync(
                 () => this.Registry.IsConfirmed(this.Registration),
                 //() => this.registrationConfirmed && this.Registry.IsConfirmed(this.Registration),
                 timeOut: this.ReceiveTimeout,
-                successCallback: () => { this.Registered = true; },
-                failureCallback: () => this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."));
+                successCallback: async () => { this.Registered = true; },
+                failureCallback: async () => await this.RegistrationFailed(4, SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."));
 
             // remove listener
             this.Connection.SIPRequestReceived -= this.ACKListener;
@@ -142,13 +142,13 @@ namespace SIPSignalingServer.Transactions
         {
             if (request.Method != SIPMethodsEnum.ACK)
             {
-                this.RegistrationFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Not a ACK request.");
+                await this.RegistrationFailed(4, SIPResponseStatusCodesEnum.MethodNotAllowed, "Not a ACK request.");
                 return;
             }
 
             if (request.Header.CSeq != 3)
             {
-                this.RegistrationFailed(SIPResponseStatusCodesEnum.BadRequest, "Confirmation failed. Header was invalid.");
+                await this.RegistrationFailed(4, SIPResponseStatusCodesEnum.BadRequest, "Confirmation failed. Header was invalid.");
                 return;
             }
 
@@ -156,14 +156,45 @@ namespace SIPSignalingServer.Transactions
             this.Registry.Confirm(this.Registration);
         }
 
-        private void RegistrationFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
+        private async Task BYEListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
+        {
+            if (request.Method != SIPMethodsEnum.BYE)
+            {
+                // not a BYE request
+                return;
+            }
+
+            if (request.Header.CSeq != 3
+                && request.Header.CSeq != 4)
+            {
+                // TODO: Header invalid. What to do here?
+                return;
+            }
+
+            await this.SendBYEMessage(request.Header.CSeq + 1);
+        }
+
+        private async Task SendBYEMessage(int cSeq)
+        {
+            SocketError result = await this.Connection.SendSIPRequest(
+                SIPMethodsEnum.BYE,
+                this.GetHeaderParams(cSeq),
+                CancellationToken.None,
+                this.SendTimeout);
+
+            if (result != SocketError.Success)
+            {
+                // request was not sent.
+                // TODO: What to do here? Retry?
+            }
+        }
+
+        private async Task RegistrationFailed(int cSeq, SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
         {
             this.logger.LogInformation("Registration failed {statusCode}. {message}", statusCode, message);
 
-            if (this.Registry.IsRegistered(this.Registration))
-            {
-                this.Registry.Unregister(this.Registration);
-            }
+            this.Unregister();
+            await this.SendBYEMessage(cSeq);
 
             FailedRegistrationEventArgs eventArgs = new FailedRegistrationEventArgs();
             eventArgs.StatusCode = statusCode;
@@ -171,6 +202,12 @@ namespace SIPSignalingServer.Transactions
             eventArgs.Registration = this.Registration; // TODO: is this even needed?
 
             this.OnRegistrationFailed?.Invoke(this, eventArgs);
+        }
+
+        private void Unregister()
+        {
+            this.Registry.Unregister(this.Registration);
+            this.Registered = false;
         }
 
         private static SIPParticipant GetCallerParticipant(SIPRequest request)

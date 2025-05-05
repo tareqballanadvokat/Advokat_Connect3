@@ -25,7 +25,8 @@
                         return;
                     }
 
-                    Task.Delay(interval);
+                    // This might be blocking. TODO: Check if this is right
+                    Task.Delay(interval).Wait();
                 }
 
                 // timout/failure
@@ -59,7 +60,8 @@
                         return;
                     }
 
-                    await Task.Delay(interval);
+                    // This might be blocking. TODO: Check if this is right
+                    Task.Delay(interval).Wait();
                 }
 
                 // timout/failure

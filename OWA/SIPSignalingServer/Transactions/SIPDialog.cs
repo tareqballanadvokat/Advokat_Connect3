@@ -135,7 +135,7 @@ namespace SIPSignalingServer.Transactions
 
             CancellationTokenSource cts = this.ConnectionTimeout == null ? new CancellationTokenSource() : new CancellationTokenSource((int)this.ConnectionTimeout);
             CancellationToken ct = cts.Token;
-            // TODO pass ct to ConnectionTransaction? Pass it deeper to KeepAliveDialog?
+            // TODO pass ct to ConnectionTransaction. Pass it deeper to KeepAliveDialog?
 
             await this.SIPConnectionTransaction.Start();
 

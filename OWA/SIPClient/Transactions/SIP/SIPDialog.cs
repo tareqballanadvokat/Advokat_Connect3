@@ -61,8 +61,9 @@ namespace WebRTCClient.Transactions.SIP
         public override async Task Stop()
         {
             // TODO: assign new callId? Otherwise we could get another start with the same call id
-            //await this.RegistrationDialog.Stop();
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
+            
+            await this.SIPRegistrationTransaction.Stop();
         }
 
         private async Task RegistationSuccessful()

@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
-using System.Diagnostics;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
@@ -20,7 +19,11 @@ namespace WebRTCClient.Transactions.SIP
 
         //public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnRegistered;
 
-        public event Action<SIPRegistrationTransaction, SIPDialogEventArgs>? OnUnRegistered;
+        //public event Action<SIPRegistrationTransaction, SIPDialogEventArgs>? OnUnRegistered;
+
+        private CancellationTokenSource? registrationCts;
+
+        //private CancellationToken? registrationCt;
 
         public SIPRegistrationTransaction(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(connection, dialogParams, loggerFactory)
@@ -36,7 +39,14 @@ namespace WebRTCClient.Transactions.SIP
 
         public override async Task Start()
         {
-            await this.Register();
+            this.registrationCts = new CancellationTokenSource();
+            await this.Start(this.registrationCts.Token);
+        }
+
+        public async Task Start(CancellationToken ct)
+        {
+            //this.registrationCt = ct;
+            await this.Register(ct);
         }
 
         public override async Task Stop()
@@ -44,7 +54,7 @@ namespace WebRTCClient.Transactions.SIP
             await this.Unregister();
         }
 
-        private async Task Register()
+        private async Task Register(CancellationToken ct)
         {
             if (this.Registered)
             {
@@ -61,73 +71,127 @@ namespace WebRTCClient.Transactions.SIP
             this.Registering = true;
             this.Params.SourceTag = CallProperties.CreateNewTag();
 
-            // set response delegate
-            this.Connection.SIPResponseReceived += this.ListenForRegistrationAccept;
+            // set response delegates
+            SIPTransportResponseAsyncDelegate acceptDelegate = (localEndPoint, remoteEndPoint, sipResponse) => this.ListenForRegistrationAccept(sipResponse, ct);
+            this.Connection.SIPResponseReceived += acceptDelegate;
+            this.Connection.SIPRequestReceived += this.ListenForDisconnect;
 
-            // send request
-            // TODO: do something with the socekterror
-            await this.SendSIPMessage(SIPMethodsEnum.REGISTER);
+            try
+            {
+                SocketError result = await this.Connection.SendSIPRequest(
+                    SIPMethodsEnum.REGISTER,
+                    this.GetHeaderParams(),
+                    ct,
+                    this.SendTimeout);
 
-            await WaitFor(
+                if (result != SocketError.Success)
+                {
+                    // request did not get sent.
+                    this.Connection.SIPResponseReceived -= acceptDelegate;
+                    this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
+                    this.RegistrationFailed($"Failed to send Registration. {result}.");
+                    return;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Request did not get sent.
+                this.Connection.SIPResponseReceived -= acceptDelegate;
+                this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
+                this.RegistrationFailed($"Registration was cancelled.");
+                return;
+            }
+
+            await WaitForAsync(
                 () => this.Registered && !this.Registering,
-                failureCallback: this.RegistrationFailed,
+                failureCallback: this.RegistrationTimeout,
                 timeOut: this.ReceiveTimeout);
 
             // TODO: make sure this happens after timeout / failure or success
             // remove listener
-            this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
+            this.Connection.SIPResponseReceived -= acceptDelegate;
         }
 
-        private async Task ListenForRegistrationAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
+        private async Task RegistrationTimeout()
         {
-            // Old Signaling server sends not found if the other peer is not present
-            // TODO: remove when the servers get switched.
-            if (sipResponse.Status == SIPResponseStatusCodesEnum.NotFound)
-            {
-                return;
-            }
+            CancellationToken ct = CancellationToken.None;
+            this.RegistrationFailed("Registration Timeout. Signaling server took too long to respond.");
+            await this.SendBYEMessage(3, ct);
 
+            // TODO: Listen for server bye? If accepted had a timeout we shouldn't wait for the server to respond with a bye.
+            this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
+            // TODO: remove acceptDelegate
+
+            this.ResetRegistration();
+        }
+
+        private async Task ListenForRegistrationAccept(SIPResponse sipResponse, CancellationToken ct)
+        {
             if (sipResponse.Status != SIPResponseStatusCodesEnum.Accepted)
             {
-                // bad request, wrong status
-                this.RegistrationFailed();
+                this.RegistrationFailed($"Wrong status code. {sipResponse.StatusCode} expected 202.");
                 return;
             }
 
-            if (this.Params.RemoteParticipant == null // Why?
-                || sipResponse.Header.CSeq != 2)
+            if (sipResponse.Header.CSeq != 2)
             {
-                // bad request - header is invalid
-                this.RegistrationFailed();
+                this.RegistrationFailed($"Header is invalid. Expected CSeq 2 got {sipResponse.Header.CSeq}.");
                 return;
             }
 
-            await this.RegistrationAccepted(sipResponse);
+            await this.RegistrationAccepted(sipResponse, ct);
         }
 
-        private async Task RegistrationAccepted(SIPResponse sipResponse)
+        private async Task RegistrationAccepted(SIPResponse sipResponse, CancellationToken ct)
         {
-            Debug.WriteLine($"Client received Accepted."); // DEBUG
-
             this.Params.RemoteTag = sipResponse.Header.From.FromTag;
 
             this.logger.LogDebug(
-                "Successfully registered. From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
+                "Server accepted registration. From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
                 this.Params.SourceParticipant.Name,
                 this.Params.SourceTag,
 
                 this.Params.RemoteParticipant.Name,
                 this.Params.RemoteTag);
 
-            this.Registered = true;
-            this.Registering = false;
+            int cSeq = sipResponse.Header.CSeq + 1;
 
-            // TODO: Do something with the socketerror
-            await this.SendSIPMessage(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: sipResponse.Header.CSeq + 1));
+            try
+            {
+                SocketError result = await this.Connection.SendSIPRequest(
+                    SIPMethodsEnum.ACK,
+                    this.GetHeaderParams(cSeq),
+                    ct,
+                    this.SendTimeout);
+
+                if (result != SocketError.Success)
+                {
+                    // request did not get sent.
+                    this.RegistrationFailed($"Failed to send ACK. {result}.");
+                    await this.SendBYEMessage(cSeq, CancellationToken.None); // no cancellation for bye
+                    return;
+                }
+
+                this.Registered = true;
+                this.Registering = false;
+                this.logger.LogInformation("Successfully registered. \"{fromName}\" - \"{toName}\"",
+                    this.Params.SourceParticipant.Name,
+                    this.Params.RemoteParticipant.Name);
+            }
+            catch (OperationCanceledException)
+            {
+                // Request did not get sent.
+                this.RegistrationFailed($"Registration was cancelled.");
+                await this.SendBYEMessage(cSeq, CancellationToken.None); // no cancellation for bye
+            }
         }
 
         private async Task Unregister()
         {
+            // TODO: get token passed?
+            CancellationTokenSource cts = new CancellationTokenSource();
+            CancellationToken ct = cts.Token;
+
             if (!this.Registered)
             {
                 // TODO: log. Not registered
@@ -136,8 +200,10 @@ namespace WebRTCClient.Transactions.SIP
 
             if (this.Registering)
             {
+
                 // TODO: cancel registering and check if we have to continue
                 //       Unregister after is has finished?
+                //this.registrationCts?.Cancel();
 
                 //await WaitFor(
                 //    () => this.Registering == false && this.Registered == true,
@@ -146,57 +212,57 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
-            // set response listener
-            this.Connection.SIPResponseReceived += this.ListenForDisconnectAccept;
-
             // send disconnect message
-            // TODO: do something with the socket error
-            await this.SendSIPMessage(SIPMethodsEnum.BYE);
+            this.logger.LogDebug("Unregistering. From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
+                this.Params.SourceParticipant.Name,
+                this.Params.SourceTag,
 
-            // TODO: add failurecallback --> log failure to disconnect. Retry?
+                this.Params.RemoteParticipant.Name,
+                this.Params.RemoteTag);
+
+            await this.SendBYEMessage(4, ct);
+
             await WaitFor(
                 () => !this.Registered,
-                timeOut: this.ReceiveTimeout,
-                successCallback: () =>
-                {
-                    this.logger.LogDebug(
-                        "Successfully unregistered. From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
-                        this.Params.SourceParticipant.Name,
-                        this.Params.SourceTag,
-
-                        this.Params.RemoteParticipant.Name,
-                        this.Params.RemoteTag);
-                });
-
-            // remove listener
-            // TODO: will this always run after previous task is finished?
-            this.Connection.SIPResponseReceived -= this.ListenForDisconnectAccept; // remove listener
+                this.ReceiveTimeout
+                //failureCallback: // TODO: do something on timeout? Server did not send bye. Retry?
+                );
         }
 
-        private async Task ListenForDisconnectAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
+        private async Task ListenForDisconnect(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
         {
-            if (sipResponse.Status != SIPResponseStatusCodesEnum.Accepted)
+            if (sipRequest.Method != SIPMethodsEnum.BYE)
             {
-                // bad request - wrong status code
-                
-                // TODO: What to do on Unregister failed?
+                // wrong status code
                 return;
             }
 
-            if (this.Params.RemoteParticipant == null // why
-                || sipResponse.Header.CSeq != 2)
+            if (sipRequest.Header.CSeq != 2
+                && sipRequest.Header.CSeq != 4
+                && sipRequest.Header.CSeq != 5
+                )
             {
                 // bad request - header is invalid
-                // TODO: Unregister failed? - Server sent an invalid accepted
+                // TODO: Unregister failed? - Server sent an invalid bye
+
+                // 2 is a serversided unregister - right after register / instead of accepted
+                // 4 is a serversided unregister
+                // 5 is an ack of a client sided unregister
                 return;
             }
-    
+
+            this.logger.LogInformation("Unregistered. \"{fromName}\" - \"{toName}\"",
+                this.Params.SourceParticipant.Name,
+                this.Params.RemoteParticipant.Name);
+
+            this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
             this.ResetRegistration();
         }
 
-        private void RegistrationFailed()
+        private void RegistrationFailed(string message)
         {
-            this.logger.LogDebug("Registration failed. From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
+            this.logger.LogDebug("Registration failed. {message} From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
+                message,
                 this.Params.SourceParticipant.Name,
                 this.Params.SourceTag,
 
@@ -215,41 +281,19 @@ namespace WebRTCClient.Transactions.SIP
             this.Registered = false;
         }
 
-        private async Task SendSIPMessage(SIPMethodsEnum method, SIPHeaderParams? headerParams = null)
+        private async Task SendBYEMessage(int CSeq, CancellationToken ct)
         {
-            // TODO: Make ct Mandatory
-
-            //if ((!this.Registering && !this.Registered)
-            //    || (this.RemoteParticipant == null || this.SourceParticipant == null))
-            //{
-            //    // TODO: Log - not registered
-            //    return;
-            //}
-
-            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
-            using CancellationTokenSource cts = new CancellationTokenSource();
+            SIPHeaderParams headerParams = this.GetHeaderParams(CSeq);
 
             SocketError result = await this.Connection.SendSIPRequest(
-                method,
-                headerParams ?? this.GetHeaderParams(),
-                cts.Token,
+                SIPMethodsEnum.BYE,
+                headerParams,
+                ct,
                 this.SendTimeout);
 
-            // should we return socketerror?
-            switch (result)
+            if (result != SocketError.Success)
             {
-                case SocketError.Success:
-                    // Log("✅ SIP request sent successfully. " + method);
-                    // success
-                    break;
-
-                case SocketError.TimedOut:
-                    // timeout
-                    break;
-
-                default:
-                    // failure to send
-                    break;
+                // TODO: Do something. BYE message could not be sent. Retry?
             }
         }
 
