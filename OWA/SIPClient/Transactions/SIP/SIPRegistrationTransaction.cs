@@ -1,9 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
-using WebRTCLibrary.SIP;
+using WebRTCLibrary;
 using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.Utils;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -25,7 +24,7 @@ namespace WebRTCClient.Transactions.SIP
 
         //private CancellationToken? registrationCt;
 
-        public SIPRegistrationTransaction(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+        public SIPRegistrationTransaction(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(connection, dialogParams, loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPRegistrationTransaction>();

@@ -29,7 +29,7 @@ namespace WebRTCLibrary.SIP
 
         public TransactionParams Params { get; protected set; }
 
-        public SIPConnection Connection { get; private set; }
+        public ISIPConnection Connection { get; private set; }
 
         // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
         public SIPTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
@@ -39,7 +39,7 @@ namespace WebRTCLibrary.SIP
             this.Connection.MessageTimeout = this.SendTimeout;
         }
 
-        public SIPTransaction(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+        public SIPTransaction(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPTransaction>();
 

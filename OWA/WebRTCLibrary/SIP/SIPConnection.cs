@@ -3,10 +3,11 @@ using SIPSorcery.SIP;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
+using static WebRTCLibrary.ISIPConnection;
 
 namespace WebRTCLibrary.SIP
 {
-    public class SIPConnection
+    public class SIPConnection : ISIPConnection
     {
         private readonly ILogger<SIPConnection> logger;
 
@@ -14,7 +15,7 @@ namespace WebRTCLibrary.SIP
 
         public int MessageTimeout { get; set; } = defaultMessageTimeout;
 
-        public delegate bool AcceptMessage(SIPMessageBase message);
+        //public delegate bool AcceptMessage(SIPMessageBase message);
 
         public AcceptMessage? MessagePredicate { get; set; }
 

@@ -30,6 +30,8 @@ namespace WebRTCClient.Transactions.SIP
 
         private SIPKeepAlive SIPKeepAlive { get; set; }
 
+        private SIPTransport Transport { get; set; }
+
         public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, ILoggerFactory loggerFactory)
             : base(
                   sipScheme,
@@ -39,6 +41,8 @@ namespace WebRTCClient.Transactions.SIP
         {
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPDialog>();
+
+            this.Transport = transport;
 
             this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.Connection, this.Params, this.loggerFactory);
             this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params, this.loggerFactory);
@@ -73,7 +77,7 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteParticipant,
                 sourceTag: this.Params.SourceTag);
 
-            this.SIPConnectionTransaction = new SIPConnectionTransaction(SIPScheme, this.Connection.Transport, dialogParams, this.loggerFactory);
+            this.SIPConnectionTransaction = new SIPConnectionTransaction(SIPScheme, this.Transport, dialogParams, this.loggerFactory);
 
             this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
             this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;

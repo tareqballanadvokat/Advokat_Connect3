@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
-using WebRTCLibrary.SIP;
+using WebRTCLibrary;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCClient.Transactions.SIP
@@ -11,7 +11,7 @@ namespace WebRTCClient.Transactions.SIP
 
         public bool WaitingForPeer { get; set; }
 
-        public SIPKeepAlive(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+        public SIPKeepAlive(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(connection, dialogParams, loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPKeepAlive>();

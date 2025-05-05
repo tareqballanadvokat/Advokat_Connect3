@@ -8,6 +8,7 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 using Microsoft.Extensions.Logging;
 using WebRTCLibrary.SIP;
 using System.Net.Sockets;
+using WebRTCLibrary;
 
 namespace SIPSignalingServer.Transactions
 {
@@ -32,7 +33,7 @@ namespace SIPSignalingServer.Transactions
         public event Action<SIPRegistrationTransaction, FailedRegistrationEventArgs>? OnRegistrationFailed;
 
         public SIPRegistrationTransaction(
-            SIPConnection connection,
+            ISIPConnection connection,
             SIPRequest initialRequest,
             SIPEndPoint signalingServer,
             SIPRegistry registry,
@@ -46,7 +47,7 @@ namespace SIPSignalingServer.Transactions
         }
 
         public SIPRegistrationTransaction(
-            SIPConnection connection,
+            ISIPConnection connection,
             SIPRequest initialRequest,
             ServerSideTransactionParams transactionsParams,
             SIPRegistry registry,

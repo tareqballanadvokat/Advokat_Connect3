@@ -2,6 +2,7 @@
 using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
+using WebRTCLibrary;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -13,7 +14,7 @@ namespace SIPSignalingServer.Transactions
 
         public bool Relaying { get; private set; }
 
-        public SIPMessageRelay(SIPConnection connection, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
+        public SIPMessageRelay(ISIPConnection connection, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
             : base(connection, transactionParams, loggerFactory)
         {
             //this.loggerFactory = loggerFactory;

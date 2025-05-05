@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
+using WebRTCLibrary;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -19,7 +20,7 @@ namespace WebRTCClient.Transactions.SIP
 
 
 
-        public SIPMessaging(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+        public SIPMessaging(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(connection, dialogParams, loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPMessaging>();

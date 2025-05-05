@@ -40,6 +40,8 @@ namespace SIPSignalingServer.Transactions
 
         private SIPConnectionTransaction? SIPConnectionTransaction { get; set; }
 
+        private SIPTransport Transport { get; set; }
+
         public SIPDialog(
             SIPSchemesEnum sipScheme,
             SIPTransport transport,
@@ -57,6 +59,8 @@ namespace SIPSignalingServer.Transactions
         {
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPDialog>();
+
+            this.Transport = transport;
 
             this.InitialRequest = initialRequest;
             this.Registry = registry;
@@ -121,7 +125,7 @@ namespace SIPSignalingServer.Transactions
         {            
             this.SIPConnectionTransaction = new SIPConnectionTransaction(
                 this.SIPScheme,
-                this.Connection.Transport, // TODO: Check if we sohuld pass connection
+                this.Transport, // TODO: Check if we sohuld pass connection
                 this.Params,
                 this.Registry,
                 this.ConnectionPool,
