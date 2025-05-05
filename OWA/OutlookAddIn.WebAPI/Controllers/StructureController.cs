@@ -99,8 +99,30 @@ public class StructureController : ControllerBase
         }
         return new JsonResult(list);
     }
-     
 
+    [HttpGet("get-structure")]
+    public ActionResult<HierarchyTree> GetStructure()
+    {
+        //needs to remove currently added nodes!!!!
+        var customTree = DatabaseServiceMock.customTree;
+        var list = new List<HierarchyTree>();
+        var allPossibilities = customTree.ToList();
+        foreach (var item in allPossibilities)
+        {
+            var dd = customTree.Where(x => x.Id == item.Id).First();
+            while (dd.RootId != 0)
+            {
+                dd = customTree.Where(x => x.Id == dd.RootId).First();
+            }
+            if (!list.Any(x => x.Id == dd.Id))
+                list.Add(dd);
+        }
+        foreach (var item in DatabaseServiceMock.favoritesList)
+        {
+            list.Remove(item);
+        }
+        return new JsonResult(list);
+    }
 }
 
 

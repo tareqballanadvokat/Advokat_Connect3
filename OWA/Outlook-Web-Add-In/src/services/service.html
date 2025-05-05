@@ -154,7 +154,7 @@ window.onclick = function(event) {
         <h3>- Search panel</h3>
         <div class="search-box">
           <input type="text" class="email_style"  id="email-search-structure-input"  placeholder="Search..." style="width:150px">
-          <img width="16"  id="email-search-button"  height="16" src="/assets/icon-16.png"  alt="Search" title="Search"/>
+          <img    id="email-search-button"  height="32" src="/assets/search-icon.png"  alt="Search" title="Search"/>
         </div>
         <div  class="results-container">        
           <div class="result-row">
@@ -176,9 +176,9 @@ window.onclick = function(event) {
       <div class="search-panel">
         <h3>Case</h3>
         <div class="search-box">
-          <input id="email-case-id-input" type="text" placeholder="Case ID" style="width:100px;"   class="email_style" >
+          <input id="email-case-id-input" type="text" placeholder="Case ID" style="width:170px;"   class="email_style" >
         
-            <img width="16"  id="email-transfer-btn"  height="16" src="/assets/icon-16.png"  alt="Search" title="Transfer to ADVOKAT"/>
+            <img   id="email-transfer-btn"  height="32" src="/assets/transfer.png"  alt="Search" title="Transfer to ADVOKAT"/>
          
         </div>
       </div>
@@ -209,18 +209,15 @@ window.onclick = function(event) {
             <option>Email</option>
           </select>       
         </div>       
-        <div class="search-box" style="padding-bottom: 5px">
-          <input type="text"  class="email_style"  style="width:230px;"  placeholder="Text" >
-        </div>
-        <div class="search-box" style="padding-bottom: 5px">
-          <input  id="email-transfer-attachement-btn-checkbox"  type="checkbox"  style="width:15px" >
-          <input  class="email_style"  type="text"  style="width:140px;height:30px"  value="Zusatzvereinbarung">
-          <select style="width:65px"  class="email_style" >
-            <option>Aktenordner</option>
-          </select></div>
-          <div class="search-box" style="padding-bottom: 5px">
-            <input  class="email_style" type="text" placeholder="Text" style="width:230px;">
+        <div id="email-attachment-container-id" class="search-box" style="padding-bottom: 5px">
+          <div style="    margin-bottom: 5px;">
+            <input  id="email-transfer-attachement-btn-checkbox"  type="checkbox"  style="width:15px" >
+            <input  class="email_style"  type="text"  style="width:140px;height:30px"  value="Zusatzvereinbarung">
+            <select style="width:65px"  class="email_style" >
+              <option>Aktenordner</option>
+            </select>
           </div>
+        </div>
       </div>
 
       <hr class="solid">

@@ -2,7 +2,9 @@
 import { showSuccess, showError, setOptions } from "../helpers/toastrHelper";
 
 const baseUrl="https://localhost:7231/";
- const structureSearchCases = "api/structure/search-cases";                //case/search - generic search-cases
+const structureSearchCases = "api/structure/search-cases";                //case/search - generic search-cases
+const getStructureEndpoint = "api/structure/get-structure";                       //case/search - generic search-cases
+const getSAbbreviation = "api/abbreviation/get-abbreviation";                       //case/search - generic search-cases
 
 const searchGetStructureById = "api/structure/get-structure-by-id";      //structure/get-structure-by-id
 
@@ -113,6 +115,49 @@ export function addToAdvocat(emailModel) {
   });
 
 }
+
+
+export function getStructureApi() {
+
+  return fetch(baseUrl + getStructureEndpoint, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .catch(error => {
+    console.error("Błąd fetch:", error);
+    showError("Get Emails Failed: " + error);
+  });
+
+}
+
+
+export function getAbbreviationApi() {
+
+  return fetch(baseUrl + getSAbbreviation, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .catch(error => {
+    console.error("Błąd fetch:", error);
+    showError("Get Emails Failed: " + error);
+  });
+
+}
+
+
+
 export function getRegisteredEmails() {
 
   return fetch(baseUrl + emailGetRegistered, {

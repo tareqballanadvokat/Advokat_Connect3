@@ -1,5 +1,5 @@
 import { showSuccess, showError, setOptions } from "../helpers/toastrHelper";
-import { addToAdvocat, searchCases, getRegisteredEmails } from "../helpers/webApiReqests";
+import { addToAdvocat, searchCases, getRegisteredEmails, getStructureApi, getAbbreviationApi } from "../helpers/webApiReqests";
  
  
 export function initEmail() 
@@ -10,10 +10,63 @@ export function initEmail()
     document.getElementById("email-search-button").onclick = EmailSearchStructure;
     document.getElementById("email-transfer-btn").onclick = AddToAdvocat;
     setOptions();
+    CalculateEmails();
+    GetAbbreviationAsync();
     showSuccess("EmailOpened", "Your Message"); 
  
 }
 
+async function CalculateEmails() {
+    const options = [
+        { value: "", text: "-- wybierz --" }
+      ];
+   await getStructureApi()
+    .then(data => {
+        data.forEach(item => {
+            options.push({value: item.name, text: item.name});
+            });
+        }) 
+    
+    .catch(err => {
+        showError(err, "Search case failed"); 
+    });
+
+
+   
+  
+    const $results = $("#email-attachment-container-id");
+    $results.empty(); 
+  
+    const item = Office.context.mailbox.item;
+  
+    for (const att of item.attachments) {
+      const $row = $("<div>").addClass("email-row");
+  
+      const checkbox = $("<input>", {
+        type: "checkbox",
+        class: "email-checkbox email_style",
+        value: att.name,
+        "data-node-id": att.id
+      }).css("width", "15px");
+  
+      const data = $("<input>")
+        .addClass("email_style")
+        .val(att.name)
+        .css({ width: "140px", "margin-left": "5px" });
+  
+      const select = $("<select>")
+        .addClass("email_style")
+        .css({ width: "65px", "margin-left": "5px" });
+  
+      options.forEach(opt => {
+        select.append($("<option>", { value: opt.value, text: opt.text }));
+      });
+  
+      $row.append(checkbox, data, select);
+      $results.append($row);
+    }
+  }
+  
 
 export async function EmailSearchStructure()
 {
@@ -51,84 +104,29 @@ export async function EmailSearchStructure()
         showError(err, "Search case failed"); 
     });
 }
-
-// const getAttachments = async () => {
-//     const result = [];
-  
-//     for (const att of item.attachments) {
-//       await new Promise((resolve) => {
-//         item.getAttachmentContentAsync(att.id, (res) => {
-//           if (res.status === Office.AsyncResultStatus.Succeeded) {
-//             result.push({
-//               fileName: att.name,
-//               contentBase64: res.value.content
-//             });
-//           }
-//           resolve();
-//         });
-//       });
-//     }
-  
-//     return result;
-//   };
+ 
 
 export async function AddToAdvocat()
 {
-    const isEmailChecked = document.getElementById('email-transfer-btn-checkbox').checked;
-    const isAttachementChecked = document.getElementById('email-transfer-attachement-btn-checkbox').checked;
-    const item = Office.context.mailbox.item;
-    const attachmentDict = new Map();
-//    item.getAttachmentsAsync\
-// const attachemnt =[];
-    if (!isComposeMode(item)) 
-    {    
-        console.log("readmode"); // to teraz wykona się PO zakończeniu    
-        var attachements = await getReadModeAttachmentsAsync(item,' _att.id');
     
-   
-        // if (item.attachments.length > 0) 
-        // {
-        //     for (var i = 0 ; i < item.attachments.length ; i++) 
-        //     {
-        //         var _att = item.attachments[i];
-        //         const attachemnetContent = await getReadModeAttachmentsAsync(item, _att.id);
-        //         attachemnt.push({
-        //             fileName: _att.name,
-        //             contentBase64: attachemnetContent.content
-        //           });
-        //     }
-        // }        
-    } else 
+    const isEmailChecked = document.getElementById('email-transfer-btn-checkbox').checked;
+    const item = Office.context.mailbox.item;
+    var attachements = [];
+    if (item !== undefined)
     {
-        console.log("compose mode"); // to teraz wykona się PO zakończeniu
-        const attachements = await getComposeModeAttachmentsAsync(item);
+        if (!isComposeMode(item)) 
+        {    
+            console.log("readmode"); // to teraz wykona się PO zakończeniu    
+            attachements = await getReadModeAttachmentsAsync(item,' _att.id');
+        } else 
+        {
+            console.log("compose mode"); // to teraz wykona się PO zakończeniu
+            attachements = await getComposeModeAttachmentsAsync(item);
+        }
     }
-
     try {
       const internetMessageId = await getInternetMessageIdAsync(item);
       const emailContent = await getEmailAsync(item);
-       
-    //   const attachments = [];
-    //   for (const [key, value] of attachmentDict) {
-    //     console.log(key, value);
-    //     const attachemntModel = {
-    //         name: key,           
-    //         emailContent: value.content
-    //     };
-    
-    //   }
-  
-
-    //      attachments = [
-    //     {
-    //       fileName: "umowa.pdf",
-    //       contentBase64: "JVBERi0xLjcKJc..." // przykładowy base64
-    //     },
-    //     {
-    //       fileName: "plik.txt",
-    //       contentBase64: "U29tZSBjb250ZW50IGhlcmU=" // też base64
-    //     }
-    //   ];
 
       const model = {
         caseId: $("#email-case-id-input").val(),
@@ -215,49 +213,51 @@ function getEmailAsync(item) {
         });
     });
 }
+async function GetAbbreviationAsync() {
+
+    const options = [
+        { value: "", text: "-- wybierz --" }
+      ];
+      await getAbbreviationApi()
+        .then(data => {
+            data.forEach(item => {
+                    options.push({value: item.id, text: item.name});
+                });
+            })     
+        .catch(err => {
+            showError(err, "Search case failed"); 
+        });
+}
+ 
 
 async function  getReadModeAttachmentsAsync(item, attachemntId) {
-
-    //  return new Promise((resolve, reject) => {
-        
-    
-    //     item.getAttachmentContentAsync(attachemntId, (asyncResult) => {
-    //      if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-    //          resolve( asyncResult.value)
-    //        } else {
-    //          reject(asyncResult.error.message);
-    //        }
-    //      });
-   
-    //  });
-
      var result=[];
+     var resultChecked=[];
+     $(".email-checkbox:checked").each(function () {
+        const id = $(this).data("node-id");
+        const value = $(this).val();
+        console.log("✅ Zaznaczony załącznik:", value, " | ID:", id);
 
-for (const att of item.attachments) {
-      await new Promise((resolve) => {
-        item.getAttachmentContentAsync(att.id, (res) => {
-          if (res.status === Office.AsyncResultStatus.Succeeded) {
-            result.push({
-              fileName: att.name,
-              contentBase64: res.value.content
-            });
-          }
-          resolve();
-        });
+        resultChecked.push({
+                      id:id,
+                      value:value
+                    });
+     
       });
-    }
-    // if (item.attachments.length > 0) 
-    //     {
-    //         for (var i = 0 ; i < item.attachments.length ; i++) 
-    //         {
-    //             var _att = item.attachments[i];
-           
-    //             attachemnt.push({
-    //                 fileName: _att.name,
-    //                 contentBase64: attachemnetContent.content
-    //               });
-    //         }
-    //     }        
+
+for (const att of resultChecked) {
+   await new Promise((resolve) => {
+            item.getAttachmentContentAsync(att.id, (res) => {
+              if (res.status === Office.AsyncResultStatus.Succeeded) {
+                result.push({
+                  fileName:att.value,
+                  contentBase64: res.value.content
+                });
+              }
+              resolve();
+            });
+          });
+}   
     return result;;
 }
  
@@ -275,7 +275,7 @@ function getComposeModeAttachmentsAsync(item)
 function callback(result) {
     if (result.value.length > 0) {
         for (let i = 0 ; i < result.value.length ; i++) {
-            result.asyncContext.currentItem.getAttachmentContentAsync(result.value[i].id, handleAttachmentsCallback);
+             result.asyncContext.currentItem.getAttachmentContentAsync(result.value[i].id, handleAttachmentsCallback);
         }
     }
 }
