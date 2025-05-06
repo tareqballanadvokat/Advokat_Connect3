@@ -10,13 +10,14 @@ export function initEmail()
     document.getElementById("email-search-button").onclick = EmailSearchStructure;
     document.getElementById("email-transfer-btn").onclick = AddToAdvocat;
     setOptions();
-    CalculateEmails();
+    CalculateEmailInfoAndAttachment();
     GetAbbreviationAsync();
     showSuccess("EmailOpened", "Your Message"); 
  
 }
 
-async function CalculateEmails() {
+async function CalculateEmailInfoAndAttachment() 
+{
     const options = [
         { value: "", text: "-- wybierz --" }
       ];
@@ -34,12 +35,14 @@ async function CalculateEmails() {
 
    
   
+    const $emailText = $("#email-transfer-btn-text");
     const $results = $("#email-attachment-container-id");
     $results.empty(); 
   
     const item = Office.context.mailbox.item;
-  
-    for (const att of item.attachments) {
+    $emailText.val(item.subject);
+    for (const att of item.attachments) 
+    {
       const $row = $("<div>").addClass("email-row");
   
       const checkbox = $("<input>", {
@@ -65,7 +68,7 @@ async function CalculateEmails() {
       $row.append(checkbox, data, select);
       $results.append($row);
     }
-  }
+}
   
 
 export async function EmailSearchStructure()
@@ -83,11 +86,12 @@ export async function EmailSearchStructure()
         $row.append($("<div style='width:350px'>", {class:"name"}).text(item.name));
         $row.append($("<div>", {class:"causa"}).text(item.causa));
 
-        const $div = $("<div>", {"data-node-id": item.id, class: "button"})
+        const $div = $("<div>", {"data-node-id": item.id, "data-node-text":item.name, class: "button"})
         .html(`<button><img width="16" id="email-search-button" height="16" src="/assets/icon-16.png" alt="Insert" title="Insert"/></button>`)
         .on("click", async function () 
             {
-            const nodeId = $(this).data("node-id");
+            const nodeId = $(this).data("node-text");
+            // const nodeId = $(this).data("node-id");
             console.log(nodeId);
             $("#email-case-id-input").val(nodeId);
             
@@ -112,9 +116,12 @@ export async function AddToAdvocat()
     const isEmailChecked = document.getElementById('email-transfer-btn-checkbox').checked;
     const item = Office.context.mailbox.item;
     var attachements = [];
+    var isReadOnlyMode = !isComposeMode(item);
+    var emailContent ;
+    var itemId;
     if (item !== undefined)
     {
-        if (!isComposeMode(item)) 
+        if (isReadOnlyMode) 
         {    
             console.log("readmode"); // to teraz wykona się PO zakończeniu    
             attachements = await getReadModeAttachmentsAsync(item,' _att.id');
@@ -123,34 +130,48 @@ export async function AddToAdvocat()
             console.log("compose mode"); // to teraz wykona się PO zakończeniu
             attachements = await getComposeModeAttachmentsAsync(item);
         }
+        itemId = await getItemId(isReadOnlyMode, item);// item.itemId;
+        if (isEmailChecked)
+        {
+            emailContent = await getEmailAsync(item);
+        }
     }
     try {
-      const internetMessageId = await getInternetMessageIdAsync(item);
-      const emailContent = await getEmailAsync(item);
-
       const model = {
         caseId: $("#email-case-id-input").val(),
         serviceAbbreviationType:  $('#email-abbreviation-select').find(":selected").text(), ///to nie zwraca popwanej wartosci z select'a
         srviceSB:  $("#email-sb-input").val(),
         serviceTime:  $("#email-time-input").val(),
         serviceText:  $("#email-text-input").val(),
-        internetMessageId : internetMessageId[1].trim(),
+        internetMessageId :itemId,// internetMessageId[1].trim(),
         userId :1,
+        emailName: item.subject,
         emailContent: emailContent,
         attachments : attachements
-      };
-
-     
+      };     
       await addToAdvocat(model);
       await GetEmailsInLast7Days(); // jeśli zwraca Promise – jeśli nie, usuń await
   
-    } catch (error) {
+    } catch (error) 
+    {
       console.error("Błąd:", error);
     }
   
     console.log("email"); // to teraz wykona się PO zakończeniu
 }
 
+async function getItemId(isReadOnlyMode, item){
+    const itemId = item.itemId;
+
+    try 
+    {        
+      const internetMessageId = await getInternetMessageIdAsync(item);
+      return internetMessageId[1].trim();
+    } catch (error) 
+    {
+        return itemId ;
+    }    
+}
 
 
 
@@ -166,7 +187,7 @@ export function GetEmailsInLast7Days()
         data.forEach(item => {
         const $row = $("<div>", { class: "result-row" });
 
-        $row.append($("<div>", {class:"name"}).text(item.caseId));
+        $row.append($("<div>", {class:"name"}).text(item.emailName));
         $row.append($("<div>", {class:"causa"}).text(item.internetMessageId));
 
         const $div = $("<div>", {"data-node-id": item.caseId, class: "button"});
@@ -223,6 +244,12 @@ async function GetAbbreviationAsync() {
             data.forEach(item => {
                     options.push({value: item.id, text: item.name});
                 });
+
+                const select = $("#email-abbreviation-select");
+          
+                options.forEach(opt => {
+                    select.append($("<option>", { value: opt.value, text: opt.text }));
+                });                
             })     
         .catch(err => {
             showError(err, "Search case failed"); 
