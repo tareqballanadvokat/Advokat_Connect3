@@ -100,6 +100,7 @@ namespace WebRTCClient.Transactions.SIP
             await WaitFor(
                 () => this.PeerListeningConfirmation,
                 this.ReceiveTimeout,
+                ct: CancellationToken.None, // TODO: implement cancellation logic
                 failureCallback: () => { } // TODO: fail connection
                 );
 

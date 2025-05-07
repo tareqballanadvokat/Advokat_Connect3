@@ -7,10 +7,10 @@ namespace SIPSignalingServer
 {
     internal class SIPConnectionPool
     {
-
         private readonly ILogger<SIPConnectionPool> logger;
 
-        // TODO: lock list
+        private readonly object lockObject = new object();
+        
         private readonly List<SIPTunnel> Connections = new List<SIPTunnel>();
 
         private readonly List<SIPMessageRelay> PendingConnections = new List<SIPMessageRelay>();
@@ -34,16 +34,19 @@ namespace SIPSignalingServer
                 return;
             }
 
-            SIPMessageRelay? pendingPeerMessageRelay = this.GetPendingPeer(messageRelay);
-
-            if (pendingPeerMessageRelay == null)
+            lock (this.lockObject)
             {
-                this.AddPending(messageRelay);
-                return;
-            }
+                SIPMessageRelay? pendingPeerMessageRelay = this.GetPendingPeer(messageRelay);
 
-            this.CreateNewConnection(messageRelay, pendingPeerMessageRelay);
-            this.PendingConnections.Remove(pendingPeerMessageRelay);
+                if (pendingPeerMessageRelay == null)
+                {
+                    this.AddPending(messageRelay);
+                    return;
+                }
+
+                this.CreateNewConnection(messageRelay, pendingPeerMessageRelay);
+                this.PendingConnections.Remove(pendingPeerMessageRelay);
+            }
         }
 
         //public bool IsConnected(ServerSideTransactionParams transactionParams)
@@ -125,18 +128,21 @@ namespace SIPSignalingServer
 
         private void AddPending(SIPMessageRelay messageRelay)
         {
-            // TODO: which equality comparer gets used? override?
-            if (this.PendingConnections.Contains(messageRelay))
+            lock (this.lockObject)
             {
-                // already contains messageRelay
+                // TODO: which equality comparer gets used? override?
+                if (this.PendingConnections.Contains(messageRelay))
+                {
+                    // already contains messageRelay
 
-                return;
+                    return;
+                }
+
+                messageRelay.Params.CallId = CallProperties.CreateNewCallId(); // creates new call id for connection
+
+                this.logger.LogDebug("Added new pending connection. From:'{caller}', to:'{remote}'.", messageRelay.Params.ClientParticipant, messageRelay.Params.RemoteParticipant);
+                this.PendingConnections.Add(messageRelay);
             }
-
-            messageRelay.Params.CallId = CallProperties.CreateNewCallId(); // creates new call id for connection
-
-            this.logger.LogDebug("Added new pending connection. From:'{caller}', to:'{remote}'.", messageRelay.Params.ClientParticipant, messageRelay.Params.RemoteParticipant);
-            this.PendingConnections.Add(messageRelay);
         }
 
         private void CreateNewConnection(SIPMessageRelay messageRelay, SIPMessageRelay pendingPeerMessageRelay)

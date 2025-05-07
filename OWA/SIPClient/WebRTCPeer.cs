@@ -111,6 +111,7 @@ namespace WebRTCClient
                 () => this.p2pConnection.IsConnected,
                 timeOut: 5000, // TODO: find suitable timout for p2p connection
                                //       This is the reason why the waiting peer does not fire the OnConnected event when we wait a bit
+                ct: CancellationToken.None, // TODO: implement cancellation logic
                 successCallback: this.DirectConnectionOpen
                 // TODO: Timeout
                 );

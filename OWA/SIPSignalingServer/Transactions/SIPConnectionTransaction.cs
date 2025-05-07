@@ -118,8 +118,9 @@ namespace SIPSignalingServer.Transactions
                 await WaitForAsync(
                     () => this.Registry.PeerIsRegistered(this.Registration), // TODO: make PeerIsRegistered an event. If registry is a db we shouldn't hit it this often.
                     this.PeerRegisteringCts.Token,
-                    successCallback: this.Connect
-                    );
+                    CancellationToken.None, // TODO: implement cancellation logic
+                    // TODO: interval?
+                    successCallback: this.Connect);
             }
         }
 
@@ -151,6 +152,7 @@ namespace SIPSignalingServer.Transactions
             await WaitFor(
                 () => this.ConnectionAcknowledged,
                 timeOut: this.ReceiveTimeout,
+                CancellationToken.None, // TODO: implement cancellation
                 failureCallback: () => { this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Client took to long to respond to connection notify. Timeout."); });
 
             this.Connection.SIPRequestReceived -= this.ListenForAck;
@@ -185,8 +187,10 @@ namespace SIPSignalingServer.Transactions
                 timeOut: this.ReceiveTimeout, // TODO: pass ct
                                               //       ACK from both clients has to be received for IsConnected to be true.
                                               //       How long should the timeout be? Probably a bit longer than default Receive timeout
+                CancellationToken.None, // TODO: pass ct
                 successCallback: this.SendConnectionNotify,
                 failureCallback: this.AckTimeout
+                // TODO: interval?
                 );
 
             this.Connecting = false;

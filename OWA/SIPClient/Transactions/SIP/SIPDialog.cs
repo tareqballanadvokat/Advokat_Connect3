@@ -58,6 +58,7 @@ namespace WebRTCClient.Transactions.SIP
             await WaitForAsync(
                 () => this.Registered,
                 this.ReceiveTimeout, // TODO: Find suitable timeout for registration process
+                ct: CancellationToken.None, // TODO: implement cancellation logic
                 successCallback: this.RegistationSuccessful,
                 failureCallback: async () => { }); // TODO: what to do on registering failure / timeout
         }
@@ -90,6 +91,7 @@ namespace WebRTCClient.Transactions.SIP
             await WaitFor(
                 () => this.Connected,
                 this.ReceiveTimeout, // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register. have a timeout at all?
+                ct: CancellationToken.None, // TODO: implement cancellation logic
                 successCallback: () =>
                 {
                     this.logger.LogInformation("SIP Connection established. {caller} - {remote}",

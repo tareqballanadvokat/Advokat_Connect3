@@ -47,7 +47,12 @@ namespace WebRTCLibrary.SIP
             this.Connection = connection;
         }
 
-        public abstract Task Start();
+        // TODO: remove completely - remplace with start with a ct
+        public async virtual Task Start() { }
+
+        // TODO: make abstract
+        public async virtual Task Start(CancellationToken? ct = null) { }
+
 
         public abstract Task Stop(); // ??
 

@@ -126,6 +126,8 @@ namespace SIPSignalingServer.Transactions
                 () => this.Registry.IsConfirmed(this.Registration),
                 //() => this.registrationConfirmed && this.Registry.IsConfirmed(this.Registration),
                 timeOut: this.ReceiveTimeout,
+                CancellationToken.None, // TODO: Pass ct
+                // TODO: interval?
                 successCallback: async () => { this.Registered = true; },
                 failureCallback: async () => await this.RegistrationFailed(4, SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."));
 

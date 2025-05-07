@@ -33,6 +33,7 @@ namespace WebRTCClient.Transactions.SDP
             await WaitForAsync(
                 () => this.PeerIsAnswering,
                 20000, // TODO: Find suitable timeout
+                ct: CancellationToken.None, // TODO: implement cancellation logic
                 successCallback: this.SendSDPOffer
                 // TODO: failurecallback ? 
                 );
@@ -160,7 +161,9 @@ namespace WebRTCClient.Transactions.SDP
 
             await WaitFor(
                 () => this.AnswerReceived,
-                timeOut: 20000); // TODO: get real timeout
+                timeOut: 20000, // TODO: get real timeout
+                ct: CancellationToken.None // TODO: implement cancellation logic
+                );
 
             // TODO: For some reason wait for does not wait here. Does it not work in general?
             //this.Connection.OnRequestReceived -= this.ListenForSDPAnswer;

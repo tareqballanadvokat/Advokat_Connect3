@@ -88,6 +88,7 @@ namespace WebRTCClient
             await WaitForAsync(
                 () => this.Dialog.Connected, // TODO: start listening on MessagingDialog set? Request could be dropped between peer confirmation and start of SPD listener
                 timeOut: 5000, // TODO: Get timout for connection
+                ct: CancellationToken.None, // TODO: implement cancellation logic
                 //successCallback: async () => await this.ConnectWithPeer(iceServers)
                 successCallback: async () => await (this.OnConnected?.Invoke(this) ?? Task.CompletedTask)
                 // failureCallback: TODO: Timeout behaviour

@@ -109,6 +109,8 @@ namespace SIPSignalingServer.Transactions
             await WaitForAsync(
                 () => this.SIPRegistrationTransaction.Registered,
                 timeOut: this.RegistrationTimeout,
+                CancellationToken.None, // TODO: implement cancellation logic
+                // TODO: interval?
                 //failureCallback: // StopRegistration , // TODO: do something on timeout
                 successCallback: this.Connect);
 
@@ -145,6 +147,8 @@ namespace SIPSignalingServer.Transactions
 
             await WaitForAsync(this.IsConnected,
                 ct,
+                CancellationToken.None, // TODO: add cancelation logic
+                // TODO: interval?
                 successCallback: this.StartICENegotiation
                 //failureCallback: () => { } // timeout - token got cancelled // TODO: Stop Connection and unregister?
                 ); 

@@ -31,6 +31,7 @@ namespace WebRTCClient.Transactions.SDP
             await WaitForAsync(
                 () => this.PeerIsOffering,
                 20000, // TODO: find suitable timeout for offering ack of peer
+                ct: CancellationToken.None, // TODO: implement cancellation logic
                 successCallback: this.SendACK
                 // TODO: failurecallback
                 );
@@ -98,6 +99,7 @@ namespace WebRTCClient.Transactions.SDP
             await WaitForAsync(
                 () => this.OfferReceived,
                 20000, // TODO: get suitable timeout
+                ct: CancellationToken.None, // TODO: implement cancellation logic
                 successCallback: this.SendSDPAnswer
                 // TODO: Failurecallback?
                 );
