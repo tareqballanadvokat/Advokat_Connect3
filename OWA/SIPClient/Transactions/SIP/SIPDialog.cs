@@ -60,7 +60,7 @@ namespace WebRTCClient.Transactions.SIP
                 this.ReceiveTimeout, // TODO: Find suitable timeout for registration process
                 ct: CancellationToken.None, // TODO: implement cancellation logic
                 successCallback: this.RegistationSuccessful,
-                failureCallback: async () => { }); // TODO: what to do on registering failure / timeout
+                timeoutCallback: async () => { }); // TODO: what to do on registering failure / timeout
         }
 
         public override async Task Stop()

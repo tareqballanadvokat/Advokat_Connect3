@@ -101,7 +101,7 @@ namespace WebRTCClient.Transactions.SIP
                 () => this.PeerListeningConfirmation,
                 this.ReceiveTimeout,
                 ct: CancellationToken.None, // TODO: implement cancellation logic
-                failureCallback: () => { } // TODO: fail connection
+                timeoutCallback: () => { } // TODO: fail connection
                 );
 
             this.Connection.SIPRequestReceived -= this.ConnectionNotifyListener;

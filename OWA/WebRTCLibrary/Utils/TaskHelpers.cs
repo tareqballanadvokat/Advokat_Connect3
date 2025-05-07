@@ -8,12 +8,13 @@
            int timeOut,
            CancellationToken ct,
            Action? successCallback = null,
-           Action? failureCallback = null)
+           Action? timeoutCallback = null,
+           Action? cancellationCallback = null)
         {
             CancellationTokenSource timeoutCts = new CancellationTokenSource(timeOut);
             CancellationToken timeoutCt = timeoutCts.Token;
 
-            await WaitFor(predicate, timeoutCt, ct, successCallback, failureCallback);
+            await WaitFor(predicate, timeoutCt, ct, successCallback, timeoutCallback, cancellationCallback);
         }
 
         public static async Task WaitFor(
@@ -21,7 +22,8 @@
             CancellationToken timeoutCt,
             CancellationToken ct,
             Action? successCallback = null,
-            Action? failureCallback = null)
+            Action? timeoutCallback = null,
+            Action? cancellationCallback = null)
         {
             await Task.Factory.StartNew(() =>
             {
@@ -29,10 +31,11 @@
                 {
                     if (ct.IsCancellationRequested)
                     {
+                        cancellationCallback?.Invoke();
                         return;
                     }
 
-                    if (predicate.Invoke())
+                    if (predicate())
                     {
                         // success
                         successCallback?.Invoke();
@@ -41,7 +44,7 @@
                 }
 
                 // timout/failure
-                failureCallback?.Invoke();
+                timeoutCallback?.Invoke();
             });
         }
 
@@ -51,12 +54,13 @@
             CancellationToken ct,
             int interval,
             Action? successCallback = null,
-            Action? failureCallback = null)
+            Action? timeoutCallback = null,
+            Action? cancellationCallback = null)
         {
             CancellationTokenSource timeoutCts = new CancellationTokenSource(timeOut);
             CancellationToken timeoutCt = timeoutCts.Token;
 
-            await WaitFor(predicate, timeoutCt, ct, interval, successCallback, failureCallback);
+            await WaitFor(predicate, timeoutCt, ct, interval, successCallback, timeoutCallback, cancellationCallback);
         }
 
         public static async Task WaitFor(
@@ -65,7 +69,8 @@
             CancellationToken ct,
             int interval,
             Action? successCallback = null,
-            Action? failureCallback = null)
+            Action? timeoutCallback = null,
+            Action? cancellationCallback = null)
         {
             await Task.Factory.StartNew(() =>
             {
@@ -73,10 +78,11 @@
                 {
                     if (ct.IsCancellationRequested)
                     {
+                        cancellationCallback?.Invoke();
                         return;
                     }
 
-                    if (predicate.Invoke())
+                    if (predicate())
                     {
                         // success
                         successCallback?.Invoke();
@@ -88,7 +94,7 @@
                 }
 
                 // timout/failure
-                failureCallback?.Invoke();
+                timeoutCallback?.Invoke();
             });
         }
 
@@ -100,12 +106,13 @@
             CancellationToken ct,
             int interval,
             Func<Task>? successCallback = null,
-            Func<Task>? failureCallback = null)
+            Func<Task>? timeoutCallback = null,
+            Func<Task>? cancellationCallback = null)
         {
             CancellationTokenSource timeoutCts = new CancellationTokenSource(timeOut);
             CancellationToken timeoutCt = timeoutCts.Token;
 
-            await WaitForAsync(predicate, timeoutCt, ct, interval, successCallback, failureCallback);
+            await WaitForAsync(predicate, timeoutCt, ct, interval, successCallback, timeoutCallback, cancellationCallback);
         }
 
         public static async Task WaitForAsync(
@@ -114,7 +121,8 @@
             CancellationToken ct,
             int interval,
             Func<Task>? successCallback = null,
-            Func<Task>? failureCallback = null)
+            Func<Task>? timeoutCallback = null,
+            Func<Task>? cancellationCallback = null)
         {
             await Task.Factory.StartNew(async () =>
             {
@@ -122,15 +130,20 @@
                 {
                     if (ct.IsCancellationRequested)
                     {
+                        if (cancellationCallback != null)
+                        {
+                            await cancellationCallback();
+                        }
+
                         return;
                     }
 
-                    if (predicate.Invoke())
+                    if (predicate())
                     {
                         // success
                         if (successCallback != null)
                         {
-                            await successCallback.Invoke();
+                            await successCallback();
                         }
                         return;
                     }
@@ -140,9 +153,9 @@
                 }
 
                 // timout/failure
-                if (failureCallback != null)
+                if (timeoutCallback != null)
                 {
-                    await failureCallback.Invoke();
+                    await timeoutCallback();
                 }
             });
         }
@@ -152,12 +165,13 @@
             int timeOut,
             CancellationToken ct,
             Func<Task>? successCallback = null,
-            Func<Task>? failureCallback = null)
+            Func<Task>? timeoutCallback = null,
+            Func<Task>? cancellationCallback = null)
         {
             CancellationTokenSource timeoutCts = new CancellationTokenSource(timeOut);
             CancellationToken timeoutCt = timeoutCts.Token;
 
-            await WaitForAsync(predicate, timeoutCt, ct, successCallback, failureCallback);
+            await WaitForAsync(predicate, timeoutCt, ct, successCallback, timeoutCallback, cancellationCallback);
         }
 
         public static async Task WaitForAsync(
@@ -165,7 +179,8 @@
             CancellationToken timeoutToken,
             CancellationToken ct,
             Func<Task>? successCallback = null,
-            Func<Task>? failureCallback = null)
+            Func<Task>? timeoutCallback = null,
+            Func<Task>? cancellationCallback = null)
         {
             await Task.Factory.StartNew(async () =>
             {
@@ -173,24 +188,28 @@
                 {
                     if (ct.IsCancellationRequested)
                     {
+                        if (cancellationCallback != null)
+                        {
+                            await cancellationCallback();
+                        }
                         return;
                     }
 
-                    if (predicate.Invoke())
+                    if (predicate())
                     {
                         // success
                         if (successCallback != null)
                         {
-                            await successCallback.Invoke();
+                            await successCallback();
                         }
                         return;
                     }
                 }
 
                 // timout/failure
-                if (failureCallback != null)
+                if (timeoutCallback != null)
                 {
-                    await failureCallback.Invoke();
+                    await timeoutCallback();
                 }
             });
         }

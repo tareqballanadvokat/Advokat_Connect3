@@ -153,7 +153,7 @@ namespace SIPSignalingServer.Transactions
                 () => this.ConnectionAcknowledged,
                 timeOut: this.ReceiveTimeout,
                 CancellationToken.None, // TODO: implement cancellation
-                failureCallback: () => { this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Client took to long to respond to connection notify. Timeout."); });
+                timeoutCallback: () => { this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Client took to long to respond to connection notify. Timeout."); });
 
             this.Connection.SIPRequestReceived -= this.ListenForAck;
         }
@@ -189,7 +189,7 @@ namespace SIPSignalingServer.Transactions
                                               //       How long should the timeout be? Probably a bit longer than default Receive timeout
                 CancellationToken.None, // TODO: pass ct
                 successCallback: this.SendConnectionNotify,
-                failureCallback: this.AckTimeout
+                timeoutCallback: this.AckTimeout
                 // TODO: interval?
                 );
 

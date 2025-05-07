@@ -43,23 +43,13 @@ namespace WebRTCClient.Transactions.SIP
             this.registrationCts = new CancellationTokenSource();
         }
 
+        // TODO: remove once base class is changed to take a cancellationtoken
         public override async Task Start()
         {
-            await this.Register();
+            await this.Start(CancellationToken.None);
         }
 
-        public async Task Start(CancellationToken ct)
-        {
-            this.registrationCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            await this.Start();
-        }
-
-        public override async Task Stop()
-        {
-            await this.Unregister();
-        }
-
-        private async Task Register()
+        public override async Task Start(CancellationToken? ct = null)
         {
             if (this.Registered)
             {
@@ -73,14 +63,39 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
+            this.registrationCts = ct == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)ct);
+            await this.Register();
+        }
+
+        public override async Task Stop()
+        {
+            await this.Unregister();
+        }
+
+        private async Task Register()
+        {
             this.UnregisteredByServer = false;
             this.Registering = true;
+
             this.Params.SourceTag = CallProperties.CreateNewTag();
 
             // set response delegates
             this.Connection.SIPResponseReceived += this.ListenForRegistrationAccept;
             this.Connection.SIPRequestReceived += this.ListenForDisconnect;
 
+            bool success = await this.SendRegisterMessage();
+
+            await WaitForAsync(
+                () => this.Registered && !this.Registering,
+                timeOut: this.ReceiveTimeout,
+                ct: this.RegistrationCT,
+                timeoutCallback: this.RegistrationTimeout,
+                cancellationCallback: async () => this.RegistrationFailed($"Registration was cancelled.")
+                );
+        }
+
+        private async Task<bool> SendRegisterMessage()
+        {
             try
             {
                 SocketError result = await this.Connection.SendSIPRequest(
@@ -92,50 +107,31 @@ namespace WebRTCClient.Transactions.SIP
                 if (result != SocketError.Success)
                 {
                     // request did not get sent.
-                    //this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
-                    //this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
                     this.RegistrationFailed($"Failed to send Registration. {result}.");
-                    return;
+                    return false;
                 }
             }
             catch (OperationCanceledException)
             {
                 // Request did not get sent.
-                //this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
-                //this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
                 this.RegistrationFailed($"Registration was cancelled.");
-                return;
+                return false;
             }
 
-            await WaitForAsync(
-                () => this.Registered && !this.Registering,
-                this.ReceiveTimeout,
-                this.RegistrationCT,
-                failureCallback: this.RegistrationTimeout);
-
-            // TODO: make sure this happens after timeout / failure or success
-            // remove listener
-            this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
-
-            if (this.RegistrationCT.IsCancellationRequested)
-            {
-                //this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
-                this.RegistrationFailed($"Registration was cancelled.");
-            }
+            return true;
         }
 
         private async Task RegistrationTimeout()
         {
-            this.RegistrationFailed("Registration Timeout. Signaling server took too long to respond.");
-            
             // No cancellation. Bye should get sent even if the registration got cancelled.
             await this.SendBYEMessage(3, CancellationToken.None);
+            this.RegistrationFailed("Registration Timeout. Signaling server took too long to respond.");
 
             // TODO: Listen for server bye? If accepted had a timeout we shouldn't wait for the server to respond with a bye.
             //this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
             // TODO: remove acceptDelegate
 
-            this.ResetRegistration();
+            //this.ResetRegistration();
         }
 
         private async Task ListenForRegistrationAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
@@ -152,6 +148,7 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
+            this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
             await this.RegistrationAccepted(sipResponse);
         }
 
@@ -198,6 +195,7 @@ namespace WebRTCClient.Transactions.SIP
 
                 if (!this.UnregisteredByServer)
                 {
+                    // TODO: listen for bye from server?
                     await this.SendBYEMessage(cSeq, CancellationToken.None); // no cancellation for bye
                 }
             }
@@ -271,6 +269,9 @@ namespace WebRTCClient.Transactions.SIP
 
         private void RegistrationFailed(string message)
         {
+            this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
+            this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
+
             this.logger.LogDebug("Registration failed. {message} From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
                 message,
                 this.Params.SourceParticipant.Name,
@@ -278,9 +279,6 @@ namespace WebRTCClient.Transactions.SIP
 
                 this.Params.RemoteParticipant.Name,
                 this.Params.RemoteTag);
-
-            this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
-            this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
 
             this.Registering = false;
             this.ResetRegistration();
@@ -292,10 +290,6 @@ namespace WebRTCClient.Transactions.SIP
             this.Params.SourceTag = null;
             this.Params.RemoteTag = null;
             this.Registered = false;
-
-            // reset cancellation
-            // TODO: make sure this happens after everything else has been reset.
-            //this.registrationCts = new CancellationTokenSource();
         }
 
         // TODO: Remove ct as parameter and use Cancellationtoken None?

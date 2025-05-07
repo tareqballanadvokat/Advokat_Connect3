@@ -129,7 +129,7 @@ namespace SIPSignalingServer.Transactions
                 CancellationToken.None, // TODO: Pass ct
                 // TODO: interval?
                 successCallback: async () => { this.Registered = true; },
-                failureCallback: async () => await this.RegistrationFailed(4, SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."));
+                timeoutCallback: async () => await this.RegistrationFailed(4, SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."));
 
             // remove listener
             this.Connection.SIPRequestReceived -= this.ACKListener;
