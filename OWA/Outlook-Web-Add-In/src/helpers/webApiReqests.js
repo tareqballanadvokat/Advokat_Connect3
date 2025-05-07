@@ -15,6 +15,9 @@ const favoritesAddToList = "apu/favorite/add";          //favorites/add
 const emailAddToAdvocat = "api/email/add-to-advocat";
 const emailGetRegistered = "api/email/get-registered";
 
+const serviceAddUrl = "api/service/add-service";
+const serviceGetUrl = "api/service/get-services";
+
 export  function   addCaseToFavorites(nodeIsd) {
   return fetch(baseUrl + favoritesAddToList, {
     method: "POST",
@@ -177,3 +180,45 @@ export function getRegisteredEmails() {
 
 }
   
+
+
+//////
+//SERVICE Tab
+export function addService(serviceModel) {
+
+  return fetch(baseUrl + serviceAddUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(serviceModel)
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .catch(error => {
+    console.error("Błąd fetch:", error);
+    showError("Add Service failed: " + error);
+  });
+
+}
+
+
+export function getRegisteredService() 
+{
+  return fetch(baseUrl + serviceGetUrl, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .catch(error => {
+    console.error("Błąd fetch:", error);
+    showError("Get Service Failed: " + error);
+  });
+}

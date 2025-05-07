@@ -26,9 +26,7 @@ public class EmailController : ControllerBase
             //return Ok(DatabaseServiceMock.customEmails);
             return new JsonResult(DatabaseServiceMock.customEmails);
         }
-     
-
-            DatabaseServiceMock.customEmails.Add(query);
+        DatabaseServiceMock.customEmails.Add(query);
 
         return new JsonResult(DatabaseServiceMock.customEmails);
     }

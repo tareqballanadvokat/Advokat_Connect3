@@ -164,11 +164,6 @@ window.onclick = function(event) {
             </div>
         </div>
         <div id="email-search-results-container" class="results-container">
-            <!-- <div class="result-row">
-              <div class="name">ADVOKAT</div>
-              <div class="causa">Root</div>
-              <div data-node-id="1" class="button"><button>Add</button></div>
-            </div> -->
         </div>  
  
       </div>
@@ -249,8 +244,57 @@ window.onclick = function(event) {
   </div>
   
   <div id="Service" class="w3-container city" style="display:none">
-    <h2>Paris</h2>
-    <p>Paris is the capital of France.</p> 
+
+      <div class="search-panel">
+        <h3>- Search panel</h3>
+        <div class="search-box">
+          <input type="text" class="email_style"  id="service-search-structure-input"  placeholder="Search..." style="width:150px">
+          <img    id="service-search-button"  height="32" src="/assets/search-icon.png"  alt="Search" title="Search"/>
+        </div>
+        <div  class="results-container">        
+          <div class="result-row">
+              <div class="name" style="width:350px">Name</div>
+              <div class="causa">Causa</div>
+              <div data-node-id="1" class="button">&nbsp;</div>
+            </div>
+        </div>
+        <div id="service-search-results-container" class="results-container">
+        </div>  
+
+      </div>
+
+ 
+      <div class="search-panel">
+        <h3>Case</h3>
+        <div class="search-box">
+          <input id="service-case-id-input" type="text" placeholder="Case ID" style="width:170px;"   class="email_style" >
+        
+            <img   id="service-transfer-btn"  height="32" src="/assets/transfer.png"  alt="Search" title="Transfer to Service"/>
+         
+        </div>
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Services</h3> 
+        <select class="email_style" id="service-abbreviation-select" style="width:110px;" >
+        </select>
+        <input  id="service-sb-input" class="email_style"  type="text" placeholder="SB"  style="width:40px; padding: 5px;">
+        <input  id="service-time-input" class="email_style"  type="text" placeholder="Time"  style="width:70px;">     
+      </div>
+      <div class="search-panel">
+        <input  id="service-text-input"  class="email_style"  type="text" placeholder="Text"  style="width:230px; padding: 5px;">
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Registered Service <span style="font-weight:normal;">(last 7 days)</span></h3>
+        <div id="service-tab-last-7-days-registered"></div>
+      </div>
+
+
   </div>
   
   <div id="Case" class="w3-container city" style="display:none">     

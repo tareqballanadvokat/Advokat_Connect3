@@ -5,6 +5,7 @@ namespace OutlookAddIn.WebAPI.Services
     public class DatabaseServiceMock : IDatabaseServiceMock
     {
         public static List<AddToEmailModel> customEmails = new List<AddToEmailModel>();
+        public static List<ServiceModel> customService = new List<ServiceModel>();
         public static List<HierarchyTree> favoritesList = new List<HierarchyTree>();
         public static List<HierarchyTree> customTree = new List<HierarchyTree>();
         public static List<HierarchyTree> customItems = new List<HierarchyTree>();
