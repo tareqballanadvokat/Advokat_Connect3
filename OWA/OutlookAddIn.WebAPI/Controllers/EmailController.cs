@@ -37,6 +37,16 @@ public class EmailController : ControllerBase
     {
         return new JsonResult(DatabaseServiceMock.customEmails);
     }
+
+    [HttpPost("get")]
+    public ActionResult<AddToEmailModel> GetItem([FromBody] EmailModel id)
+    {
+        return new JsonResult(DatabaseServiceMock.customEmails.Where(x=> x.InternetMessageId == id.Id).FirstOrDefault());
+    }
+}
+public class EmailModel
+{
+    public string Id { get; set; }
 }
 
  

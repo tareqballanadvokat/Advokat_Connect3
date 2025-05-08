@@ -6,6 +6,9 @@
     font-family: Arial, sans-serif;
     padding: 20px;
 }
+h3{
+  font-size: 16px;
+}
 .tab-menu {
     display: flex;
     gap: 15px;

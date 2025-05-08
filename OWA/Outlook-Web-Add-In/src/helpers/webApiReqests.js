@@ -2,24 +2,25 @@
 import { showSuccess, showError, setOptions } from "../helpers/toastrHelper";
 
 const baseUrl="https://localhost:7231/";
-const structureSearchCases = "api/structure/search-cases";                //case/search - generic search-cases
-const getStructureEndpoint = "api/structure/get-structure";                       //case/search - generic search-cases
-const getSAbbreviation = "api/abbreviation/get-abbreviation";                       //case/search - generic search-cases
+const structureSearchCasesUrl = "api/structure/search-cases";                //case/search - generic search-cases
+const getStructureUrl = "api/structure/get-structure";                       //case/search - generic search-cases
+const getAbbreviationUrl = "api/abbreviation/get-abbreviation";                       //case/search - generic search-cases
 
-const searchGetStructureById = "api/structure/get-structure-by-id";      //structure/get-structure-by-id
+const searchGetStructureByIdUrl = "api/structure/get-structure-by-id";      //structure/get-structure-by-id
 
-const favoriteGetMyItems = "api/favorite/get-my-favorites";          //favorites/get
-const favoritesRemoveFromList = "api/favorite/delete"; //favorites/delete
-const favoritesAddToList = "apu/favorite/add";          //favorites/add
+const favoriteGetMyItemsUrl = "api/favorite/get-my-favorites";          //favorites/get
+const favoritesDeleteUrl = "api/favorite/delete"; //favorites/delete
+const favoritesAddUrl = "apu/favorite/add";          //favorites/add
 
-const emailAddToAdvocat = "api/email/add-to-advocat";
+const emailAddUrl = "api/email/add-to-advocat";
 const emailGetRegistered = "api/email/get-registered";
+const emailGetUrl = "api/email/get";
 
 const serviceAddUrl = "api/service/add-service";
 const serviceGetUrl = "api/service/get-services";
 
 export  function   addCaseToFavorites(nodeIsd) {
-  return fetch(baseUrl + favoritesAddToList, {
+  return fetch(baseUrl + favoritesAddUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -34,7 +35,7 @@ export  function   addCaseToFavorites(nodeIsd) {
 
 export async function removeCaseFromFavorites(nodeId) {
      try {
-      const res = await  fetch(baseUrl + favoritesRemoveFromList, {
+      const res = await  fetch(baseUrl + favoritesDeleteUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -62,7 +63,7 @@ export async function removeCaseFromFavorites(nodeId) {
 }
 
 export function searchCases(searchQuery) {
-  return fetch(baseUrl + structureSearchCases, {
+  return fetch(baseUrl + structureSearchCasesUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -77,7 +78,7 @@ export function searchCases(searchQuery) {
 }
 
 export function getStructure(nodeId) {
-  return fetch(baseUrl + searchGetStructureById+"?parentId=" + nodeId)
+  return fetch(baseUrl + searchGetStructureByIdUrl+"?parentId=" + nodeId)
       .then(res => res.json())   
       .catch(error => {
         console.error("Błąd fetch:", error); 
@@ -87,7 +88,7 @@ export function getStructure(nodeId) {
 
  
 export function getMyFavorites(nodeId) {
-  return fetch(baseUrl + favoriteGetMyItems)
+  return fetch(baseUrl + favoriteGetMyItemsUrl)
       .then(res => res.json())
       .catch(error => {
         console.error("Błąd fetch:", error); 
@@ -96,12 +97,48 @@ export function getMyFavorites(nodeId) {
  
 }
   
+export function getStructureApi() {
+
+  return fetch(baseUrl + getStructureUrl, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .catch(error => {
+    console.error("Błąd fetch:", error);
+    showError("Get Emails Failed: " + error);
+  });
+
+}
+export function getAbbreviationApi() {
+
+  return fetch(baseUrl + getAbbreviationUrl, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .catch(error => {
+    console.error("Błąd fetch:", error);
+    showError("Get Emails Failed: " + error);
+  });
+
+}
 
 //////
 //EMAIL Tab
 export function addToAdvocat(emailModel) {
 
-  return fetch(baseUrl + emailAddToAdvocat, {
+  return fetch(baseUrl + emailAddUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -119,48 +156,6 @@ export function addToAdvocat(emailModel) {
 
 }
 
-
-export function getStructureApi() {
-
-  return fetch(baseUrl + getStructureEndpoint, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json"
-    }
-  })
-  .then(res => {
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  })
-  .catch(error => {
-    console.error("Błąd fetch:", error);
-    showError("Get Emails Failed: " + error);
-  });
-
-}
-
-
-export function getAbbreviationApi() {
-
-  return fetch(baseUrl + getSAbbreviation, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json"
-    }
-  })
-  .then(res => {
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  })
-  .catch(error => {
-    console.error("Błąd fetch:", error);
-    showError("Get Emails Failed: " + error);
-  });
-
-}
-
-
-
 export function getRegisteredEmails() {
 
   return fetch(baseUrl + emailGetRegistered, {
@@ -168,6 +163,26 @@ export function getRegisteredEmails() {
     headers: {
       "Content-Type": "application/json"
     }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  })
+  .catch(error => {
+    console.error("Błąd fetch:", error);
+    showError("Get Emails Failed: " + error);
+  });
+
+}
+export function getCurrentItem(id) {
+
+  return fetch(baseUrl + emailGetUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    
+    body: JSON.stringify({ id: id })
   })
   .then(res => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
