@@ -7,6 +7,7 @@
 import { initCase } from "../cases/case.js";
 import { initEmail } from "../email/email.js";
 import { initService } from "../tabs/asd.js";
+import { initPerson } from "../persons/person.js";
  
 Office.onReady(async (info) => { 
 
@@ -15,6 +16,7 @@ Office.onReady(async (info) => {
       initCase();
       initEmail();
       initService();
+      initPerson();
      // GetEmailsInLast7Days();
   }
 });

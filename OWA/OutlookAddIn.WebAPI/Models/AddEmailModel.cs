@@ -1,5 +1,5 @@
 ﻿namespace OutlookAddIn.WebAPI.Models;
-public class AddToEmailModel
+public class AddEmailModel
 {
     public string CaseId { get; set; }
     public string ServiceAbbreviationType { get; set; }
@@ -11,7 +11,12 @@ public class AddToEmailModel
     public string EmailContent { get; set; }
     public int UserID { get; set; }
     public Attachment[] Attachments { get; set; }
+    public DateTime InsertDate { get; set; }
+    public DateTime UpdateDate { get; set; } 
 }
+//timestamp
+//inserDate
+//updateDate
 
 public class Attachment
 {

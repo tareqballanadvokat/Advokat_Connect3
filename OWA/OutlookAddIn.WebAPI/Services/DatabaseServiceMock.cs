@@ -4,8 +4,10 @@ namespace OutlookAddIn.WebAPI.Services
 {
     public class DatabaseServiceMock : IDatabaseServiceMock
     {
-        public static List<AddToEmailModel> customEmails = new List<AddToEmailModel>();
-        public static List<ServiceModel> customService = new List<ServiceModel>();
+        public static List<AddEmailModel> customEmails = new List<AddEmailModel>();
+        public static List<ServiceModel>  customService = new List<ServiceModel>();
+        public static List<PersonModel>  allPersons = new List<PersonModel>();
+        public static List<PersonModel>  customPersons = new List<PersonModel>();
         public static List<HierarchyTree> favoritesList = new List<HierarchyTree>();
         public static List<HierarchyTree> customTree = new List<HierarchyTree>();
         public static List<HierarchyTree> customItems = new List<HierarchyTree>();
@@ -52,6 +54,11 @@ namespace OutlookAddIn.WebAPI.Services
             customTree.Add(new HierarchyTree { Id = 115, Name = "Test5.pdf", RootId = 16, IsStructure = false });
 
             favoritesList.Add(customTree.Where(x => x.RootId == 10).First());
+
+
+            allPersons.Add(new PersonModel { Address = "Address 1 ", City = "City 1", FullName = "Advocat", Id = "12321", Phone = "33334444", UserID = 1, WebSite = "google.com" });
+            allPersons.Add(new PersonModel { Address = "Address 2 ", City = "South hampton", FullName = "Darek Ogórek", Id = "12321", Phone = "33334444", UserID = 1, WebSite = "google.com" });
+            allPersons.Add(new PersonModel { Address = "Address 3 ", City = "Wrocław", FullName = "Test Manager", Id = "12321", Phone = "33334444", UserID = 1, WebSite = "google.com" });
         }
     }
 }

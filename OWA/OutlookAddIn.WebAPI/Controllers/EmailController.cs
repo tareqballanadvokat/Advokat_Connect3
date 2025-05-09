@@ -19,11 +19,17 @@ public class EmailController : ControllerBase
     }
 
     [HttpPost("add-to-advocat")]
-    public ActionResult AddToFavorites([FromBody] AddToEmailModel query)
+    public ActionResult AddToFavorites([FromBody] AddEmailModel query)
     {
-        if (DatabaseServiceMock.customEmails.Where(x => x.CaseId == query.CaseId).Any())
+        if (DatabaseServiceMock.customEmails.Where(x => x.InternetMessageId == query.InternetMessageId).Any())
         {
             //return Ok(DatabaseServiceMock.customEmails);
+            var data = DatabaseServiceMock.customEmails.Where(x => x.InternetMessageId == query.InternetMessageId).First();
+            data.ServiceText = query.ServiceText;
+            data.SrviceSB = query.SrviceSB;
+            data.ServiceTime = query.ServiceTime;
+            data.EmailName = query.EmailName;
+            data.UpdateDate = DateTime.Now;
             return new JsonResult(DatabaseServiceMock.customEmails);
         }
         DatabaseServiceMock.customEmails.Add(query);
@@ -33,15 +39,16 @@ public class EmailController : ControllerBase
 
 
     [HttpGet("get-registered")]
-    public ActionResult<AddToEmailModel> GetRegistered()
+    public ActionResult<AddEmailModel> GetRegistered()
     {
         return new JsonResult(DatabaseServiceMock.customEmails);
     }
 
     [HttpPost("get")]
-    public ActionResult<AddToEmailModel> GetItem([FromBody] EmailModel id)
+    public ActionResult<AddEmailModel> GetItem([FromBody] EmailModel id)
     {
-        return new JsonResult(DatabaseServiceMock.customEmails.Where(x=> x.InternetMessageId == id.Id).FirstOrDefault());
+        var data =DatabaseServiceMock.customEmails.Where(x => x.InternetMessageId == id.Id).FirstOrDefault();
+        return new JsonResult(data);
     }
 }
 public class EmailModel

@@ -19,6 +19,11 @@ const emailGetUrl = "api/email/get";
 const serviceAddUrl = "api/service/add-service";
 const serviceGetUrl = "api/service/get-services";
 
+const searchPersonUrl = "api/person/search";
+const addPersonUrl = "api/person/add";
+const deletePersonUrl = "api/person/delete";
+const getPersonUrl = "api/person/get";
+
 export  function   addCaseToFavorites(nodeIsd) {
   return fetch(baseUrl + favoritesAddUrl, {
     method: "POST",
@@ -237,3 +242,77 @@ export function getRegisteredService()
     showError("Get Service Failed: " + error);
   });
 }
+
+
+///
+//Search Persons
+export function searchPersons(searchQuery) {
+  return fetch(baseUrl + searchPersonUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ query: searchQuery })
+  })
+    .then(res => res.json())
+    .catch(error => {
+      console.error("Błąd fetch:", error);
+     showError("Search failed: " + error);  
+    });
+}
+
+
+export function getPersons() {
+  return fetch(baseUrl + getPersonUrl, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+    .then(res => res.json())
+    .catch(error => {
+      console.error("Błąd fetch:", error);
+      showError("Search failed: " + error);  
+    });
+}
+export  function   addPerson(nodeIsd) {
+  return fetch(baseUrl + addPersonUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ nodeId: nodeIsd })
+  })
+    .then(res => res.json())
+    .catch(error => {
+      showError("Add to favorites list failed: " + error); 
+    });
+}
+
+export async function removePerson(nodeId) {
+     try {
+      const res = await  fetch(baseUrl + deletePersonUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ nodeId: nodeId })
+      });
+  
+      if (!res.ok) {
+        
+        showError("Removed from favorites list failed: " + res.status); 
+        throw new Error(`Błąd HTTP ${res.status}: ${res.statusText}`);
+      }
+  
+    //  const data = await res.json();
+      return res;
+  
+    } catch (err) {
+      console.error("Błąd podczas wyszukiwania:", err);
+      
+     showError("Removed from favorites list failed: " + err); 
+      throw err;  
+    }
+}
+ 

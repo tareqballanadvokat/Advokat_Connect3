@@ -8,9 +8,10 @@ import { addCaseToFavorites, removeCaseFromFavorites, getMyFavorites, getStructu
  
 export function initCase() 
 {
-    document.getElementById("caseStructureDownloaded").onclick = CaseDownloadStructure; 
+    // document.getElementById("caseStructureDownloaded").onclick = CaseDownloadStructure; 
     document.getElementById("search-case-id").onclick = CaseSearchStructure;
     setOptions();
+    CaseDownloadStructure();
     showSuccess("Your Message Header", "Your Message"); 
 }
  

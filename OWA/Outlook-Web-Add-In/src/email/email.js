@@ -13,7 +13,7 @@ export async function initEmail()
     CalculateEmailInfoAndAttachment();
     GetAbbreviationAsync();
     showSuccess("EmailOpened", "Your Message"); 
-    
+    GetEmailsInLast7Days();
   //  options =
 }
 
@@ -253,8 +253,7 @@ async function GetCurrentItemAsync(item)
                     const checkbox = $(`input[data-node-id='${nodeId}']`);
                     checkbox.prop("checked", true);    // zaznacza
                     checkbox.prop("disabled", true);   // blokuje kliknięcie
-                    checkbox.next().val(item.fileName);
-                    debugger;
+                    checkbox.next().val(item.fileName); 
                 });  
 
                 if (data.emailContent != ''){
@@ -263,6 +262,21 @@ async function GetCurrentItemAsync(item)
                     checkbox.prop("checked", true);    // zaznacza
                     checkbox.prop("disabled", true);   // blokuje kliknięcie
                 }
+
+                if (data.caseId != ''){
+
+                    const input = $('#email-case-id-input');
+                    input.val(data.caseId);    // zaznacza
+                    input.prop("disabled", true);   // blokuje kliknięcie
+                }
+                //non important properties:
+                
+                const sbInput = $('#email-sb-input');
+                const timeInput = $('#email-time-input');
+                const textInput = $('#email-text-input');
+                sbInput.val(data.srviceSB);       
+                timeInput.val(data.serviceTime);       
+                textInput.val(data.serviceText);       
             }      
         })     
         .catch(err => {

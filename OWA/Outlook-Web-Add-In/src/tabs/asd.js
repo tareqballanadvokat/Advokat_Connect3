@@ -5,7 +5,7 @@
 import { showSuccess, showError, setOptions } from "../helpers/toastrHelper";
 import { getAbbreviationApi, searchCases, addService, getRegisteredService } from "../helpers/webApiReqests";
  
- 
+ ///THIS FILE IS FOR SERVICE FUNCTIONS - REPLACE SERVICE.JS WHEN NEEDED
 export function initService() 
 {
     document.getElementById("service-search-button").onclick = ServiceSearchStructure;

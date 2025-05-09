@@ -21,10 +21,16 @@
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
     <!-- Toastr CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+    
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="service.css" rel="stylesheet" type="text/css" />
 
  <style>
 /* Dropdown Button */
+
+.search-class{
+  height: 25px;
+}
 .dropbtn {
   background-color: #3498DB;
   color: white;
@@ -76,17 +82,17 @@ NEW for email:
 */
  
     select{
-      height: 30px;
+      height: 24px;
     }
     input{
-      height: 32px;
+      height: 25px;/*32pc*/
     }
     input[type="checkbox"]{
       height: 15px;
     }
     input[type="text"], select {
-      width: 100%;
-      padding: 4px;
+    /*   width: 100%;
+     padding: 4px;*/
     }
     .green-button {
       background-color: #0a0;
@@ -102,7 +108,128 @@ NEW for email:
       margin: 10px 0;
     }
   </style>
+ <style>
+  :root {
+    --color-bg: #fff;
+    --color-border: #e1e3e8;
+    --color-header: #677294;
+    --color-text: #32425c;
+    --color-subtext: #9aabbf;
+    --color-link: #1a73e8;
+    --radius: 8px;
+    --gap: 12px;
+  }
 
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+  }
+
+  .card {
+    max-width: 400px;
+    margin: auto;
+    /* background: var(--color-bg); */
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    padding: var(--gap) 16px;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--color-header);
+  }
+  .card-header .material-icons {
+    font-size: 20px;
+    margin-left: 8px;
+  }
+  details.person-panel {
+    border-top: 1px solid var(--color-border);
+  }
+  /* pierwsza karta nie potrzebuje górnej linii */
+  details.person-panel:first-of-type {
+    border-top: none;
+  }
+  summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--gap) 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  .summary-left {
+    display: flex;
+    align-items: center;
+  }
+  .toggle-icon {
+    width: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: var(--color-subtext);
+    margin-right: 8px;
+  }
+  details[open] > summary .toggle-icon::before {
+    content: "−";
+  }
+  details:not([open]) > summary .toggle-icon::before {
+    content: "+";
+  }
+  .person-icon {
+    font-size: 18px;
+    color: var(--color-subtext);
+    margin-right: 6px;
+  }
+  .person-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+  .delete {
+    font-size: 13px;
+    color: var(--color-subtext);
+    white-space: nowrap;
+  }
+  .details-content {
+    padding: 0 16px var(--gap) 44px; /* 44 = toggle(20) + margin-right(8) + icon(18) - trochę poluzowane */
+    font-size: 14px;
+    color: var(--color-header);
+    line-height: 1.4;
+  }
+  .details-content .row {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .details-content .row:last-child {
+    margin-bottom: 0;
+  }
+  .details-content .row .material-icons {
+    font-size: 16px;
+    color: var(--color-subtext);
+    margin-right: 8px;
+    margin-top: 2px;
+  }
+  .details-content .label {
+    font-weight: 500;
+    margin-right: 4px;
+  }
+  .details-content .value a {
+    color: var(--color-link);
+    text-decoration: none;
+  }
+ 
+
+</style>
+ 
     <script>
         function openCity(cityName) {
           var i;
@@ -142,19 +269,20 @@ window.onclick = function(event) {
 <body>     
 <div id="tab-content" class="city"></div>
 
-<div class="w3-bar w3-black"> 
+<div class="w3-bar"> 
   <div class="w3-bar-item w3-button" onclick="openCity('Email')">Email</div>
-    <div class="w3-bar-item w3-button" onclick="openCity('Service')">Servie</div>
+    <div class="w3-bar-item w3-button" onclick="openCity('Service')">Service</div>
     <div class="w3-bar-item w3-button" onclick="openCity('Case')">Case</div>
+    <div class="w3-bar-item w3-button" onclick="openCity('Person')">Person</div>
   </div>
-  <div id="Email" class="w3-container city" style="display:none">
+  <div id="Email" class="w3-container city">
           
 
       <div class="search-panel">
         <h3>- Search panel</h3>
         <div class="search-box">
-          <input type="text" class="email_style"  id="email-search-structure-input"  placeholder="Search..." style="width:150px">
-          <img    id="email-search-button"  height="32" src="/assets/search-icon.png"  alt="Search" title="Search"/>
+          <input type="text" class="email_style"  id="email-search-structure-input"  placeholder="Search...">
+          <img    id="email-search-button"  height="32" src="/assets/search-icon.png" class="search-class" alt="Search" title="Search"/>
         </div>
         <div  class="results-container">        
           <div class="result-row">
@@ -173,7 +301,7 @@ window.onclick = function(event) {
         <div class="search-box">
           <input id="email-case-id-input" type="text" placeholder="Case ID" style="width:170px;"   class="email_style" >
         
-            <img   id="email-transfer-btn"  height="32" src="/assets/transfer.png"  alt="Search" title="Transfer to ADVOKAT"/>
+            <img   id="email-transfer-btn"  height="32" src="/assets/transfer.png"    alt="Search" title="Transfer to ADVOKAT"/>
          
         </div>
       </div>
@@ -221,7 +349,7 @@ window.onclick = function(event) {
       </div>
 
  </div>
-  <div id="ASD" class="w3-container city">
+  <div id="ASD" class="w3-container city"  style="display:none">
  
     <header class="ms-welcome__header ms-bgColor-neutralLighter">
         <img width="10" height="10" src="../../assets/logo-filled.png" alt="Advokat" title="Advokat" />
@@ -248,8 +376,8 @@ window.onclick = function(event) {
       <div class="search-panel">
         <h3>- Search panel</h3>
         <div class="search-box">
-          <input type="text" class="email_style"  id="service-search-structure-input"  placeholder="Search..." style="width:150px">
-          <img    id="service-search-button"  height="32" src="/assets/search-icon.png"  alt="Search" title="Search"/>
+          <input type="text" class="search-input"  id="service-search-structure-input"  placeholder="Search...">
+          <img    id="service-search-button"  height="32" src="/assets/search-icon.png"  class="search-class" alt="Search" title="Search"/>
         </div>
         <div  class="results-container">        
           <div class="result-row">
@@ -299,14 +427,15 @@ window.onclick = function(event) {
   
   <div id="Case" class="w3-container city" style="display:none">     
 
-        <div role="button" id="caseStructureDownloaded"  >
+        <!-- <div role="button" id="caseStructureDownloaded"  >
             <span class="ms-Button">Download Case Structure</span>
-        </div>
+        </div> -->
 
         <div class="search-panel">
+          <h3>- Search panel</h3>
             <div class="search-box">
-              <input id="text-search-input" style="width:200px" type="text" placeholder="Search..." />
-              <img width="16" height="16" id="search-case-id" src="../../assets/icon-16.png" alt="Advokat" title="Advokat" />
+              <input id="text-search-input" class="search-input" type="text" placeholder="Search..." /> 
+              <img id="search-case-id" height="32" src="/assets/search-icon.png" class="search-class" alt="Search" title="Search">
         </div>
         
         <div id="results-container" class="results-container">
@@ -315,7 +444,107 @@ window.onclick = function(event) {
         <div class="cases-container" id="caseStructure">
                 <h3>Cases ★</h3>
         </div>
-  </div>       
+      </div>       
+    </div>       
+
+
+    <div id="Person" class="w3-container city" style="display:none">    
+
+      <div class="search-panel">
+        <h3>- Search panel</h3>
+          <div class="search-box">
+            <input id="person-search-input" class="search-input"  type="text" placeholder="Search..." /> 
+            <img id="person-search-button" height="32" src="/assets/search-icon.png" class="search-class" alt="Search" title="Search">
+          </div>     </
+      <div>
+
+      <!-- <div class="search-panel">
+        <label class="search-panel-label">- Search panel</label>
+        <form class="search-form">
+          <input type="text" class="search-input" placeholder="Search...">
+          <button type="submit" class="search-button">
+            <span class="material-icons">search</span>
+          </button>
+        </form>
+      </div> -->
+
+      
+      <div class="card" id="person-card-container">
+        <div class="card-header">
+          Persons
+          <span class="material-icons">star</span>
+        </div>
+    
+        <details class="person-panel" open>
+          <summary>
+            <div class="summary-left">
+              <span class="toggle-icon"></span>
+              <span class="material-icons person-icon">person</span>
+              <span class="person-name">ADVOKAT</span>
+            </div>
+            <button class="delete">Delete</button>
+          </summary>
+          <div class="details-content">
+            <div class="row">
+              <span class="material-icons">home</span><span class="label">Address:</span>
+              </div>
+            <div class="row"> 
+              <div><span class="value">Andreas-Hofer-Straße 39b, 6020 Innsbruck, Österreich</span></div>
+            </div>
+
+            <div class="row">
+              <span class="material-icons">call</span> 
+               <span class="label">Telefon:</span> 
+            </div>
+            <div class="row"> 
+              <div><span class="value">XXX XXXXXXXXXX</span></div>
+            </div>
+
+            <div class="row">
+              <span class="material-icons">email</span><span class="label">Email:</span> 
+            </div>
+            <div class="row"> 
+              <div><span class="value">XXX XXXXXXXXXX</span></div>
+            </div>
+
+            <div class="row">
+              <span class="material-icons">language</span><span class="label">Website:</span>
+            </div>     
+            <div class="row"> 
+              <div><span class="value"><a href="https://websitenameneingeben.com" target="_blank">websitenameneingeben.com</a></span></div>
+            </div>
+          </div>
+        </details>
+    
+        <details class="person-panel">
+          <summary>
+            <div class="summary-left">
+              <span class="toggle-icon"></span>
+              <span class="material-icons person-icon">person</span>
+              <span class="person-name">HarbDI</span>
+            </div>
+            <button class="delete">Delete</button>
+          </summary>
+          <div class="details-content">
+            <p><em>Brak dodatkowych danych.</em></p>
+          </div>
+        </details>
+    
+        <details class="person-panel">
+          <summary>
+            <div class="summary-left">
+              <span class="toggle-icon"></span>
+              <span class="material-icons person-icon">person</span>
+              <span class="person-name">MayeEr</span>
+            </div>
+            <button class="delete">Delete</button>
+          </summary>
+          <div class="details-content">
+            <p><em>Brak dodatkowych danych.</em></p>
+          </div>
+        </details>
+    </div>   
+  </div>     
 </body>
 
 </html>
