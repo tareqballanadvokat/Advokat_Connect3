@@ -227,17 +227,77 @@ NEW for email:
     text-decoration: none;
   }
  
-
+  select.email_style{
+    width:65px;
+  }
 </style>
- 
+ <!-- <style>
+
+/* --- Cases styles (reuse persons look-and-feel) --- */
+.case-panel {
+  border-top: 1px solid var(--color-border);
+}
+.case-panel:first-of-type {
+  border-top: none;
+}
+.case-content {
+  padding-left: 44px; /* tak samo jak .details-content */
+}
+.case-icon {
+  font-size: 18px;
+  color: var(--color-subtext);
+  margin-right: 6px;
+}
+.case-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+  flex-grow: 1;
+}
+.remove {
+  font-size: 13px;
+  color: var(--color-subtext);
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* plik */
+.file-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px 8px 44px;
+}
+.file-icon {
+  font-size: 16px;
+  color: var(--color-subtext);
+  margin-right: 8px;
+}
+.file-name {
+  font-size: 14px;
+  color: var(--color-text);
+  flex-grow: 1;
+}
+.open {
+  font-size: 13px;
+  color: var(--color-link);
+  cursor: pointer;
+}
+
+
+ </style> -->
     <script>
-        function openCity(cityName) {
+        function openCity(tabName) {
+          
+          $("#Email-tab-link").removeClass('active');
+          $("#Service-tab-link").removeClass('active');
+          $("#Person-tab-link").removeClass('active');
+          $("#Case-tab-link").removeClass('active');
           var i;
           var x = document.getElementsByClassName("city");
-          for (i = 0; i < x.length; i++) {
+          for (i = 0; i < x.length; i++) { 
             x[i].style.display = "none";  
           }
-          document.getElementById(cityName).style.display = "block";  
+          document.getElementById(tabName).style.display = "block";   
+            $("#"+tabName +"-tab-link").addClass('active');
         }
 
 /* When the user clicks on the button,
@@ -270,10 +330,10 @@ window.onclick = function(event) {
 <div id="tab-content" class="city"></div>
 
 <div class="w3-bar"> 
-  <div class="w3-bar-item w3-button" onclick="openCity('Email')">Email</div>
-    <div class="w3-bar-item w3-button" onclick="openCity('Service')">Service</div>
-    <div class="w3-bar-item w3-button" onclick="openCity('Case')">Case</div>
-    <div class="w3-bar-item w3-button" onclick="openCity('Person')">Person</div>
+    <div id="Email-tab-link" class="w3-bar-item w3-button" onclick="openCity('Email')">Email</div>
+    <div id="Service-tab-link" class="w3-bar-item w3-button" onclick="openCity('Service')">Service</div>
+    <div id="Case-tab-link"  class="w3-bar-item w3-button" onclick="openCity('Case')">Case</div>
+    <div id="Person-tab-link"  class="w3-bar-item w3-button" onclick="openCity('Person')">Person</div>
   </div>
   <div id="Email" class="w3-container city">
           
@@ -286,7 +346,7 @@ window.onclick = function(event) {
         </div>
         <div  class="results-container">        
           <div class="result-row">
-              <div class="name" style="width:350px">Name</div>
+              <div class="name">Name</div>
               <div class="causa">Causa</div>
               <div data-node-id="1" class="button">&nbsp;</div>
             </div>
@@ -326,8 +386,7 @@ window.onclick = function(event) {
         <div class="search-box" style="padding-bottom: 5px">
           <input id="email-transfer-btn-checkbox" type="checkbox" style="width:15px" >
           <input id="email-transfer-btn-text" class="email_style"  type="text"  style="width:140px"  value="Dietmar.harb@advokat.at">
-          <select style="width:65px"  class="email_style"  >
-            <option>Email</option>
+          <select style="width:65px"  id="email-transfer-btn-select" class="email_style">
           </select>       
         </div>       
         <div id="email-attachment-container-id" class="search-box" style="padding-bottom: 5px">
@@ -344,7 +403,11 @@ window.onclick = function(event) {
       <hr class="solid">
 
       <div class="search-panel">
-        <h3>Registered E-Mails <span style="font-weight:normal;">(last 7 days)</span></h3>
+        <h3>Registered E-Mails (last 7 days)</h3>
+        <div class="result-row-registered">
+          <div class="date">Date</div>
+          <div class="name">Name</div>
+        </div>
         <div id="email-tab-last-7-days-registered"></div>
       </div>
 
@@ -381,7 +444,7 @@ window.onclick = function(event) {
         </div>
         <div  class="results-container">        
           <div class="result-row">
-              <div class="name" style="width:350px">Name</div>
+              <div class="name">Name</div>
               <div class="causa">Causa</div>
               <div data-node-id="1" class="button">&nbsp;</div>
             </div>
@@ -419,44 +482,56 @@ window.onclick = function(event) {
 
       <div class="search-panel">
         <h3>Registered Service <span style="font-weight:normal;">(last 7 days)</span></h3>
-        <div id="service-tab-last-7-days-registered"></div>
+        <div id="service-tab-last-7-days-registered" class="result-row-registered"></div>
       </div>
 
 
   </div>
   
   <div id="Case" class="w3-container city" style="display:none">     
-
-        <!-- <div role="button" id="caseStructureDownloaded"  >
-            <span class="ms-Button">Download Case Structure</span>
-        </div> -->
-
         <div class="search-panel">
           <h3>- Search panel</h3>
             <div class="search-box">
               <input id="text-search-input" class="search-input" type="text" placeholder="Search..." /> 
               <img id="search-case-id" height="32" src="/assets/search-icon.png" class="search-class" alt="Search" title="Search">
         </div>
-        
+        <div  class="results-container">        
+          <div class="result-row">
+              <div class="name">Name</div>
+              <div class="causa">Causa</div>
+              <div data-node-id="1" class="button">&nbsp;</div>
+            </div>
+        </div>
         <div id="results-container" class="results-container">
         </div>
 
         <div class="cases-container" id="caseStructure">
                 <h3>Cases ★</h3>
         </div>
+
       </div>       
-    </div>       
+  </div>       
 
 
-    <div id="Person" class="w3-container city" style="display:none">    
+  <div id="Person" class="w3-container city" style="display:none">    
 
       <div class="search-panel">
         <h3>- Search panel</h3>
-          <div class="search-box">
+        <div class="search-box">
             <input id="person-search-input" class="search-input"  type="text" placeholder="Search..." /> 
             <img id="person-search-button" height="32" src="/assets/search-icon.png" class="search-class" alt="Search" title="Search">
-          </div>     </
-      <div>
+        </div> 
+        <div  class="results-container">        
+          <div class="result-row">
+              <div class="name">Name</div>
+              <div class="causa">City</div>
+              <div data-node-id="1" class="button">&nbsp;</div>
+            </div>
+        </div>
+        <div id="person-results-container" class="results-container">
+            
+        </div>
+      </div>
 
       <!-- <div class="search-panel">
         <label class="search-panel-label">- Search panel</label>
@@ -543,7 +618,7 @@ window.onclick = function(event) {
             <p><em>Brak dodatkowych danych.</em></p>
           </div>
         </details>
-    </div>   
+      </div>   
   </div>     
 </body>
 

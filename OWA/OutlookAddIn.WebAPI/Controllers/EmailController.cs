@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using OutlookAddIn.WebAPI.Models;
 using OutlookAddIn.WebAPI.Services;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace OutlookAddIn.WebAPI.Controllers;
  
@@ -29,9 +30,11 @@ public class EmailController : ControllerBase
             data.SrviceSB = query.SrviceSB;
             data.ServiceTime = query.ServiceTime;
             data.EmailName = query.EmailName;
-            data.UpdateDate = DateTime.Now;
+            data.UpdateDate = DateTime.Now; 
             return new JsonResult(DatabaseServiceMock.customEmails);
         }
+        query.InsertDate = DateTime.Now;
+        query.UpdateDate = DateTime.Now;
         DatabaseServiceMock.customEmails.Add(query);
 
         return new JsonResult(DatabaseServiceMock.customEmails);
@@ -39,9 +42,18 @@ public class EmailController : ControllerBase
 
 
     [HttpGet("get-registered")]
-    public ActionResult<AddEmailModel> GetRegistered()
+    public ActionResult<RegisteredEmailModel> GetRegistered()
     {
-        return new JsonResult(DatabaseServiceMock.customEmails);
+        var dataToReturn = DatabaseServiceMock.customEmails.Select(
+
+            x => new RegisteredEmailModel
+            {
+                CaseId = x.CaseId,
+                InsertDate = x.InsertDate.ToShortDateString(), 
+                EmailName = x.EmailName
+
+            }).ToList();
+        return new JsonResult(dataToReturn);
     }
 
     [HttpPost("get")]

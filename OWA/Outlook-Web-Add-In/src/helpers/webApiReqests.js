@@ -10,7 +10,7 @@ const searchGetStructureByIdUrl = "api/structure/get-structure-by-id";      //st
 
 const favoriteGetMyItemsUrl = "api/favorite/get-my-favorites";          //favorites/get
 const favoritesDeleteUrl = "api/favorite/delete"; //favorites/delete
-const favoritesAddUrl = "apu/favorite/add";          //favorites/add
+const favoritesAddUrl = "api/favorite/add";          //favorites/add
 
 const emailAddUrl = "api/email/add-to-advocat";
 const emailGetRegistered = "api/email/get-registered";
@@ -275,13 +275,13 @@ export function getPersons() {
       showError("Search failed: " + error);  
     });
 }
-export  function   addPerson(nodeIsd) {
+export  function   addPerson(nodeId) {
   return fetch(baseUrl + addPersonUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ nodeId: nodeIsd })
+    body: JSON.stringify({ id: nodeId })
   })
     .then(res => res.json())
     .catch(error => {

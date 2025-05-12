@@ -1,6 +1,7 @@
 import { showSuccess, showError, setOptions } from "../helpers/toastrHelper";
 import { addToAdvocat, getCurrentItem, searchCases, getRegisteredEmails, getStructureApi, getAbbreviationApi } from "../helpers/webApiReqests";
   
+var abbreviationData =[];
 export async function initEmail() 
 {
     // document.getElementById("caseStructureDownloaded").onclick = CaseDownloadStructure; 
@@ -32,11 +33,11 @@ export async function EmailSearchStructure()
         data.forEach(item => {
         const $row = $("<div>", { class: "result-row" });
 
-        $row.append($("<div style='width:350px'>", {class:"name"}).text(item.name));
+        $row.append($("<div>", {class:"name"}).text(item.name));
         $row.append($("<div>", {class:"causa"}).text(item.causa));
 
         const $div = $("<div>", {"data-node-id": item.id, "data-node-text":item.name, class: "button"})
-        .html(`<button><img width="16" id="email-search-button" height="16" src="/assets/icon-16.png" alt="Insert" title="Insert"/></button>`)
+        .html(`<button>Add</button>`)
         .on("click", async function () 
             {
             const nodeId = $(this).data("node-text");
@@ -93,7 +94,7 @@ export async function SendEmailAndAttachment()
         serviceText:  $("#email-text-input").val(),
         internetMessageId :itemId,// internetMessageId[1].trim(),
         userId :1,
-        emailName: item.subject,
+        emailName: $("#email-transfer-btn-text").val(),// item.subject,
         emailContent: emailContent,
         attachments : attachements
       };     
@@ -187,14 +188,9 @@ function GetEmailsInLast7Days()
         $results.empty();  
 
         data.forEach(item => {
-        const $row = $("<div>", { class: "result-row" });
-
+        const $row = $("<div>", { class: "result-row-registered" });
+        $row.append($("<div>", {class:"date"}).text(item.insertDate));
         $row.append($("<div>", {class:"name"}).text(item.emailName));
-        $row.append($("<div>", {class:"causa"}).text(item.internetMessageId));
-
-        const $div = $("<div>", {"data-node-id": item.caseId, class: "button"});
-
-        $row.append($div);
         $results.append($row);
         });
     })
@@ -202,14 +198,14 @@ function GetEmailsInLast7Days()
         showError(err, "Search case failed"); 
     });
 }
-  
 async function GetAbbreviationAsync() {
 
     const options = [
-        { value: "", text: "-- wybierz --" }
+        { value: "", text: "-- Choose --" }
       ];
       await getAbbreviationApi()
         .then(data => {
+            abbreviationData = data;
             data.forEach(item => {
                     options.push({value: item.id, text: item.name});
                 });
@@ -228,7 +224,11 @@ async function GetAbbreviationAsync() {
 async function CalculateSubject(item)
 {    
     const $emailText = $("#email-transfer-btn-text");
-
+    const $emailSelect = $("#email-transfer-btn-select");
+    var options = await  GetFolders();
+    options.forEach(opt => {
+        $emailSelect.append($("<option>", { value: opt.value, text: opt.text }));
+    });
     if (isComposeMode(item))
     {
         var subjectInComposeMode = await  getEmailSubject(item);
@@ -274,6 +274,13 @@ async function GetCurrentItemAsync(item)
                 const sbInput = $('#email-sb-input');
                 const timeInput = $('#email-time-input');
                 const textInput = $('#email-text-input');
+                const emailNameInput = $('#email-transfer-btn-text'); 
+
+                const $abreviationSelect = $('#email-abbreviation-select');
+                var abbreviationOptionByName = abbreviationData.find(item => item.name === data.serviceAbbreviationType);
+                $abreviationSelect.val(abbreviationOptionByName.id).trigger('change');
+                
+                emailNameInput.val(data.emailName);
                 sbInput.val(data.srviceSB);       
                 timeInput.val(data.serviceTime);       
                 textInput.val(data.serviceText);       

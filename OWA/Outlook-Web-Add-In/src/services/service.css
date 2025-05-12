@@ -150,7 +150,7 @@ h3{
     cursor: pointer;
   }
 div.result-row div.name{
-    width: 100px;
+    width: 250px;
 }
 div.result-row div.causa{
     width: 100px;
@@ -168,3 +168,30 @@ div.result-row div.causa{
   outline: 0;
 }
 
+ .active{
+  color: #000 !important;
+  background-color: #ccc !important;
+}
+
+
+
+.result-row-registered{
+  display: flex;
+}
+div.result-row-registered div.name{
+  width: 250px;
+}
+div.result-row-registered div.causa{
+  width: auto;
+ }
+ div.result-row-registered div.date{
+  width: 160px;
+ } 
+
+ div.result-row-registered div.sb{
+  width: 20px;
+ } 
+ div.result-row-registered div.serviceTime{
+  width: 50px;
+ } 
+ 

@@ -25,3 +25,11 @@ public class Attachment
     public string FileName { get; set; }
     public string ContentBase64 { get; set; } 
 }
+
+public class RegisteredEmailModel
+{
+    public string CaseId { get; set; } 
+    public string EmailName { get; set; } 
+    public string InsertDate { get; set; }
+    public int UserID { get; set; }
+}

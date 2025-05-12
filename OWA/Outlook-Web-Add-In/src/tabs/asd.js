@@ -53,20 +53,16 @@ export async function ServiceSearchStructure()
         data.forEach(item => {
         const $row = $("<div>", { class: "result-row" });
 
-        $row.append($("<div style='width:350px'>", {class:"name"}).text(item.name));
+        $row.append($("<div>", {class:"name"}).text(item.name));
         $row.append($("<div>", {class:"causa"}).text(item.causa));
 
-        const $div = $("<div>", {"data-node-id": item.id, "data-node-text":item.name, class: "button"})
-        .html(`<button><img width="16" id="service-search-button" height="16" src="/assets/icon-16.png" alt="Insert" title="Insert"/></button>`)
+        const $div = $("<div>", {"data-node-id": item.id, "data-node-text": item.name, class: "button"})
+        .html(`<button>Add</button>`)
         .on("click", async function () 
             {
-            const nodeId = $(this).data("node-text");
-            // const nodeId = $(this).data("node-id");
-            console.log(nodeId);
-            $("#service-case-id-input").val(nodeId);
-            
-            //  var dataToLoad = await addCaseToFavorites(nodeId);
-            //  initCaseStructure(dataToLoad, true);
+              const nodeId = $(this).data("node-text");
+              console.log(nodeId);
+              $("#service-case-id-input").val(nodeId);
             }
         );
 
@@ -121,16 +117,12 @@ export async function GetEmailsInLast7Days()
         if (data != undefined)
         {
           data.forEach(item => {
-          const $row = $("<div>", { class: "result-row" });
+          const $row = $("<div>", { class: "result-row-registered" });
 
-          $row.append($("<div>", {class:"name"}).text(item.serviceSb));
-          $row.append($("<div>", {class:"name"}).text(item.caseId));
-          $row.append($("<div>", {class:"causa"}).text(item.serviceTime));
-          $row.append($("<div>", {class:"causa"}).text(item.serviceText));
-
-          const $div = $("<div>", {"data-node-id": item.caseId, class: "button"});
-
-          $row.append($div);
+          $row.append($("<div>", {class:"sb"}).text(item.serviceSb));
+          $row.append($("<div>", {class:"name"}).text(item.name));
+          $row.append($("<div>", {class:"service-time"}).text(item.serviceTime));
+          $row.append($("<div>", {class:"service-text"}).text(item.serviceText));
           $results.append($row);
           });
         }

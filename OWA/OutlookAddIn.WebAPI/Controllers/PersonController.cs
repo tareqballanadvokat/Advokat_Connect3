@@ -17,20 +17,21 @@ public class PersonController : ControllerBase
     }
 
     [HttpPost("search")]
-    public ActionResult SearchPerson([FromBody] PersonModel query)
+    public ActionResult<PersonModel> SearchPerson([FromBody] PersonSearchRequest query)
     {
-        return new JsonResult(DatabaseServiceMock.allPersons.Where(x => x.FullName.Contains(query.FullName)).ToList());
+        var data = DatabaseServiceMock.allPersons.Where(x => x.FullName.ToLower().Contains(query.Query.ToLower())).ToList();
+        return new JsonResult(data);
     }
 
     [HttpPost("add")]
-    public ActionResult AddPerson([FromBody] PersonModel query)
+    public ActionResult AddPerson([FromBody] PersonAdd query)
     {
         if (DatabaseServiceMock.customPersons.Where(x => x.Id == query.Id).Any())
         {
             //return Ok(DatabaseServiceMock.customEmails);
             return new JsonResult(DatabaseServiceMock.customPersons);
         }
-        DatabaseServiceMock.customPersons.Add(query);
+        DatabaseServiceMock.customPersons.Add(DatabaseServiceMock.allPersons.Where(x => x.Id == query.Id).First());
 
         return new JsonResult(DatabaseServiceMock.customPersons);
     }
@@ -39,8 +40,20 @@ public class PersonController : ControllerBase
     [HttpGet("get")]
     public ActionResult<PersonModel> GetPerson()
     {
-        return new JsonResult(DatabaseServiceMock.allPersons);
+        return new JsonResult(DatabaseServiceMock.customPersons);
+    }
+
+
+    [HttpPost("delete")]
+    public ActionResult RemoveFromFavorites([FromBody] FavoriteAction nodeId)
+    {
+        var itemToRemove = DatabaseServiceMock.customPersons.Where(x => x.Id ==  nodeId.NodeId).First();
+        DatabaseServiceMock.customPersons.Remove(itemToRemove);
+        return Ok();
     }
 }
 
- 
+public class PersonSearchRequest
+{
+    public string Query { get; set; }
+}

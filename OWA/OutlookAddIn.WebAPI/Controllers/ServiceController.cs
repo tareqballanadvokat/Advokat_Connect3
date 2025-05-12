@@ -21,6 +21,10 @@ public class ServiceController : ControllerBase
     {
         if (DatabaseServiceMock.customService.Where(x => x.CaseId == query.CaseId).Any())
         {
+            var data = DatabaseServiceMock.customService.Where(x => x.CaseId == query.CaseId).First();
+            data.ServiceText = query.ServiceText;
+            data.SrviceSB = query.SrviceSB;
+            data.ServiceTime = query.ServiceTime;
             //return Ok(DatabaseServiceMock.customEmails);
             return new JsonResult(DatabaseServiceMock.customEmails);
         }
@@ -35,6 +39,27 @@ public class ServiceController : ControllerBase
     {
         return new JsonResult(DatabaseServiceMock.customService);
     }
+
+    //THOIS REPLACES GET-SERVICEs
+    [HttpGet("get-registered")]
+    public ActionResult<RegisteredServiceModel> GetRegistered()
+    {
+        var dataToReturn = DatabaseServiceMock.customService.Select(
+
+            x => new RegisteredServiceModel
+            {
+                CaseId = x.CaseId,
+                ServiceAbbreviationType = x.ServiceAbbreviationType,
+                 ServiceText = x.ServiceText,
+                 ServiceTime = x.ServiceTime,
+                 SrviceSB = x.SrviceSB,
+                 UserID = x.UserID
+                //InsertDate = x.InsertDate.ToShortDateString(),
+                //EmailName = x.EmailName
+
+            }).ToList();
+        return new JsonResult(dataToReturn);
+    }
+
 }
 
- 
