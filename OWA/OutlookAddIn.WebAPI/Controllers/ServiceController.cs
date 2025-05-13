@@ -19,15 +19,17 @@ public class ServiceController : ControllerBase
     [HttpPost("add-service")]
     public ActionResult AddToService([FromBody] ServiceModel query)
     {
-        if (DatabaseServiceMock.customService.Where(x => x.CaseId == query.CaseId).Any())
-        {
-            var data = DatabaseServiceMock.customService.Where(x => x.CaseId == query.CaseId).First();
-            data.ServiceText = query.ServiceText;
-            data.SrviceSB = query.SrviceSB;
-            data.ServiceTime = query.ServiceTime;
-            //return Ok(DatabaseServiceMock.customEmails);
-            return new JsonResult(DatabaseServiceMock.customEmails);
-        }
+        //if (DatabaseServiceMock.customService.Where(x => x.CaseId == query.CaseId).Any())
+        //{
+        //    var data = DatabaseServiceMock.customService.Where(x => x.CaseId == query.CaseId).First();
+        //    data.ServiceText = query.ServiceText;
+        //    data.ServiceText = query.ServiceText;
+        //    data.SrviceSB = query.SrviceSB;
+        //    data.ServiceTime = query.ServiceTime;
+        //    //return Ok(DatabaseServiceMock.customEmails);
+        //    return new JsonResult(DatabaseServiceMock.customEmails);
+        //}
+        query.InsertDate = DateTime.Now;
         DatabaseServiceMock.customService.Add(query);
 
         return new JsonResult(DatabaseServiceMock.customService);
@@ -50,10 +52,11 @@ public class ServiceController : ControllerBase
             {
                 CaseId = x.CaseId,
                 ServiceAbbreviationType = x.ServiceAbbreviationType,
-                 ServiceText = x.ServiceText,
-                 ServiceTime = x.ServiceTime,
-                 SrviceSB = x.SrviceSB,
-                 UserID = x.UserID
+                ServiceText = x.ServiceText,
+                ServiceTime = x.ServiceTime,
+                SrviceSB = x.ServiceSB,
+                InsertDate= x.InsertDate.ToShortDateString(),
+                UserID = x.UserID
                 //InsertDate = x.InsertDate.ToShortDateString(),
                 //EmailName = x.EmailName
 

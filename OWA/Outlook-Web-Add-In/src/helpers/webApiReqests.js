@@ -17,7 +17,7 @@ const emailGetRegistered = "api/email/get-registered";
 const emailGetUrl = "api/email/get";
 
 const serviceAddUrl = "api/service/add-service";
-const serviceGetUrl = "api/service/get-services";
+const serviceGetUrl = "api/service/get-registered";
 
 const searchPersonUrl = "api/person/search";
 const addPersonUrl = "api/person/add";

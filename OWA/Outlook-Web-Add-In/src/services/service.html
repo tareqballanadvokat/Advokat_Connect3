@@ -199,7 +199,7 @@ NEW for email:
     white-space: nowrap;
   }
   .details-content {
-    padding: 0 16px var(--gap) 44px; /* 44 = toggle(20) + margin-right(8) + icon(18) - trochę poluzowane */
+    padding: 0 16px var(--gap) 20px; /* 44 = toggle(20) + margin-right(8) + icon(18) - trochę poluzowane */
     font-size: 14px;
     color: var(--color-header);
     line-height: 1.4;
@@ -330,12 +330,12 @@ window.onclick = function(event) {
 <div id="tab-content" class="city"></div>
 
 <div class="w3-bar"> 
-    <div id="Email-tab-link" class="w3-bar-item w3-button" onclick="openCity('Email')">Email</div>
+    <div id="Email-tab-link" class="w3-bar-item w3-button active" onclick="openCity('Email')">Email</div>
     <div id="Service-tab-link" class="w3-bar-item w3-button" onclick="openCity('Service')">Service</div>
     <div id="Case-tab-link"  class="w3-bar-item w3-button" onclick="openCity('Case')">Case</div>
     <div id="Person-tab-link"  class="w3-bar-item w3-button" onclick="openCity('Person')">Person</div>
   </div>
-  <div id="Email" class="w3-container city">
+  <div id="Email" class="w3-container city ">
           
 
       <div class="search-panel">
@@ -482,7 +482,13 @@ window.onclick = function(event) {
 
       <div class="search-panel">
         <h3>Registered Service <span style="font-weight:normal;">(last 7 days)</span></h3>
-        <div id="service-tab-last-7-days-registered" class="result-row-registered"></div>
+        <div class="result-row-registered">
+          <div class="date">Date</div>
+          <div class="sb">Time</div> 
+          <div class="abbreviation">Abbreviation</div>
+          <div class="sb">Text</div>
+        </div>
+        <div id="service-tab-last-7-days-registered"></div>
       </div>
 
 

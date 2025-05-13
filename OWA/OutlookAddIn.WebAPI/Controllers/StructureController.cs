@@ -107,20 +107,13 @@ public class StructureController : ControllerBase
         var customTree = DatabaseServiceMock.customTree;
         var list = new List<HierarchyTree>();
         var allPossibilities = customTree.ToList();
-        foreach (var item in allPossibilities)
+        foreach (var item in allPossibilities.Where(x => x.IsStructure))
         {
-            var dd = customTree.Where(x => x.Id == item.Id).First();
-            while (dd.RootId != 0)
-            {
-                dd = customTree.Where(x => x.Id == dd.RootId).First();
-            }
-            if (!list.Any(x => x.Id == dd.Id))
-                list.Add(dd);
+  
+            if (!list.Any(x => x.Id == item.Id))
+                list.Add(item);
         }
-        foreach (var item in DatabaseServiceMock.favoritesList)
-        {
-            list.Remove(item);
-        }
+   
         return new JsonResult(list);
     }
 }

@@ -186,12 +186,19 @@ div.result-row-registered div.causa{
  }
  div.result-row-registered div.date{
   width: 160px;
+  padding-left: 5px;
  } 
 
  div.result-row-registered div.sb{
-  width: 20px;
+  width: 50px;
+  padding-left: 5px;
+ } 
+ div.result-row-registered div.abbreviation{
+  width: 100px;
+  padding-left: 5px;
  } 
  div.result-row-registered div.serviceTime{
   width: 50px;
+  padding-left: 5px;
  } 
  

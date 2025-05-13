@@ -28,7 +28,7 @@ public class AbbreviationController : ControllerBase
     [HttpGet("get-abbreviation")]
     public ActionResult<Abbreviation> GetStructure()
     {
-        return new JsonResult(new List<Abbreviation> { new Abbreviation() { Id =1, Name ="ASDS"} });
+        return new JsonResult(new List<Abbreviation> { new Abbreviation() { Id =1, Name ="ASDS"}, new Abbreviation() { Id = 2, Name = "Abb1" }, new Abbreviation() { Id = 3, Name = "Abb 2" } });
     }
 }
 

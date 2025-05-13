@@ -88,13 +88,14 @@ export async function SendEmailAndAttachment()
     try {
       const model = {
         caseId: $("#email-case-id-input").val(),
-        serviceAbbreviationType:  $('#email-abbreviation-select').find(":selected").text(), ///to nie zwraca popwanej wartosci z select'a
+        serviceAbbreviationType:  $('#email-abbreviation-select').find(":selected").text(),  
         srviceSB:  $("#email-sb-input").val(),
         serviceTime:  $("#email-time-input").val(),
         serviceText:  $("#email-text-input").val(),
         internetMessageId :itemId,// internetMessageId[1].trim(),
         userId :1,
         emailName: $("#email-transfer-btn-text").val(),// item.subject,
+        emailFolder:   $('#email-transfer-btn-select').find(":selected").text(),    
         emailContent: emailContent,
         attachments : attachements
       };     
@@ -254,6 +255,9 @@ async function GetCurrentItemAsync(item)
                     checkbox.prop("checked", true);    // zaznacza
                     checkbox.prop("disabled", true);   // blokuje kliknięcie
                     checkbox.next().val(item.fileName); 
+
+                    const $attachmentSelect =checkbox.next().next();
+                    $attachmentSelect.val(item.folder).trigger('change');
                 });  
 
                 if (data.emailContent != ''){
@@ -261,8 +265,10 @@ async function GetCurrentItemAsync(item)
                     const checkbox = $('#email-transfer-btn-checkbox');
                     checkbox.prop("checked", true);    // zaznacza
                     checkbox.prop("disabled", true);   // blokuje kliknięcie
+ 
+                    const $emailSelect = $('#email-transfer-btn-select');
+                    $emailSelect.val(data.emailFolder).trigger('change');
                 }
-
                 if (data.caseId != ''){
 
                     const input = $('#email-case-id-input');
@@ -365,10 +371,14 @@ async function  getReadModeAttachmentsAsync(item, attachemntId) {
         const value = $(this).val();
         console.log("✅ Zaznaczony załącznik:", value, " | ID:", id);
 
+        const select = $(this).next().next();
+        var folderSelected =  select.find(":selected").text();
+ 
         resultChecked.push({
                       id:id,
                       name: $(this).next().val(),
-                      value:value
+                      value:value,
+                      folder: folderSelected
                     });
      
       });
@@ -381,7 +391,8 @@ async function  getReadModeAttachmentsAsync(item, attachemntId) {
                         fileName:att.name,
                         originalFileName : att.value,
                         id : att.id,
-                        contentBase64: res.value.content
+                        contentBase64: res.value.content,
+                        folder:att.folder
                         });
                     }
                     resolve();
