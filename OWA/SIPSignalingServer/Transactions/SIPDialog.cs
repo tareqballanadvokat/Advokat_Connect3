@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
@@ -32,7 +33,7 @@ namespace SIPSignalingServer.Transactions
 
         private SIPRequest InitialRequest {get; set;}
 
-        private SIPRegistry Registry { get; set; }
+        private ISIPRegistry Registry { get; set; }
 
         private SIPConnectionPool ConnectionPool { get; set; }
 
@@ -47,7 +48,7 @@ namespace SIPSignalingServer.Transactions
             SIPTransport transport,
             SIPRequest initialRequest,
             SIPEndPoint signalingServer,
-            SIPRegistry registry,
+            ISIPRegistry registry,
             SIPConnectionPool connectionPool,
             ILoggerFactory loggerFactory)
             : base(

@@ -2,7 +2,7 @@
 
 namespace SIPSignalingServer.Models
 {
-    internal class SIPRegistration
+    public class SIPRegistration
     {
         public SIPParticipant SourceParticipant { get; private set; }
 

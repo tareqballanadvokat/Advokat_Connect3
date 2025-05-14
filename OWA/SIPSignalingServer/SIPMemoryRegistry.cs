@@ -1,55 +1,67 @@
 ﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
 
 namespace SIPSignalingServer
 {
-    //TODO: make interface - change this to memory registry - registry could be db or file
- 
-    internal class SIPRegistry
+    internal class SIPMemoryRegistry : ISIPRegistry
     {
         private ILogger logger;
 
-        // TODO: locking when adding / removing from list?
+        private readonly object lockObject = new object();
+
         private List<SIPRegistration> RegisteredConnections { get; set; } = new List<SIPRegistration>();
 
-        public SIPRegistry(ILoggerFactory loggerFactory)
+        public SIPMemoryRegistry(ILoggerFactory loggerFactory)
         {
-            this.logger = loggerFactory.CreateLogger<SIPRegistry>();
+            this.logger = loggerFactory.CreateLogger<SIPMemoryRegistry>();
         }
 
         public void Register(SIPRegistration registration)
         {
-            if (!this.IsRegistered(registration))
+            lock (this.lockObject)
             {
-                this.logger.LogDebug("Registering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
-                RegisteredConnections.Add(registration);
+                if (!this.IsRegistered(registration))
+                {
+                    this.logger.LogDebug("Registering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
+                    RegisteredConnections.Add(registration);
+                }
             }
         }
 
         public void Unregister(SIPRegistration registration)
         {
-            SIPRegistration? registeredObject = this.GetRegisteredObject(registration);
-            if (registeredObject != null)
+            lock (this.lockObject)
             {
-                this.logger.LogDebug("Unregistering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
-                RegisteredConnections.Remove(registeredObject);
+                SIPRegistration? registeredObject = this.GetRegisteredObject(registration);
+                if (registeredObject != null)
+                {
+                    this.logger.LogDebug("Unregistering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
+                    RegisteredConnections.Remove(registeredObject);
+                }
             }
         }
 
         public void Confirm(SIPRegistration registration)
         {
-            SIPRegistration? registeredObject = this.GetRegisteredObject(registration);
-            if (registeredObject != null)
+            lock (this.lockObject)
             {
-                this.logger.LogDebug("Confirmed registration. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
-                registeredObject.Confirmed = registration.Confirmed = true;
+                SIPRegistration? registeredObject = this.GetRegisteredObject(registration);
+                if (registeredObject != null)
+                {
+                    this.logger.LogDebug("Confirmed registration. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
+                    registeredObject.Confirmed = registration.Confirmed = true;
+                }
             }
         }
 
         public bool IsConfirmed(SIPRegistration registration)
         {
-            return this.GetRegisteredObject(registration)?.Confirmed
+            lock (this.lockObject)
+            {
+                return this.GetRegisteredObject(registration)?.Confirmed
                 ?? false; // not registered, cannot be confirmed
+            }
         }
 
         public bool IsRegistered(SIPRegistration registration)
@@ -57,10 +69,10 @@ namespace SIPSignalingServer
             return this.RegisteredConnections.Contains(registration);
         }
 
-        public bool IsRegistered(string name)
-        {
-            return this.GetRegisteredObject(name) != null;
-        }
+        //public bool IsRegistered(string name)
+        //{
+        //    return this.GetRegisteredObject(name) != null;
+        //}
 
         public SIPRegistration? GetRegisteredObject(SIPRegistration registration)
         {

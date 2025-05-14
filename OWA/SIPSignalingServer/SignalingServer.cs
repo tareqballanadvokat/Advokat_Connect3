@@ -3,6 +3,7 @@ using SIPSorcery.SIP;
 using System.Net;
 using Microsoft.Extensions.Logging;
 using WebRTCLibrary.SIP;
+using SIPSignalingServer.Interfaces;
 
 namespace SIPSignalingServer
 {
@@ -15,7 +16,7 @@ namespace SIPSignalingServer
         //private IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 8081);
         private IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:8081");
 
-        private SIPRegistry registry;
+        private ISIPRegistry registry;
 
         private SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip;
 
@@ -30,7 +31,8 @@ namespace SIPSignalingServer
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SignalingServer>();
 
-            this.registry = new SIPRegistry(this.loggerFactory);
+            // TODO: Get registry passed
+            this.registry = new SIPMemoryRegistry(this.loggerFactory);
             this.Transport = this.GetConnection(this.ServerEndpoint);
             Console.WriteLine($"listening on {ServerEndpoint}");
 

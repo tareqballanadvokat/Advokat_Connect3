@@ -11,8 +11,7 @@ namespace WebRTCLibrary.SIP.Utils
                 method,
                 new SIPURI(
                     sipScheme,
-                    headerParams.DestinationParticipant.Endpoint.Address,
-                    headerParams.DestinationParticipant.Endpoint.Port));
+                    headerParams.DestinationParticipant.Endpoint));
 
             PopulateHeader(request, sipScheme, headerParams);
             return request;

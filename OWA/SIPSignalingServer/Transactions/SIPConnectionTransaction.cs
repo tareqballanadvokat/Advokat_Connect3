@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
@@ -26,7 +27,7 @@ namespace SIPSignalingServer.Transactions
 
         private SIPRegistration Registration { get; set; }
 
-        private SIPRegistry Registry { get; set; }
+        private ISIPRegistry Registry { get; set; }
 
         private SIPConnectionPool ConnectionPool { get; set; }
 
@@ -38,11 +39,14 @@ namespace SIPSignalingServer.Transactions
 
         private CancellationTokenSource? PeerRegisteringCts { get; set; }
 
+        private CancellationTokenSource? ConnectionCts { get; set; }
+
+
         public SIPConnectionTransaction(
             SIPSchemesEnum sipScheme,
             SIPTransport transport,
             ServerSideTransactionParams signalingServerTransactionParams,
-            SIPRegistry registry,
+            ISIPRegistry registry,
             SIPConnectionPool connectionPool,
             ILoggerFactory loggerFactory,
             int startCSeq = 1)

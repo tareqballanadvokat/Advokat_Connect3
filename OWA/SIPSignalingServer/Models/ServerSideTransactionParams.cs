@@ -2,7 +2,7 @@
 
 namespace SIPSignalingServer.Models
 {
-    internal class ServerSideTransactionParams : TransactionParams
+    public class ServerSideTransactionParams : TransactionParams
     {
         // Signaling server acts as the remote participant
         public new SIPParticipant RemoteParticipant { get => this.SourceParticipant; }

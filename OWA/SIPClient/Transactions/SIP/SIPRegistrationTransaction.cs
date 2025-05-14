@@ -8,7 +8,6 @@ using WebRTCLibrary.SIP.Models;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 [assembly: InternalsVisibleTo("SIPClientTests")]
-
 namespace WebRTCClient.Transactions.SIP
 {
     internal class SIPRegistrationTransaction : WebRTCLibrary.SIP.SIPTransaction, IAsyncDisposable
@@ -84,6 +83,7 @@ namespace WebRTCClient.Transactions.SIP
             this.Connection.SIPRequestReceived += this.ListenForDisconnect;
 
             bool success = await this.SendRegisterMessage();
+            if (!success) return;
 
             await WaitForAsync(
                 () => this.Registered && !this.Registering,
@@ -124,14 +124,10 @@ namespace WebRTCClient.Transactions.SIP
         private async Task RegistrationTimeout()
         {
             // No cancellation. Bye should get sent even if the registration got cancelled.
-            await this.SendBYEMessage(3, CancellationToken.None);
+            await this.SendBYEMessage(2, CancellationToken.None);
             this.RegistrationFailed("Registration Timeout. Signaling server took too long to respond.");
 
             // TODO: Listen for server bye? If accepted had a timeout we shouldn't wait for the server to respond with a bye.
-            //this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
-            // TODO: remove acceptDelegate
-
-            //this.ResetRegistration();
         }
 
         private async Task ListenForRegistrationAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
@@ -178,6 +174,8 @@ namespace WebRTCClient.Transactions.SIP
                 {
                     // request did not get sent.
                     this.RegistrationFailed($"Failed to send ACK. {result}.");
+                    
+                    // TODO: listen for server bye?
                     await this.SendBYEMessage(cSeq, CancellationToken.None); // no cancellation for bye
                     return;
                 }
