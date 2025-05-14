@@ -13,7 +13,7 @@ export async function initEmail()
     
     CalculateEmailInfoAndAttachment();
     GetAbbreviationAsync();
-    showSuccess("EmailOpened", "Your Message"); 
+    showSuccess("Email Tab Loaded", "Your Message"); 
     GetEmailsInLast7Days();
   //  options =
 }
@@ -116,7 +116,7 @@ async function GetFolders()
 {
 
     const options = [
-        { value: "", text: "-- wybierz --" }
+        { value: "", text: "-- choose --" }
       ];
  
     await getStructureApi()
@@ -153,7 +153,7 @@ async function CalculateAttachments(item)
     {
         for (const att of item.attachments) 
         {
-            const $row = $("<div>").addClass("email-row");
+            const $row = $("<div>").addClass("email-row").addClass("padding");
         
             const checkbox = $("<input>", {
                 type: "checkbox",

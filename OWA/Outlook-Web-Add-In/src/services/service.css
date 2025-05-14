@@ -129,15 +129,11 @@ h3{
 
 
   div.button {
-    width: 150px;
+    width: 150px; /* TODO: this to remove and fix causa- header  */
     line-height: 1.5;
   }
   
-  /* a,
-  button {
-    background: red;
-  }
-   */
+
   button {
     background: none!important;
     border: none;
@@ -201,4 +197,6 @@ div.result-row-registered div.causa{
   width: 50px;
   padding-left: 5px;
  } 
- 
+ div.padding {
+  padding-bottom: 5px;;
+ }

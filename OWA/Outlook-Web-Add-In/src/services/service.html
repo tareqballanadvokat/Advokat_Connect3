@@ -25,6 +25,16 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="service.css" rel="stylesheet" type="text/css" />
 
+
+    <!-- DevExtreme theme -->
+    <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/24.2.7/css/dx.light.css">
+ 
+    <!-- DevExtreme libraries (reference only one of them) -->
+    <script type="text/javascript" src="https://cdn3.devexpress.com/jslib/24.2.7/js/dx.all.js"></script>
+    <!-- <script type="text/javascript" src="https://cdn3.devexpress.com/jslib/24.2.7/js/dx.web.js"></script> -->
+    <!-- <script type="text/javascript" src="https://cdn3.devexpress.com/jslib/24.2.7/js/dx.viz.js"></script> -->
+
+
  <style>
 /* Dropdown Button */
 
@@ -231,59 +241,7 @@ NEW for email:
     width:65px;
   }
 </style>
- <!-- <style>
 
-/* --- Cases styles (reuse persons look-and-feel) --- */
-.case-panel {
-  border-top: 1px solid var(--color-border);
-}
-.case-panel:first-of-type {
-  border-top: none;
-}
-.case-content {
-  padding-left: 44px; /* tak samo jak .details-content */
-}
-.case-icon {
-  font-size: 18px;
-  color: var(--color-subtext);
-  margin-right: 6px;
-}
-.case-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text);
-  flex-grow: 1;
-}
-.remove {
-  font-size: 13px;
-  color: var(--color-subtext);
-  cursor: pointer;
-  white-space: nowrap;
-}
-/* plik */
-.file-row {
-  display: flex;
-  align-items: center;
-  padding: 8px 16px 8px 44px;
-}
-.file-icon {
-  font-size: 16px;
-  color: var(--color-subtext);
-  margin-right: 8px;
-}
-.file-name {
-  font-size: 14px;
-  color: var(--color-text);
-  flex-grow: 1;
-}
-.open {
-  font-size: 13px;
-  color: var(--color-link);
-  cursor: pointer;
-}
-
-
- </style> -->
     <script>
         function openCity(tabName) {
           
@@ -319,8 +277,27 @@ window.onclick = function(event) {
     }
   }
 }
-
-
+$(function () {
+    $("#buttonContainer").dxButton();
+});
+$(function() {
+    $("#tabs").dxTabs({
+        width: 300,
+        items: [
+            {
+                badge: 'First'
+            },
+            {
+                text: 'Second',
+                disabled: true                
+            },
+            {
+                icon: 'favorites',
+                text: 'Third'                
+            }
+        ]
+    });
+});
     </script>
 
 </head>
@@ -328,7 +305,7 @@ window.onclick = function(event) {
 
 <body>     
 <div id="tab-content" class="city"></div>
-
+<div id="tabs"></div>
 <div class="w3-bar"> 
     <div id="Email-tab-link" class="w3-bar-item w3-button active" onclick="openCity('Email')">Email</div>
     <div id="Service-tab-link" class="w3-bar-item w3-button" onclick="openCity('Service')">Service</div>
@@ -336,7 +313,7 @@ window.onclick = function(event) {
     <div id="Person-tab-link"  class="w3-bar-item w3-button" onclick="openCity('Person')">Person</div>
   </div>
   <div id="Email" class="w3-container city ">
-          
+    <div id="buttonContainer"></div>
 
       <div class="search-panel">
         <h3>- Search panel</h3>

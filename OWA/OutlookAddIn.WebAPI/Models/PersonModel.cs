@@ -7,7 +7,7 @@ public class PersonModel
     public string WebSite { get; set; }
     public string City { get; set; }
     public string FullName { get; set; }
-    public string Email { get; set; } = "atest@gmail.com";
+    public string Email { get; set; }  
     public int UserID { get; set; }
 }
  

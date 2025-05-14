@@ -12,7 +12,7 @@ export function initCase()
     document.getElementById("search-case-id").onclick = CaseSearchStructure;
     setOptions();
     CaseDownloadStructure();
-    showSuccess("Your Message Header", "Your Message"); 
+    showSuccess("Case Tab Loaded", "Your Message"); 
 }
  
 export function initCaseStructure(initialData, isRootLoaded) 
@@ -170,7 +170,6 @@ export async function CaseSearchStructure()
       .html(`<button>Add</button>`)
       .on("click", async function () 
          {
-          debugger;
           const nodeId = $(this).data("node-id");
           console.log(nodeId);
          var dataToLoad = await addCaseToFavorites(nodeId);

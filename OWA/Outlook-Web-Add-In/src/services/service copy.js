@@ -90,7 +90,6 @@ export async function getUniqueId() {
    */
 
   const item = Office.context.mailbox.item;
-  debugger;
   console.log("Office.context.mailbox.item.internetMessageId: "+ Office.context.mailbox.item.internetMessageId);
   const options = Office.AsyncContextOptions = { asyncContext: { currentItem: item,  } };
   Office.context.mailbox.item.getItemIdAsync(options, (result) => {

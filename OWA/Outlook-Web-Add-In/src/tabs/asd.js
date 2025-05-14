@@ -10,18 +10,17 @@ export function initService()
 {
     document.getElementById("service-search-button").onclick = ServiceSearchStructure;
     document.getElementById("service-transfer-btn").onclick = AddService;
- 
-    //CalculateEmailInfoAndAttachment();
+
     GetRegisteredLast7Days();
     GetAbbreviationAsync();
-    showSuccess("Service Opened", "Your Message"); 
+    showSuccess("Service Tab Loaded", "Your Message"); 
 } 
 
 
 async function GetAbbreviationAsync() {
 
   const options = [
-      { value: "", text: "-- wybierz --" }
+      { value: "", text: "-- choose --" }
     ];
     await getAbbreviationApi()
       .then(data => {

@@ -13,7 +13,7 @@ export function initPerson()
     LoadPersons();
     //CalculateEmailInfoAndAttachment();
  
-    showSuccess("Service Opened", "Your Message"); 
+    showSuccess("Person Tab Loaded", "Your Message"); 
 } 
 
 export async function ServiceSearchStructure()
