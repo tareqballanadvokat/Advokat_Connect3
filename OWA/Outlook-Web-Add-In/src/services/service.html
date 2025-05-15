@@ -276,28 +276,7 @@ window.onclick = function(event) {
       }
     }
   }
-}
-$(function () {
-    $("#buttonContainer").dxButton();
-});
-$(function() {
-    $("#tabs").dxTabs({
-        width: 300,
-        items: [
-            {
-                badge: 'First'
-            },
-            {
-                text: 'Second',
-                disabled: true                
-            },
-            {
-                icon: 'favorites',
-                text: 'Third'                
-            }
-        ]
-    });
-});
+} 
     </script>
 
 </head>
@@ -305,7 +284,59 @@ $(function() {
 
 <body>     
 <div id="tab-content" class="city"></div>
+<!-- tutaj pojawi się komponent Tabs -->
 <div id="tabs"></div>
+
+<!-- treść każdej zakładki -->
+<div id="contents">
+  <div data-content="0" class="tab-content">
+    <h4>E-Mail</h4>
+    <p>Tu wstawisz formularz lub listę e-maili.</p>
+  </div>
+  <div data-content="1" class="tab-content">
+    <h4>Services</h4>
+    <p>Tu wrzuć swoją zawartość zakładki Services.</p>
+  </div>
+  <div data-content="2" class="tab-content">
+    <h4>Cases</h4>
+    <p>Tu wrzuć swoją zawartość zakładki Cases.</p>
+  </div>
+  <div data-content="3" class="tab-content">
+    <h4>Persons</h4>
+    <p>Tu wrzuć swoją zawartość zakładki Persons.</p>
+  </div>
+</div>
+
+<script>
+  $(function() {
+    // definicja pozycji zakładek
+    const tabs = [
+      { text: "E-Mail" },
+      { text: "Services" },
+      { text: "Cases" },
+      { text: "Persons" }
+    ];
+
+    $("#tabs").dxTabs({
+      items: tabs,
+      selectedIndex: 1,             // domyślnie otwarta zakładka Services
+      stylingMode: "outlined",      // ramka wokół każdej zakładki
+      showNavButtons: false,        // ukrywamy przyciski nawigacji
+      onItemClick(e) {
+        // przy każdej zmianie zakładki chowamy i pokazujemy odpowiedni div
+        const idx = e.itemIndex;
+        $("#contents .tab-content")
+          .hide()
+          .filter(`[data-content="${idx}"]`)
+          .show();
+      }
+    });
+
+    // Początkowo pokazujemy tylko treść wybranej zakładki
+    $("#contents .tab-content").hide();
+    $(`#contents .tab-content[data-content="1"]`).show();
+  });
+</script>
 <div class="w3-bar"> 
     <div id="Email-tab-link" class="w3-bar-item w3-button active" onclick="openCity('Email')">Email</div>
     <div id="Service-tab-link" class="w3-bar-item w3-button" onclick="openCity('Service')">Service</div>

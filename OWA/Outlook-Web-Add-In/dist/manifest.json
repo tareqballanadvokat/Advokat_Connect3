@@ -20,8 +20,8 @@
         "termsOfUseUrl": "https://www.Advokat.at/servicesagreement"
     },
     "icons": {
-        "outline": "assets/outline.png",
-        "color": "assets/color.png"
+        "outline": "assets/a_3.png",
+        "color": "assets/a_3.png"
     },
     "accentColor": "#230201",
     "localizationInfo": {
@@ -31,6 +31,7 @@
     "authorization": {
         "permissions": {
             "resourceSpecific": [
+ 
                 {
                     "name": "Mailbox.ReadWrite",
                     "type": "Delegated"
@@ -68,10 +69,11 @@
                         "capabilities": [
                             {
                                 "name": "Mailbox",
-                                "minVersion": "1.3"
+                                "minVersion": "1.13"
                             }
                         ]
                     },
+                    
                     "id": "ServicePaneRuntime",
                     "type": "general",
                     "code": {
@@ -80,7 +82,37 @@
                     "lifetime": "short",
                     "actions": [
                         {
+                            "supportsNoItemContext": true,
                             "id": "ServicePaneRuntimeShow",
+                            "type": "openPage",
+                            "pinnable": false,
+                            "view": "dashboard",
+                            "multiselect": true
+                        
+                        }
+                    ]
+                },
+
+                {
+                    "requirements": {
+                        "capabilities": [
+                            {
+                                "name": "Mailbox",
+                                "minVersion": "1.13"
+                            }
+                        ]
+                    },
+                    
+                    "id": "IndexPaneRuntime",
+                    "type": "general",
+                    "code": {
+                        "page": "https://www.advokat.at/index.html"
+                    },
+                    "lifetime": "short",
+                    "actions": [
+                        {
+                            "supportsNoItemContext": true,
+                            "id": "IndexPaneRuntimeShow",
                             "type": "openPage",
                             "pinnable": false,
                             "view": "dashboard",
@@ -106,7 +138,8 @@
                     },
                     "lifetime": "short",
                     "actions": [
-                        {
+                        {      
+                             "supportsNoItemContext": true,
                             "id": "TaskPaneRuntimeShow",
                             "type": "openPage",
                             "pinnable": false,
@@ -348,7 +381,32 @@
                                             },
                                             "actionId": "ServicePaneRuntimeShow"
                                         }
+                                        ,
 
+                                        {
+                                            "id": "msgReadOpenIndexPaneButton",
+                                            "type": "button",
+                                            "label": "Show Index Pane",
+                                            "icons": [
+                                                {
+                                                    "size": 16,
+                                                    "url": "https://www.advokat.at/assets/icon-16.png"
+                                                },
+                                                {
+                                                    "size": 32,
+                                                    "url": "https://www.advokat.at/assets/icon-32.png"
+                                                },
+                                                {
+                                                    "size": 80,
+                                                    "url": "https://www.advokat.at/assets/icon-80.png"
+                                                }
+                                            ],
+                                            "supertip": {
+                                                "title": "Show Index Pane",
+                                                "description": "Opens a pane displaying all available properties."
+                                            },
+                                            "actionId": "IndexPaneRuntimeShow"
+                                        }
                                     ]
                                 }
                             ]
@@ -530,6 +588,31 @@
                                                 "description": "Opens a pane displaying all available properties."
                                             },
                                             "actionId": "ServicePaneRuntimeShow"
+                                        }      ,
+
+                                        {
+                                            "id": "msgReadOpenIndexPaneButton2",
+                                            "type": "button",
+                                            "label": "Show Index compose Pane",
+                                            "icons": [
+                                                {
+                                                    "size": 16,
+                                                    "url": "https://www.advokat.at/assets/icon-16.png"
+                                                },
+                                                {
+                                                    "size": 32,
+                                                    "url": "https://www.advokat.at/assets/icon-32.png"
+                                                },
+                                                {
+                                                    "size": 80,
+                                                    "url": "https://www.advokat.at/assets/icon-80.png"
+                                                }
+                                            ],
+                                            "supertip": {
+                                                "title": "Show Index Pane",
+                                                "description": "Opens a pane displaying all available properties."
+                                            },
+                                            "actionId": "IndexPaneRuntimeShow"
                                         }
                                     ]
                                 }
@@ -544,7 +627,7 @@
                         "capabilities": [
                             {
                                 "name": "Mailbox",
-                                "minVersion": "1.15"
+                                "minVersion": "1.13"
                             }
                         ],
                         "scopes": [
