@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/core/events/short.js",
+  "module": "../../../../esm/common/core/events/short.js"
+}

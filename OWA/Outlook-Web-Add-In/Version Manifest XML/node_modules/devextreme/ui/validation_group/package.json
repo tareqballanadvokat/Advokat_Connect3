@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/core/emitter.feedback.js",
+    "../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../cjs/ui/validation_group.js",
+  "module": "../../esm/ui/validation_group.js",
+  "typings": "../validation_group.d.ts"
+}

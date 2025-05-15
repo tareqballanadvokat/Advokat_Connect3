@@ -1,0 +1,8 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/localization/currency.js"
+  ],
+  "main": "../../../cjs/common/core/localization.js",
+  "module": "../../../esm/common/core/localization.js",
+  "typings": "../localization.d.ts"
+}

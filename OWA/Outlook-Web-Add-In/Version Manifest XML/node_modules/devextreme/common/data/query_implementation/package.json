@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../cjs/common/data/query_implementation.js",
+  "module": "../../../esm/common/data/query_implementation.js"
+}

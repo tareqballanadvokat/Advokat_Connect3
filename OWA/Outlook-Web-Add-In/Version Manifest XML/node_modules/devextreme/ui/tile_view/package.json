@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/core/emitter.feedback.js",
+    "../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../cjs/ui/tile_view.js",
+  "module": "../../esm/ui/tile_view.js",
+  "typings": "../tile_view.d.ts"
+}

@@ -1,0 +1,8 @@
+{
+  "sideEffects": [
+    "../../../../../esm/common/core/localization/globalize/core.js",
+    "../../../../../esm/common/core/localization/globalize/number.js"
+  ],
+  "main": "../../../../../cjs/common/core/localization/globalize/date.js",
+  "module": "../../../../../esm/common/core/localization/globalize/date.js"
+}

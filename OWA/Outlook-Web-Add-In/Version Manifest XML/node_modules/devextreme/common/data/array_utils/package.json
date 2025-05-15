@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../cjs/common/data/array_utils.js",
+  "module": "../../../esm/common/data/array_utils.js"
+}

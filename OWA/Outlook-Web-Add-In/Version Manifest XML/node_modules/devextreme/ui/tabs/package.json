@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/hover.js",
+    "../../esm/common/core/events/core/emitter.feedback.js"
+  ],
+  "main": "../../cjs/ui/tabs.js",
+  "module": "../../esm/ui/tabs.js",
+  "typings": "../tabs.d.ts"
+}

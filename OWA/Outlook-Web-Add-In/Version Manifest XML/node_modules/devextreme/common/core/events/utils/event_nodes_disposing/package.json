@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../../cjs/common/core/events/utils/event_nodes_disposing.js",
+  "module": "../../../../../esm/common/core/events/utils/event_nodes_disposing.js"
+}

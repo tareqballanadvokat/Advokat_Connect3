@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/core/localization/core.js",
+  "module": "../../../../esm/common/core/localization/core.js"
+}

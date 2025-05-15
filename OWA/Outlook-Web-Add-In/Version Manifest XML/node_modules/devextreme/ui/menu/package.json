@@ -1,0 +1,12 @@
+{
+  "sideEffects": [
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/hover.js",
+    "../../esm/common/core/events/core/emitter.feedback.js",
+    "../../esm/ui/themes.js",
+    "../../esm/ui/context_menu.js"
+  ],
+  "main": "../../cjs/ui/menu.js",
+  "module": "../../esm/ui/menu.js",
+  "typings": "../menu.d.ts"
+}

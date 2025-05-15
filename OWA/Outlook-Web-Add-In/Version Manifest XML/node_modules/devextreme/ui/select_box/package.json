@@ -1,0 +1,14 @@
+{
+  "sideEffects": [
+    "../../esm/__internal/ui/list/modules/m_selection.js",
+    "../../esm/__internal/ui/list/m_list.edit.decorator.selection.js",
+    "../../esm/ui/themes.js",
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/hover.js",
+    "../../esm/common/core/events/core/emitter.feedback.js",
+    "../../esm/ui/toolbar/ui.toolbar.base.js"
+  ],
+  "main": "../../cjs/ui/select_box.js",
+  "module": "../../esm/ui/select_box.js",
+  "typings": "../select_box.d.ts"
+}

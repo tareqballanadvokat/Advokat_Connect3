@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js",
+    "../../../esm/ui/toolbar/ui.toolbar.base.js"
+  ],
+  "main": "../../../cjs/ui/diagram/ui.diagram.toolbox.js",
+  "module": "../../../esm/ui/diagram/ui.diagram.toolbox.js"
+}

@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/core/environment/time_zone_utils.js",
+  "module": "../../../../esm/common/core/environment/time_zone_utils.js"
+}

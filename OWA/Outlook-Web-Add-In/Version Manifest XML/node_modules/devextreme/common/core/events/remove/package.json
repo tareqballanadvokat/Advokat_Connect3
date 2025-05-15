@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/core/events/remove.js",
+  "module": "../../../../esm/common/core/events/remove.js"
+}

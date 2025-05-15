@@ -1,0 +1,11 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js",
+    "../../../esm/common/core/localization/currency.js"
+  ],
+  "main": "../../../cjs/common/export/pdf.js",
+  "module": "../../../esm/common/export/pdf.js",
+  "typings": "../pdf.d.ts"
+}

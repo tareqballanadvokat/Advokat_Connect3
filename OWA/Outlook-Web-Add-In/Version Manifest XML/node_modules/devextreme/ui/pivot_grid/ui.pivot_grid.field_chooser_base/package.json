@@ -1,0 +1,15 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js",
+    "../../../esm/__internal/ui/list/modules/m_search.js",
+    "../../../esm/__internal/ui/list/modules/m_selection.js",
+    "../../../esm/__internal/ui/list/m_list.edit.decorator.selection.js",
+    "../../../esm/ui/themes.js",
+    "../../../esm/ui/toolbar/ui.toolbar.base.js",
+    "../../../esm/common/core/localization/currency.js"
+  ],
+  "main": "../../../cjs/ui/pivot_grid/ui.pivot_grid.field_chooser_base.js",
+  "module": "../../../esm/ui/pivot_grid/ui.pivot_grid.field_chooser_base.js"
+}

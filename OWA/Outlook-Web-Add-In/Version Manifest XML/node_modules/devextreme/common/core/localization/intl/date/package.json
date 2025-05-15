@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../../cjs/common/core/localization/intl/date.js",
+  "module": "../../../../../esm/common/core/localization/intl/date.js"
+}

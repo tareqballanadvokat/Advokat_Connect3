@@ -1,0 +1,7 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/localization/currency.js"
+  ],
+  "main": "../../../cjs/viz/gauges/circular_gauge.js",
+  "module": "../../../esm/viz/gauges/circular_gauge.js"
+}

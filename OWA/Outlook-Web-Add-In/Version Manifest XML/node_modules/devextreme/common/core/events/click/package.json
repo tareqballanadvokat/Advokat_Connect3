@@ -1,0 +1,6 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/core/events/click.js",
+  "module": "../../../../esm/common/core/events/click.js",
+  "typings": "../click.d.ts"
+}

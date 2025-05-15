@@ -1,0 +1,6 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/core/events/pointer.js",
+  "module": "../../../../esm/common/core/events/pointer.js",
+  "typings": "../pointer.d.ts"
+}

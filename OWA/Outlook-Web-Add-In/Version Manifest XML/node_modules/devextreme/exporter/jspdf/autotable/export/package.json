@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../../../esm/common/core/events/click.js",
+    "../../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../../esm/common/core/events/hover.js",
+    "../../../../esm/common/core/localization/currency.js"
+  ],
+  "main": "../../../../cjs/exporter/jspdf/autotable/export.js",
+  "module": "../../../../esm/exporter/jspdf/autotable/export.js"
+}

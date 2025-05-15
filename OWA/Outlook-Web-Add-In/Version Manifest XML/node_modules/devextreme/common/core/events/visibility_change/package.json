@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/core/events/visibility_change.js",
+  "module": "../../../../esm/common/core/events/visibility_change.js"
+}

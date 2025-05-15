@@ -1,0 +1,178 @@
+@use "sass:math";
+@use "sass:color";
+@use "sizes" as *;
+@use "../sizes" as *;
+@use "colors" as *;
+@use "../colors" as *;
+@use "../../base/icons" as *;
+@use "../../base/button/mixins" as *;
+
+@mixin dx-button-onlyicon-sizing($icon-size: $material-button-icon-size) {
+  min-width: $material-button-height;
+
+  $button-content-padding: math.div($material-button-height - $icon-size - $material-base-border-width * 2, 2);
+
+  @include dx-button-sizing(
+    $button-content-padding,
+    $button-content-padding,
+    $button-content-padding,
+    $icon-size,
+    0
+  );
+}
+
+@mixin dx-button-withtext-sizing() {
+  @include dx-button-sizing(
+    $material-button-vertical-padding,
+    $material-button-horizontal-padding,
+    $material-button-horizontal-padding,
+    $material-button-icon-size,
+    math.div($material-button-icon-size, 2)
+  );
+}
+
+@mixin dx-button-text-and-icon-sizing() {
+  @include dx-button-sizing(
+    $material-button-vertical-padding,
+    $material-button-icon-text-padding,
+    $material-button-horizontal-padding,
+    $material-button-icon-size,
+    $material-button-icon-margin,
+  );
+}
+
+
+@mixin dx-button-styling-variant(
+  $button-color,
+  $button-bg,
+  $button-hover-bg,
+  $button-focused-bg,
+  $button-active-bg,
+  $icon-color,
+  $button-selected-bg: $button-active-bg,
+  $button-selected-color: $button-color,
+) {
+  background-color: $button-bg;
+  color: $button-color;
+
+  .dx-icon {
+    color: $icon-color;
+  }
+
+  &.dx-state-selected {
+    background-color: $button-selected-bg;
+
+    &,
+    .dx-icon {
+      color: $button-selected-color;
+    }
+  }
+
+  &.dx-state-hover {
+    background-color: $button-hover-bg;
+  }
+
+  &.dx-state-focused {
+    background-color: $button-focused-bg;
+  }
+
+  &.dx-state-active {
+    background-color: $button-active-bg;
+  }
+
+  .dx-inkripple-wave {
+    background-color: color.change($button-color, $alpha: 0.2);
+  }
+}
+
+@mixin dx-button-styling(
+  $button-color,
+  $button-bg,
+  $button-hover-bg,
+  $button-focused-bg,
+  $button-active-bg,
+  $button-icon-color,
+  $button-selected-bg,
+  $button-selected-color,
+) {
+  border-radius: $button-border-radius;
+
+  @include dx-button-styling-variant(
+    $button-color,
+    $button-bg,
+    $button-hover-bg,
+    $button-focused-bg,
+    $button-active-bg,
+    $button-icon-color,
+    $button-selected-bg,
+    $button-selected-color,
+  );
+
+  &.dx-state-disabled {
+    opacity: 1;
+    box-shadow: none;
+
+    .dx-icon {
+      color: $button-disabled-text-color;
+    }
+
+    .dx-button-text {
+      color: $button-disabled-text-color;
+    }
+
+    &.dx-button-mode-contained {
+      background-color: $button-disabled-background;
+    }
+
+    &.dx-button-mode-outlined {
+      border-color: $button-disabled-background;
+    }
+  }
+}
+
+@mixin dx-button-flat-color-styling(
+  $button-color,
+  $button-bg,
+  $button-hover-bg,
+  $button-focused-bg,
+  $button-active-bg,
+  $button-selected-bg: $button-active-bg,
+  $button-selected-color: $button-color
+) {
+  @include dx-button-styling-variant(
+    $button-color,
+    $button-bg,
+    $button-hover-bg,
+    $button-focused-bg,
+    $button-active-bg,
+    $button-color,
+    $button-selected-bg,
+    $button-selected-color,
+  );
+}
+
+@mixin dx-button-outlined-color-styling(
+  $button-color,
+  $button-border-color,
+  $button-bg,
+  $button-hover-bg,
+  $button-focused-bg,
+  $button-active-bg,
+  $button-selected-bg,
+  $button-selected-color,
+) {
+  border-width: 1px;
+  border-style: solid;
+  border-color: $button-border-color;
+
+  @include dx-button-styling-variant(
+    $button-color,
+    $button-bg,
+    $button-hover-bg,
+    $button-focused-bg,
+    $button-active-bg,
+    $button-color,
+    $button-selected-bg,
+    $button-selected-color,
+  );
+}

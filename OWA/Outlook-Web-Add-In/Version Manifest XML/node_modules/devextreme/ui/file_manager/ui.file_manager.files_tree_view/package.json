@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js",
+    "../../../esm/ui/themes.js"
+  ],
+  "main": "../../../cjs/ui/file_manager/ui.file_manager.files_tree_view.js",
+  "module": "../../../esm/ui/file_manager/ui.file_manager.files_tree_view.js"
+}

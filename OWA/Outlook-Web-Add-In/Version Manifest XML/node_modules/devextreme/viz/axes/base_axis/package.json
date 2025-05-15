@@ -1,0 +1,7 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/localization/currency.js"
+  ],
+  "main": "../../../cjs/viz/axes/base_axis.js",
+  "module": "../../../esm/viz/axes/base_axis.js"
+}

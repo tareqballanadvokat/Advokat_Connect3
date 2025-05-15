@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/core/emitter.feedback.js",
+    "../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../cjs/ui/multi_view.js",
+  "module": "../../esm/ui/multi_view.js",
+  "typings": "../multi_view.d.ts"
+}

@@ -1,0 +1,11 @@
+{
+  "sideEffects": [
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/core/emitter.feedback.js",
+    "../../esm/common/core/events/hover.js",
+    "../../esm/ui/themes.js"
+  ],
+  "main": "../../cjs/ui/tree_view.js",
+  "module": "../../esm/ui/tree_view.js",
+  "typings": "../tree_view.d.ts"
+}

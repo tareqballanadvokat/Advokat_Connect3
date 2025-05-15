@@ -1,0 +1,11 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/localization/currency.js",
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../../cjs/common/export/excel.js",
+  "module": "../../../esm/common/export/excel.js",
+  "typings": "../excel.d.ts"
+}

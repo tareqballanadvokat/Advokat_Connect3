@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/localization/currency.js",
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../../cjs/exporter/exceljs/export_pivot_grid.js",
+  "module": "../../../esm/exporter/exceljs/export_pivot_grid.js"
+}

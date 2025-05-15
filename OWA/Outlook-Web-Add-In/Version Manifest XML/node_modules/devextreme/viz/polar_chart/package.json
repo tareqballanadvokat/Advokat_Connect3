@@ -1,0 +1,8 @@
+{
+  "sideEffects": [
+    "../../esm/common/core/localization/currency.js"
+  ],
+  "main": "../../cjs/viz/polar_chart.js",
+  "module": "../../esm/viz/polar_chart.js",
+  "typings": "../polar_chart.d.ts"
+}

@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/data/odata/context.js",
+  "module": "../../../../esm/common/data/odata/context.js"
+}

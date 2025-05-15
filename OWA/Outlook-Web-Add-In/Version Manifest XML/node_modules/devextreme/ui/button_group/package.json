@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/hover.js",
+    "../../esm/common/core/events/core/emitter.feedback.js"
+  ],
+  "main": "../../cjs/ui/button_group.js",
+  "module": "../../esm/ui/button_group.js",
+  "typings": "../button_group.d.ts"
+}

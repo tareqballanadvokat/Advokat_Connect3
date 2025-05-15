@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js",
+    "../../../esm/common/core/localization/currency.js"
+  ],
+  "main": "../../../cjs/exporter/common/export_load_panel.js",
+  "module": "../../../esm/exporter/common/export_load_panel.js"
+}

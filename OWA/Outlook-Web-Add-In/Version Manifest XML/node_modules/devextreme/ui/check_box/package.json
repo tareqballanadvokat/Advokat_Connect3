@@ -1,0 +1,11 @@
+{
+  "sideEffects": [
+    "../../esm/ui/themes.js",
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/hover.js",
+    "../../esm/common/core/events/core/emitter.feedback.js"
+  ],
+  "main": "../../cjs/ui/check_box.js",
+  "module": "../../esm/ui/check_box.js",
+  "typings": "../check_box.d.ts"
+}

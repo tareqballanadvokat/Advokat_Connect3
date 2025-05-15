@@ -1,0 +1,11 @@
+{
+  "sideEffects": [
+    "../../esm/ui/toolbar/ui.toolbar.base.js",
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/core/emitter.feedback.js",
+    "../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../cjs/ui/color_box.js",
+  "module": "../../esm/ui/color_box.js",
+  "typings": "../color_box.d.ts"
+}

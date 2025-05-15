@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/localization/globalize/currency.js",
+    "../../../esm/common/core/localization/globalize/core.js",
+    "../../../esm/common/core/localization/globalize/number.js",
+    "../../../esm/common/core/localization/currency.js"
+  ],
+  "main": "../../../cjs/localization/globalize/currency.js",
+  "module": "../../../esm/localization/globalize/currency.js"
+}

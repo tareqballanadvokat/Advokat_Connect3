@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/data/odata/request_dispatcher.js",
+  "module": "../../../../esm/common/data/odata/request_dispatcher.js"
+}

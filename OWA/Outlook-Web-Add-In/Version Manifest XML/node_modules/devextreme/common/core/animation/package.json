@@ -1,0 +1,6 @@
+{
+  "sideEffects": false,
+  "main": "../../../cjs/common/core/animation.js",
+  "module": "../../../esm/common/core/animation.js",
+  "typings": "../animation.d.ts"
+}

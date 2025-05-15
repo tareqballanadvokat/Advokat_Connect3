@@ -1,0 +1,6 @@
+{
+  "sideEffects": false,
+  "main": "../../cjs/common/data.js",
+  "module": "../../esm/common/data.js",
+  "typings": "../data.d.ts"
+}

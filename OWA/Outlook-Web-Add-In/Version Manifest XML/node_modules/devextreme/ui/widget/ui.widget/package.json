@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../../cjs/ui/widget/ui.widget.js",
+  "module": "../../../esm/ui/widget/ui.widget.js",
+  "typings": "../ui.widget.d.ts"
+}

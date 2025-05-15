@@ -1,0 +1,11 @@
+{
+  "sideEffects": [
+    "../../../esm/ui/toolbar/ui.toolbar.base.js",
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../../cjs/ui/drop_down_editor/ui.drop_down_editor.js",
+  "module": "../../../esm/ui/drop_down_editor/ui.drop_down_editor.js",
+  "typings": "../ui.drop_down_editor.d.ts"
+}

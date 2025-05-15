@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../cjs/common/data/errors.js",
+  "module": "../../../esm/common/data/errors.js"
+}

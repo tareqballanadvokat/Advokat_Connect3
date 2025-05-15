@@ -1,0 +1,8 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/localization/globalize/number.js",
+    "../../../esm/common/core/localization/globalize/core.js"
+  ],
+  "main": "../../../cjs/localization/globalize/number.js",
+  "module": "../../../esm/localization/globalize/number.js"
+}

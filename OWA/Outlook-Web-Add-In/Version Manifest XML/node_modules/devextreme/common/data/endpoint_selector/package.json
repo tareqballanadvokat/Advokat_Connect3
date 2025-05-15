@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../cjs/common/data/endpoint_selector.js",
+  "module": "../../../esm/common/data/endpoint_selector.js"
+}

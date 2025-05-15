@@ -1,0 +1,6 @@
+{
+  "sideEffects": false,
+  "main": "../../../../cjs/common/core/localization/message.js",
+  "module": "../../../../esm/common/core/localization/message.js",
+  "typings": "../message.d.ts"
+}

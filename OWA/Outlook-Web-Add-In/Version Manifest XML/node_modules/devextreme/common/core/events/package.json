@@ -1,0 +1,6 @@
+{
+  "sideEffects": false,
+  "main": "../../../cjs/common/core/events.js",
+  "module": "../../../esm/common/core/events.js",
+  "typings": "../events.d.ts"
+}

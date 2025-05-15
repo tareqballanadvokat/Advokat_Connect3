@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../../../cjs/common/core/events/pointer/observer.js",
+  "module": "../../../../../esm/common/core/events/pointer/observer.js"
+}

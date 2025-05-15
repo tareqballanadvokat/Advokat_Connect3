@@ -1,0 +1,6 @@
+{
+  "sideEffects": false,
+  "main": "../../../cjs/common/core/environment.js",
+  "module": "../../../esm/common/core/environment.js",
+  "typings": "../environment.d.ts"
+}

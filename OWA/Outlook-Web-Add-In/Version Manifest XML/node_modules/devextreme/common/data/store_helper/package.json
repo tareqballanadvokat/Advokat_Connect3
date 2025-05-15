@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../cjs/common/data/store_helper.js",
+  "module": "../../../esm/common/data/store_helper.js"
+}

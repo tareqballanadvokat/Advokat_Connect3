@@ -1,0 +1,12 @@
+{
+  "sideEffects": [
+    "../../esm/common/core/events/click.js",
+    "../../esm/common/core/events/core/emitter.feedback.js",
+    "../../esm/common/core/events/hover.js",
+    "../../esm/ui/popup/ui.popup.js",
+    "../../esm/ui/toolbar/ui.toolbar.base.js"
+  ],
+  "main": "../../cjs/ui/toolbar.js",
+  "module": "../../esm/ui/toolbar.js",
+  "typings": "../toolbar.d.ts"
+}

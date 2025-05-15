@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/localization/currency.js",
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../../cjs/ui/gantt/ui.gantt.export_helper.js",
+  "module": "../../../esm/ui/gantt/ui.gantt.export_helper.js"
+}

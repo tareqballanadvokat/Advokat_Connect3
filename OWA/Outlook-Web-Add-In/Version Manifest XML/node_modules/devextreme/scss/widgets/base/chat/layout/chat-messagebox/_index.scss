@@ -1,0 +1,10 @@
+.dx-chat-messagebox {
+  display: flex;
+  align-items: flex-end;
+  border-top-width: 1px;
+  border-top-style: solid;
+}
+
+.dx-chat-messagebox-textarea {
+  flex-grow: 1;
+}

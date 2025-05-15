@@ -1,0 +1,10 @@
+{
+  "sideEffects": [
+    "../../../esm/common/core/events/click.js",
+    "../../../esm/common/core/events/core/emitter.feedback.js",
+    "../../../esm/common/core/events/hover.js"
+  ],
+  "main": "../../../cjs/ui/text_box/ui.text_editor.base.js",
+  "module": "../../../esm/ui/text_box/ui.text_editor.base.js",
+  "typings": "../ui.text_editor.base.d.ts"
+}

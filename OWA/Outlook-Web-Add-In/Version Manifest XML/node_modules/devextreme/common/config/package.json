@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../cjs/common/config.js",
+  "module": "../../esm/common/config.js"
+}

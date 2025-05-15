@@ -1,0 +1,5 @@
+{
+  "sideEffects": false,
+  "main": "../../../cjs/common/data/apply_changes.js",
+  "module": "../../../esm/common/data/apply_changes.js"
+}
