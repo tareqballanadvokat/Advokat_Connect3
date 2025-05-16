@@ -3,6 +3,7 @@ using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 
@@ -44,7 +45,7 @@ namespace SIPSignalingServer.Transactions
 
         public SIPConnectionTransaction(
             SIPSchemesEnum sipScheme,
-            SIPTransport transport,
+            ISIPTransport transport,
             ServerSideTransactionParams signalingServerTransactionParams,
             ISIPRegistry registry,
             SIPConnectionPool connectionPool,

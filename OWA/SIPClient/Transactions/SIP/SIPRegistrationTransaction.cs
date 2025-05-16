@@ -2,7 +2,7 @@
 using SIPSorcery.SIP;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using WebRTCLibrary;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
@@ -35,7 +35,7 @@ namespace WebRTCClient.Transactions.SIP
             this.registrationCts = new CancellationTokenSource();
         }
 
-        public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+        public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(sipScheme, transport, dialogParams, loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPRegistrationTransaction>();

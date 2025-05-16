@@ -2,7 +2,7 @@
 using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
-using WebRTCLibrary;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 

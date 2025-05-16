@@ -7,9 +7,9 @@ using SIPSignalingServer.Utils.CustomEventArgs;
 using static WebRTCLibrary.Utils.TaskHelpers;
 using Microsoft.Extensions.Logging;
 using System.Net.Sockets;
-using WebRTCLibrary;
 using System.Runtime.CompilerServices;
 using SIPSignalingServer.Interfaces;
+using WebRTCLibrary.Interfaces;
 
 [assembly: InternalsVisibleTo("SignalingServerTests")]
 namespace SIPSignalingServer.Transactions

@@ -2,6 +2,7 @@
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using static WebRTCLibrary.Utils.TaskHelpers;
@@ -27,7 +28,7 @@ namespace WebRTCClient.Transactions.SIP
 
         private bool Connecting { get; set; }
 
-        public SIPConnectionTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+        public SIPConnectionTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(sipScheme, transport, dialogParams, loggerFactory)
         {
             this.loggerFactory = loggerFactory;

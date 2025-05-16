@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCLibrary.SIP
@@ -32,7 +33,7 @@ namespace WebRTCLibrary.SIP
         public ISIPConnection Connection { get; private set; }
 
         // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
-        public SIPTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+        public SIPTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : this(new SIPConnection(sipScheme, transport, loggerFactory), dialogParams, loggerFactory)
         {
             this.Connection.MessagePredicate = this.AcceptMessage;

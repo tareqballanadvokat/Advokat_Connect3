@@ -1,9 +1,10 @@
 ﻿using SIPSignalingServer.Transactions;
-using SIPSorcery.SIP;
 using System.Net;
 using Microsoft.Extensions.Logging;
 using WebRTCLibrary.SIP;
 using SIPSignalingServer.Interfaces;
+using WebRTCLibrary.Interfaces;
+using SIPSorcery.SIP;
 
 namespace SIPSignalingServer
 {
@@ -20,7 +21,7 @@ namespace SIPSignalingServer
 
         private SIPSchemesEnum SIPScheme = SIPSchemesEnum.sip;
 
-        private SIPTransport Transport;
+        private ISIPTransport Transport;
 
         private SIPConnection connection;
 
@@ -50,9 +51,9 @@ namespace SIPSignalingServer
                 && request.Header.CSeq == 1);
         }
 
-        private SIPTransport GetConnection(IPEndPoint sourceEndpoint)
+        private ISIPTransport GetConnection(IPEndPoint sourceEndpoint)
         {
-            SIPTransport transport = new SIPTransport();
+            ISIPTransport transport = new WebRTCLibrary.Utils.SIPTransport();
 
             // set listening channel
             SIPUDPChannel channel = new SIPUDPChannel(sourceEndpoint);

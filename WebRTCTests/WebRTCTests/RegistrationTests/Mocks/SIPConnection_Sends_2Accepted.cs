@@ -2,7 +2,7 @@
 using System.Net.Sockets;
 using System.Net;
 using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary;
+using WebRTCLibrary.Interfaces;
 
 namespace SIPClientTests.RegistrationTests.Mocks
 {

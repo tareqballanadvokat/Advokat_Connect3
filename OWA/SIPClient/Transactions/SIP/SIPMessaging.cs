@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
-using WebRTCLibrary;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -16,9 +16,6 @@ namespace WebRTCClient.Transactions.SIP
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
         public bool Running { get; private set; }
-
-
-
 
         public SIPMessaging(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(connection, dialogParams, loggerFactory)

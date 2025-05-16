@@ -3,9 +3,9 @@ using SIPSorcery.SIP;
 using System.Net.Sockets;
 using WebRTCClient.Models;
 using WebRTCClient.Transactions.SIP;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
-
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient
@@ -57,7 +57,7 @@ namespace WebRTCClient
 
         public SIPClient(
             SIPSchemesEnum sipScheme,
-            SIPTransport transport,
+            ISIPTransport transport,
             SIPParticipant sourceParticipant,
             SIPParticipant remoteParticipant,
             ILoggerFactory loggerFactory)
@@ -100,9 +100,9 @@ namespace WebRTCClient
             await this.Dialog.Stop();
         }
 
-        private static SIPTransport GetTransport(SIPParticipant caller, HashSet<SIPChannelsEnum> sipChannelEnums)
+        private static ISIPTransport GetTransport(SIPParticipant caller, HashSet<SIPChannelsEnum> sipChannelEnums)
         {
-            SIPTransport transport = new SIPTransport();
+            ISIPTransport transport = new WebRTCLibrary.Utils.SIPTransport();
 
             if (sipChannelEnums.Count == 0)
             {

@@ -2,6 +2,7 @@
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
@@ -30,9 +31,9 @@ namespace WebRTCClient.Transactions.SIP
 
         private SIPKeepAlive SIPKeepAlive { get; set; }
 
-        private SIPTransport Transport { get; set; }
+        private ISIPTransport Transport { get; set; }
 
-        public SIPDialog(SIPSchemesEnum sipScheme, SIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, ILoggerFactory loggerFactory)
+        public SIPDialog(SIPSchemesEnum sipScheme, ISIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, ILoggerFactory loggerFactory)
             : base(
                   sipScheme,
                   transport,

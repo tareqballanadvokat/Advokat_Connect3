@@ -1,9 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
-using static WebRTCLibrary.ISIPConnection;
+using static WebRTCLibrary.Interfaces.ISIPConnection;
 
 namespace WebRTCLibrary.SIP
 {
@@ -21,19 +22,19 @@ namespace WebRTCLibrary.SIP
 
         public SIPSchemesEnum SIPScheme { get; private set; }
 
-        public SIPTransport Transport { get; private set; }
+        public ISIPTransport Transport { get; private set; }
 
         public event SIPTransportResponseAsyncDelegate? SIPResponseReceived;
 
         public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 
-        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, ILoggerFactory loggerFactory, AcceptMessage messagePredicate)
+        public SIPConnection(SIPSchemesEnum scheme, ISIPTransport transport, ILoggerFactory loggerFactory, AcceptMessage messagePredicate)
             :this(scheme, transport, loggerFactory)
         {
             this.MessagePredicate = messagePredicate;
         }
 
-        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, ILoggerFactory loggerFactory)
+        public SIPConnection(SIPSchemesEnum scheme, ISIPTransport transport, ILoggerFactory loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPConnection>();
 
@@ -153,24 +154,38 @@ namespace WebRTCLibrary.SIP
             }
         }
 
-        private async Task<SocketError> WaitForSendConfirmation(Task<SocketError> request, int? timeOut = null)
+        private async Task<SocketError> WaitForSendConfirmation(Task<SocketError> request, int? timeOut = null, uint retries = 0)
         {
-            timeOut ??= this.MessageTimeout;
-            Task timeoutTask = Task.Delay((int)timeOut);
+            SocketError result = SocketError.SocketError; // always gets reassigned
 
-            if (await Task.WhenAny(request, timeoutTask) == request) 
+            for(uint i = 0; i <= retries; i++)
             {
-                // Task completed within timeout.
-                // TODO: Consider that the task may have faulted or been canceled.
-                // We re-await the task so that any exceptions/cancellation is rethrown.
-                
-                return await request;
+                timeOut ??= this.MessageTimeout;
+                Task timeoutTask = Task.Delay((int)timeOut);
+
+                if (await Task.WhenAny(request, timeoutTask) == request) 
+                {
+                    // Task completed within timeout.
+                    // TODO: Consider that the task may have faulted or been canceled.
+                    // We re-await the task so that any exceptions/cancellation is rethrown.
+
+                    result = await request;
+                    if (result == SocketError.Success)
+                    {
+                        break;
+                    }
+
+                    this.logger.LogDebug("Sending failed. Error: {error}, try: {tryCount}", result, i+1);
+                }
+                else
+                {
+                    this.logger.LogDebug("Send timeout. try: {tryCount}", i+1);
+                    result = SocketError.TimedOut;
+                }
             }
-            else
-            {
-                this.logger.LogDebug("Send timeout.");
-                return SocketError.TimedOut;
-            }
+
+            this.logger.LogDebug("Sending failed no more retries. Error: {error}", result);
+            return result;
         }
     }
 }

@@ -4,6 +4,7 @@ using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
+using WebRTCLibrary.Interfaces;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace SIPSignalingServer.Transactions
@@ -41,11 +42,11 @@ namespace SIPSignalingServer.Transactions
 
         private SIPConnectionTransaction? SIPConnectionTransaction { get; set; }
 
-        private SIPTransport Transport { get; set; }
+        private ISIPTransport Transport { get; set; }
 
         public SIPDialog(
             SIPSchemesEnum sipScheme,
-            SIPTransport transport,
+            ISIPTransport transport,
             SIPRequest initialRequest,
             SIPEndPoint signalingServer,
             ISIPRegistry registry,

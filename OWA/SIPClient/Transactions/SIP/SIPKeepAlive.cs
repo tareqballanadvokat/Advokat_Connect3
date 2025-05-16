@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
-using WebRTCLibrary;
+using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCClient.Transactions.SIP
