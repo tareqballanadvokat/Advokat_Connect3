@@ -4,7 +4,7 @@ using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
-using WebRTCLibrary.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace SIPSignalingServer.Transactions
@@ -85,10 +85,10 @@ namespace SIPSignalingServer.Transactions
             await this.Register();
         }
 
-        public override Task Stop()
-        {
-            throw new NotImplementedException();
-        }
+        //public override Task Stop()
+        //{
+        //    throw new NotImplementedException();
+        //}
 
         [MemberNotNullWhen(true, nameof(this.SIPConnectionTransaction))]
         public bool IsConnected()

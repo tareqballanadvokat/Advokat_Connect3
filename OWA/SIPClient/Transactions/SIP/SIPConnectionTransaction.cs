@@ -2,14 +2,14 @@
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
-using WebRTCLibrary.Interfaces;
-using WebRTCLibrary.SIP;
+using WebRTCClient.Transactions.SIP.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient.Transactions.SIP
 {
-    internal class SIPConnectionTransaction : WebRTCLibrary.SIP.SIPTransaction, ISIPMessager
+    internal class SIPConnectionTransaction : WebRTCLibrary.SIP.SIPTransaction, ISIPConnectionTransaction
     {
         private readonly ILoggerFactory loggerFactory;
 
@@ -130,30 +130,30 @@ namespace WebRTCClient.Transactions.SIP
             this.PeerListeningConfirmation = true;
         }
 
-        public async override Task Stop()
-        {
-            // TODO: Rework completely
+        //public async override Task Stop()
+        //{
+        //    // TODO: Rework completely
 
-            if (!this.Connected)
-            {
-                // not connected.
-                return;
-            }
+        //    if (!this.Connected)
+        //    {
+        //        // not connected.
+        //        return;
+        //    }
 
-            this.Params.RemoteTag = null;
-            this.Params.CallId = null;
+        //    this.Params.RemoteTag = null;
+        //    this.Params.CallId = null;
 
-            if (this.Connecting)
-            {
-                this.Connection.SIPRequestReceived -= this.InitialNotifyListener;
+        //    if (this.Connecting)
+        //    {
+        //        this.Connection.SIPRequestReceived -= this.InitialNotifyListener;
 
-                // TODO: what to do here? send disconnect message?
-                return;
-            }
+        //        // TODO: what to do here? send disconnect message?
+        //        return;
+        //    }
 
-            //this.Connected = false;
-            // TODO: send a message for disconnect?
-        }
+        //    //this.Connected = false;
+        //    // TODO: send a message for disconnect?
+        //}
 
         public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {

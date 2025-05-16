@@ -3,7 +3,7 @@ using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
-using WebRTCLibrary.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 
@@ -129,13 +129,13 @@ namespace SIPSignalingServer.Transactions
             }
         }
 
-        public async override Task Stop()
-        {
-            //throw new NotImplementedException();
+        //public async override Task Stop()
+        //{
+        //    //throw new NotImplementedException();
             
-            await this.StopSIPTunnel();
-            this.ResetFlags();
-        }
+        //    await this.StopSIPTunnel();
+        //    this.ResetFlags();
+        //}
 
         private async Task Connect()
         { 

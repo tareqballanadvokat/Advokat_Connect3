@@ -1,5 +1,5 @@
 ﻿using SIPSorcery.Net;
-using WebRTCLibrary.SIP;
+using WebRTCLibrary.SIP.Interfaces;
 
 namespace WebRTCClient.Transactions.SDP
 {

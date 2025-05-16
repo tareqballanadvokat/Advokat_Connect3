@@ -48,10 +48,10 @@ namespace SIPSignalingServer.Transactions
             await Task.Run(() => this.PingClient(cts), ct).ConfigureAwait(false);
         }
 
-        public async override Task Stop()
-        {
-            this.Running = false;
-        }
+        //public async override Task Stop()
+        //{
+        //    this.Running = false;
+        //}
 
         private async Task PingClient(CancellationTokenSource cts)
         {

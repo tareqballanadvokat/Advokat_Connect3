@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
-using WebRTCLibrary.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
-using static WebRTCLibrary.Interfaces.ISIPConnection;
+using static WebRTCLibrary.SIP.Interfaces.ISIPConnection;
 
 namespace WebRTCLibrary.SIP
 {

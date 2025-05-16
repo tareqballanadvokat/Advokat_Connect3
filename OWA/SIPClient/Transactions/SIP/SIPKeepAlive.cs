@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
-using WebRTCLibrary.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCClient.Transactions.SIP
@@ -38,10 +38,10 @@ namespace WebRTCClient.Transactions.SIP
             await Connection.SendSIPRequest(SIPMethodsEnum.PING, GetHeaderParams(sipRequest.Header.CSeq + 1), cts.Token);
         }
 
-        public async override Task Stop()
-        {
-            WaitingForPeer = false;
-            Connection.SIPRequestReceived -= PingListener;
-        }
+        //public async override Task Stop()
+        //{
+        //    WaitingForPeer = false;
+        //    Connection.SIPRequestReceived -= PingListener;
+        //}
     }
 }

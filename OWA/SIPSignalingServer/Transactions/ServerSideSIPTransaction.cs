@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
-using WebRTCLibrary.Interfaces;
 using WebRTCLibrary.SIP;
+using WebRTCLibrary.SIP.Interfaces;
 
 namespace SIPSignalingServer.Transactions
 {

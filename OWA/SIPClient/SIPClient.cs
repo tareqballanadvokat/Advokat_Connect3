@@ -3,8 +3,7 @@ using SIPSorcery.SIP;
 using System.Net.Sockets;
 using WebRTCClient.Models;
 using WebRTCClient.Transactions.SIP;
-using WebRTCLibrary.Interfaces;
-using WebRTCLibrary.SIP;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -97,7 +96,8 @@ namespace WebRTCClient
 
         public async Task StopDialog()
         {
-            await this.Dialog.Stop();
+            // TODO: write something to stop the dialog
+            // await this.Dialog.Stop();
         }
 
         private static ISIPTransport GetTransport(SIPParticipant caller, HashSet<SIPChannelsEnum> sipChannelEnums)

@@ -1,7 +1,7 @@
 ﻿using SIPSorcery.SIP;
 using System.Net.Sockets;
 
-namespace WebRTCLibrary.Interfaces
+namespace WebRTCLibrary.SIP.Interfaces
 {
     public interface ISIPTransport
     {

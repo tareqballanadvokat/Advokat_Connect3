@@ -2,7 +2,8 @@
 using SIPSorcery.SIP;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using WebRTCLibrary.Interfaces;
+using WebRTCClient.Transactions.SIP.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
@@ -10,7 +11,7 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 [assembly: InternalsVisibleTo("SIPClientTests")]
 namespace WebRTCClient.Transactions.SIP
 {
-    internal class SIPRegistrationTransaction : WebRTCLibrary.SIP.SIPTransaction, IAsyncDisposable
+    internal class SIPRegistrationTransaction : WebRTCLibrary.SIP.SIPTransaction, ISIPRegistrationTransaction, IAsyncDisposable
     {
         private readonly ILogger<SIPRegistrationTransaction> logger;
 
@@ -66,10 +67,10 @@ namespace WebRTCClient.Transactions.SIP
             await this.Register();
         }
 
-        public override async Task Stop()
-        {
-            await this.Unregister();
-        }
+        //public override async Task Stop()
+        //{
+        //    await this.Unregister();
+        //}
 
         private async Task Register()
         {

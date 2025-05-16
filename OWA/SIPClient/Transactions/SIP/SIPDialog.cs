@@ -2,8 +2,8 @@
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
-using WebRTCLibrary.Interfaces;
-using WebRTCLibrary.SIP;
+using WebRTCClient.Transactions.SIP.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
 using static WebRTCLibrary.Utils.TaskHelpers;
@@ -25,9 +25,9 @@ namespace WebRTCClient.Transactions.SIP
         [MemberNotNullWhen(true, nameof(SIPConnectionTransaction))]
         public bool Connected { get => SIPConnectionTransaction?.Connected ?? false; }
 
-        private SIPRegistrationTransaction SIPRegistrationTransaction { get; set; }
+        private ISIPRegistrationTransaction SIPRegistrationTransaction { get; set; }
 
-        private SIPConnectionTransaction? SIPConnectionTransaction { get; set; }
+        private ISIPConnectionTransaction? SIPConnectionTransaction { get; set; }
 
         private SIPKeepAlive SIPKeepAlive { get; set; }
 
@@ -64,13 +64,17 @@ namespace WebRTCClient.Transactions.SIP
                 timeoutCallback: async () => { }); // TODO: what to do on registering failure / timeout
         }
 
-        public override async Task Stop()
-        {
-            // TODO: assign new callId? Otherwise we could get another start with the same call id
-            //throw new NotImplementedException();
-            
-            await this.SIPRegistrationTransaction.Stop();
-        }
+        //public override async Task Stop()
+        //{
+        //    // TODO: assign new callId? Otherwise we could get another start with the same call id
+        //    throw new NotImplementedException();
+
+        //    // dont use this, use unregister
+        //    //await this.SIPRegistrationTransaction.Stop();
+
+        //    //await this.SIPRegistrationTransaction.Unregister();
+
+        //}
 
         private async Task RegistationSuccessful()
         {

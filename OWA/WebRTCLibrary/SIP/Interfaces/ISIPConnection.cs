@@ -2,7 +2,7 @@
 using System.Net.Sockets;
 using WebRTCLibrary.SIP.Models;
 
-namespace WebRTCLibrary.Interfaces
+namespace WebRTCLibrary.SIP.Interfaces
 {
     public interface ISIPConnection
     {

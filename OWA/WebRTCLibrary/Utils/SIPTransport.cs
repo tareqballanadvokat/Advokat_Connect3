@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using WebRTCLibrary.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 
 namespace WebRTCLibrary.Utils
 {

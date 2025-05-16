@@ -3,8 +3,8 @@ using System.Net;
 using Microsoft.Extensions.Logging;
 using WebRTCLibrary.SIP;
 using SIPSignalingServer.Interfaces;
-using WebRTCLibrary.Interfaces;
 using SIPSorcery.SIP;
+using WebRTCLibrary.SIP.Interfaces;
 
 namespace SIPSignalingServer
 {

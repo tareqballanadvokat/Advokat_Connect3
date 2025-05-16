@@ -4,10 +4,10 @@ using SIPSorcery.Sys;
 using System.Text.Json;
 using WebRTCClient.Transactions.SDP;
 using WebRTCClient.Models;
-using WebRTCLibrary.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using WebRTCLibrary.SIP.Interfaces;
 
 namespace WebRTCClient
 {

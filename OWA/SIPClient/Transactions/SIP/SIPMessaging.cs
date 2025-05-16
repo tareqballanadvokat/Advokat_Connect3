@@ -1,8 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
-using WebRTCLibrary.Interfaces;
-using WebRTCLibrary.SIP;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCClient.Transactions.SIP
@@ -36,18 +35,18 @@ namespace WebRTCClient.Transactions.SIP
             Running = true;
         }
 
-        public async override Task Stop()
-        {
-            if (!Running)
-            {
-                // not started
-                return;
-            }
+        //public async override Task Stop()
+        //{
+        //    if (!Running)
+        //    {
+        //        // not started
+        //        return;
+        //    }
 
-            Connection.SIPRequestReceived -= RequestRecieved;
-            Connection.SIPResponseReceived -= ResponseRecieved;
-            Running = false;
-        }
+        //    Connection.SIPRequestReceived -= RequestRecieved;
+        //    Connection.SIPResponseReceived -= ResponseRecieved;
+        //    Running = false;
+        //}
 
         public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {

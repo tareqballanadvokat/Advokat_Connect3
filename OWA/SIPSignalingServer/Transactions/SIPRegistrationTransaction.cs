@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using SIPSignalingServer.Interfaces;
-using WebRTCLibrary.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 
 [assembly: InternalsVisibleTo("SignalingServerTests")]
 namespace SIPSignalingServer.Transactions
@@ -105,20 +105,20 @@ namespace SIPSignalingServer.Transactions
             await this.Register();
         }
 
-        public async override Task Stop()
-        {
-            if (!this.Registered)
-            {
-                // Not registered
-                return;
-            }
+        //public async override Task Stop()
+        //{
+        //    if (!this.Registered)
+        //    {
+        //        // Not registered
+        //        return;
+        //    }
 
-            this.Connection.SIPRequestReceived -= this.BYEListener;
+        //    this.Connection.SIPRequestReceived -= this.BYEListener;
             
-            this.Unregister();
-            await this.SendBYEMessage(4);
-            // TODO: send event - registering stopped?
-        }
+        //    this.Unregister();
+        //    await this.SendBYEMessage(4);
+        //    // TODO: send event - registering stopped?
+        //}
 
         private async Task Register()
         {

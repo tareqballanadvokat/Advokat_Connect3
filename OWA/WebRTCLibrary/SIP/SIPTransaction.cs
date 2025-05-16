@@ -1,11 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
-using WebRTCLibrary.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCLibrary.SIP
 {
-    public abstract class SIPTransaction
+    public abstract class SIPTransaction : ISIPTransaction
     {
         private readonly ILogger<SIPTransaction> logger;
 
@@ -55,7 +55,7 @@ namespace WebRTCLibrary.SIP
         public async virtual Task Start(CancellationToken? ct = null) { }
 
 
-        public abstract Task Stop(); // ??
+        //public abstract Task Stop(); // ??
 
         protected virtual SIPHeaderParams GetHeaderParams(int cSeq = 1)
         {
