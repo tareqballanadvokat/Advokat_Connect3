@@ -3,6 +3,8 @@ using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using WebRTCClient.Transactions.SIP.Interfaces;
+using WebRTCClient.Transactions.SIP.Interfaces.TransactionFactories;
+using WebRTCClient.Transactions.SIP.TransactionFactories;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
@@ -20,14 +22,19 @@ namespace WebRTCClient.Transactions.SIP
 
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
-        public bool Registered { get => SIPRegistrationTransaction.Registered; }
+        [MemberNotNullWhen(true, nameof(this.SIPRegistrationTransaction))]
+        public bool Registered { get => this.SIPRegistrationTransaction?.Registered ?? false; }
 
-        [MemberNotNullWhen(true, nameof(SIPConnectionTransaction))]
+        [MemberNotNullWhen(true, nameof(this.SIPConnectionTransaction))]
         public bool Connected { get => SIPConnectionTransaction?.Connected ?? false; }
 
-        private ISIPRegistrationTransaction SIPRegistrationTransaction { get; set; }
+        public ISIPRegistrationTransactionFactory SIPRegistrationTransactionFactory { get; set; }
+
+        private ISIPRegistrationTransaction? SIPRegistrationTransaction { get; set; }
 
         private ISIPConnectionTransaction? SIPConnectionTransaction { get; set; }
+
+        public ISIPConnectionTransactionFactory SIPConnectionTransactionFactory { get; set; }
 
         private SIPKeepAlive SIPKeepAlive { get; set; }
 
@@ -43,17 +50,18 @@ namespace WebRTCClient.Transactions.SIP
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPDialog>();
 
+            // default factories, TODO: get them passed in ctor?
+            this.SIPConnectionTransactionFactory = new SIPConnectionTransactionFactory(this.loggerFactory);
+            this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory(this.loggerFactory);
+
             this.Transport = transport;
 
-            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.Connection, this.Params, this.loggerFactory);
             this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params, this.loggerFactory);
-
-            this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
-            this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
         }
 
         public override async Task Start()
         {
+            this.SetSIPRegistrationTransaction();
             await this.SIPRegistrationTransaction.Start();
 
             await WaitForAsync(
@@ -78,15 +86,7 @@ namespace WebRTCClient.Transactions.SIP
 
         private async Task RegistationSuccessful()
         {
-            TransactionParams dialogParams = new TransactionParams(
-                this.Params.SourceParticipant,
-                this.Params.RemoteParticipant,
-                sourceTag: this.Params.SourceTag);
-
-            this.SIPConnectionTransaction = new SIPConnectionTransaction(SIPScheme, this.Transport, dialogParams, this.loggerFactory);
-
-            this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
-            this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;
+            this.SetSIPConnectionTransaction();
 
             await this.SIPConnectionTransaction.Start();
             await this.SIPKeepAlive.Start(); // TODO: stop dialog on stop / unregister
@@ -125,6 +125,31 @@ namespace WebRTCClient.Transactions.SIP
             }
 
             return await this.SIPConnectionTransaction.SendSIPResponse(statusCode, message, contentType, cSeq);
+        }
+
+        [MemberNotNull(nameof(this.SIPRegistrationTransaction))]
+
+        private void SetSIPRegistrationTransaction()
+        {
+            this.SIPRegistrationTransaction = this.SIPRegistrationTransactionFactory.Create(this.Connection, this.Params);
+            this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
+            this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
+        }
+
+        [MemberNotNull(nameof(this.SIPConnectionTransaction))]
+        private void SetSIPConnectionTransaction()
+        {
+            TransactionParams dialogParams = new TransactionParams(
+                this.Params.SourceParticipant,
+                this.Params.RemoteParticipant,
+                sourceTag: this.Params.SourceTag);
+
+            this.SIPConnectionTransaction = this.SIPConnectionTransactionFactory.Create(SIPScheme, this.Transport, dialogParams);
+            this.SIPConnectionTransaction.SendTimeout = this.SendTimeout;
+            this.SIPConnectionTransaction.ReceiveTimeout = this.ReceiveTimeout;
+
+            this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
+            this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;
         }
 
         private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)
