@@ -9,12 +9,22 @@
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Contoso Task Pane Add-in</title>
+<style>
 
+.compact-grid .dx-datagrid-headers .dx-header-row > td,
+.compact-grid .dx-datagrid-content .dx-data-row > td {
+  padding: 4px 8px !important;
+}
+.compact-grid .dx-pager {
+  padding: 4px 8px !important;
+  font-size: 12px;
+}
+</style>
     <!-- Office JavaScript API -->
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
 </head>
 
-<body style="width: 100%; height: 100%; margin: 0; padding: 0;" class="dx-viewport">
+<body style="width: 100%; height: 100%; margin: 5px; padding: 0;" class="dx-viewport">
     <div id="container"></div>
 
     <!-- 

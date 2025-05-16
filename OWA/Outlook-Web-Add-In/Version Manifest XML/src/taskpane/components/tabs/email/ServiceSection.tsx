@@ -8,14 +8,13 @@ const ServiceSection: React.FC = () => (
       <input
         type="text"
         placeholder="Abbreviation"
-        style={{ flex: 1, padding: '8px 12px', fontSize: 14, border: '1px solid #ccc', borderRadius: 4 }}
+        style={{ width:130, padding: '8px 12px', fontSize: 14, border: '1px solid #ccc', borderRadius: 4 }}
       />
       <input
         type="text"
-        value="SB"
-        readOnly
+        placeholder="SB"
         style={{
-          width: 64,
+          width: 25,
           padding: '8px 12px',
           fontSize: 14,
           border: '1px solid #ccc',
@@ -27,13 +26,13 @@ const ServiceSection: React.FC = () => (
       <input
         type="text"
         placeholder="Time"
-        style={{ width: 80, padding: '8px 12px', fontSize: 14, border: '1px solid #ccc', borderRadius: 4 }}
+        style={{ width: 40, padding: '8px 12px', fontSize: 14, border: '1px solid #ccc', borderRadius: 4 }}
       />
     </div>
     <input
       type="text"
       placeholder="Text"
-      style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #ccc', borderRadius: 4 }}
+      style={{ width: 262, padding: '8px 12px', fontSize: 14, border: '1px solid #ccc', borderRadius: 4 }}
     />
   </div>
 );

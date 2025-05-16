@@ -4,6 +4,9 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { API_BASE } from '../../../../config';
+
+ 
+
 interface CaseItem {
   caseId: string;
   causa: string;
@@ -23,7 +26,7 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
     // fetch initial data
     (async () => {
       try {
-        const resp = await fetch(API_BASE+'api/structure/search-cases', {
+        const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: '' })   // lub inny payload
@@ -52,11 +55,18 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
     }
   };
 
-  return (
-    <div>
+
+
+return (
+  <div>
+      <h3 style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        Search 
+      </h3>
+
       {/* Search panel */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <TextBox 
+        <TextBox
+          width={250}
           stylingMode="outlined"
           placeholder="Search..."
           value={searchValue}
@@ -65,38 +75,60 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
         />
         <Button icon="search" stylingMode="contained" onClick={handleSearch} />
       </div>
+    {/* … Twój panel wyszukiwania … */}
 
-      {/* Case list with pagination */}
-      <DataGrid
-        dataSource={rows}
-        keyExpr="id"
-        showBorders={false}
-        showRowLines
-        columnAutoWidth 
-      >
-        <Paging defaultPageSize={1} />
-        <Pager visible showPageSizeSelector={false} allowedPageSizes={[1]} showInfo />
-        <Column alignment='left' visible={false} dataField="id" caption="Case ID" />
-        <Column dataField="name" caption="Name" />
-        <Column dataField="causa" caption="Causa" />
-        <Column
-          caption=""
-          width={80}
-          cellRender={({ data }) => (
-            <Button
-              icon="arrowright"
-              stylingMode="text"
-              hint="Select"
-              onClick={
-                () => {console.log('Open case', data.name),
-            onCaseSelect(data.name)}
-              }
-            />
-          )}
-        />
-      </DataGrid>
-    </div>
-  );
+    <DataGrid
+      className="compact-grid"
+      dataSource={rows}
+      keyExpr="id"               // Twój klucz
+      showBorders={false}
+      showColumnLines={false}
+      showRowLines={true}
+      columnAutoWidth={true}
+      rowAlternationEnabled={false}
+      height={200}
+    >
+      <Paging defaultPageSize={5} />
+      <Pager
+        visible
+        showPageSizeSelector={false}
+        allowedPageSizes={[5]}
+        showInfo
+      />
+      {/* -------------------------------- */}
+      <Column
+        dataField="id"
+        caption="Case ID"
+        visible={false}         // ukryte, ale dalej dostępne
+        alignment="left"
+      />
+      <Column
+        dataField="name"
+        caption="Name"
+        alignment="left"
+      />
+      <Column
+        dataField="causa"
+        caption="Causa"
+        alignment="left"
+      />
+      <Column
+        type="buttons"
+        width={50}
+        buttons={[
+          {
+            icon: 'arrowright',
+            //stylingMode: 'text',
+            hint: 'Select',
+            onClick: e => onCaseSelect(e.row.data.name)  // Twój callback
+          }
+        ]}
+      />
+    </DataGrid>
+  </div>
+);
+
+
 };
 
 export default SearchAndCaseList;

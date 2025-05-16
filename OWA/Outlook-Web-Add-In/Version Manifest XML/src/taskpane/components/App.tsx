@@ -18,7 +18,7 @@ const useStyles = makeStyles({
   },
 });
 
-const App: React.FC<AppProps> = (props: AppProps) => {
+const App: React.FC<AppProps> =() =>{// (props: AppProps) => {
   const styles = useStyles();
  
 
@@ -56,9 +56,9 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     <div> 
        <Tabs />
      </div>
-      <Header logo="assets/a_3.png" title={props.title} message="Welcome" />
+      {/* <Header logo="assets/a_3.png" title={props.title} message="Welcome" />
       <HeroList message="Discover what this add-in can do for you today!" items={listItems} />
-      {/* <TextInsertion insertText={insertText} /> */}
+      <TextInsertion insertText={insertText} /> */}
     </div>
   );
 };
