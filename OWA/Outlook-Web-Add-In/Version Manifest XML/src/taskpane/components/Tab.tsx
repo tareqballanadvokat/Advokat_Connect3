@@ -5,20 +5,20 @@ import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
 
 // lazy-import każdego komponentu
-const Tab1Content = lazy(() => import('./tabs/case/Tab1Content'));
-const Tab2Content = lazy(() => import('./tabs/email/Tab2Content'));
-const Tab3Content = lazy(() => import('./tabs/person/Tab3Content'));
-const Tab4Content = lazy(() => import('./tabs/email/Tab2Content'));
+const CaseTab = lazy(() => import('./tabs/case/CaseTabContent'));
+const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
+const PersonTab = lazy(() => import('./tabs/person/PersonTabContent'));
+const Tab4Content = lazy(() => import('./tabs/email/EmailTabContent'));
 
 const DevTabs: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const renderContent = () => {
     switch (selectedIndex) {
-      case 0: return <Tab1Content />;
-      case 1: return <Tab2Content />;
-      case 2: return <Tab3Content />;
-      case 3: return <Tab4Content />;
+      case 0: return <EmailTab />;
+      case 1: return <CaseTab />;
+      case 2: return <Tab4Content />;
+      case 3: return <PersonTab />;
       default: return null;
     }
   };

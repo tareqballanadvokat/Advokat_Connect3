@@ -7,9 +7,6 @@ import { makeStyles } from "@fluentui/react-components";
 import { Ribbon24Regular, LockOpen24Regular, DesignIdeas24Regular } from "@fluentui/react-icons";
 import Tabs from './Tab';  // importuj komponent Tabs
 
-// import 'devextreme/dist/css/dx.light.css';
-// import 'devextreme/dist/css/dx.dark.css';
-
 
 interface AppProps {
   title: string;
