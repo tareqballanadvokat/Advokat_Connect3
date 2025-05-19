@@ -29,7 +29,7 @@ const RegisteredEmails: React.FC = () => {
 
   return (
     <div style={{ marginTop: 24 }}>
-      <h3 style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+      <h3 style={{  alignItems: 'baseline', gap: 8 }}>
         Registered E-Mails
         <small style={{ color: '#888', fontSize: '0.8em' }}>(last 7 days)</small>
       </h3>
