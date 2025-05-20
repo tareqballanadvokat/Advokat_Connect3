@@ -1,119 +1,165 @@
+// src/taskpane/hooks/useOfficeItem.ts
 import { useState, useEffect } from 'react';
 
-type OfficeItem = typeof Office.context.mailbox.item;
-
-
-// Typy dla zwracanych obiektów
+// Typ dla załączników
 export interface AttachmentInfo {
   id: string;
   name: string;
 }
+export interface Attachment
+{
+   id :string;
+   originalFileName  :string;
+   fileName  :string;
+   contentBase64  :string;
+   folder  :string;
+} 
+// OfficeItem alias
+type OfficeItem = typeof Office.context.mailbox.item;
 
 
-/** Returns promise for the current message’s subject. */
-async function getEmailSubject(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    Office.context.mailbox.item.subject.getAsync(result => {
-      if (result.status === Office.AsyncResultStatus.Succeeded) {
-        resolve(result.value);
-      } else {
-        reject(new Error(result.error.message));
-      }
-    });
-  });
-}
- 
-/**
- * Zwraca listę obiektów { id, name } dla wszystkich załączników bieżącej wiadomości.
- * Działa zarówno w trybie Compose, jak i Read.
- */
-async function calculateAttachments(
-  item: OfficeItem
-): Promise<AttachmentInfo[]> {
-  // Jeżeli w Compose Mode, attachments też dostępne jako item.attachments
-  if (isComposeMode(item)) {
-    const composeItem = item ;
-    return (composeItem.attachments || []).map(att => ({
-      id: att.id,
-      name: att.name
-    }));
-  } else {
-    // Tryb odczytu
-    const readItem = item ;
-    return (readItem.attachments || []).map(att => ({
-      id: att.id,
-      name: att.name
-    }));
-  }
-}
-
-/** Returns promise for the current message’s Internet-Message-ID header. */
-async function getInternetMessageId(item: OfficeItem): Promise<string> {
-  return new Promise((resolve, reject) => {
-    item.getAllInternetHeadersAsync(headersResult => {
-      if (headersResult.status === Office.AsyncResultStatus.Succeeded) {
-        const match = (headersResult.value as string).match(/Message-ID: (.+)/i);
-        if (match) resolve(match[1].trim());
-        else reject(new Error('No Message-ID found in headers.'));
-      } else {
-        reject(new Error(headersResult.error.message));
-      }
-    });
-  });
-}
-
-/** True if we are composing a new mail (vs. read-only). */
-function isComposeMode(item: OfficeItem): boolean {
+/** Sprawdza, czy jesteśmy w Compose mode */
+export function isComposeMode(item: OfficeItem): boolean {
   return (
     item.itemType === Office.MailboxEnums.ItemType.Message &&
     typeof (item as any).body.getTypeAsync === 'function'
   );
 }
 
+/** Pobiera temat wiadomości */
+export function getEmailSubjectAsync(): Promise<string> {
+  if (!isComposeMode(Office.context.mailbox.item)) {
+    return Promise.resolve(Office.context.mailbox.item.subject);
+  }
+  return new Promise((resolve, reject) => {
+    Office.context.mailbox.item.subject.getAsync(res => {
+      if (res.status === Office.AsyncResultStatus.Succeeded) resolve(res.value);
+      else reject(new Error(res.error.message));
+    });
+  });
+}
 
-async function getEmailContentAsync(item) {
-    return new Promise((resolve, reject) => {
+/** Pobiera Message-ID z nagłówków */
+function getInternetMessageId(item: OfficeItem): Promise<string> {
+  return new Promise((resolve, reject) => {
+    item.getAllInternetHeadersAsync(res => {
+      if (res.status === Office.AsyncResultStatus.Succeeded) {
+        const match = (res.value as string).match(/Message-ID:\s*(.+)/i);
+        if (match) resolve(match[1].trim());
+        else reject(new Error('No Message-ID header found.'));
+      } else {
+        reject(new Error(res.error.message));
+      }
+    });
+  });
+}
 
-       item.getAsFileAsync(  (asyncResult) => {
-        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-            resolve( asyncResult.value)
-          } else {
-            reject(asyncResult.error.message);
-          }
+export function getInternetMessageIdAsync(item: any): Promise<string> {
+  return new Promise((resolve, reject) => {
+    item.getAllInternetHeadersAsync(res => {
+      if (res.status === Office.AsyncResultStatus.Succeeded) {
+        const match = (res.value as string).match(/Message-ID:\s*(.+)/i);
+        if (match) resolve(match[1].trim());
+        else reject(new Error('No Message-ID header found.'));
+      } else {
+        reject(new Error(res.error.message));
+      }
+    });
+  });
+}
+
+/** Zwraca listę {id,name} dla wszystkich załączników */
+export function getEmailAttachments(item: OfficeItem): Promise<AttachmentInfo[]> {
+  return new Promise(resolve => {
+    // attachments jest od razu dostępne w obu trybach
+    const list = (item.attachments || []).map(att => ({
+      id: att.id,
+      name: att.name
+    }));
+    resolve(list);
+  });
+}
+
+/** Zwraca listę {id,name} dla wszystkich załączników */
+export function getEmailAttachmentData(id: string): Promise<string> {
+      return new Promise((resolve) => {
+        Office.context.mailbox.item.getAttachmentContentAsync(id, (res) => {
+        if (res.status === Office.AsyncResultStatus.Succeeded) {
+          resolve(res.value.content);
+        }
         });
     });
 }
 
-/** React hook exposes subject, messageId and compose/read mode. */
-export function useOfficeItem() {
-  const [subject, setSubject]               = useState<string>('');
-  const [messageId, setMessageId]           = useState<string>('');
-  const [emailContent, setEmailContent]     = useState<string>('');
-  const [composeMode, setCompose]           = useState<boolean>(false);
-  const [itemAttachments, setAttachments]   = useState<AttachmentInfo[]>([]);
+/** Pobiera ciało e-maila jako plik/text (lub cokolwiek zwraca API) */
+export function getEmailContentAsync(item: OfficeItem): Promise<any> {
+  return new Promise((resolve, reject) => {
+    // przykładowo getAsFileAsync, dostosuj do własnych potrzeb
+    (item as any).getAsFileAsync((res: any) => {
+      if (res.status === Office.AsyncResultStatus.Succeeded) resolve(res.value);
+      else reject(new Error(res.error.message));
+    });
+  });
+}
 
+
+/**
+ * Hook zwraca:
+ *  - subject
+ *  - messageId
+ *  - attachments[]
+ *  - emailContent
+ *  - composeMode
+ *  - ready (czy wszystkie powyższe już się załadowały)
+ */
+export function useOfficeItem() {
+  const [subject,      setSubject]      = useState<string>('');
+  const [messageId,    setMessageId]    = useState<string>('');
+  const [attachments,  setAttachments]  = useState<AttachmentInfo[]>([]);
+  const [emailContent, setEmailContent] = useState<any>(null);
+  const [composeMode,  setComposeMode]  = useState<boolean>(false);
+  const [ready,        setReady]        = useState<boolean>(false);
+
+  // 1) Uruchamiamy wszystkie wywołania Office.js
   useEffect(() => {
     const item = Office.context.mailbox.item;
-    setCompose(isComposeMode(item));
+    setComposeMode(isComposeMode(item));
 
-    // fire off both calls in parallel
-    getEmailSubject()
+    getEmailSubjectAsync()
       .then(setSubject)
-      .catch(err => console.error('subject error:', err));
+      .catch(err => console.error('Subject error:', err));
 
     getInternetMessageId(item)
       .then(setMessageId)
-      .catch(err => console.error('messageId error:', err));
+      .catch(err => console.error('Message-ID error:', err));
 
-      calculateAttachments(item)
+    getEmailAttachments(item)
       .then(setAttachments)
-      .catch(err => console.error('attachments error:', err));
+      .catch(err => console.error('Attachments error:', err));
 
-      
-      getEmailContentAsync(item)
+    getEmailContentAsync(item)
       .then(setEmailContent)
-      .catch(err => console.error('email content:', err));
+      .catch(err => console.error('Email content error:', err));
   }, []);
 
-  return { subject, messageId, composeMode, itemAttachments, emailContent };
+  // 2) Gdy wszystkie cztery wartości są ustawione, włączamy ready
+  useEffect(() => {
+    if (
+      subject !== '' &&
+      messageId !== '' &&
+      attachments !== null &&
+      emailContent !== null
+    ) {
+      setReady(true);
+    }
+  }, [subject, messageId, attachments, emailContent]);
+
+  return {
+    subject,
+    messageId,
+    attachments,
+    emailContent,
+    composeMode,
+    ready
+  };
 }

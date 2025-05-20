@@ -5,99 +5,121 @@ import Button from 'devextreme-react/button';
 import EmailSend from './EmailSend'; 
 import RegisteredEmails from './RegisteredEmails'; 
 import ServiceSection, { ServiceSectionProps } from './ServiceSection';
-import { useOfficeItem } from '../../../hooks/useOfficeItem';
+import { getEmailAttachmentData, getEmailContentAsync } from '../../../hooks/useOfficeItem';
 import TransferAndAttachment, { TransferAttachmentItem, TransferEmailItem } from './TransferAndAttachment';
+import { saveEmailInformation, Attachment  } from '../../../utils/api';
 
-interface TransferPayload {
+import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
+ interface TransferPayload {
   attachments: TransferAttachmentItem[];
   emailBody: TransferEmailItem;
 }
+
+async function mapToAttachments(
+  items: TransferAttachmentItem[]
+): Promise<Attachment[]> {
+  // tylko te, które są zaznaczone
+  const selected = items.filter(i => i.checked);
+
+  // jeśli chcesz od razu pobrać zawartość w base64:
+  const results = await Promise.all(selected.map(async i => {
+    const contentBase64 = await new Promise<string>((resolve, reject) => {
+      Office.context.mailbox.item.getAttachmentContentAsync(i.id, ar => {
+        if (ar.status === Office.AsyncResultStatus.Succeeded) {
+          resolve(ar.value.content); // base64
+        } else {
+          resolve(''); // lub reject(ar.error.message)
+          reject('');
+        }
+      });
+    });
+    return {
+      id: i.id,
+      originalFileName: i.name,
+      fileName: i.label,
+      contentBase64,
+      folder: i.option
+    } as Attachment;
+  }));
+
+  // // jeśli na razie bez base64:
+  // const results: Attachment[] = selected.map(i => ({
+  //   id: i.id,
+  //   originalFileName: i.label,
+  //   fileName: i.label,
+  //   contentBase64: '',
+  //   folder: i.option
+  // }));
+
+  return results;
+}
+
 const EmailTabContent: React.FC = () => {
   const [selectedCase, setSelectedCase] = useState('');
   const [abbrev, setAbbrev] = useState('');
   const [time, setTime]   = useState('');
   const [text, setText]   = useState('');
   const [sb, setSb]   = useState('');
-  const { messageId, emailContent } = useOfficeItem();
-  const [transferData, setTransferData] = useState<TransferPayload | null>(null);
+ // const { messageId, emailContent } = useOfficeItem();
+  //  type SelectedAttachment = { id: string; label: string };
+   const [attachmentSelected, setAttachmentSelected] = useState<TransferAttachmentItem[]>([]);
 
   const sendEmailHandler = async () => {
     console.log('Transfer to ADVOKAT, caseId =', selectedCase);
     console.log(sb, text,abbrev,time);
 
-    // const item = Office.context.mailbox.item;   
-    var attachements = [];
- 
-    const payload = {
+  
+    //  // build attachments payload from selected checkboxes
+    //  const attachmentsPayload = attachmentSelected.map(a => ({
+    //   id: a.id,
+    //   // if you need to send the label as filename, rename accordingly:
+    //    fileName: a.label
+    // }));
+    
+  const email = Office.context.mailbox.item;
+  const messageId= await getInternetMessageIdAsync(email);
+
+  const firstE = attachmentSelected.find(i => i.checked && i.type === 'E');//email taken
+  var emailContent ='';
+  if (firstE != null){
+    emailContent = await getEmailContentAsync(email);
+  }
+
+  const attachmentsPayload = await mapToAttachments(attachmentSelected.filter(i => i.checked && i.type === 'A'));
+
+
+  const payload  = firstE
+  ? {
       caseId:       selectedCase,
-      serviceAbbreviationType: abbrev,
+      serviceAbbreviationType:  abbrev.toString(),
       srviceSB:           sb,         
       serviceTime:         time,
       serviceText:         text,
       internetMessageId: messageId,
-      emailName:'',
+      emailName:firstE.name,
+      emailFolder:firstE.option,
+      emailContent: emailContent,
+      attachments : attachmentsPayload
+
+    }
+  : {
+      caseId:       selectedCase,
+      serviceAbbreviationType:   abbrev.toString(),
+      srviceSB:           sb,         
+      serviceTime:         time,
+      serviceText:         text,
+      internetMessageId: messageId,
+      emailName:firstE.name,
       emailFolder:'',
       emailContent: emailContent,
-      attachments : attachements
+      attachments : attachmentsPayload
     };
-
-
-    try {
-      const response = await fetch(
-        'https://localhost:7231/api/email/add-to-advocat', // <- Twój endpoint
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-
-      if (!response.ok) {
-        // np. 400 / 500
-        const errorText = await response.text();
-        throw new Error(`Server returned ${response.status}: ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('Transfer successful:', result);
-      // tutaj możesz np. pokazać komunikat lub zresetować formularz
-    } catch (err) {
-      console.error('Transfer failed:', err);
-      // tutaj wyświetl błąd użytkownikowi
-    }
+ 
+    const data = await saveEmailInformation(payload);
+   
   };
  
-
-
-//  //useEffect(() => { 
-//     async function loadTransferData() {
-//       try {
-//         // const resp = await fetch('https://localhost:7231/api/email/get', {
-//         //   method: 'GET'
-//         // });
-//     const resp =  await fetch('https://localhost:7231/api/email/get', {
-//     method: "POST",
-//     headers: {
-//       "Content-Type": "application/json"
-//     },
-    
-//     body: JSON.stringify({ id: messageId })
-//   })
-        
-//         if (!resp.ok) throw new Error(await resp.text());
-//         const data: TransferPayload = await resp.json();
-//         setTransferData(data);
-//       } catch (e: any) {
-//   //      setError(e.message);
-//       } finally {
-//    //     setLoading(false);
-//       }
-//     }
-//     loadTransferData();
-// //  }, []);
-
+ 
 
   return (
     <div  >
@@ -131,8 +153,7 @@ const EmailTabContent: React.FC = () => {
 
       {/* 4) Transfer e-mail and attachments */}
       <TransferAndAttachment 
-        // initialItems={transferData.attachments || []}
-        // emailBody={transferData.emailBody}
+onSelectionChange={setAttachmentSelected}
       />
    
        {/* 5) Registered E-Mails */}
