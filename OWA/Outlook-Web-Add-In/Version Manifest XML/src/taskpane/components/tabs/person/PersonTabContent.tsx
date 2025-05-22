@@ -1,32 +1,52 @@
-// src/taskpane/components/PersonsAccordion.tsx
-import React from 'react';
+// src/taskpane/components/tabs/persons/PersonsTabContent.tsx
+import 'devextreme/dist/css/dx.light.css';
+import React, { useState, useEffect, useCallback } from 'react';
+import Accordion, { type AccordionTypes } from 'devextreme-react/accordion';
+import SearchPersonList from './SearchPersonList';
+import CustomTitle from './CustomTitle';
+import CustomItem  from './CustomItem';
+import { getPersonApi, addPerson,removePerson, Person } from '../../../utils/api';
 
-// Person data shape
-export interface Person {
-  id: string;
-  name: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-}
-
-// Props for the accordion
 interface Props {
-  persons: Person[];
   loading?: boolean;
-  onDeleteFavorite: (id: string) => void;
-  onAddFavorite:    (id: string) => void;
 }
 
-const PersonsTabContent: React.FC<Props> = ({
-  persons,
-  loading = false,
-  onDeleteFavorite,
-  onAddFavorite
-}) => {
+const PersonsTabContent: React.FC<Props> = ({ loading = false }) => {
+  // 1) stan danych pobranych z API
+  const [persons, setPersons] = useState<Person[]>([]);
+  // 2) stan rozwiniętych pozycji Accordion
+  const [expandedItems, setExpandedItems] = useState<Person[]>([]);
+
+  // fetch tylko raz
+  useEffect(() => {
+    (async () => {
+      const list = await getPersonApi();
+      setPersons(list);
+    })();
+  }, []);
+
+  // callback kiedy ktoś w SearchPersonList doda nową osobę
+  const handlePersonAdd = useCallback((id: string) => {
+    addPerson(id);
+    // możesz też ewentualnie odświeżyć persons lub dopisać nową
+  }, []);
+
+  // callback przy otwieraniu/zamykania Accordion
+  const handleSelectionChanged = useCallback((e: AccordionTypes.SelectionChangedEvent) => {
+    setExpandedItems(e.addedItems as Person[]);
+    console.log(e);
+  }, []);
+
+  // usuwanie osoby
+  const handleDelete = useCallback((id: string) => {
+    removePerson(id);
+    setPersons(prev => prev.filter(p => p.id !== id));
+    // też usuń z expandedItems, jeśli była rozwinięta
+    setExpandedItems(prev => prev.filter(p => p.id !== id));
+  }, []);
+
   return (
-    <div style={{
+    <div id="accordion" style={{
       maxWidth: 400,
       margin: '0 auto',
       background: '#fff',
@@ -34,118 +54,43 @@ const PersonsTabContent: React.FC<Props> = ({
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
       overflow: 'hidden'
     }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '12px 16px',
-        fontSize: 18,
-        fontWeight: 600,
-        color: '#4a5568'
-      }}>
-        Persons
-        <span className="material-icons" style={{ marginLeft: 8, fontSize: 20, color: '#4a5568' }}>
-          star
-        </span>
-        {loading && (
+      <SearchPersonList onCaseSelect={handlePersonAdd} />
+
+      <Accordion
+        dataSource={persons}
+        collapsible={true}
+        multiple={true}
+        animationDuration={500}
+
+        // 3) kontrolowany stan rozwinięcia
+        selectedItems={expandedItems}
+        onSelectionChanged={handleSelectionChanged}
+
+        // templaty
+        itemTitleRender={(data: Person) => (
+          <CustomTitle
+            id={data.id}
+            fullName={data.fullName}
+            onDelete={() => handleDelete(data.id)}
+          />
+        )}
+        itemRender={CustomItem}
+      />
+
+      {loading && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '12px 16px',
+          fontSize: 18,
+          fontWeight: 600,
+          color: '#4a5568'
+        }}>
           <span style={{ marginLeft: 'auto', fontSize: 14, color: '#a0aec0' }}>
             Loading…
           </span>
-        )}
-      </div>
-
-      {persons.map((p, idx) => {
-        const isFirst = idx === 0;
-        return (
-          <details
-            key={p.id}
-            open={isFirst}
-            style={{
-              borderTop: idx > 0 ? '1px solid #e2e8f0' : 'none'
-            }}
-            className="person-panel"
-          >
-            <summary style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '12px 16px',
-              cursor: 'pointer',
-              userSelect: 'none',
-              fontSize: 14,
-              color: '#2d3748'
-            }}>
-              <span style={{
-                width: 20,
-                textAlign: 'center',
-                fontWeight: 600,
-                color: '#a0aec0'
-              }}>
-                {isFirst ? '−' : '+'}
-              </span>
-              <span className="material-icons" style={{
-                fontSize: 20,
-                color: '#a0aec0',
-                marginRight: 8
-              }}>
-                person
-              </span>
-              <span style={{ flexGrow: 1, fontWeight: 500 }}>
-                {p.name}
-              </span>
-              {isFirst
-                ? <button
-                    onClick={() => onDeleteFavorite(p.id)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#a0aec0',
-                      fontSize: 13,
-                      cursor: 'pointer'
-                    }}
-                  >Delete from favorite</button>
-                : <button
-                    onClick={() => onAddFavorite(p.id)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#a0aec0',
-                      fontSize: 13,
-                      cursor: 'pointer'
-                    }}
-                  >Delete from favorite</button>
-              }
-            </summary>
-
-            <div style={{ padding: '0 16px 12px 44px', fontSize: 14, color: '#4a5568', lineHeight: 1.4 }}>
-              {p.address && (
-                <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <span className="material-icons" style={{ fontSize: 18, color: '#a0aec0', marginRight: 8 }}>home</span>
-                  <div>
-                    <strong>Adress:</strong> {p.address}
-                  </div>
-                </div>
-              )}
-              {p.phone && (
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-                  <span className="material-icons" style={{ fontSize: 18, color: '#a0aec0', marginRight: 8 }}>call</span>
-                  <div><strong>Telefon:</strong> {p.phone}</div>
-                </div>
-              )}
-              {p.email && (
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-                  <span className="material-icons" style={{ fontSize: 18, color: '#a0aec0', marginRight: 8 }}>email</span>
-                  <div><strong>Email:</strong> {p.email}</div>
-                </div>
-              )}
-              {p.website && (
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <span className="material-icons" style={{ fontSize: 18, color: '#a0aec0', marginRight: 8 }}>language</span>
-                  <div><strong>Website:</strong> <a href={p.website} target="_blank" rel="noopener noreferrer">{p.website}</a></div>
-                </div>
-              )}
-            </div>
-          </details>
-        );
-      })}
+        </div>
+      )}
     </div>
   );
 };

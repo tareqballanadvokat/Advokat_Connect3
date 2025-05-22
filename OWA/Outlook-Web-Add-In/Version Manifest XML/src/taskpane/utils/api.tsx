@@ -5,6 +5,14 @@ export interface TransferData {
   emailRow: TransferEmailItem;
   attachmentRows: TransferAttachmentItem[];
 }
+export interface Person {
+  id: string;
+  fullName: string;
+  address?: string;
+  phone?: string;
+  city?: string;
+  website?: string;
+}
 
 
 export interface EmailModel {
@@ -50,8 +58,6 @@ export interface  Abbreviation
 
 export async function saveEmailInformation(payload: any)
 {
- 
- 
       const response = await fetch(
         'https://localhost:7231/api/email/add-to-advocat', // <- Twój endpoint
         {
@@ -77,6 +83,33 @@ export async function saveEmailInformation(payload: any)
  
 };
 
+
+export async function saveServiceInformation(payload: any)
+{
+      const response = await fetch(
+        'https://localhost:7231/api/service/add-service', // <- Twój endpoint
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+         body: JSON.stringify(payload)
+         //      body:   JSON.stringify({ query: payload })
+        }
+      );
+
+      if (!response.ok) {
+        // np. 400 / 500
+        const errorText = await response.text();
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Transfer successful:', result);
+      // tutaj możesz np. pokazać komunikat lub zresetować formularz
+  
+ 
+};
 
 export async function getSavedEmailInfo(
   messageId: string
@@ -149,7 +182,38 @@ export async function getStructureFolderApi(): Promise<HierarchyTree[]> {
 }
 
 
-export async function getAbbreviationApi(): Promise<Abbreviation[]> { 
+export async function getMyFavoritesApi(): Promise<HierarchyTree[]> {
+  const resp = await fetch('https://localhost:7231/api/favorite/get-my-favorites', {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`API error ${resp.status}: ${txt}`);
+  }
+
+  // JSON from .NET will have PascalCase keys, so map them to our camelCase interface
+  const data = (await resp.json()) as any[];
+  return data.map(item => ({
+    id:          item.id,
+    name:        item.name,
+    rootId:      item.rootId ?? null,
+    hasChild:    item.hasChild,
+    isStructure: item.isStructure,
+    causa:       item.causa,
+    hasUrl:      item.hasUrl,
+    url:         item.url
+  }));
+ 
+}
+
+
+
+export async function getAbbreviationApi(): Promise<Abbreviation[]> 
+{ 
  const resp = await fetch('https://localhost:7231/api/abbreviation/get-abbreviation', {
     method: "GET",
     headers: {
@@ -173,4 +237,66 @@ export async function getAbbreviationApi(): Promise<Abbreviation[]> {
   return data;
 }
 
+ export async function getPersonApi(): Promise<Person[]> 
+ { 
+ const resp = await fetch('https://localhost:7231/api/person/get', {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+   
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`API error ${resp.status}: ${txt}`);
+  }
+
+  // The .NET API returns PascalCase objects, e.g. { Id, Name }
+  const raw = (await resp.json()) as any;// Array<{ id: number; name: string }>;
+ 
+  // Map to our camelCase interface
+  const data = raw.map(item => ({
+    id:   item.id,
+    fullName: item.fullName,
+    address: item.address,
+    phone: item.phone,
+     email:item.email,
+     website: item.webSite,
+      city:item.city
+  }));
+  return data;
+}
+
+ 
+
+
+export async  function   addPerson(id) {
+  const resp = await fetch('https://localhost:7231/api/person/add', {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id: id })
+  });
+     if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`API error ${resp.status}: ${txt}`);
+  }
+ 
+}
+
+export async function removePerson(personId) 
+{    
+      const resp = await  fetch('https://localhost:7231/api/person/delete', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ nodeId: personId })
+      });
+     if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(`API error ${resp.status}: ${txt}`);
+      } 
+}
  

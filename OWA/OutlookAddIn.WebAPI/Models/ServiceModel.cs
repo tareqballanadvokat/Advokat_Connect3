@@ -1,6 +1,7 @@
 ﻿namespace OutlookAddIn.WebAPI.Models;
 public class ServiceModel
 {
+    public int Id { get; set; } = default;
     public string CaseId { get; set; }
     public string ServiceAbbreviationType { get; set; }
     public string ServiceSB { get; set; }

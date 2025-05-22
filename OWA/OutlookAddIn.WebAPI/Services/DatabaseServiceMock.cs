@@ -56,9 +56,9 @@ namespace OutlookAddIn.WebAPI.Services
             favoritesList.Add(customTree.Where(x => x.RootId == 10).First());
 
 
-            allPersons.Add(new PersonModel { Address = "Address 43",Email="test@gmail.com",  City = "Wienna", FullName = "Br Advocat", Id =1, Phone = "6532345", UserID = 1, WebSite = "google.com" });
+            allPersons.Add(new PersonModel { Address = "Address 43",Email="test@gmail.com",  City = "Wienna", FullName = "Br Advokat", Id =1, Phone = "6532345", UserID = 1, WebSite = "google.com" });
             allPersons.Add(new PersonModel { Address = "Address 2 ", Email = "asd.asds@onet.pl", City = "South Hampton", FullName = "Darek Ogórek", Id = 2, Phone = "+489086468", UserID = 1, WebSite = "google.com" });
-            allPersons.Add(new PersonModel { Address = "Address 2 3/6 ", Email = "asd.test@onet.pl", City = "Insbruck", FullName = "Advocat", Id = 3, Phone = "22-55780-9776", UserID = 1, WebSite = "google.com" });
+            allPersons.Add(new PersonModel { Address = "Address 2 3/6 ", Email = "asd.test@onet.pl", City = "Insbruck", FullName = "Advokat", Id = 3, Phone = "22-55780-9776", UserID = 1, WebSite = "google.com" });
             allPersons.Add(new PersonModel { Address = "Address 3 6/3", Email = "test@wp.pl", City = "Wrocław", FullName = "Test Manager", Id =4, Phone = "4854446789", UserID = 1, WebSite = "google.com" });
             allPersons.Add(new PersonModel { Address = "Address 5345 ", Email = "email@livechat.com", City = "Wrocław", FullName = "Test Devops", Id =4, Phone = "0773453455", UserID = 1, WebSite = "google.com" });
             allPersons.Add(new PersonModel { Address = "Address 4444 ", Email = "email@email.com", City = "Nysa", FullName = "Test Manager 2", Id =4, Phone = "113335677", UserID = 1, WebSite = "google.com" });

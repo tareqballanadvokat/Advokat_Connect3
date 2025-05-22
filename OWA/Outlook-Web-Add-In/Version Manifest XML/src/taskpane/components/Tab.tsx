@@ -1,26 +1,27 @@
 import React, { useState, Suspense, lazy, useEffect } from 'react';
 import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
-import  { Person } from './tabs/person/PersonTabContent';
+// import  { Person } from './tabs/person/PersonTabContent';
+import PersonTabContentDemo from './tabs/person/PersonTabContentDemo';
  
 // lazy-import
 const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));
 const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
 const PersonTab  = lazy(() => import('./tabs/person/PersonTabContent'));
-const Tab4Content = lazy(() => import('./tabs/email/EmailTabContent'));
+const CaseTabContent = lazy(() => import('./tabs/case/CaseTabContent'));
 
 const DevTabs: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
- const [persons, setPersons] = useState<Person[]>([]);
+//  const [persons, setPersons] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('https://localhost:7231/api/person/get')       // your WebAPI
-      .then(r => r.json())
-      .then((data: Person[]) => setPersons(data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  // useEffect(() => {
+  //   fetch('https://localhost:7231/api/person/get')       // your WebAPI
+  //     .then(r => r.json())
+  //     .then((data: Person[]) => setPersons(data))
+  //     .catch(console.error)
+  //     .finally(() => setLoading(false));
+  // }, []);
 
   const handleDelete = (id: string) => {
     // call your delete-favorite endpoint…
@@ -36,11 +37,12 @@ const DevTabs: React.FC = () => {
     switch (selectedIndex) {
       case 0: return <EmailTab />;
       case 1: return <ServiceTab />;
-      case 2: return <Tab4Content />;
-      case 3: return <PersonTab   persons={persons}
-      loading={loading}
-      onDeleteFavorite={handleDelete}
-      onAddFavorite={handleAdd} />;
+      // case 2: return <PersonTab />;
+      case 2: return <CaseTabContent />;
+      case 3: return <PersonTab  
+      // onDeleteFavorite={handleDelete}
+      // onAddFavorite={handleAdd} 
+      />;
       default: return null;
     }
   };

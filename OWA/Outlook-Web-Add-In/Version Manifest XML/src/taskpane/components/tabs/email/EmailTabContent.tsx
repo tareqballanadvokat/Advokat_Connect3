@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import SearchAndCaseList from './SearchAndCaseList';
 import Button from 'devextreme-react/button';
 import EmailSend from './EmailSend'; 
-import RegisteredEmails from './RegisteredEmails'; 
-import ServiceSection, { ServiceSectionProps } from './ServiceSection';
+import RegisteredEmails from './RegisteredEmails';  
+import ServiceSection, { ServiceSectionProps } from '../shared/ServiceSection';
 import { getEmailAttachmentData, getEmailContentAsync } from '../../../hooks/useOfficeItem';
 import TransferAndAttachment, { TransferAttachmentItem, TransferEmailItem } from './TransferAndAttachment';
 import { saveEmailInformation, Attachment  } from '../../../utils/api';
@@ -157,7 +157,7 @@ onSelectionChange={setAttachmentSelected}
       />
    
        {/* 5) Registered E-Mails */}
-       {/* <RegisteredEmails /> */}
+       <RegisteredEmails />
 
     </div>
   );

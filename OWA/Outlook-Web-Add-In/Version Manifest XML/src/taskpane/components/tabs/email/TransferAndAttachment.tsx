@@ -139,11 +139,11 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
 
   return (
     <div>
-      <h3>Transfer e-mail and attachments</h3>
+      {/* <h3>Transfer e-mail and attachments</h3>
       <p>
         <strong>Mode:</strong> {composeMode ? 'Compose' : 'Read-only'}<br/>
         <strong>Subject:</strong> {subject}
-      </p>
+      </p> */}
 
       {items.map(item => (
         <div
