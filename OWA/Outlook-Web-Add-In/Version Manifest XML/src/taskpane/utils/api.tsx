@@ -13,7 +13,11 @@ export interface Person {
   city?: string;
   website?: string;
 }
-
+export interface CaseItem {
+  caseId: string;
+  causa: string;
+  name: string;
+}
 
 export interface EmailModel {
   caseId  :string;
@@ -300,3 +304,23 @@ export async function removePerson(personId)
       } 
 }
  
+
+export async function getCases(searchValue:string): Promise<CaseItem[]> 
+{ 
+
+// const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
+const resp = await fetch(  'https://localhost:7231/api/react-structure/search-cases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: searchValue })   // lub inny payload
+        });
+  const data: CaseItem[] = await resp.json();
+   
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`API error ${resp.status}: ${txt}`);
+  } 
+  // Map to our camelCase interface
+ 
+  return data;
+}

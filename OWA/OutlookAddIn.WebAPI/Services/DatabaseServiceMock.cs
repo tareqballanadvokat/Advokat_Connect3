@@ -18,7 +18,7 @@ namespace OutlookAddIn.WebAPI.Services
         }
         public void FillCustomData()
         {
-            customTree.Add(new HierarchyTree { Id = 1, Name = "ADVOKAT", RootId = 0, IsStructure = true, HasChild = true, Causa = "Root" });
+            customTree.Add(new HierarchyTree { Id = 1, Name = "ADVOKAT", RootId = null, IsStructure = true, HasChild = true, Causa = "Root" });
             customTree.Add(new HierarchyTree { Id = 2, Name = "Test", RootId = 1, HasChild = true, IsStructure = true, Causa = "Roots" });
             customTree.Add(new HierarchyTree { Id = 3, Name = "Outlook", RootId = 1, HasChild = false, IsStructure = true, Causa = "Rosot" });
             customTree.Add(new HierarchyTree { Id = 4, Name = "Zusammenarbeit", RootId = 1, IsStructure = true, Causa = "Rvoot" });
@@ -36,7 +36,7 @@ namespace OutlookAddIn.WebAPI.Services
             customTree.Add(new HierarchyTree { Id = 105, Name = "Test5.pdf", RootId = 5, IsStructure = false });
 
 
-            customTree.Add(new HierarchyTree { Id = 10, Name = "ADVOKAT/10", RootId = 0, IsStructure = true, HasChild = true, Causa = "Root2" });
+            customTree.Add(new HierarchyTree { Id = 10, Name = "ADVOKAT/10", RootId = null, IsStructure = true, HasChild = true, Causa = "Root2" });
             customTree.Add(new HierarchyTree { Id = 11, Name = "Test", RootId = 10, HasChild = true, IsStructure = true, Causa = "Rowot" });
             customTree.Add(new HierarchyTree { Id = 13, Name = "Outlook", RootId = 10, HasChild = false, IsStructure = true, Causa = "eeRoot" });
             customTree.Add(new HierarchyTree { Id = 14, Name = "Zusammenarbeit", RootId = 10, IsStructure = true, Causa = "Rofot" });
@@ -53,7 +53,8 @@ namespace OutlookAddIn.WebAPI.Services
             customTree.Add(new HierarchyTree { Id = 114, Name = "Test4.pdf", RootId = 16, IsStructure = false, HasUrl = true, Url = "https://cdn.britannica.com/55/2155-050-604F5A4A/lion.jpg" });
             customTree.Add(new HierarchyTree { Id = 115, Name = "Test5.pdf", RootId = 16, IsStructure = false });
 
-            favoritesList.Add(customTree.Where(x => x.RootId == 10).First());
+            favoritesList.AddRange(customTree.ToList());//.Where(x => x.RootId == 10).First());
+      //      favoritesList.Add(customTree.Where(x => x.RootId == 14).First());
 
 
             allPersons.Add(new PersonModel { Address = "Address 43",Email="test@gmail.com",  City = "Wienna", FullName = "Br Advokat", Id =1, Phone = "6532345", UserID = 1, WebSite = "google.com" });

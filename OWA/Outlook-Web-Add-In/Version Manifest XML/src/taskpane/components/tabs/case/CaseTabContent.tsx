@@ -1,130 +1,150 @@
-// import React from 'react';
-
-// const CaseTabContent: React.FC = () => {
-//   return (
-//     <div style={{ padding: 16 }}>
-//       <h4>E-Mail</h4>
-//       <p>Tu wstaw formularz lub listę e-maili.</p>
-//     </div>
-//   );
-// };
-
-// export default CaseTabContent;
-
-
-
-// src/taskpane/components/tabs/structure/HierarchyTreeView.tsx
-import React, { useState, useEffect } from 'react';
+// src/taskpane/components/tabs/cases/CasesAccordion.tsx
+import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
+import ColumnButton from 'devextreme-react/tree-list';
+import SearchCaseList from './SearchCaseList';
+import LoadPanel from 'devextreme-react/load-panel';
 import TreeList, {
   Column,
   Scrolling,
-  Paging,
   FilterRow,
-  HeaderFilter
+  HeaderFilter,Editing,
+  Paging,Button, type TreeListTypes,
+  Pager,
+  // Command column for buttons
+ 
 } from 'devextreme-react/tree-list';
-import { getMyFavoritesApi } from   '../../../utils/api';
+
+import { getMyFavoritesApi } from '../../../utils/api'; // your API
 
 export interface HierarchyTree {
   id: number;
   name: string;
   rootId?: number | null;
   hasChild: boolean;
-  isStructure: boolean;
   causa: string;
   hasUrl: boolean;
   url: string;
 }
 
+
+const allowDeleting = (e) => e.row.data.ID !== 1;
+function allowDeletingVisible()
+{
+  return false;
+} 
+
+const onEditorPreparing = (e: TreeListTypes.EditorPreparingEvent) => {
+  if (e.dataField === 'Head_ID' && e.row.data.ID === 1) {
+    e.cancel = true;
+  }
+};
+
+const onInitNewRow = (e: TreeListTypes.InitNewRowEvent) => {
+  e.data.Head_ID = 1;
+};
+
+
 const CaseTabContent: React.FC = () => {
-  const [data, setData] = useState<HierarchyTree[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [nodes, setNodes]       = useState<HierarchyTree[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [expandedKeys, setExpandedKeys] = useState<number[]>([]);
+  const [selectedCase, setSelectedCase] = useState('');
 
   useEffect(() => {
     (async () => {
       try {
-        const list = await getMyFavoritesApi();
-        setData(list);
-      } catch (err) {
-        console.error('Error loading hierarchy:', err);
+        const data = await getMyFavoritesApi(); // flatten list of folders & files
+        setNodes(data);
+        // auto-expand all top-level folders:
+        const roots = data.filter(n => n.rootId == null).map(n => n.id);
+        setExpandedKeys(roots);
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  if (loading) {
-    return <div>Loading structure…</div>;
-  }
+  const onSelectionChanged = useCallback((e) => {
+    // keep expandedKeys in sync
+    setExpandedKeys(e.component.getSelectedRowKeys());
+  }, []);
 
-  return (
-    // <TreeList
-    //   dataSource={data}
-    //      keyExpr="id" 
-    //   parentIdExpr="rootId"
-    //   showRowLines={true}
-    //   showBorders={true}
-    //   columnAutoWidth={true}
-    //   wordWrapEnabled={true}
-    //   defaultExpandedRowKeys={data.filter(d => d.rootId == null).map(d => d.id)}
- 
-    //   aria-label="Hierarchy Tree"
-    // >
-    //   <Paging enabled={false} />
-    //   <Scrolling mode="virtual" />
-    //   <FilterRow visible={true} />
-    //   <HeaderFilter visible={true} />
+  const handleOpen = useCallback((node: HierarchyTree) => {
+    window.open(node.url, '_blank');
+  }, []);
 
-    //   {/* Name column */}
-    //   <Column
-    //     dataField="name"
-    //     caption="Name"
-    //   />
+  const handleDelete = useCallback((id: number) => {
+    // your delete logic...
+    console.log('Remove favorite', id);
+  }, []);
 
-    //   {/* Causa */}
-    //   <Column
-    //     dataField="causa"
-    //     caption="Causa"
-    //   />
+   return (
+    <div /* … */>
+      {/* … SearchCaseList, header, LoadPanel … */}
 
-    //   {/* URL as link */}
-    //   <Column
-    //     caption="Link"
-    //     cellRender={({ data }: { data: HierarchyTree }) =>
-    //       data.hasUrl && data.url
-    //         ? <a href={data.url} target="_blank" rel="noopener noreferrer">{data.url}</a>
-    //         : null
-    //     }
-    //   />
-    // </TreeList>
+      <SearchCaseList onCaseSelect={setSelectedCase} />
 
+      <TreeList
+        dataSource={nodes}
+        keyExpr="id"
+        parentIdExpr="rootId"
+        rootValue={-1}           // top‐level nodes have rootId = -1
+        expandedRowKeys={expandedKeys}
+        onExpandedRowKeysChange={setExpandedKeys}
+        hasItemsExpr="hasChild"
+        showRowLines={false}
+        showBorders={false}
+        columnAutoWidth
+        wordWrapEnabled={false}
+        height={400}
+      >
+        {/* … Paging, Scrolling … */}
+      <Editing
+        allowUpdating={false}
+        allowDeleting={allowDeleting}
+        allowAdding={false}
+        mode="row" />
+        <Column
+          dataField="name"
+          caption="Name"
+          cellRender={({ data }: { data: HierarchyTree }) => (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <i
+                className={
+                  data.hasUrl
+                    ? 'dx-icon dx-icon-folder'
+                    : 'dx-icon dx-icon-file'
+                }
+              />
+              {data.name}
+            </div>
+          )}
+        />
 
-     <TreeList 
-    dataSource={data}
-    rootValue={-1}
-    //defaultExpandedRowKeys={expandedRowKeys}
-    showRowLines={true}
-    showBorders={true}
-    columnAutoWidth={true}
-    keyExpr="id"
-    parentIdExpr="rootId"
-  >
-    <Column
-      dataField="id"
-      caption="Position" />
-    <Column
-      dataField="name" />
-    <Column
-      dataField="causa" />
-    {/* <Column
-      dataField="State" />
-    <Column
-      dataField="Mobile_Phone" />
-    <Column
-      dataField="Hire_Date"
-      dataType="date" /> */}
-  </TreeList>
+        {/* “Open” on files */}
+        {/* <Column type="buttons" width={80}>
+          <ColumnButton
+         //   icon="open"
+            hint="Open"
+            
+           onCellClick={({ row }) => handleOpen(row.data)}
+           visible={allowDeletingVisible()}
+          />
+        </Column> */}
+
+        {/* “Delete from favorite” on top‐level only */}
+      <Column type="buttons">
+        {/* <Button name="edit" /> */}
+        <Button name="delete"   visible={({ row }) => {
+          // przykładowo: pokaż tylko na węzłach najwyższego poziomu:
+          return row.data.rootId === null;
+        }}/>
+      </Column>
+      </TreeList>
+    </div>
   );
 };
-
 export default CaseTabContent;
