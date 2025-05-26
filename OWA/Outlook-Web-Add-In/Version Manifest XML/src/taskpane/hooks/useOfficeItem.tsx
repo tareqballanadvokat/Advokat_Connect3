@@ -55,16 +55,53 @@ function getInternetMessageId(item: OfficeItem): Promise<string> {
 }
 
 export function getInternetMessageIdAsync(item: any): Promise<string> {
+  // const itemId =  Office.context.mailbox.item.itemId;
+  // return new Promise((resolve, reject) => {
+  //   if (isComposeMode) { 
+  //     debugger;
+  //     resolve(itemId);
+  //   }
+  //   else {
+    
+  //     item.getAllInternetHeadersAsync(res => {
+  //       if (res.status === Office.AsyncResultStatus.Succeeded) {
+  //         const match = (res.value as string).match(/Message-ID:\s*(.+)/i);
+  //         if (match) resolve(match[1].trim());
+  //         else reject(new Error('No Message-ID header found.'));
+  //       } else {
+  //         reject(new Error(res.error.message));
+  //       }
+  //     });
+  //   }
+  // });
+
   return new Promise((resolve, reject) => {
-    item.getAllInternetHeadersAsync(res => {
-      if (res.status === Office.AsyncResultStatus.Succeeded) {
-        const match = (res.value as string).match(/Message-ID:\s*(.+)/i);
-        if (match) resolve(match[1].trim());
-        else reject(new Error('No Message-ID header found.'));
-      } else {
-        reject(new Error(res.error.message));
-      }
-    });
+    const isCompose = typeof item.body.setAsync === "function";
+
+    if (isCompose) {
+      // Compose mode – trzeba pobrać itemId asynchronicznie
+      item.getItemIdAsync((res: Office.AsyncResult<string>) => {
+        if (res.status === Office.AsyncResultStatus.Succeeded) {
+          resolve(res.value); // Tymczasowe ID, unikalne w tej sesji
+        } else {
+          reject(new Error("Nie udało się pobrać itemId w compose mode: " + res.error.message));
+        }
+      });
+    } else {
+      // Read mode – można użyć internetMessageId z nagłówków
+      item.getAllInternetHeadersAsync((res: Office.AsyncResult<string>) => {
+        if (res.status === Office.AsyncResultStatus.Succeeded) {
+          const match = res.value.match(/Message-ID:\s*(.+)/i);
+          if (match) {
+            resolve(match[1].trim());
+          } else {
+            reject(new Error("Brak nagłówka Message-ID."));
+          }
+        } else {
+          reject(new Error("Błąd pobierania nagłówków: " + res.error.message));
+        }
+      });
+    }
   });
 }
 

@@ -27,10 +27,25 @@ public class EmailController : ControllerBase
             //return Ok(DatabaseServiceMock.customEmails);
             var data = DatabaseServiceMock.customEmails.Where(x => x.InternetMessageId == query.InternetMessageId).First();
             data.ServiceText = query.ServiceText;
-            data.SrviceSB = query.SrviceSB;
+            data.ServiceSB = query.ServiceSB;
             data.ServiceTime = query.ServiceTime;
             data.EmailName = query.EmailName;
-            data.UpdateDate = DateTime.Now; 
+            data.UpdateDate = DateTime.Now;
+            //var attList = query.Attachments.ToList();
+            //foreach (var attchment in data.Attachments)
+            //{
+            //    var att = attList.Where(x => x.Id == attchment.Id).First();
+            //    if (att != null) 
+            //    {
+            //        attchment.OriginalFileName = att.OriginalFileName;
+            //        attchment.FileName = att.FileName;
+            //        attchment.Folder = att.Folder;
+            //    }
+            //    attList.Remove(att);
+            //}
+            data.Attachments = query.Attachments;
+           
+
             return new JsonResult(DatabaseServiceMock.customEmails);
         }
         query.InsertDate = DateTime.Now;
@@ -48,6 +63,7 @@ public class EmailController : ControllerBase
 
             x => new RegisteredEmailModel
             {
+                Id = int.Parse($"{x.UserID}{x.InsertDate:HHmmss}"),
                 CaseId = x.CaseId,
                 InsertDate = x.InsertDate.ToShortDateString(), 
                 EmailName = x.EmailName

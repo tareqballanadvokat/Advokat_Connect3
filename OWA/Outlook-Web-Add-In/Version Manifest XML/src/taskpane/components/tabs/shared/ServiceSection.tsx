@@ -91,12 +91,7 @@
 // src/taskpane/components/tabs/email/ServiceSection.tsx
 import React, { useState, useEffect } from 'react';
 import SelectBox from 'devextreme-react/select-box';
-import { getAbbreviationApi, Abbreviation } from '../../../utils/api';
-
-// export interface Abbreviation {
-//   id: string;
-//   name: string;
-// }
+import { getAbbreviationApi, Abbreviation,getSavedEmailInfo } from '../../../utils/api';
 
 export interface ServiceSectionProps {
   abbreviation: string;
@@ -124,13 +119,33 @@ const ServiceSection: React.FC<ServiceSectionProps> = ({
   useEffect(() => {
     (async () => {
       try {
-        const data = await getAbbreviationApi(); // => Abbreviation[]
-        setOptions(data);
+  const data = await getAbbreviationApi(); // Abbreviation[]
+      setOptions(data);
+
+      const emailInfo = await getSavedEmailInfo("<71M6XT6PQVi3e1nUFNcQow@geopod-ismtpd-7>");
+      if (emailInfo != null) {
+        const abbreviationId = Number(emailInfo.serviceAbbreviationType);
+
+        // sprawdź, czy ID istnieje w dostępnych opcjach
+        const opt = data.find(x => x.id === abbreviationId);
+        if (opt) {
+          onAbbreviationChange(opt.id.toString()); // ✅ użyj ID zamiast name
+        }
+
+        onTextChange(emailInfo.serviceText);
+        onTimeChange(emailInfo.serviceTime);
+        onSbChange(emailInfo.serviceSB);
+      }
+
+
       } catch (err) {
         console.error('Failed to load abbreviations:', err);
       }
     })();
   }, []);
+ 
+
+
 
   return (
     <div style={{ marginBottom: 24 }}>
@@ -157,8 +172,6 @@ const ServiceSection: React.FC<ServiceSectionProps> = ({
             fontSize: 14,
             border: '1px solid #ccc',
             borderRadius: 4,
-            textAlign: 'center',
-            backgroundColor: '#f4f4f4',
           }}
         />
         <input

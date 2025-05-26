@@ -51,7 +51,7 @@ export interface HierarchyTree {
   isStructure: boolean;
   causa: string;
   hasUrl: boolean;
-  url: string;
+  url: string; 
 }
 
 export interface  Abbreviation

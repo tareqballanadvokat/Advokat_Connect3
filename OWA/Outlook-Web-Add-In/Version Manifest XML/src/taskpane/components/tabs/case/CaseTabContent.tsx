@@ -1,7 +1,6 @@
 // src/taskpane/components/tabs/cases/CasesAccordion.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
-import ColumnButton from 'devextreme-react/tree-list';
 import SearchCaseList from './SearchCaseList';
 import LoadPanel from 'devextreme-react/load-panel';
 import TreeList, {
@@ -25,6 +24,7 @@ export interface HierarchyTree {
   causa: string;
   hasUrl: boolean;
   url: string;
+  isStructure: boolean;
 }
 
 
@@ -114,7 +114,7 @@ const CaseTabContent: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <i
                 className={
-                  data.hasUrl
+                  data.isStructure
                     ? 'dx-icon dx-icon-folder'
                     : 'dx-icon dx-icon-file'
                 }
@@ -123,25 +123,24 @@ const CaseTabContent: React.FC = () => {
             </div>
           )}
         />
-
-        {/* “Open” on files */}
-        {/* <Column type="buttons" width={80}>
-          <ColumnButton
-         //   icon="open"
-            hint="Open"
-            
-           onCellClick={({ row }) => handleOpen(row.data)}
-           visible={allowDeletingVisible()}
-          />
-        </Column> */}
+ 
 
         {/* “Delete from favorite” on top‐level only */}
       <Column type="buttons">
         {/* <Button name="edit" /> */}
-        <Button name="delete"   visible={({ row }) => {
-          // przykładowo: pokaż tylko na węzłach najwyższego poziomu:
+        <Button name="delete" visible={({ row }) => {
           return row.data.rootId === null;
         }}/>
+        <Button name="open" visible={({ row }) => {
+          return row.data.isStructure ===false;
+        }}/>
+          {/* <ColumnButton
+       
+            hint="Open"
+            
+           onCellClick={({ row }) => handleOpen(row.data)}
+           visible={allowDeletingVisible()}
+          /> */}
       </Column>
       </TreeList>
     </div>

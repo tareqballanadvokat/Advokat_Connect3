@@ -7,7 +7,7 @@ import RegisteredEmails from './RegisteredEmails';
 import ServiceSection, { ServiceSectionProps } from '../shared/ServiceSection';
 import { getEmailAttachmentData, getEmailContentAsync } from '../../../hooks/useOfficeItem';
 import TransferAndAttachment, { TransferAttachmentItem, TransferEmailItem } from './TransferAndAttachment';
-import { saveEmailInformation, Attachment  } from '../../../utils/api';
+import { saveEmailInformation, Attachment, getSavedEmailInfo  } from '../../../utils/api';
 
 import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
  interface TransferPayload {
@@ -59,10 +59,38 @@ const EmailTabContent: React.FC = () => {
   const [abbrev, setAbbrev] = useState('');
   const [time, setTime]   = useState('');
   const [text, setText]   = useState('');
-  const [sb, setSb]   = useState('');
- // const { messageId, emailContent } = useOfficeItem();
-  //  type SelectedAttachment = { id: string; label: string };
-   const [attachmentSelected, setAttachmentSelected] = useState<TransferAttachmentItem[]>([]);
+  const [sb, setSb]   = useState(''); 
+  const [attachmentSelected, setAttachmentSelected] = useState<TransferAttachmentItem[]>([]);
+
+  useEffect(() => {
+    (async () => {
+ 
+      try {
+        // Step 1: Email informations
+        const email = Office.context.mailbox.item;
+        const messageId = await getInternetMessageIdAsync(email);
+ 
+        // Step 2: fetch both emailRow & attachmentRows in one POST
+        const data = await getSavedEmailInfo(messageId);
+        if (data!= null)
+        {
+         
+      //      setAbbrev(data.serviceAbbreviationType);
+            // setText(data.serviceText);
+            // setTime(data.serviceTime);
+            // setSb(data.serviceSB);
+        };
+ 
+        // Step 3: merge into a single array, emailRow first     
+ 
+      } catch (e: any) {
+        console.error(e);
+    //    setError(e.message || 'Unknown error');
+      } finally {
+   //     setLoading(false);
+      }
+    })();
+  }, []);
 
   const sendEmailHandler = async () => {
     console.log('Transfer to ADVOKAT, caseId =', selectedCase);
@@ -92,7 +120,7 @@ const EmailTabContent: React.FC = () => {
   ? {
       caseId:       selectedCase,
       serviceAbbreviationType:  abbrev.toString(),
-      srviceSB:           sb,         
+      serviceSB:           sb,         
       serviceTime:         time,
       serviceText:         text,
       internetMessageId: messageId,
@@ -105,7 +133,7 @@ const EmailTabContent: React.FC = () => {
   : {
       caseId:       selectedCase,
       serviceAbbreviationType:   abbrev.toString(),
-      srviceSB:           sb,         
+      serviceSB:           sb,         
       serviceTime:         time,
       serviceText:         text,
       internetMessageId: messageId,

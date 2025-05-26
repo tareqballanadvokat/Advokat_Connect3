@@ -11,6 +11,7 @@ export interface TransferAttachmentItem {
   option: string;
   checked: boolean;
   readonly: boolean;
+  disabled: boolean;
   name: string;
   type: string;
 }
@@ -66,8 +67,21 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
             id: "1", 
             checked: false,
             readonly: false,
+            disabled:false,
             type: "E"
         }
+ 
+        var attachmentConcatenated = emailAttachments.map(att => ({
+                id: att.id,
+                label: att.name,
+                name: att.name,
+                option: 'Email',    // default option
+                checked: false,     // or true, as needed
+                readonly: false,
+                disabled: false,
+                type:"A"
+            }));
+        
         // Step 2: fetch both emailRow & attachmentRows in one POST
         const data = await getSavedEmailInfo(messageId);
         if (data!= null)
@@ -75,20 +89,38 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
             newEmailRow.option = data.emailFolder;
             newEmailRow.label = data.emailName;
             newEmailRow.id = data.internetMessageId; 
-            newEmailRow.checked = newEmailRow.readonly = true;
+            newEmailRow.checked = true;
+            newEmailRow.readonly = true;
+            newEmailRow.disabled = true;
+
+  if (data.attachments.length > 0)
+        {
+            data.attachments.forEach(element => {
+           //     debugger;
+                var el = attachmentConcatenated.find(x => x.id == element.id);
+                if (el != null){
+                    el.label = element.fileName;
+                    el.option = element.folder;
+                    el.checked = true;
+                    el.readonly = true;
+                    el.disabled = true;
+                }
+            }); 
+        }
+          
         };
- 
 
         // Step 3: merge into a single array, emailRow first
         const allRows: TransferAttachmentItem[] = [
            newEmailRow ,
-        ...emailAttachments.map(att => ({
+        ...attachmentConcatenated.map(att => ({
                 id: att.id,
                 label: att.name,
                 name: att.name,
-                option: 'Email',    // default option
-                checked: false,     // or true, as needed
-                readonly: false,
+                option: att.option,    // default option
+                checked: att.checked,     // or true, as needed
+                readonly: att.readonly,
+                disabled: att.disabled,
                 type:"A"
             }))
         ];
@@ -105,26 +137,7 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;
 
-//   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
-//     setItems(prev =>
-//       prev.map(item => (item.id === id ? { ...item, ...changes } : item))
-//     );
-//   };
-
-//   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
-//     setItems(prev => {
-//       const updated = prev.map(item => item.id === id ? { ...item, ...changes } : item);
-//       if (onSelectionChange) {
-//         // extract checked items and their labels
-//         const selected = updated
-//           .filter(i => i.checked)
-//           .map(i => ({ id: i.id, label: i.label }));
-//         onSelectionChange(selected);
-//       }
-//       return updated;
-//     });
-//   };
-
+ 
 
   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
     setItems(prev => {
@@ -139,8 +152,8 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
 
   return (
     <div>
-      {/* <h3>Transfer e-mail and attachments</h3>
-      <p>
+      <h3>Transfer e-mail and attachments</h3>
+      {/* <p>
         <strong>Mode:</strong> {composeMode ? 'Compose' : 'Read-only'}<br/>
         <strong>Subject:</strong> {subject}
       </p> */}
@@ -153,12 +166,13 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
           <CheckBox
             value={item.checked}
             readOnly={item.readonly}
+            disabled={item.disabled}
             onValueChanged={e => updateItem(item.id, { checked: e.value })}
           />
           <TextBox
             stylingMode="outlined"
             value={item.label}
-            readOnly={item.readonly}
+           
             onValueChanged={e => updateItem(item.id, { label: e.value })}
             width="100%"
           />

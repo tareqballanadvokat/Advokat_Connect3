@@ -51,16 +51,21 @@ const RegisteredEmails: React.FC = () => {
           showPageSizeSelector={false}
           allowedPageSizes={[7]}
           showInfo
+        />      
+          <Column
+          dataField="id"
+          caption="Id"
+          dataType="string" 
         />
         <Column
-          dataField="date"
+          dataField="insertDate"
           caption="Date"
           dataType="date"
           format="yyyy-MM-dd"
           alignment="left"
         />
         <Column
-          dataField="subject"
+          dataField="emailName"
           caption="Subject"
           alignment="left"
         />

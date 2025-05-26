@@ -26,10 +26,26 @@ const PersonsTabContent: React.FC<Props> = ({ loading = false }) => {
   }, []);
 
   // callback kiedy ktoś w SearchPersonList doda nową osobę
-  const handlePersonAdd = useCallback((id: string) => {
-    addPerson(id);
-    // możesz też ewentualnie odświeżyć persons lub dopisać nową
-  }, []);
+const handlePersonAdd = useCallback(async (id: string) => {
+  try {
+    // Dodaj osobę (np. do bazy)
+    await addPerson(id);
+
+    // Pobierz zaktualizowaną listę osób
+    const updatedList = await getPersonApi();
+    setPersons(updatedList);
+
+    // Znajdź właśnie dodaną osobę
+    const added = updatedList.find(p => p.id === id);
+    if (added) {
+      // Rozwiń ją automatycznie
+      setExpandedItems(prev => [...prev, added]);
+    }
+  } catch (error) {
+    console.error("Błąd przy dodawaniu osoby:", error);
+  }
+}, []);
+
 
   // callback przy otwieraniu/zamykania Accordion
   const handleSelectionChanged = useCallback((e: AccordionTypes.SelectionChangedEvent) => {
@@ -54,7 +70,12 @@ const PersonsTabContent: React.FC<Props> = ({ loading = false }) => {
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
       overflow: 'hidden'
     }}>
-      <SearchPersonList onCaseSelect={handlePersonAdd} />
+      <SearchPersonList 
+        //   value={searchValue}
+        //   onValueChanged={e => setSearchValue(e.value)}
+        //   onEnterKey={handleSearch}
+      
+      onCaseSelect={handlePersonAdd} />
 
       <Accordion
         dataSource={persons}

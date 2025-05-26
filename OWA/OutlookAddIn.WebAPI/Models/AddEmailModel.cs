@@ -5,7 +5,7 @@ public class AddEmailModel
 {
     public string CaseId { get; set; }
     public string ServiceAbbreviationType { get; set; }
-    public string SrviceSB { get; set; }
+    public string ServiceSB { get; set; }
     public string ServiceTime { get; set; }
     public string ServiceText { get; set; }
     public string InternetMessageId { get; set; }
@@ -32,6 +32,7 @@ public class Attachment
 
 public class RegisteredEmailModel
 {
+    public int Id { get; set; }
     public string CaseId { get; set; } 
     public string EmailName { get; set; } 
     public string InsertDate { get; set; }
