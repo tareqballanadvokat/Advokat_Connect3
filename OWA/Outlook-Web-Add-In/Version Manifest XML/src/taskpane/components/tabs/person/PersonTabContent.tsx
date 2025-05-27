@@ -5,16 +5,15 @@ import Accordion, { type AccordionTypes } from 'devextreme-react/accordion';
 import SearchPersonList from './SearchPersonList';
 import CustomTitle from './CustomTitle';
 import CustomItem  from './CustomItem';
-import { getPersonApi, addPerson,removePerson, Person } from '../../../utils/api';
+import { getPersonApi, addPerson,removePerson } from '../../../utils/api';
+import { Person } from '../../interfaces/IPerson';
 
 interface Props {
   loading?: boolean;
 }
 
 const PersonsTabContent: React.FC<Props> = ({ loading = false }) => {
-  // 1) stan danych pobranych z API
   const [persons, setPersons] = useState<Person[]>([]);
-  // 2) stan rozwiniętych pozycji Accordion
   const [expandedItems, setExpandedItems] = useState<Person[]>([]);
 
   // fetch tylko raz
@@ -28,7 +27,6 @@ const PersonsTabContent: React.FC<Props> = ({ loading = false }) => {
   // callback kiedy ktoś w SearchPersonList doda nową osobę
 const handlePersonAdd = useCallback(async (id: string) => {
   try {
-    // Dodaj osobę (np. do bazy)
     await addPerson(id);
 
     // Pobierz zaktualizowaną listę osób
@@ -71,10 +69,6 @@ const handlePersonAdd = useCallback(async (id: string) => {
       overflow: 'hidden'
     }}>
       <SearchPersonList 
-        //   value={searchValue}
-        //   onValueChanged={e => setSearchValue(e.value)}
-        //   onEnterKey={handleSearch}
-      
       onCaseSelect={handlePersonAdd} />
 
       <Accordion

@@ -1,19 +1,16 @@
 // src/taskpane/components/tabs/email/EmailTabContent.tsx
 import React, { useState, useEffect } from 'react';
-import SearchAndCaseList from './SearchAndCaseList';
-import Button from 'devextreme-react/button';
+import SearchCaseList from './SearchCaseList'; 
+import notify from 'devextreme/ui/notify';
 import EmailSend from './EmailSend'; 
 import RegisteredEmails from './RegisteredEmails';  
+// import ServiceSection, { ServiceSectionProps } from '../shared/ServiceSection';
 import ServiceSection, { ServiceSectionProps } from '../shared/ServiceSection';
 import { getEmailAttachmentData, getEmailContentAsync } from '../../../hooks/useOfficeItem';
 import TransferAndAttachment, { TransferAttachmentItem, TransferEmailItem } from './TransferAndAttachment';
 import { saveEmailInformation, Attachment, getSavedEmailInfo  } from '../../../utils/api';
 
-import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
- interface TransferPayload {
-  attachments: TransferAttachmentItem[];
-  emailBody: TransferEmailItem;
-}
+import {  getInternetMessageIdAsync } from '../../../hooks/useOfficeItem'; 
 
 async function mapToAttachments(
   items: TransferAttachmentItem[]
@@ -41,27 +38,18 @@ async function mapToAttachments(
       folder: i.option
     } as Attachment;
   }));
-
-  // // jeśli na razie bez base64:
-  // const results: Attachment[] = selected.map(i => ({
-  //   id: i.id,
-  //   originalFileName: i.label,
-  //   fileName: i.label,
-  //   contentBase64: '',
-  //   folder: i.option
-  // }));
-
   return results;
 }
 
 const EmailTabContent: React.FC = () => {
   const [selectedCase, setSelectedCase] = useState('');
-  const [abbrev, setAbbrev] = useState('');
+  const [selectedCaseDisable, setSelectedCaseDisable] = useState(false);
+  const [abbrev, setAbbrev] = useState<number>(0);
   const [time, setTime]   = useState('');
   const [text, setText]   = useState('');
   const [sb, setSb]   = useState(''); 
   const [attachmentSelected, setAttachmentSelected] = useState<TransferAttachmentItem[]>([]);
-
+ 
   useEffect(() => {
     (async () => {
  
@@ -69,16 +57,31 @@ const EmailTabContent: React.FC = () => {
         // Step 1: Email informations
         const email = Office.context.mailbox.item;
         const messageId = await getInternetMessageIdAsync(email);
- 
+        // notify(
+        //     {
+        //         message: "You have a new message", 
+        //         width: 230,
+        //         position: {
+        //             at: "bottom",
+        //             my: "bottom",
+        //             of: "#container"
+        //         }
+        //     }, 
+        //     'error', 
+        //     500
+        // );
         // Step 2: fetch both emailRow & attachmentRows in one POST
         const data = await getSavedEmailInfo(messageId);
         if (data!= null)
         {
-         
-      //      setAbbrev(data.serviceAbbreviationType);
-            // setText(data.serviceText);
-            // setTime(data.serviceTime);
-            // setSb(data.serviceSB);
+            setSelectedCase(data.caseId);
+            setSelectedCaseDisable(true);
+          //  setAbbrev(data.i);
+            const abbreviationId = Number(data.serviceAbbreviationType);
+            setAbbrev(abbreviationId);
+            setText(data.serviceText);
+            setTime(data.serviceTime);
+            setSb(data.serviceSB);
         };
  
         // Step 3: merge into a single array, emailRow first     
@@ -97,13 +100,6 @@ const EmailTabContent: React.FC = () => {
     console.log(sb, text,abbrev,time);
 
   
-    //  // build attachments payload from selected checkboxes
-    //  const attachmentsPayload = attachmentSelected.map(a => ({
-    //   id: a.id,
-    //   // if you need to send the label as filename, rename accordingly:
-    //    fileName: a.label
-    // }));
-    
   const email = Office.context.mailbox.item;
   const messageId= await getInternetMessageIdAsync(email);
 
@@ -152,7 +148,7 @@ const EmailTabContent: React.FC = () => {
   return (
     <div  >
       {/* 1) Panel wyszukiwania + lista spraw */}
-      <SearchAndCaseList onCaseSelect={setSelectedCase} />
+      <SearchCaseList onCaseSelect={setSelectedCase} />
  
     
  
@@ -161,10 +157,12 @@ const EmailTabContent: React.FC = () => {
         caseId={selectedCase}
         onCaseChange={setSelectedCase}
         onTransfer={sendEmailHandler}
-        abbreviation={abbrev}
-        sb={sb}
-        time={time}
-        text={text} />
+        // abbreviation={abbrev}
+        // sb={sb}
+        // time={time}
+        // text={text}
+        caseIdDisable={selectedCaseDisable}
+        />
 
  
     <ServiceSection
@@ -176,6 +174,7 @@ const EmailTabContent: React.FC = () => {
         onTextChange={setText}
         sb={sb}
         onSbChange={setSb}
+        oveerideDataOnStartup={true}
       />
  
 

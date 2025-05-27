@@ -3,10 +3,8 @@ import React, { useState, useEffect } from 'react';
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { API_BASE } from '../../../../config';
-
- 
-import { getCases, CaseItem   } from '../../../utils/api';
+import { CaseItem } from '../../interfaces/ISearchCase'
+import { getCases  } from '../../../utils/api';
  
 
 interface Props {
@@ -42,7 +40,7 @@ const SearchCaseList: React.FC<Props> = ({ onCaseSelect }) => {
 
   const handleSearch = async () => {
     const filter = searchValue.trim().toLowerCase();
-   const data = await getCases(filter);
+    const data = await getCases(filter);
          setFullData(data);
          setRows(data);
     if (!filter) {

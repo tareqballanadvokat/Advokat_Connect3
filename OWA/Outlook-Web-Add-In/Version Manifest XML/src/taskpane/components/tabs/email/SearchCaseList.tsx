@@ -4,36 +4,34 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { API_BASE } from '../../../../config';
-import { Person } from '../../interfaces/IPerson';
+import { SearchProps, CaseItem } from '../../interfaces/ISearchCase'
  
-
-interface Props {
-  onCaseSelect: (caseId: string) => void;
-}
-
-const SearchPersonList: React.FC<Props> = ({ onCaseSelect }) => {
+// import { CaseItem } from '../../interfaces/ISearchCase';
+const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const [searchValue, setSearchValue] = useState('');
+  const [rows, setRows] = useState<CaseItem[]>([]);
+  const [fullData, setFullData] = useState<CaseItem[]>([]);
   const [gridVisible, setGridVisible] = useState(false);
-  const [rows, setRows] = useState<Person[]>([]);
-  const [fullData, setFullData] = useState<Person[]>([]);
 
-  // useEffect(() => {
-  //   // fetch initial data
-  //   (async () => {
-  //     try {
-  //       const resp = await fetch(API_BASE+'api/person/search', {
-  //         method: 'POST',
-  //         headers: { 'Content-Type': 'application/json' },
-  //         body: JSON.stringify({ query: '' })   // lub inny payload
-  //       });
-  //       const data: Person[] = await resp.json();
-  //       setFullData(data);
-  //       setRows(data);
-  //     } catch (e) {
-  //       console.error(e);
-  //     }
-  //   })();
-  // }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: '' })   // lub inny payload
+        });
+        const data: CaseItem[] = await resp.json();
+        setFullData(data);
+        setRows(data);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, []);
+
+
+
 
   const handleSearch = async () => {
     const filter = searchValue.trim().toLowerCase();
@@ -44,24 +42,41 @@ const SearchPersonList: React.FC<Props> = ({ onCaseSelect }) => {
       setRows([]);
     } else {
 
-      const resp = await fetch(API_BASE+'api/person/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: filter.toString() })   // lub inny payload
-          });
-      const data: Person[] = await resp.json();
+      const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: '' })   // lub inny payload
+        });
+        const data: CaseItem[] = await resp.json();
       setFullData(data);
 
       setRows(
         fullData.filter(
           item =>
-            item.fullName.toLowerCase().includes(filter) 
+            item.name.toLowerCase().includes(filter) 
           //||  item.causa.toLowerCase().includes(filter),
         ),
       );
        setGridVisible(true);
     }
   };
+
+
+
+  // const handleSearch = async () => {
+  //   const filter = searchValue.trim().toLowerCase();
+  //   if (!filter) {
+  //     setRows(fullData);
+  //   } else {
+  //     setRows(
+  //       fullData.filter(
+  //         item =>
+  //           item.name.toLowerCase().includes(filter) 
+  //         //||  item.causa.toLowerCase().includes(filter),
+  //       ),
+  //     );
+  //   }
+  // };
 
 
 
@@ -83,14 +98,15 @@ return (
         />
         <Button icon="search" stylingMode="contained" onClick={handleSearch} />
       </div>
-    {/* … Twój panel wyszukiwania … */}
+ 
 
     <DataGrid
       className="compact-grid"
       dataSource={rows}
-      keyExpr="id"               // Twój klucz
+      keyExpr="id"               
       showBorders={false}
-   visible={gridVisible}
+   
+      visible={gridVisible}
       showColumnLines={false}
       showRowLines={true}
       columnAutoWidth={true}
@@ -112,12 +128,12 @@ return (
         alignment="left"
       />
       <Column
-        dataField="fullName"
+        dataField="name"
         caption="Name"
         alignment="left"
       />
       <Column
-        dataField="address"
+        dataField="causa"
         caption="Causa"
         alignment="left"
       />
@@ -126,10 +142,10 @@ return (
         width={50}
         buttons={[
           {
-            icon: 'add',
+            icon: 'arrowright',
             //stylingMode: 'text',
             hint: 'Select',
-            onClick: e => onCaseSelect(e.row.data.id)  // Twój callback
+            onClick: e => onCaseSelect(e.row.data.name)  // Twój callback
           }
         ]}
       />
@@ -140,4 +156,4 @@ return (
 
 };
 
-export default SearchPersonList;
+export default SearchCaseList;

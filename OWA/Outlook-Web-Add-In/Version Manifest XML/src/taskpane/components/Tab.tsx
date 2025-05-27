@@ -1,8 +1,7 @@
 import React, { useState, Suspense, lazy, useEffect } from 'react';
 import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
-// import  { Person } from './tabs/person/PersonTabContent';
-import PersonTabContentDemo from './tabs/person/PersonTabContentDemo';
+// import  { Person } from './tabs/person/PersonTabContent'; 
  
 // lazy-import
 const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));

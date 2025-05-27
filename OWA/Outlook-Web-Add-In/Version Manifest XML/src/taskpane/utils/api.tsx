@@ -1,23 +1,19 @@
 // import { AttachmentInfo } from './calculateAttachments';
 import { TransferAttachmentItem, TransferEmailItem } from '../components/tabs/email/TransferAndAttachment';
+import { API_BASE } from '../../config';
+import {CaseItem} from '../components/interfaces/ISearchCase'
+import {Person} from '../components/interfaces/IPerson'
 
 export interface TransferData {
   emailRow: TransferEmailItem;
   attachmentRows: TransferAttachmentItem[];
 }
-export interface Person {
-  id: string;
-  fullName: string;
-  address?: string;
-  phone?: string;
-  city?: string;
-  website?: string;
-}
-export interface CaseItem {
-  caseId: string;
-  causa: string;
-  name: string;
-}
+
+// export interface CaseItem {
+//   caseId: string;
+//   causa: string;
+//   name: string;
+// }
 
 export interface EmailModel {
   caseId  :string;

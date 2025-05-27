@@ -11,7 +11,8 @@ import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmai
 
 const ServiceTabContent: React.FC = () => {
   const [selectedCase, setSelectedCase] = useState('');
-  const [abbrev, setAbbrev] = useState('');
+  // const [abbrev, setAbbrev] = useState('');  
+  const [abbrev, setAbbrev] = useState<number>(0);
   const [time, setTime]   = useState('');
   const [text, setText]   = useState('');
   const [sb, setSb]   = useState('');
@@ -23,27 +24,11 @@ const ServiceTabContent: React.FC = () => {
   const sendEmailHandler = async () => {
     console.log('Transfer to ADVOKAT, caseId =', selectedCase);
     console.log(sb, text,abbrev,time);
-
-  
-    //  // build attachments payload from selected checkboxes
-    //  const attachmentsPayload = attachmentSelected.map(a => ({
-    //   id: a.id,
-    //   // if you need to send the label as filename, rename accordingly:
-    //    fileName: a.label
-    // }));
-    
+ 
   const email = Office.context.mailbox.item;
   const messageId= await getInternetMessageIdAsync(email);
 
-  // const firstE = attachmentSelected.find(i => i.checked && i.type === 'E');//email taken
-  // var emailContent ='';
-  // if (firstE != null){
-  //   emailContent = await getEmailContentAsync(email);
-  // }
-
- //const attachmentsPayload = await mapToAttachments(attachmentSelected.filter(i => i.checked && i.type === 'A'));
-
-
+ 
   const payload   =
    {
       caseId:       selectedCase,
@@ -83,6 +68,7 @@ const ServiceTabContent: React.FC = () => {
         onTextChange={setText}
         sb={sb}
         onSbChange={setSb}
+        oveerideDataOnStartup={false}
       />
 
 <RegisteredService  refreshTrigger={refreshFlag}  />

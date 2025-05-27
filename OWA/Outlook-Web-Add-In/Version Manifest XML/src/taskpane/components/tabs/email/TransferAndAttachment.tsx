@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
-import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
+import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments, Attachment } from '../../../hooks/useOfficeItem'; 
 import { getSavedEmailInfo, getStructureFolderApi } from '../../../utils/api';
 
 export interface TransferAttachmentItem {
@@ -25,14 +25,7 @@ export interface TransferEmailItem {
 }
 
 var attachmentOptions = ['Email', 'Aktenordner', 'Andere…'];
-// your “extra” rows, e.g. for folder-transfer
-// const emailRow: Omit<TransferAttachmentItem, 'readonly'>[] = [ 
-// ];
-// interface TransferAndAttachmentProps {
-//   /** Called whenever the set of checked items changes.
-//       Receives array of { id, label } for all checked rows */
-//   onSelectionChange?: (selected: { id: string; label: string }[]) => void;
-// }
+
 interface TransferAndAttachmentProps {
   onSelectionChange?: (selected: TransferAttachmentItem[]) => void;
 }
@@ -96,11 +89,12 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
   if (data.attachments.length > 0)
         {
             data.attachments.forEach(element => {
-           //     debugger;
-                var el = attachmentConcatenated.find(x => x.id == element.id);
+ 
+                const att = element as Attachment;
+                var el = attachmentConcatenated.find(x => x.id == att.id) ;
                 if (el != null){
-                    el.label = element.fileName;
-                    el.option = element.folder;
+                    el.label = att.fileName;
+                    el.option = att.folder;
                     el.checked = true;
                     el.readonly = true;
                     el.disabled = true;

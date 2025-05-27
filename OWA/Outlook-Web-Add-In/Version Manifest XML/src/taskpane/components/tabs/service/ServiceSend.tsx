@@ -8,7 +8,7 @@ interface ServiceSendProps {
   onCaseChange: (id: string) => void;
   onTransfer: () => void;
   sb:string;
-  abbreviation:string;
+  abbreviation:number;
   text: string;
   time: string;
 }

@@ -1,15 +1,13 @@
 // src/taskpane/components/tabs/email/CaseSend.tsx
 import React from 'react';
 import Button from 'devextreme-react/button';
+import { CaseSendProps } from '../../interfaces/IEmail';
 
-interface CaseSendProps {
-  caseId: string;
-  onCaseChange: (id: string) => void;
-  onTransfer: () => void;
-}
 
 const CaseSend: React.FC<CaseSendProps> = ({ caseId, onCaseChange, onTransfer }) => (
+  <div><h3>Case</h3>
   <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
+    
     <input
       type="text"
       placeholder="Case ID"
@@ -24,12 +22,12 @@ const CaseSend: React.FC<CaseSendProps> = ({ caseId, onCaseChange, onTransfer })
       }}
     />
     <Button
-      text="Transfer to ADVOKAT"
+      text="Transfer"
       type="success"
       stylingMode="contained"
       onClick={onTransfer}
     />
-  </div>
+  </div></div>
 );
 
 export default CaseSend;

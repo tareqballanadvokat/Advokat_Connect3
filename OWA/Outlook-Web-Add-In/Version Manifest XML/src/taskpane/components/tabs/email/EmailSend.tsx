@@ -1,34 +1,27 @@
 // src/taskpane/components/tabs/email/CaseSend.tsx
 import React from 'react';
+import { EmailSendProps } from '../../interfaces/IEmail';
 import Button from 'devextreme-react/button';
-import { Height } from 'devextreme-react/cjs/chart';
-
-interface EmailSendProps {
-  caseId: string;
-  onCaseChange: (id: string) => void;
-  onTransfer: () => void;
-  sb:string;
-  abbreviation:string;
-  text: string;
-  time: string;
-}
 
 const EmailSend: React.FC<EmailSendProps> = ({ 
     caseId,
     onCaseChange,
     onTransfer,
-    sb,
-    abbreviation,
-    text,
-    time
+    // sb,
+    // abbreviation,
+    // text,
+    // time,
+    caseIdDisable
 }) => (
+  <div>  <h3>Case</h3>
   <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
-  
+
     <input
       type="text"
       placeholder="Case ID"
       value={caseId}
       width={80}
+      disabled={caseIdDisable}
       onChange={e => onCaseChange(e.target.value)}
       style={{ 
         width:150,
@@ -52,19 +45,19 @@ const EmailSend: React.FC<EmailSendProps> = ({
         }}
         stylingMode="contained" onClick={() => {
         // masz tu dostęp do wszystkich pól:
-            console.log({
-            caseId,
-            service: {
-                abbreviation,
-                sb,
-                time,
-                text
-            }
-            });
+            // console.log({
+            // caseId,
+            // service: {
+            //     abbreviation,
+            //     sb,
+            //     time,
+            //     text
+            // }
+            // });
         onTransfer();
       }}
     />
-  </div>
+  </div></div>
 );
 
 export default EmailSend;
