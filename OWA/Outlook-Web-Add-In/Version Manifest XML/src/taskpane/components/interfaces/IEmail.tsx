@@ -15,3 +15,10 @@ export interface CaseSendProps {
   onCaseChange: (id: string) => void;
   onTransfer: () => void;
 }
+
+
+export interface RegisteredEmail {
+  id: string;
+  date: string;
+  subject: string;
+}

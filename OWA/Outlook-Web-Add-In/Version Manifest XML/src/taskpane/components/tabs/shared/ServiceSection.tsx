@@ -244,7 +244,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = ({
       try {
         const data = await getAbbreviationApi();  
         setOptions(data);
-        if (oveerideDataOnStartup)
+        if (oveerideDataOnStartup)//not used
         {
           //   const item = Office.context.mailbox.item;
           //   var emailId=await getInternetMessageIdAsync(item);

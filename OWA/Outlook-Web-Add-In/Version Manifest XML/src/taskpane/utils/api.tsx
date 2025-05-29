@@ -320,3 +320,22 @@ const resp = await fetch(  'https://localhost:7231/api/react-structure/search-ca
  
   return data;
 }
+
+export async function getFileContent(nodeId:number) :Promise<string> {
+
+// const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
+const resp = await fetch(  'https://localhost:7231/api/react-structure/get-file-content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: nodeId.toString() })   // lub inny payload
+        });
+  const data: string = await resp.json();
+   
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`API error ${resp.status}: ${txt}`);
+  } 
+  // Map to our camelCase interface
+ 
+  return data;
+}

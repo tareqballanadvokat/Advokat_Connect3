@@ -18,6 +18,14 @@ export interface Attachment
 type OfficeItem = typeof Office.context.mailbox.item;
 
 
+export function IsComposeMode(): boolean {
+ const item = Office.context.mailbox.item
+  return (
+    item.itemType === Office.MailboxEnums.ItemType.Message &&
+    typeof (item as any).body.getTypeAsync === 'function'
+  );
+}
+
 /** Sprawdza, czy jesteśmy w Compose mode */
 export function isComposeMode(item: OfficeItem): boolean {
   return (
@@ -55,26 +63,6 @@ function getInternetMessageId(item: OfficeItem): Promise<string> {
 }
 
 export function getInternetMessageIdAsync(item: any): Promise<string> {
-  // const itemId =  Office.context.mailbox.item.itemId;
-  // return new Promise((resolve, reject) => {
-  //   if (isComposeMode) { 
-  //     debugger;
-  //     resolve(itemId);
-  //   }
-  //   else {
-    
-  //     item.getAllInternetHeadersAsync(res => {
-  //       if (res.status === Office.AsyncResultStatus.Succeeded) {
-  //         const match = (res.value as string).match(/Message-ID:\s*(.+)/i);
-  //         if (match) resolve(match[1].trim());
-  //         else reject(new Error('No Message-ID header found.'));
-  //       } else {
-  //         reject(new Error(res.error.message));
-  //       }
-  //     });
-  //   }
-  // });
-
   return new Promise((resolve, reject) => {
     const isCompose = typeof item.body.setAsync === "function";
 
@@ -139,7 +127,26 @@ export function getEmailContentAsync(item: OfficeItem): Promise<any> {
   });
 }
 
-
+/** Pobiera ciało e-maila jako plik/text (lub cokolwiek zwraca API) */
+export async function setAttachmentToItemAsync(base64: string, fileName: string ): Promise<any> {
+         // 2) Attach to current message (Compose mode)
+       
+        await new Promise<void>((resolve, reject) => {
+          Office.context.mailbox.item.addFileAttachmentFromBase64Async(
+             base64, 
+            
+              fileName,
+         
+            { isInline: false },
+            result => {
+              if (result.status === Office.AsyncResultStatus.Succeeded){ resolve();}
+              else{ 
+                console.log(result);
+                reject(result.error);}
+            }
+          );
+        });
+    }
 /**
  * Hook zwraca:
  *  - subject

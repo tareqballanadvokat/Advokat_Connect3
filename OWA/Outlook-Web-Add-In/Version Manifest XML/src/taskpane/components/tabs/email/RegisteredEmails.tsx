@@ -1,15 +1,11 @@
 // src/taskpane/components/tabs/email/RegisteredEmails.tsx
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
+import {RegisteredEmail} from '../../interfaces/IEmail'
 
-interface EmailRecord {
-  id: string;
-  date: string;
-  subject: string;
-}
 
 const RegisteredEmails: React.FC = () => {
-  const [emails, setEmails] = useState<EmailRecord[]>([]);
+  const [emails, setEmails] = useState<RegisteredEmail[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -18,7 +14,7 @@ const RegisteredEmails: React.FC = () => {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         });
-        const data: EmailRecord[] = await resp.json();
+        const data: RegisteredEmail[] = await resp.json();
         // Zakładamy, że zwracane entries są już posortowane malejąco po dacie.
         setEmails(data);
       } catch (err) {

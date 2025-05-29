@@ -11,6 +11,7 @@ import TransferAndAttachment, { TransferAttachmentItem, TransferEmailItem } from
 import { saveEmailInformation, Attachment, getSavedEmailInfo  } from '../../../utils/api';
 
 import {  getInternetMessageIdAsync } from '../../../hooks/useOfficeItem'; 
+import DropAttachArea from '../shared/DropAttachArea';   // ← import it
 
 async function mapToAttachments(
   items: TransferAttachmentItem[]
@@ -49,7 +50,6 @@ const EmailTabContent: React.FC = () => {
   const [text, setText]   = useState('');
   const [sb, setSb]   = useState(''); 
   const [attachmentSelected, setAttachmentSelected] = useState<TransferAttachmentItem[]>([]);
- 
   useEffect(() => {
     (async () => {
  
@@ -150,7 +150,7 @@ const EmailTabContent: React.FC = () => {
       {/* 1) Panel wyszukiwania + lista spraw */}
       <SearchCaseList onCaseSelect={setSelectedCase} />
  
-    
+      <DropAttachArea />
  
  {/* 3) Sekcja Services */}
       <EmailSend

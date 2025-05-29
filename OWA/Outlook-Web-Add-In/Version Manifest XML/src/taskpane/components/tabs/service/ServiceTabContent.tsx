@@ -1,10 +1,10 @@
 // src/taskpane/components/tabs/email/EmailTabContent.tsx
 import React, { useState, useEffect } from 'react';
-import SearchAndCaseList from './SearchAndCaseList';
+// import SearchAndCaseList from './SearchAndCaseList';
 import ServiceSection, { ServiceSectionProps } from '../shared/ServiceSection';
- 
+import SearchCaseList from '../email/SearchCaseList'; 
 import ServiceSend from './ServiceSend';
- import RegisteredService from './RegisteredService';
+import RegisteredService from './RegisteredService';
 import  { saveServiceInformation } from './../../../utils/api';
 
 import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
@@ -50,7 +50,7 @@ const ServiceTabContent: React.FC = () => {
   return (
     <div  >
  
-    <SearchAndCaseList onCaseSelect={setSelectedCase} />
+    <SearchCaseList onCaseSelect={setSelectedCase} />
     <ServiceSend     
         caseId={selectedCase}
         onCaseChange={setSelectedCase}

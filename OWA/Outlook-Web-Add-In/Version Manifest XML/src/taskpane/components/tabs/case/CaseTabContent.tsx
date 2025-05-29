@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
 import SearchCaseList from './SearchCaseList';
+import {IsComposeMode, setAttachmentToItemAsync} from '../../../hooks/useOfficeItem'
 import LoadPanel from 'devextreme-react/load-panel';
+import {HierarchyTree} from '../../interfaces/ICase'
 import TreeList, {
   Column,
   Scrolling,
@@ -14,18 +16,8 @@ import TreeList, {
  
 } from 'devextreme-react/tree-list';
 
-import { getMyFavoritesApi } from '../../../utils/api'; // your API
+import { getMyFavoritesApi, getFileContent } from '../../../utils/api'; // your API
 
-export interface HierarchyTree {
-  id: number;
-  name: string;
-  rootId?: number | null;
-  hasChild: boolean;
-  causa: string;
-  hasUrl: boolean;
-  url: string;
-  isStructure: boolean;
-}
 
 
 const allowDeleting = (e) => e.row.data.ID !== 1;
@@ -76,6 +68,12 @@ const CaseTabContent: React.FC = () => {
     window.open(node.url, '_blank');
   }, []);
 
+  const handleAdd = useCallback(  (node: HierarchyTree) => {
+   // window.open(node.url, '_blank');
+    const base64 ="asdsa";// await  getFileContent(node.id);
+      setAttachmentToItemAsync(base64, node.name);
+  }, []);
+
   const handleDelete = useCallback((id: number) => {
     // your delete logic...
     console.log('Remove favorite', id);
@@ -124,23 +122,33 @@ const CaseTabContent: React.FC = () => {
           )}
         />
  
-
-        {/* “Delete from favorite” on top‐level only */}
-      <Column type="buttons">
-        {/* <Button name="edit" /> */}
+ 
+      <Column type="buttons"> 
         <Button name="delete" visible={({ row }) => {
           return row.data.rootId === null;
         }}/>
-        <Button name="open" visible={({ row }) => {
-          return row.data.isStructure ===false;
+ 
+
+        <Button 
+            onClick={({ row }) => handleOpen(row.data)}
+          //  name="add"    
+            cssClass="dx-icon dx-icon-open"
+            visible={ ({ row }) => {
+              return row.data.isStructure ===false
         }}/>
-          {/* <ColumnButton
-       
-            hint="Open"
-            
-           onCellClick={({ row }) => handleOpen(row.data)}
-           visible={allowDeletingVisible()}
-          /> */}
+        <Button 
+            onClick={({ row }) => handleAdd(row.data)}
+          //  name="add"    
+            cssClass="dx-icon dx-icon-add"
+            visible={ ({ row }) => {
+              return IsComposeMode() && row.data.isStructure ===false
+        }}/>
+        <Button
+          name="delete"
+          onClick={({ row }) => handleDelete(row.data.id)}
+          visible={({ row }) => row.data.rootId === -1}
+        />
+ 
       </Column>
       </TreeList>
     </div>

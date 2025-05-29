@@ -21,9 +21,9 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
     abbreviation,
     text,
     time
-}) => (
+}) => ( <div>  <h3>Case</h3>
   <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
-  
+   
     <input
       type="text"
       placeholder="Case ID"
@@ -64,7 +64,7 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
         onTransfer();
       }}
     />
-  </div>
+  </div>  </div>
 );
 
 export default ServiceSend;

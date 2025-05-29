@@ -7,7 +7,6 @@ import CustomTitle from './CustomTitle';
 import CustomItem  from './CustomItem';
 import { getPersonApi, addPerson,removePerson } from '../../../utils/api';
 import { Person } from '../../interfaces/IPerson';
-
 interface Props {
   loading?: boolean;
 }
@@ -16,12 +15,13 @@ const PersonsTabContent: React.FC<Props> = ({ loading = false }) => {
   const [persons, setPersons] = useState<Person[]>([]);
   const [expandedItems, setExpandedItems] = useState<Person[]>([]);
 
-  // fetch tylko raz
+ //On startup loads saved data by user
   useEffect(() => {
-    (async () => {
-      const list = await getPersonApi();
-      setPersons(list);
-    })();
+    (async () => 
+      {
+        const list = await getPersonApi();
+        setPersons(list);
+      })();
   }, []);
 
   // callback kiedy ktoś w SearchPersonList doda nową osobę

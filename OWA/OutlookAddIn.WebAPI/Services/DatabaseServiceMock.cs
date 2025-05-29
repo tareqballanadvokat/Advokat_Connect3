@@ -19,7 +19,7 @@ namespace OutlookAddIn.WebAPI.Services
         public void FillCustomData()
         {
             customTree.Add(new HierarchyTree { Id = 1, Name = "ADVOKAT", RootId = null, IsStructure = true, HasChild = true, Causa = "Root" });
-            customTree.Add(new HierarchyTree { Id = 2, Name = "Test", RootId = 1, HasChild = true, IsStructure = true, Causa = "Roots" });
+            customTree.Add(new HierarchyTree { Id = 2, Name = "Test", RootId = 1, HasChild = false, IsStructure = true, Causa = "Roots" });
             customTree.Add(new HierarchyTree { Id = 3, Name = "Outlook", RootId = 1, HasChild = false, IsStructure = true, Causa = "Rosot" });
             customTree.Add(new HierarchyTree { Id = 4, Name = "Zusammenarbeit", RootId = 1, IsStructure = true, Causa = "Rvoot" });
 

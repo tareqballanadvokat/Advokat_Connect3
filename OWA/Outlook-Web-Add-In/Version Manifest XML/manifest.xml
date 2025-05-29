@@ -4,10 +4,10 @@
   <Version>1.0.0.0</Version>
   <ProviderName>Advokat</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Advocat Add-In"/>
+  <DisplayName DefaultValue="Add-In"/>
   <Description DefaultValue="A template to get started."/>
-  <IconUrl DefaultValue="https://localhost:3000/assets/a_3.png"/>
-  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/a_3.png"/>
+  <IconUrl DefaultValue="https://localhost:3000/assets/advokat.png"/>
+  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/advokat.png"/>
   <SupportUrl DefaultValue="https://www.contoso.com/help"/>
   <AppDomains>
     <AppDomain>https://www.contoso.com</AppDomain>
@@ -121,11 +121,11 @@
         </bt:Urls>
         <bt:ShortStrings>
           <bt:String id="GroupLabel" DefaultValue="Contoso Add-in"/>
-          <bt:String id="TaskpaneButton.Label" DefaultValue="Show Task Pane"/>
+          <bt:String id="TaskpaneButton.Label" DefaultValue="Advokat Add-In"/>
           <bt:String id="ActionButton.Label" DefaultValue="Perform an action"/>
         </bt:ShortStrings>
         <bt:LongStrings>
-          <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens a pane that enables users to insert text."/>
+          <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens a pane with 4 tabs"/>
           <bt:String id="ActionButton.Tooltip" DefaultValue="Perform an action when clicked."/>
         </bt:LongStrings>
       </Resources>

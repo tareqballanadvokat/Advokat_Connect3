@@ -74,6 +74,17 @@ public class ReactStructureController : ControllerBase
    
         return new JsonResult(list);
     }
+
+
+    [HttpPost("get-file-content")]
+    public ActionResult<string> GetFileContent([FromBody] SearchRequest query)
+    {
+        //needs to remove currently added nodes!!!!
+        var customTree = DatabaseServiceMock.customTree;
+        var list = new List<HierarchyTree>();
+        var allPossibilities = customTree.Where(x => x.Id == Convert.ToInt32(query.Query)).FirstOrDefault();
+        return new JsonResult(allPossibilities.Name);
+    }
 }
 
 
