@@ -3,7 +3,8 @@
 namespace OutlookAddIn.WebAPI.Models;
 public class AddEmailModel
 {
-    public string CaseId { get; set; }
+    public int CaseId { get; set; }
+    public string CaseName { get; set; }
     public string ServiceAbbreviationType { get; set; }
     public string ServiceSB { get; set; }
     public string ServiceTime { get; set; }
@@ -11,8 +12,8 @@ public class AddEmailModel
     public string InternetMessageId { get; set; }
     public string EmailName { get; set; }
     public string EmailContent { get; set; }
-    public int EmailFolder { get; set; }
-    public string EmailFolderId { get; set; }
+    public string EmailFolder { get; set; }
+    public int EmailFolderId { get; set; }
     public int UserID { get; set; }
     public Attachment[] Attachments { get; set; }
     public DateTime InsertDate { get; set; }

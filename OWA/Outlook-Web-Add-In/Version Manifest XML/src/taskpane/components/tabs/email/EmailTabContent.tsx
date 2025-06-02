@@ -8,7 +8,7 @@ import RegisteredEmails from './RegisteredEmails';
 import ServiceSection, { ServiceSectionProps } from '../shared/ServiceSection';
 import { getEmailAttachmentData, getEmailContentAsync } from '../../../hooks/useOfficeItem';
 import TransferAndAttachment, { TransferAttachmentItem, TransferEmailItem } from './TransferAndAttachment';
-import { saveEmailInformation, Attachment, getSavedEmailInfo  } from '../../../utils/api';
+import { saveEmailInformation, Attachment, getSavedEmailInfo , EmailModel  } from '../../../utils/api';
 
 import {  getInternetMessageIdAsync } from '../../../hooks/useOfficeItem'; 
 import DropAttachArea from '../shared/DropAttachArea';   // ← import it
@@ -43,13 +43,20 @@ async function mapToAttachments(
 }
 
 const EmailTabContent: React.FC = () => {
-  const [selectedCase, setSelectedCase] = useState('');
-  const [selectedCaseDisable, setSelectedCaseDisable] = useState(false);
+  //Search Panel selection
+  const [selectedCaseName, setSelectedCaseName] = useState(''); //case name
+  const [selectedCaseId, setSelectedCaseId]     = useState(-1);  //case id
+  //SendEmail buttons 
+  const [selectedCaseDisable, setSelectedCaseDisable] = useState(false); //is input disabled if email was registered
+  const [transferCaseDisable, setTransferCaseDisable] = useState(true);   //is button on availabe when input not filled
+  //Service section setters
   const [abbrev, setAbbrev] = useState<number>(0);
-  const [time, setTime]   = useState('');
-  const [text, setText]   = useState('');
-  const [sb, setSb]   = useState(''); 
+  const [time, setTime]     = useState('');
+  const [text, setText]     = useState('');
+  const [sb, setSb]         = useState(''); 
+  //Transfer email and attachments
   const [attachmentSelected, setAttachmentSelected] = useState<TransferAttachmentItem[]>([]);
+
   useEffect(() => {
     (async () => {
  
@@ -57,26 +64,12 @@ const EmailTabContent: React.FC = () => {
         // Step 1: Email informations
         const email = Office.context.mailbox.item;
         const messageId = await getInternetMessageIdAsync(email);
-        // notify(
-        //     {
-        //         message: "You have a new message", 
-        //         width: 230,
-        //         position: {
-        //             at: "bottom",
-        //             my: "bottom",
-        //             of: "#container"
-        //         }
-        //     }, 
-        //     'error', 
-        //     500
-        // );
         // Step 2: fetch both emailRow & attachmentRows in one POST
         const data = await getSavedEmailInfo(messageId);
         if (data!= null)
         {
-            setSelectedCase(data.caseId);
+            setSelectedCaseName(data.caseName);
             setSelectedCaseDisable(true);
-          //  setAbbrev(data.i);
             const abbreviationId = Number(data.serviceAbbreviationType);
             setAbbrev(abbreviationId);
             setText(data.serviceText);
@@ -95,52 +88,66 @@ const EmailTabContent: React.FC = () => {
     })();
   }, []);
 
-  const sendEmailHandler = async () => {
-    console.log('Transfer to ADVOKAT, caseId =', selectedCase);
+
+  const setCaseHandler = async (id: string, name: string) => {
+      console.log(id, name);
+      setSelectedCaseName(name);
+      setSelectedCaseId(Number.parseInt(id));
+      setTransferCaseDisable(false);
+  }
+
+  
+  const sendEmailHandler = async () => 
+  {
+    console.log('Transfer to ADVOKAT, caseId =', selectedCaseName);
     console.log(sb, text,abbrev,time);
 
   
-  const email = Office.context.mailbox.item;
-  const messageId= await getInternetMessageIdAsync(email);
+    const email = Office.context.mailbox.item;
+    const messageId= await getInternetMessageIdAsync(email);
 
-  const firstE = attachmentSelected.find(i => i.checked && i.type === 'E');//email taken
-  var emailContent ='';
-  if (firstE != null){
-    emailContent = await getEmailContentAsync(email);
-  }
-
-  const attachmentsPayload = await mapToAttachments(attachmentSelected.filter(i => i.checked && i.type === 'A'));
-
-  const payload  = firstE
-  ? {
-      caseId:       selectedCase,
-      serviceAbbreviationType:  abbrev.toString(),
-      serviceSB:           sb,         
-      serviceTime:         time,
-      serviceText:         text,
-      internetMessageId: messageId,
-      emailName:firstE.name,
-      emailFolder:firstE.option,
-      emailFolderId:firstE.id,
-      emailContent: emailContent,
-      attachments : attachmentsPayload
-
+    const firstE = attachmentSelected.find(i => i.checked && i.type === 'E');//email taken
+    var emailContent ='';
+    if (firstE != null){
+      emailContent = await getEmailContentAsync(email);
     }
-  : {
-      caseId:       selectedCase,
-      serviceAbbreviationType:   abbrev.toString(),
-      serviceSB:           sb,         
-      serviceTime:         time,
-      serviceText:         text,
-      internetMessageId: messageId,
-      emailName:firstE.name,
-      emailFolder:'',
-      emailFolderId:'-1',
-      emailContent: emailContent,
-      attachments : attachmentsPayload
-    };
- 
-    const data = await saveEmailInformation(payload);
+
+    const attachmentsPayload = await mapToAttachments(attachmentSelected.filter(i => i.checked && i.type === 'A'));
+
+    const payload : EmailModel  = firstE
+    ? {
+        caseId:       selectedCaseId,
+        caseName:       selectedCaseName,
+        serviceAbbreviationType:  abbrev.toString(),
+        serviceSB:           sb,         
+        serviceTime:         time,
+        serviceText:         text,
+        internetMessageId: messageId, //firstE.id??
+        emailName:firstE.label,
+        emailFolder: firstE.option.toString(),
+        emailFolderId:Number.parseInt(firstE.option),
+        emailContent: emailContent,
+        attachments : attachmentsPayload,
+        userID:'-1'
+
+      }
+    : {
+        caseId:       selectedCaseId,
+        caseName:       selectedCaseName,
+        serviceAbbreviationType:   abbrev.toString(),
+        serviceSB:           sb,         
+        serviceTime:         time,
+        serviceText:         text,
+        internetMessageId: messageId,
+        emailName:firstE.label,
+        emailFolder:'-1',
+        emailFolderId:-1,
+        emailContent: emailContent,
+        attachments : attachmentsPayload,
+        userID:'-1'
+      };
+  
+      const data = await saveEmailInformation(payload);
    
   };
  
@@ -149,20 +156,17 @@ const EmailTabContent: React.FC = () => {
   return (
     <div  >
       {/* 1) Panel wyszukiwania + lista spraw */}
-      <SearchCaseList onCaseSelect={setSelectedCase} />
+      <SearchCaseList onCaseSelect={setCaseHandler} />
  
-      <DropAttachArea />
+      {/* <DropAttachArea /> */}
  
  {/* 3) Sekcja Services */}
       <EmailSend
-        caseId={selectedCase}
-        onCaseChange={setSelectedCase}
+        caseId={selectedCaseName}
+        onCaseChange={setSelectedCaseName}
         onTransfer={sendEmailHandler}
-        // abbreviation={abbrev}
-        // sb={sb}
-        // time={time}
-        // text={text}
         caseIdDisable={selectedCaseDisable}
+        transferBtnDisable={transferCaseDisable}
         />
 
  
@@ -181,7 +185,8 @@ const EmailTabContent: React.FC = () => {
 
       {/* 4) Transfer e-mail and attachments */}
       <TransferAndAttachment 
-onSelectionChange={setAttachmentSelected}
+        onSelectionChange={setAttachmentSelected}
+        caseId = {selectedCaseId}
       />
    
        {/* 5) Registered E-Mails */}

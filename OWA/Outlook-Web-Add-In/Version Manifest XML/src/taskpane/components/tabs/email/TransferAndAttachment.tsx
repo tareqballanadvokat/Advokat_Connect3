@@ -3,7 +3,7 @@ import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
 import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments, Attachment } from '../../../hooks/useOfficeItem'; 
-import { getSavedEmailInfo, getStructureFolderApi } from '../../../utils/api';
+import { getSavedEmailInfo, getStructureFolderApi, getStructureFolderByIdApi } from '../../../utils/api';
 
 export interface TransferAttachmentItem {
   id: string;
@@ -24,16 +24,21 @@ export interface TransferEmailItem {
   readonly: boolean;
 }
 
-var attachmentOptions = ['Email', 'Aktenordner', 'Andere…'];
+// var attachmentOptions = ['Email', 'Aktenordner', 'Andere…'];
+var attachmentOptions = [
+  // { id: 1, text: 'Email' },
+  // { id: 2, text: 'Aktenordner' },
+  // { id: 3, text: 'Andere…' },
+];
 
 interface TransferAndAttachmentProps {
   onSelectionChange?: (selected: TransferAttachmentItem[]) => void;
+  caseId?: number; 
 }
-const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelectionChange }) => {
-  const { subject, attachments } = useOfficeItem();
-  const [items, setItems] = useState<TransferAttachmentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string>();
+const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelectionChange, caseId }) => {
+  const [items, setItems] =         useState<TransferAttachmentItem[]>([]);
+  const [loading, setLoading] =     useState(true);
+  const [error, setError]     =     useState<string>();
 
   useEffect(() => {
     (async () => {
@@ -41,14 +46,33 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
       setError(undefined);
       
       try {
- attachmentOptions.push('' );
-        // Step 1: Dictionaries        
-        const options = await getStructureFolderApi();
-        options.forEach(item => { attachmentOptions.push(  item.name ); });
 
-        // Step 1: Email informations
         const email = Office.context.mailbox.item;
         const messageId = await getInternetMessageIdAsync(email);
+        const data = await getSavedEmailInfo(messageId);
+        if (data!= null)
+        {
+ 
+            const options = await getStructureFolderByIdApi(data.caseId);
+            const newOptions = options.map(o => ({
+              id: o.id,
+              text: o.name
+            }));
+            attachmentOptions = newOptions;
+        }
+        // Step 1: Dictionaries        
+        if (caseId != null && caseId != -1)
+        {
+            console.log(caseId);
+            const options = await getStructureFolderByIdApi(caseId);
+            const newOptions = options.map(o => ({
+              id: o.id,
+              text: o.name
+            }));
+            attachmentOptions = newOptions;
+         }
+        // Step 1: Email informations
+
         const emailSubject = await getEmailSubjectAsync();
         const emailAttachments = await getEmailAttachments(email);
  
@@ -75,31 +99,36 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
             }));
         
         // Step 2: fetch both emailRow & attachmentRows in one POST
-        const data = await getSavedEmailInfo(messageId);
+     
         if (data!= null)
         {
-            newEmailRow.option = data.emailFolder;
+           // newEmailRow.option = data.emailFolder
+             const matchingFolder = attachmentOptions.find(f => f.text === data.emailFolder);
+             newEmailRow.option = matchingFolder
+                  ? matchingFolder.text.toString()
+                  : ''; 
+
             newEmailRow.label = data.emailName;
             newEmailRow.id = data.internetMessageId; 
             newEmailRow.checked = true;
-            newEmailRow.readonly = true;
-            newEmailRow.disabled = true;
+            newEmailRow.readonly = false;
+            newEmailRow.disabled = false;
 
-  if (data.attachments.length > 0)
-        {
-            data.attachments.forEach(element => {
- 
-                const att = element as Attachment;
-                var el = attachmentConcatenated.find(x => x.id == att.id) ;
-                if (el != null){
-                    el.label = att.fileName;
-                    el.option = att.folder;
-                    el.checked = true;
-                    el.readonly = true;
-                    el.disabled = true;
-                }
-            }); 
-        }
+            if (data.attachments.length > 0)
+            {
+                data.attachments.forEach(element => {
+    
+                    const att = element as Attachment;
+                    var el = attachmentConcatenated.find(x => x.id == att.id) ;
+                    if (el != null){
+                        el.label = att.fileName;
+                        el.option = att.folder;
+                        el.checked = true;
+                        el.readonly = true;
+                        el.disabled = true;
+                    }
+                }); 
+            }
           
         };
 
@@ -125,7 +154,7 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
         setLoading(false);
       }
     })();
-  }, [subject, attachments]);
+  }, [caseId]);
 
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;
@@ -133,7 +162,7 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
  
 
   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
-    debugger;
+ 
     setItems(prev => {
       const updated = prev.map(item => item.id === id ? { ...item, ...changes } : item);
       if (onSelectionChange) {
@@ -147,10 +176,6 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
   return (
     <div>
       <h3>Transfer e-mail and attachments</h3>
-      {/* <p>
-        <strong>Mode:</strong> {composeMode ? 'Compose' : 'Read-only'}<br/>
-        <strong>Subject:</strong> {subject}
-      </p> */}
 
       {items.map(item => (
         <div
@@ -170,10 +195,13 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
             onValueChanged={e => updateItem(item.id, { label: e.value })}
             width="100%"
           />
+ 
           <SelectBox
             stylingMode="outlined"
             dataSource={attachmentOptions}
-            value={item.option}
+            displayExpr="text"   // the field to show
+            valueExpr="id"       // the field to use as the actual value
+            value={item.option}  // now this should be the numeric id
             disabled={item.readonly}
             onValueChanged={e => updateItem(item.id, { option: e.value })}
             width={150}

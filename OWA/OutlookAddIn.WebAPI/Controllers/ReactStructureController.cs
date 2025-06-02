@@ -34,7 +34,14 @@ public class ReactStructureController : ControllerBase
         return new JsonResult(DatabaseServiceMock.customTree.Where(x => x.RootId == parentId).ToList());
     }
 
- 
+    [HttpPost("get-structure-by-id")]
+    public ActionResult<HierarchyTree> GetStructureByIdw([FromBody] SearchRequestById query)
+    {
+        return new JsonResult(DatabaseServiceMock.customTree.Where(x => x.RootId == Convert.ToInt32(query.Id)).ToList());
+    }
+
+
+
 
     [HttpPost("search-cases")]
     public ActionResult<HierarchyTree> SearchCases([FromBody] SearchRequest query)
@@ -93,3 +100,7 @@ public class ReactStructureController : ControllerBase
 }
 
 
+public class SearchRequestById
+{
+    public int Id { get; set; }
+}

@@ -108,7 +108,7 @@ public class EmailController : ControllerBase
             x => new RegisteredEmailModel
             {
                 Id = int.Parse($"{x.UserID}{x.InsertDate:HHmmss}"),
-                CaseId = x.CaseId,
+                CaseId = x.CaseName,//TODO: caseId :int
                 InsertDate = x.InsertDate.ToShortDateString(), 
                 EmailName = x.EmailName
 
@@ -120,6 +120,8 @@ public class EmailController : ControllerBase
     public ActionResult<AddEmailModel> GetItem([FromBody] EmailModel id)
     {
         var data =DatabaseServiceMock.customEmails.Where(x => x.InternetMessageId == id.Id).FirstOrDefault();
+        if (data!= null)
+        data.EmailFolder = DatabaseServiceMock.customTree.First(x => x.Id == data.EmailFolderId)?.Name;
         return new JsonResult(data);
     }
 }

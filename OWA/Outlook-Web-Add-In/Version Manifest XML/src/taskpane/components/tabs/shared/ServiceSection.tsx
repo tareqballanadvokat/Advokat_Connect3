@@ -210,7 +210,7 @@
 // src/taskpane/components/tabs/email/ServiceSection.tsx
 import React, { useState, useEffect } from 'react';
 import SelectBox from 'devextreme-react/select-box';
-import { getAbbreviationApi, Abbreviation,getSavedEmailInfo } from '../../../utils/api';
+import { getAbbreviationApi, Abbreviation,getSavedEmailInfo, getAbbreviationByIdApi } from '../../../utils/api';
 
 import {getInternetMessageIdAsync} from '../../../hooks/useOfficeItem';
 
@@ -242,28 +242,13 @@ const ServiceSection: React.FC<ServiceSectionProps> = ({
   useEffect(() => {
     (async () => {
       try {
-        const data = await getAbbreviationApi();  
+      const data = await getAbbreviationApi();  
+     
+        
         setOptions(data);
         if (oveerideDataOnStartup)//not used
         {
-          //   const item = Office.context.mailbox.item;
-          //   var emailId=await getInternetMessageIdAsync(item);
-          //   const emailInfo = await getSavedEmailInfo(emailId);
-          //   if (emailInfo != null) 
-          //   {
-          //     const abbreviationId = Number(emailInfo.serviceAbbreviationType);
-
-          //     // sprawdź, czy ID istnieje w dostępnych opcjach
-          //     const opt = data.find(x => x.id === abbreviationId);
-          //     if (opt) 
-          //     {
-          //       onAbbreviationChange(opt.id); // ✅ użyj ID zamiast name
-          //     }
-
-          //     onTextChange(emailInfo.serviceText);
-          //     onTimeChange(emailInfo.serviceTime);
-          //     onSbChange(emailInfo.serviceSB);
-          // }
+          
         }
 
       } catch (err) {

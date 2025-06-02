@@ -59,6 +59,14 @@ module.exports = async (env, options) => {
           },
         },
       {
+        test: /\.scss$/i,
+        use: [
+          'style-loader',  // wstrzykuje <style> do <head>
+          'css-loader',    // parsuje importy CSS/SCSS
+          'sass-loader'    // kompiluje SCSS -> CSS
+        ]
+      },
+      {
         test: /\.css$/i,
         use: [
           'style-loader',  // wstrzykuje <style> do HTML

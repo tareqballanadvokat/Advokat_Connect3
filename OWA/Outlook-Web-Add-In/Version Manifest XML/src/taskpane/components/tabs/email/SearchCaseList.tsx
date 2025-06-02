@@ -61,25 +61,6 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     }
   };
 
-
-
-  // const handleSearch = async () => {
-  //   const filter = searchValue.trim().toLowerCase();
-  //   if (!filter) {
-  //     setRows(fullData);
-  //   } else {
-  //     setRows(
-  //       fullData.filter(
-  //         item =>
-  //           item.name.toLowerCase().includes(filter) 
-  //         //||  item.causa.toLowerCase().includes(filter),
-  //       ),
-  //     );
-  //   }
-  // };
-
-
-
 return (
   <div>
       <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -124,7 +105,7 @@ return (
       <Column
         dataField="id"
         caption="Case ID"
-        visible={false}         // ukryte, ale dalej dostępne
+        visible={false} 
         alignment="left"
       />
       <Column
@@ -145,7 +126,7 @@ return (
             icon: 'arrowright',
             //stylingMode: 'text',
             hint: 'Select',
-            onClick: e => onCaseSelect(e.row.data.name)  // Twój callback
+            onClick: e => onCaseSelect(e.row.data.id, e.row.data.name)  // Twój callback
           }
         ]}
       />

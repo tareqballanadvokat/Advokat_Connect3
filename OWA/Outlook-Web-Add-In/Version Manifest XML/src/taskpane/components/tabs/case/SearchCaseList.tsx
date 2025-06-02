@@ -5,7 +5,33 @@ import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { CaseItem } from '../../interfaces/ISearchCase'
 import { getCases  } from '../../../utils/api';
- 
+//import 'devextreme/dist/css/dx.material.blue.dark.compact.css';
+
+// import 'devextreme/scss/widgets/material/sizes';
+// import 'devextreme/scss/widgets/material/colors';
+// import 'devextreme/scss/widgets/material/icons';
+// import 'devextreme/scss/widgets/base/draggable';
+// import 'devextreme/scss/widgets/base/resizable';
+// import 'devextreme/scss/widgets/base/ui';
+// import 'devextreme/scss/widgets/material/widget';
+// import 'devextreme/scss/widgets/material/card';
+// import 'devextreme/scss/widgets/material/fieldset';
+// import 'devextreme/scss/widgets/material/common';
+// import 'devextreme/scss/widgets/material';
+
+// import 'devextreme/scss/widgets/material/colors'// with ($color: 'blue', $mode: 'light');
+// import 'devextreme/scss/widgets/material/sizes' //with ($size: 'compact');
+// import 'devextreme/scss/widgets/material/icons';
+// import 'devextreme/scss/widgets/material/widget';
+// import 'devextreme/scss/widgets/material/card';
+// import 'devextreme/scss/widgets/material/fieldset';
+// import 'devextreme/scss/widgets/material/common';
+// import 'devextreme/scss/widgets/base/resizable';
+// import 'devextreme/scss/widgets/base/draggable';
+// import 'devextreme/scss/widgets/base/ui';
+// import 'devextreme/scss/widgets/material';
+
+
 
 interface Props {
   onCaseSelect: (caseId: string) => void;
@@ -16,27 +42,6 @@ const SearchCaseList: React.FC<Props> = ({ onCaseSelect }) => {
   const [rows, setRows] = useState<CaseItem[]>([]);
   const [fullData, setFullData] = useState<CaseItem[]>([]);
 
-  useEffect(() => {
-    // fetch initial data
-    (async () => {
-      try {
-        // const data = await getCases('');
-        // setFullData(data);
-        // setRows(data);
-       
-        // const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ query: '' })   // lub inny payload
-        // });
-        // const data: CaseItem[] = await resp.json();
-        // setFullData(data);
-        // setRows(data);
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-  }, []);
 
   const handleSearch = async () => {
     const filter = searchValue.trim().toLowerCase();

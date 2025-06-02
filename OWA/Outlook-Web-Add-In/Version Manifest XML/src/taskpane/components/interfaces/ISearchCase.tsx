@@ -6,5 +6,5 @@ export interface CaseItem {
 }
 
 export interface SearchProps {
-  onCaseSelect: (caseId: string) => void;
+  onCaseSelect: (caseId: string, caseName:string) => void;
 }

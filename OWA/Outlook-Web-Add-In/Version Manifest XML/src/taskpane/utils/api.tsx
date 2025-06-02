@@ -9,14 +9,9 @@ export interface TransferData {
   attachmentRows: TransferAttachmentItem[];
 }
 
-// export interface CaseItem {
-//   caseId: string;
-//   causa: string;
-//   name: string;
-// }
-
 export interface EmailModel {
-  caseId  :string;
+  caseId  :number;
+  caseName  :string;
   serviceAbbreviationType  :string;
   serviceSB  :string;
   serviceTime :string;
@@ -25,6 +20,7 @@ export interface EmailModel {
   emailName  :string;
   emailContent :string;
   emailFolder  :string;
+  emailFolderId  :number;
     userID  :string;
     attachments: Attachment[] | [];
 }
@@ -56,7 +52,7 @@ export interface  Abbreviation
         name: string;
 }
 
-export async function saveEmailInformation(payload: any)
+export async function saveEmailInformation(payload: EmailModel)
 {
       const response = await fetch(
         'https://localhost:7231/api/email/add-to-advocat', // <- Twój endpoint
@@ -130,6 +126,7 @@ export async function getSavedEmailInfo(
   if (raw == null) return null;
   const model: EmailModel = {
     caseId: raw.caseId ?? raw.caseId,
+    caseName: raw.caseName ?? raw.caseName,
     serviceAbbreviationType: raw.serviceAbbreviationType ?? raw.serviceAbbreviationType,
     serviceSB: raw.serviceSB ?? raw.serviceSB,
     serviceTime: raw.serviceTime ?? raw.serviceTime,
@@ -138,6 +135,7 @@ export async function getSavedEmailInfo(
     emailName: raw.emailName ?? raw.emailName,
     emailContent: raw.emailContent ?? raw.emailContent,
     emailFolder: raw.emailFolder ?? raw.emailFolder,
+    emailFolderId: raw.emailFolderId ?? raw.emailFolderId,
     userID: raw.userID ?? raw.userID,
     attachments: Array.isArray(raw.attachments ?? raw.attachments)
       ? ( (raw.attachments ?? raw.attachments) as any[] ).map(att => ({
@@ -152,6 +150,37 @@ export async function getSavedEmailInfo(
 
   return model;
 }
+
+
+export async function getStructureFolderByIdApi(id: number): Promise<HierarchyTree[]> {
+  console.log(id);
+  const resp = await fetch('https://localhost:7231/api/react-structure/get-structure-by-id', {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    } ,    body: JSON.stringify({ id: id })
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`API error ${resp.status}: ${txt}`);
+  }
+
+  // JSON from .NET will have PascalCase keys, so map them to our camelCase interface
+  const data = (await resp.json()) as any[];
+  return data.map(item => ({
+    id:          item.id,
+    name:        item.name,
+    rootId:      item.rootId ?? null,
+    hasChild:    item.hasChild,
+    isStructure: item.isStructure,
+    causa:       item.causa,
+    hasUrl:      item.hasUrl,
+    url:         item.url
+  }));
+ 
+}
+
 
 export async function getStructureFolderApi(): Promise<HierarchyTree[]> {
   const resp = await fetch('https://localhost:7231/api/structure/get-structure', {
@@ -210,6 +239,32 @@ export async function getMyFavoritesApi(): Promise<HierarchyTree[]> {
  
 }
 
+
+export async function getAbbreviationByIdApi(id: number): Promise<Abbreviation[]> 
+{ 
+ const resp = await fetch('https://localhost:7231/api/abbreviation/get-abbreviation', {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ id: id })
+  });
+   
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`API error ${resp.status}: ${txt}`);
+  }
+
+  // The .NET API returns PascalCase objects, e.g. { Id, Name }
+  const raw = (await resp.json()) as Array<{ id: number; name: string }>;
+ 
+  // Map to our camelCase interface
+  const data = raw.map(item => ({
+    id:   item.id,
+    name: item.name
+  }));
+  return data;
+}
 
 
 export async function getAbbreviationApi(): Promise<Abbreviation[]> 

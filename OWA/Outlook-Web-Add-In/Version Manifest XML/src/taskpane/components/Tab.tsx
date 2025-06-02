@@ -11,24 +11,13 @@ const CaseTabContent = lazy(() => import('./tabs/case/CaseTabContent'));
 
 const DevTabs: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
-//  const [persons, setPersons] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // useEffect(() => {
-  //   fetch('https://localhost:7231/api/person/get')       // your WebAPI
-  //     .then(r => r.json())
-  //     .then((data: Person[]) => setPersons(data))
-  //     .catch(console.error)
-  //     .finally(() => setLoading(false));
-  // }, []);
-
   const handleDelete = (id: string) => {
-    // call your delete-favorite endpoint…
     console.log(id);
   };
 
   const handleAdd = (id: string) => {
-    // call your add-favorite endpoint…
     console.log(id);
   };
 
@@ -36,7 +25,6 @@ const DevTabs: React.FC = () => {
     switch (selectedIndex) {
       case 0: return <EmailTab />;
       case 1: return <ServiceTab />;
-      // case 2: return <PersonTab />;
       case 2: return <CaseTabContent />;
       case 3: return <PersonTab  
       // onDeleteFavorite={handleDelete}
@@ -47,7 +35,7 @@ const DevTabs: React.FC = () => {
   };
 
   return (
-    <div>
+    <div  className="dx-compact">
       <Tabs
         width={280}
         selectedIndex={selectedIndex}

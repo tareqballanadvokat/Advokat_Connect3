@@ -7,14 +7,12 @@ const EmailSend: React.FC<EmailSendProps> = ({
     caseId,
     onCaseChange,
     onTransfer,
-    // sb,
-    // abbreviation,
-    // text,
-    // time,
-    caseIdDisable
+    caseIdDisable,
+    transferBtnDisable
 }) => (
-  <div>  <h3>Case</h3>
-  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
+  <div>  
+    <h3>Case</h3>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
 
     <input
       type="text"
@@ -35,6 +33,7 @@ const EmailSend: React.FC<EmailSendProps> = ({
         text="Transfer"
         type="success"
         width={80}
+        disabled={transferBtnDisable}
         style={{
           width: 80,
           Height: 80,
@@ -44,16 +43,6 @@ const EmailSend: React.FC<EmailSendProps> = ({
           borderRadius: 4,
         }}
         stylingMode="contained" onClick={() => {
-        // masz tu dostęp do wszystkich pól:
-            // console.log({
-            // caseId,
-            // service: {
-            //     abbreviation,
-            //     sb,
-            //     time,
-            //     text
-            // }
-            // });
         onTransfer();
       }}
     />
