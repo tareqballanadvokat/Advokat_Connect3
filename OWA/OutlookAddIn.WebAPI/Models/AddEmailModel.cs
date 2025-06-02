@@ -11,7 +11,8 @@ public class AddEmailModel
     public string InternetMessageId { get; set; }
     public string EmailName { get; set; }
     public string EmailContent { get; set; }
-    public string EmailFolder { get; set; }
+    public int EmailFolder { get; set; }
+    public string EmailFolderId { get; set; }
     public int UserID { get; set; }
     public Attachment[] Attachments { get; set; }
     public DateTime InsertDate { get; set; }
@@ -27,7 +28,7 @@ public class Attachment
     public string OriginalFileName { get; set; }
     public string FileName { get; set; }
     public string ContentBase64 { get; set; } 
-    public string Folder { get; set; }
+    public int Folder { get; set; }
 }
 
 public class RegisteredEmailModel

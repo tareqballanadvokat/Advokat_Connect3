@@ -17,6 +17,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IDatabaseServiceMock, DatabaseServiceMock>();
+builder.Services.AddSingleton<IFileReader, FileReader>();
 
 var app = builder.Build();
 

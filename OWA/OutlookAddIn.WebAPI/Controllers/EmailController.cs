@@ -44,7 +44,7 @@ public class EmailController : ControllerBase
             //    attList.Remove(att);
             //}
             data.Attachments = query.Attachments;
-           
+            BindEmailAndAttachmentWithHierarchy(data);
 
             return new JsonResult(DatabaseServiceMock.customEmails);
         }
@@ -52,9 +52,53 @@ public class EmailController : ControllerBase
         query.UpdateDate = DateTime.Now;
         DatabaseServiceMock.customEmails.Add(query);
 
+        BindEmailAndAttachmentWithHierarchy(query);
         return new JsonResult(DatabaseServiceMock.customEmails);
     }
 
+    private void BindEmailAndAttachmentWithHierarchy(AddEmailModel data)
+    {
+        var folderDestination = DatabaseServiceMock.favoritesList.Where(x => Convert.ToInt32(data.EmailFolder) == x.Id).FirstOrDefault();
+        if (folderDestination != null)
+        {
+            CustomItem customEmail = new CustomItem
+            {
+                Content = data.EmailContent,
+                InternetHeaderId = data.InternetMessageId,
+                Name = data.EmailName+".eml",
+                Type = "E",
+                UserId = data.UserID,
+                Id = DatabaseServiceMock.CustomItemCounter
+            };
+            folderDestination.HasChild = true;
+            DatabaseServiceMock.CustomItemCounter++;
+            DatabaseServiceMock.customFileItems.Add(customEmail);
+            DatabaseServiceMock.customFileItemsToFavoriteMapping.Add(new FavoritesXCustomItem { CustomItemId = customEmail.Id, FavoritesId = folderDestination.Id });
+        }
+
+        foreach (var att in data.Attachments)
+        {
+            var attFolderDestination = DatabaseServiceMock.favoritesList.Where(x => Convert.ToInt32(att.Folder) == x.Id).FirstOrDefault();
+            if (attFolderDestination != null)
+            {
+                attFolderDestination.HasChild = true;
+                CustomItem customEmail = new CustomItem
+                {
+                    Content = att.ContentBase64,
+                    InternetHeaderId = att.Id,
+                    Name = att.FileName,
+                    Type = "A",
+                    UserId = data.UserID,
+                    Id = DatabaseServiceMock.CustomItemCounter
+                };
+
+                DatabaseServiceMock.CustomItemCounter++;
+                DatabaseServiceMock.customFileItems.Add(customEmail);
+                DatabaseServiceMock.customFileItemsToFavoriteMapping.Add(new FavoritesXCustomItem { CustomItemId = customEmail.Id, FavoritesId = attFolderDestination.Id });
+
+            }
+        } 
+    }
 
     [HttpGet("get-registered")]
     public ActionResult<RegisteredEmailModel> GetRegistered()

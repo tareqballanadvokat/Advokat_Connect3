@@ -68,10 +68,28 @@ const CaseTabContent: React.FC = () => {
     window.open(node.url, '_blank');
   }, []);
 
-  const handleAdd = useCallback(  (node: HierarchyTree) => {
+  const handleAdd = useCallback( async (node: HierarchyTree) => {
    // window.open(node.url, '_blank');
-    const base64 ="asdsa";// await  getFileContent(node.id);
-      setAttachmentToItemAsync(base64, node.name);
+    const base64 = await  getFileContent(node.id);
+ //     setAttachmentToItemAsync(base64, node.name);
+  
+        await new Promise<void>((resolve, reject) => {
+          Office.context.mailbox.item.addFileAttachmentFromBase64Async(
+              base64, 
+          //   'asdsdsa',
+           //  node.name.toString() ,
+             node.name ,
+         
+            { isInline: false },
+            result => {
+              if (result.status === Office.AsyncResultStatus.Succeeded){ resolve();}
+              else{ 
+                console.log(result);
+                reject(result.error);}
+            }
+          );
+        });
+
   }, []);
 
   const handleDelete = useCallback((id: number) => {

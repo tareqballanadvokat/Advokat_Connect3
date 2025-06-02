@@ -104,7 +104,7 @@ public class StructureController : ControllerBase
     public ActionResult<HierarchyTree> GetStructure()
     {
         //needs to remove currently added nodes!!!!
-        var customTree = DatabaseServiceMock.customTree;
+        var customTree = DatabaseServiceMock.favoritesList;
         var list = new List<HierarchyTree>();
         var allPossibilities = customTree.ToList();
         foreach (var item in allPossibilities.Where(x => x.IsStructure))

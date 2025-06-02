@@ -34,7 +34,27 @@ public class FavoriteController : ControllerBase
     [HttpGet("get-my-favorites")]
     public ActionResult<HierarchyTree> GetMyFavorites()
     {
-        return new JsonResult(DatabaseServiceMock.favoritesList);
+        var allFavorites = DatabaseServiceMock.favoritesList.ToList();
+        var allCustomFiles = DatabaseServiceMock.customFileItems.ToList();
+        var mappingsCustomFiles = DatabaseServiceMock.customFileItemsToFavoriteMapping.ToList();
+
+        foreach(var mapping in mappingsCustomFiles)
+        {
+           var item =  allCustomFiles.Where(x => x.Id == mapping.CustomItemId).First();
+            allFavorites.Add(new HierarchyTree
+            {
+                HasChild = false,
+                Causa = "",
+                HasUrl = false,
+                Id = mapping.CustomItemId,
+                IsStructure = false,
+                RootId = mapping.FavoritesId,
+                Url = string.Empty,
+                Name = item.Name
+            });
+        };
+
+        return new JsonResult(allFavorites);
     }
   
     [HttpPost("add")]

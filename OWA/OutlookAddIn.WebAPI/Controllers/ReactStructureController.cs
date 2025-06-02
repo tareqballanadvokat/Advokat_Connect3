@@ -17,9 +17,11 @@ public class ReactStructureController : ControllerBase
     //private static List<HierarchyTree> customTree = new List<HierarchyTree>(); 
     private readonly ILogger<ReactStructureController> _logger;
     IDatabaseServiceMock _databaseMock;
-
-    public ReactStructureController(ILogger<ReactStructureController> logger, IDatabaseServiceMock databaseMock)
+    IFileReader _fileReader;
+    public ReactStructureController(ILogger<ReactStructureController> logger, IDatabaseServiceMock databaseMock,
+        IFileReader fileReader)
     {
+        _fileReader = fileReader;
         _logger = logger;
         _databaseMock = databaseMock;
     }
@@ -80,10 +82,13 @@ public class ReactStructureController : ControllerBase
     public ActionResult<string> GetFileContent([FromBody] SearchRequest query)
     {
         //needs to remove currently added nodes!!!!
-        var customTree = DatabaseServiceMock.customTree;
-        var list = new List<HierarchyTree>();
-        var allPossibilities = customTree.Where(x => x.Id == Convert.ToInt32(query.Query)).FirstOrDefault();
-        return new JsonResult(allPossibilities.Name);
+        var dd = _fileReader.ReadFile(Convert.ToInt32(query.Query));
+      
+        return new JsonResult(dd);
+        //var customTree = DatabaseServiceMock.customTree;
+        //var list = new List<HierarchyTree>();
+        //var allPossibilities = customTree.Where(x => x.Id == Convert.ToInt32(query.Query)).FirstOrDefault();
+        //return new JsonResult("YXNkc2FzZA==");
     }
 }
 

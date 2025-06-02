@@ -30,8 +30,7 @@ interface TransferAndAttachmentProps {
   onSelectionChange?: (selected: TransferAttachmentItem[]) => void;
 }
 const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelectionChange }) => {
-//   const { subject, composeMode, itemAttachments , messageId} = useOfficeItem();
-const { subject, attachments, emailContent, composeMode } = useOfficeItem();
+  const { subject, attachments } = useOfficeItem();
   const [items, setItems] = useState<TransferAttachmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string>();
@@ -42,7 +41,7 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
       setError(undefined);
       
       try {
-
+ attachmentOptions.push('' );
         // Step 1: Dictionaries        
         const options = await getStructureFolderApi();
         options.forEach(item => { attachmentOptions.push(  item.name ); });
@@ -57,18 +56,18 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
             label :emailSubject,
             name: emailSubject,
             option:"Email",
-            id: "1", 
+            id: messageId, 
             checked: false,
             readonly: false,
             disabled:false,
             type: "E"
         }
- 
+
         var attachmentConcatenated = emailAttachments.map(att => ({
                 id: att.id,
                 label: att.name,
                 name: att.name,
-                option: 'Email',    // default option
+                option: '',    // default option
                 checked: false,     // or true, as needed
                 readonly: false,
                 disabled: false,
@@ -134,6 +133,7 @@ const { subject, attachments, emailContent, composeMode } = useOfficeItem();
  
 
   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
+    debugger;
     setItems(prev => {
       const updated = prev.map(item => item.id === id ? { ...item, ...changes } : item);
       if (onSelectionChange) {

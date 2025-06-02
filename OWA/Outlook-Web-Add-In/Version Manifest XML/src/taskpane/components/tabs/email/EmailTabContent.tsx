@@ -111,7 +111,6 @@ const EmailTabContent: React.FC = () => {
 
   const attachmentsPayload = await mapToAttachments(attachmentSelected.filter(i => i.checked && i.type === 'A'));
 
-
   const payload  = firstE
   ? {
       caseId:       selectedCase,
@@ -122,6 +121,7 @@ const EmailTabContent: React.FC = () => {
       internetMessageId: messageId,
       emailName:firstE.name,
       emailFolder:firstE.option,
+      emailFolderId:firstE.id,
       emailContent: emailContent,
       attachments : attachmentsPayload
 
@@ -135,6 +135,7 @@ const EmailTabContent: React.FC = () => {
       internetMessageId: messageId,
       emailName:firstE.name,
       emailFolder:'',
+      emailFolderId:'-1',
       emailContent: emailContent,
       attachments : attachmentsPayload
     };
