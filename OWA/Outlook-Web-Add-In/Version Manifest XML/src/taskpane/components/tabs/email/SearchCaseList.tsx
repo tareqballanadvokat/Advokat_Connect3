@@ -5,7 +5,8 @@ import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { API_BASE } from '../../../../config';
 import { SearchProps, CaseItem } from '../../interfaces/ISearchCase'
- 
+import { getCases } from '../../../utils/api'
+
 // import { CaseItem } from '../../interfaces/ISearchCase';
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const [searchValue, setSearchValue] = useState('');
@@ -16,12 +17,13 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: '' })   // lub inny payload
-        });
-        const data: CaseItem[] = await resp.json();
+        const data = await getCases('');
+        // ; await fetch(API_BASE+'api/react-structure/search-cases', {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify({ query: '' })   // lub inny payload
+        // });
+        // const data: CaseItem[] = await resp.json();
         setFullData(data);
         setRows(data);
       } catch (e) {
@@ -40,14 +42,15 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     if (!filter) 
     {
       setRows([]);
-    } else {
-
-      const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: '' })   // lub inny payload
-        });
-        const data: CaseItem[] = await resp.json();
+    } else 
+    {
+        const data = await getCases('');
+      // const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
+      //     method: 'POST',
+      //     headers: { 'Content-Type': 'application/json' },
+      //     body: JSON.stringify({ query: '' })   // lub inny payload
+      //   });
+      //   const data: CaseItem[] = await resp.json();
       setFullData(data);
 
       setRows(

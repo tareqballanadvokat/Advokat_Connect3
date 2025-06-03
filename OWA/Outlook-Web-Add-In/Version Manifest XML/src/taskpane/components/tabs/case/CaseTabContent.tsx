@@ -16,7 +16,7 @@ import TreeList, {
  
 } from 'devextreme-react/tree-list';
 
-import { getMyFavoritesApi, getFileContent } from '../../../utils/api'; // your API
+import { getMyFavoritesApi, getFileContent, addCases, removeCases } from '../../../utils/api'; // your API
 
 
 
@@ -64,6 +64,13 @@ const CaseTabContent: React.FC = () => {
     setExpandedKeys(e.component.getSelectedRowKeys());
   }, []);
 
+
+const handleSelectionAdd = useCallback(async (node: string) => {
+    await  addCases(node);
+    const data = await getMyFavoritesApi(); // flatten list of folders & files
+    setNodes(data);
+  }, []);
+
   const handleOpen = useCallback((node: HierarchyTree) => {
     window.open(node.url, '_blank');
   }, []);
@@ -92,16 +99,19 @@ const CaseTabContent: React.FC = () => {
 
   }, []);
 
-  const handleDelete = useCallback((id: number) => {
+  const handleDelete = useCallback(async (node: any) => {
     // your delete logic...
-    console.log('Remove favorite', id);
+    console.log('Remove favorite', node);
+    await  removeCases(node.id);
+    const data = await getMyFavoritesApi(); // flatten list of folders & files
+    setNodes(data);
   }, []);
 
    return (
     <div /* … */>
       {/* … SearchCaseList, header, LoadPanel … */}
 
-      <SearchCaseList onCaseSelect={setSelectedCase} />
+      <SearchCaseList onCaseSelect={handleSelectionAdd} />
 
       <TreeList
         dataSource={nodes}
@@ -144,7 +154,8 @@ const CaseTabContent: React.FC = () => {
       <Column type="buttons"> 
         <Button name="delete" visible={({ row }) => {
           return row.data.rootId === null;
-        }}/>
+        }}
+            onClick={({ row }) => handleDelete(row.data)}/>
  
 
         <Button 

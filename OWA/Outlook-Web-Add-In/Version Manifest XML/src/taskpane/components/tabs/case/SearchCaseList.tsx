@@ -5,7 +5,7 @@ import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { CaseItem } from '../../interfaces/ISearchCase'
 import { getCases  } from '../../../utils/api';
-//import 'devextreme/dist/css/dx.material.blue.dark.compact.css';
+//import 'devextreme/dist/css/dx.material.blue.light.compact.css';
 
 // import 'devextreme/scss/widgets/material/sizes';
 // import 'devextreme/scss/widgets/material/colors';
@@ -128,7 +128,7 @@ return (
             icon: 'arrowright',
             //stylingMode: 'text',
             hint: 'Select',
-            onClick: e => onCaseSelect(e.row.data.name)  // Twój callback
+            onClick: e => onCaseSelect(e.row.data.id)  // Twój callback
           }
         ]}
       />

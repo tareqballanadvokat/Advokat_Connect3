@@ -272,7 +272,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = ({
           displayExpr="name"
           placeholder="Abbreviation"
           onValueChanged={e => onAbbreviationChange(e.value)}
-          width={130}
+          width={155}
         />
         <input
           type="text"

@@ -16,7 +16,6 @@ import DropAttachArea from '../shared/DropAttachArea';   // ← import it
 async function mapToAttachments(
   items: TransferAttachmentItem[]
 ): Promise<Attachment[]> {
-  // tylko te, które są zaznaczone
   const selected = items.filter(i => i.checked);
 
   // jeśli chcesz od razu pobrać zawartość w base64:
@@ -69,7 +68,8 @@ const EmailTabContent: React.FC = () => {
         if (data!= null)
         {
             setSelectedCaseName(data.caseName);
-            setSelectedCaseDisable(true);
+           // setSelectedCaseDisable(true);
+             setTransferCaseDisable(false);
             const abbreviationId = Number(data.serviceAbbreviationType);
             setAbbrev(abbreviationId);
             setText(data.serviceText);
@@ -88,12 +88,24 @@ const EmailTabContent: React.FC = () => {
     })();
   }, []);
 
+  useEffect(() => {
+    (() => {
+      if( text != '' && time != '' && time != '' && selectedCaseId != -1)
+            setTransferCaseDisable(false); 
+
+      if( text == '' || time == '' || time == '' || selectedCaseId == -1)
+            setTransferCaseDisable(true); 
+
+     })();
+  }, [text, time, selectedCaseId, abbrev, sb]);
+
+
 
   const setCaseHandler = async (id: string, name: string) => {
       console.log(id, name);
       setSelectedCaseName(name);
       setSelectedCaseId(Number.parseInt(id));
-      setTransferCaseDisable(false);
+     // setTransferCaseDisable(false);
   }
 
   
@@ -125,7 +137,7 @@ const EmailTabContent: React.FC = () => {
         internetMessageId: messageId, //firstE.id??
         emailName:firstE.label,
         emailFolder: firstE.option.toString(),
-        emailFolderId:Number.parseInt(firstE.option),
+        emailFolderId: firstE.option,
         emailContent: emailContent,
         attachments : attachmentsPayload,
         userID:'-1'

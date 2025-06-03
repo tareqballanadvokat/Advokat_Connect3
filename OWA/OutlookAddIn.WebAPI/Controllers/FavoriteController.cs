@@ -62,7 +62,7 @@ public class FavoriteController : ControllerBase
     {
         var customTree = DatabaseServiceMock.customTree;
         var dd = customTree.Where(x => x.Id == Convert.ToInt32(query.NodeId)).First();
-        while(dd.RootId != 0)
+        while(dd.RootId != 0 && dd.RootId!= null)
         {
             dd = customTree.Where(x => x.Id == dd.RootId).First();
         }

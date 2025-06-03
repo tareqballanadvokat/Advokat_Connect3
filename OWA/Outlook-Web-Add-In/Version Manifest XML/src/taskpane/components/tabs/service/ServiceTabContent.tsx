@@ -3,23 +3,29 @@ import React, { useState, useEffect } from 'react';
 // import SearchAndCaseList from './SearchAndCaseList';
 import ServiceSection, { ServiceSectionProps } from '../shared/ServiceSection';
 import SearchCaseList from '../email/SearchCaseList'; 
-import ServiceSend from './ServiceSend';
+// import ServiceSend from './ServiceSend';
+import ServiceSend from '../email/EmailSend';
 import RegisteredService from './RegisteredService';
 import  { saveServiceInformation } from './../../../utils/api';
 
 import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
 
 const ServiceTabContent: React.FC = () => {
+    //Search Panel selection
+    const [selectedCaseName, setSelectedCaseName] = useState(''); //case name
+    const [selectedCaseId, setSelectedCaseId]     = useState(-1);  //case id
+
   const [selectedCase, setSelectedCase] = useState('');
   // const [abbrev, setAbbrev] = useState('');  
   const [abbrev, setAbbrev] = useState<number>(0);
   const [time, setTime]   = useState('');
   const [text, setText]   = useState('');
   const [sb, setSb]   = useState('');
-  const { messageId, emailContent } = useOfficeItem();
- // const [transferData, setTransferData] = useState<TransferPayload | null>(null);
+  // const { messageId, emailContent } = useOfficeItem();
   const [refreshFlag, setRefreshFlag] = useState(0);
-
+  //SendEmail buttons 
+  const [selectedCaseDisable, setSelectedCaseDisable] = useState(false); //is input disabled if email was registered
+  const [transferCaseDisable, setTransferCaseDisable] = useState(true);   //is button on availabe when input not filled
 
   const sendEmailHandler = async () => {
     console.log('Transfer to ADVOKAT, caseId =', selectedCase);
@@ -45,20 +51,38 @@ const ServiceTabContent: React.FC = () => {
   };
 
 
+   const setCaseHandler = async (id: string, name: string) => {
+      console.log(id, name);
+      setSelectedCaseName(name);
+      setSelectedCaseId(Number.parseInt(id));
+      // setTransferCaseDisable(false);
+  }
+
+   useEffect(() => {
+     (() => {
+       if( text != '' && time != '' && time != '' && selectedCaseId != -1)
+             setTransferCaseDisable(false); 
+ 
+       if( text == '' || time == '' || time == '' || selectedCaseId == -1)
+             setTransferCaseDisable(true); 
+ 
+      })();
+   }, [text, time, selectedCaseId, abbrev, sb]);
+ 
  
  
   return (
     <div  >
  
-    <SearchCaseList onCaseSelect={setSelectedCase} />
+    <SearchCaseList onCaseSelect={setCaseHandler} />
     <ServiceSend     
-        caseId={selectedCase}
-        onCaseChange={setSelectedCase}
+        caseId={selectedCaseName}
+        onCaseChange={setSelectedCaseName}
         onTransfer={sendEmailHandler}
-        abbreviation={abbrev}
-        sb={sb}
-        time={time}
-        text={text} />
+        caseIdDisable={selectedCaseDisable}
+        transferBtnDisable={transferCaseDisable} 
+        />
+
     <ServiceSection
         abbreviation={abbrev}
         onAbbreviationChange={setAbbrev}

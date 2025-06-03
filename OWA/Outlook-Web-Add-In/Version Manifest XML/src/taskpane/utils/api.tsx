@@ -31,7 +31,7 @@ export interface Attachment
    originalFileName  :string;
    fileName  :string;
    contentBase64  :string;
-   folder  :string;
+   folder  :number;
 } 
 
  
@@ -153,7 +153,7 @@ export async function getSavedEmailInfo(
 
 
 export async function getStructureFolderByIdApi(id: number): Promise<HierarchyTree[]> {
-  console.log(id);
+ 
   const resp = await fetch('https://localhost:7231/api/react-structure/get-structure-by-id', {
     method: "POST",
     headers: {
@@ -340,6 +340,36 @@ export async  function   addPerson(id) {
  
 }
 
+export async  function   addCases(id) {
+  const resp = await fetch('https://localhost:7231/api/favorite/add', {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ nodeId: id })
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`API error ${resp.status}: ${txt}`);
+  }
+ 
+}
+export async function removeCases(personId) 
+{    
+      const resp = await  fetch('https://localhost:7231/api/favorite/delete', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ nodeId: personId })
+      });
+     if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(`API error ${resp.status}: ${txt}`);
+      } 
+}
+ 
+ 
 export async function removePerson(personId) 
 {    
       const resp = await  fetch('https://localhost:7231/api/person/delete', {
@@ -355,9 +385,17 @@ export async function removePerson(personId)
       } 
 }
  
+ 
 
 export async function getCases(searchValue:string): Promise<CaseItem[]> 
 { 
+        // const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify({ query: '' })   // lub inny payload
+        // });
+        // const data: CaseItem[] = await resp.json();
+
 
 // const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
 const resp = await fetch(  'https://localhost:7231/api/react-structure/search-cases', {

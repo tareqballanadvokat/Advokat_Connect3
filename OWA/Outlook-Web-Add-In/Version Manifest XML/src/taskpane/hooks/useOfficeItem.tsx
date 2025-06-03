@@ -6,14 +6,14 @@ export interface AttachmentInfo {
   id: string;
   name: string;
 }
-export interface Attachment
-{
-   id :string;
-   originalFileName  :string;
-   fileName  :string;
-   contentBase64  :string;
-   folder  :string;
-} 
+// export interface Attachment
+// {
+//    id :string;
+//    originalFileName  :string;
+//    fileName  :string;
+//    contentBase64  :string;
+//    folder  :number;
+// } 
 // OfficeItem alias
 type OfficeItem = typeof Office.context.mailbox.item;
 

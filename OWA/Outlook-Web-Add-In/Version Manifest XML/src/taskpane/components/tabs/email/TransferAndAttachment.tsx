@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
-import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments, Attachment } from '../../../hooks/useOfficeItem'; 
-import { getSavedEmailInfo, getStructureFolderApi, getStructureFolderByIdApi } from '../../../utils/api';
+import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
+import { getSavedEmailInfo, getStructureFolderApi, getStructureFolderByIdApi, Attachment } from '../../../utils/api';
 
 export interface TransferAttachmentItem {
   id: string;
   label: string;
-  option: string;
+  option: number;
   checked: boolean;
   readonly: boolean;
   disabled: boolean;
@@ -19,7 +19,7 @@ export interface TransferAttachmentItem {
 export interface TransferEmailItem {
   id: string;
   label: string;
-  option: string;
+  option: number;
   checked: boolean;
   readonly: boolean;
 }
@@ -79,7 +79,7 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
         const newEmailRow: TransferAttachmentItem = {
             label :emailSubject,
             name: emailSubject,
-            option:"Email",
+            option:-1,
             id: messageId, 
             checked: false,
             readonly: false,
@@ -91,7 +91,7 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
                 id: att.id,
                 label: att.name,
                 name: att.name,
-                option: '',    // default option
+                option:-1,    // default option
                 checked: false,     // or true, as needed
                 readonly: false,
                 disabled: false,
@@ -103,16 +103,17 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
         if (data!= null)
         {
            // newEmailRow.option = data.emailFolder
-             const matchingFolder = attachmentOptions.find(f => f.text === data.emailFolder);
-             newEmailRow.option = matchingFolder
-                  ? matchingFolder.text.toString()
-                  : ''; 
+           //  const matchingFolder = attachmentOptions.find(f => f.text === data.emailFolder);
+             newEmailRow.option =  data.emailFolderId;
+           //     matchingFolder
+            //        ? matchingFolder.id
+            //        : -1; 
 
             newEmailRow.label = data.emailName;
             newEmailRow.id = data.internetMessageId; 
             newEmailRow.checked = true;
-            newEmailRow.readonly = false;
-            newEmailRow.disabled = false;
+            newEmailRow.readonly = true;
+            newEmailRow.disabled = true;
 
             if (data.attachments.length > 0)
             {
@@ -121,6 +122,7 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
                     const att = element as Attachment;
                     var el = attachmentConcatenated.find(x => x.id == att.id) ;
                     if (el != null){
+               
                         el.label = att.fileName;
                         el.option = att.folder;
                         el.checked = true;

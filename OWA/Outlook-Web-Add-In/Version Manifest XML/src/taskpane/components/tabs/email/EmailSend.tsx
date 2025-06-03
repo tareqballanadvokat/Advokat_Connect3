@@ -35,9 +35,9 @@ const EmailSend: React.FC<EmailSendProps> = ({
         width={80}
         disabled={transferBtnDisable}
         style={{
-          width: 80,
-          Height: 80,
-          padding: '8px 12px',
+          // width: 80,
+          // Height: 80,
+          // padding: '8px 12px',
           fontSize: 14,
           border: '1px solid #ccc',
           borderRadius: 4,

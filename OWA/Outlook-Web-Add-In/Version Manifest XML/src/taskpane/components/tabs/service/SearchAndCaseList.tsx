@@ -4,14 +4,9 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { API_BASE } from '../../../../config';
-
+import { getCases } from '../../../utils/api'
+import { CaseItem } from '../../../components/interfaces/ISearchCase'
  
-
-interface CaseItem {
-  caseId: string;
-  causa: string;
-  name: string;
-}
 
 interface Props {
   onCaseSelect: (caseId: string) => void;
@@ -26,12 +21,7 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
     // fetch initial data
     (async () => {
       try {
-        const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: '' })   // lub inny payload
-        });
-        const data: CaseItem[] = await resp.json();
+        const data = await getCases('');
         setFullData(data);
         setRows(data);
       } catch (e) {

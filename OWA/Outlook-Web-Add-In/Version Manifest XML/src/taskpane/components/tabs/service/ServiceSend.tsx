@@ -7,20 +7,16 @@ interface ServiceSendProps {
   caseId: string;
   onCaseChange: (id: string) => void;
   onTransfer: () => void;
-  sb:string;
-  abbreviation:number;
-  text: string;
-  time: string;
+  caseIdDisable: boolean;
+  transferBtnDisable:boolean;
 }
 
 const ServiceSend: React.FC<ServiceSendProps> = ({ 
     caseId,
     onCaseChange,
     onTransfer,
-    sb,
-    abbreviation,
-    text,
-    time
+    caseIdDisable,
+    transferBtnDisable
 }) => ( <div>  <h3>Case</h3>
   <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
    
@@ -29,6 +25,7 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
       placeholder="Case ID"
       value={caseId}
       width={80}
+      disabled={caseIdDisable}
       onChange={e => onCaseChange(e.target.value)}
       style={{ 
         width:150,
@@ -42,25 +39,16 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
         text="Transfer"
         type="success"
         width={80}
+        disabled={transferBtnDisable}
         style={{
-          width: 80,
-          Height: 80,
-          padding: '8px 12px',
+          // width: 80,
+          // Height: 80,
+          // padding: '8px 12px',
           fontSize: 14,
           border: '1px solid #ccc',
           borderRadius: 4,
         }}
         stylingMode="contained" onClick={() => {
-        // masz tu dostęp do wszystkich pól:
-            console.log({
-            caseId,
-            service: {
-                abbreviation,
-                sb,
-                time,
-                text
-            }
-            });
         onTransfer();
       }}
     />
