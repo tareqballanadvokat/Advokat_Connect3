@@ -14,7 +14,10 @@ namespace SIPSignalingServer
         private readonly List<SIPTunnel> Connections = new List<SIPTunnel>();
 
         private readonly List<SIPMessageRelay> PendingConnections = new List<SIPMessageRelay>();
+        public delegate Task ConnectionRemovedDelegate(SIPConnectionPool sender, ServerSideTransactionParams connectionParams);
         
+        public event ConnectionRemovedDelegate? ConnectionRemoved;
+
         public SIPConnectionPool(ILoggerFactory loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPConnectionPool>();
@@ -46,6 +49,23 @@ namespace SIPSignalingServer
 
                 this.CreateNewConnection(messageRelay, pendingPeerMessageRelay);
                 this.PendingConnections.Remove(pendingPeerMessageRelay);
+            }
+        }
+
+        public void Disconnect(SIPMessageRelay messageRelay)
+        {
+            lock (lockObject)
+            {
+                if (this.IsConnected(messageRelay))
+                {
+                    // TODO: Disconnect both
+                    //       stop the messaging
+                }
+
+                if (this.PendingConnections.Remove(messageRelay))
+                {
+                    this.ConnectionRemoved?.Invoke(this, messageRelay.Params);
+                }
             }
         }
 
@@ -100,24 +120,7 @@ namespace SIPSignalingServer
 
         private SIPMessageRelay? GetPendingPeer(SIPMessageRelay messageRelay)
         {
-            //string callId = messageRelay.Params.CallId;
-
-            string peerClientTag = messageRelay.Params.RemoteTag; // TODO: could not be set
-            string peerRemoteTag = messageRelay.Params.ClientTag;
-
-            string peerUsername = messageRelay.Params.RemoteParticipant.Name;
-            string peerRemoteUser = messageRelay.Params.ClientParticipant.Name;
-
-            return this.PendingConnections.SingleOrDefault(r => 
-                //r.Params.CallId == callId
-                //&& 
-                r.Params.ClientTag == peerClientTag
-                && r.Params.RemoteTag == peerRemoteTag // could not be set?
-
-                // TODO: names could be null?
-                && r.Params.ClientParticipant.Name == peerUsername
-                && r.Params.RemoteParticipant.Name == peerRemoteUser
-                );
+            return this.PendingConnections.SingleOrDefault(r => r.Params.IsPeer(messageRelay.Params));
         }
 
         //private SIPMessageRelay? GetPendingMessageRelay(ServerSideTransactionParams transactionParams)
@@ -130,7 +133,7 @@ namespace SIPSignalingServer
         {
             lock (this.lockObject)
             {
-                // TODO: which equality comparer gets used? override?
+                // TODO: check which equality comparer gets used? override?
                 if (this.PendingConnections.Contains(messageRelay))
                 {
                     // already contains messageRelay

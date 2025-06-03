@@ -36,6 +36,25 @@ namespace SIPSignalingServer.Models
         {
         }
 
+        public bool IsPeer(ServerSideTransactionParams peerParams)
+        {
+            string peerClientTag = peerParams.RemoteTag; // TODO: could not be set
+            string peerRemoteTag = peerParams.ClientTag;
+
+            string peerUsername = peerParams.RemoteParticipant.Name;
+            string peerRemoteUser = peerParams.ClientParticipant.Name;
+
+            return
+                //r.Params.CallId == callId
+                //&& 
+                this.ClientTag == peerClientTag
+                && this.RemoteTag == peerRemoteTag // could not be set?
+
+                // TODO: names could be null?
+                && this.ClientParticipant.Name == peerUsername
+                && this.RemoteParticipant.Name == peerRemoteUser;
+        }
+
         public static ServerSideTransactionParams Empty()
         {
             // very experimental

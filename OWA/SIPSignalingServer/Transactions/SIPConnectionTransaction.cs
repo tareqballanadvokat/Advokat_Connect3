@@ -3,6 +3,7 @@ using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
+using System.Net.Sockets;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
@@ -42,7 +43,6 @@ namespace SIPSignalingServer.Transactions
 
         private CancellationTokenSource? ConnectionCts { get; set; }
 
-
         public SIPConnectionTransaction(
             SIPSchemesEnum sipScheme,
             ISIPTransport transport,
@@ -81,6 +81,12 @@ namespace SIPSignalingServer.Transactions
             return this.ConnectionPool.IsConnected(this.messageRelay);
         }
 
+        //public async override Task Start()
+        //{
+        //    this.ConnectionCts = new CancellationTokenSource();
+        //    await this.Start(ConnectionCts.Token);
+        //}
+
         public async override Task Start()
         {
             if (this.WaitingForPeer)
@@ -102,6 +108,8 @@ namespace SIPSignalingServer.Transactions
             }
 
             // TODO: Check if connection is pending
+
+            //ct.ThrowIfCancellationRequested();
 
             if (!this.Registry.IsRegistered(this.Registration))
             {
@@ -138,21 +146,29 @@ namespace SIPSignalingServer.Transactions
         //}
 
         private async Task Connect()
-        { 
+        {
             this.Connecting = true;
 
             this.StopWaitingForPeer();
             this.SetRemoteTag();
-            this.CreateConnection();
 
+            //if (ct.IsCancellationRequested)
+            //{
+            //    // TODO: Let the other peer know that connection was cancelled
+            //    maybe cancel the other token somehow
+            //    this.ResetFlags();
+            //    ct.ThrowIfCancellationRequested();
+            //}
+
+            this.CreateConnection();
             this.Connection.SIPRequestReceived += this.ListenForAck;
 
-            SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCSeq);
-            
-            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
-            using CancellationTokenSource cts = new CancellationTokenSource();
-
-            await this.Connection.SendSIPRequest(notifyRequest, cts.Token);
+            bool notifySent = await this.SendNotifyRequest(this.StartCSeq);
+            if (!notifySent)
+            {
+                // sending notify failed
+                return;
+            }
 
             await WaitFor(
                 () => this.ConnectionAcknowledged,
@@ -163,10 +179,51 @@ namespace SIPSignalingServer.Transactions
             this.Connection.SIPRequestReceived -= this.ListenForAck;
         }
 
+        private async Task PeerDisconnected(SIPConnectionPool sender, ServerSideTransactionParams connectionParams)
+        {
+            if (!this.Params.IsPeer(connectionParams))
+            {
+                return;
+            }
+
+            // TODO: cancel token?
+            //       send bye
+        }
+
         private SIPRequest GetNotifyRequest(int cSeq)
         {
             SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: cSeq);
             return SIPHelper.GetRequest(this.SIPScheme, SIPMethodsEnum.NOTIFY, headerParams);
+        }
+
+        private async Task<bool> SendNotifyRequest(int cSeq)
+        {
+            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+            SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCSeq);
+
+            SocketError result;
+            try
+            {
+                result = await this.Connection.SendSIPRequest(notifyRequest, cts.Token);
+            }
+            catch (OperationCanceledException ex)
+            {
+                // TODO: cancelled
+                // TODO: Let the other peer know that connection was cancelled
+                // this.ResetFlags();
+                // TODO: remove dialog from ConnectionPool
+
+                return false;
+            }
+
+            if (result != SocketError.Success)
+            {
+                // TODO: sending notify failed
+                return false;
+            }
+
+            return true;
         }
 
         private async Task ListenForAck(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
@@ -219,6 +276,9 @@ namespace SIPSignalingServer.Transactions
 
         private void CreateConnection()
         {
+            // TODO: remove listener
+            this.ConnectionPool.ConnectionRemoved += this.PeerDisconnected;
+
             // adds connection, does not start it
             this.ConnectionPool.Connect(this.messageRelay);
         }

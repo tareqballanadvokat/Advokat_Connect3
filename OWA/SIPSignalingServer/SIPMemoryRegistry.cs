@@ -60,7 +60,7 @@ namespace SIPSignalingServer
             lock (this.lockObject)
             {
                 return this.GetRegisteredObject(registration)?.Confirmed
-                ?? false; // not registered, cannot be confirmed
+                    ?? false; // not registered, cannot be confirmed
             }
         }
 
@@ -88,7 +88,13 @@ namespace SIPSignalingServer
         public SIPRegistration? GetRegisteredObject(string name)
         {
             // TODO: What to do on multiple registartions with the same name? Only allow the name once when adding?
-            return this.RegisteredConnections.SingleOrDefault(r => r.SourceParticipant.Name == name);
+
+            // TODO: Got a null reference error when registering both quickly. Twice.
+            //       Maybe lock it?
+            lock (this.lockObject)
+            {
+                return this.RegisteredConnections.SingleOrDefault(r => r.SourceParticipant.Name == name);
+            }
         }
 
         public bool PeerIsRegistered(SIPRegistration registration)

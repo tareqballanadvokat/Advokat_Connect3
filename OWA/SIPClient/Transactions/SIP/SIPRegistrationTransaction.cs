@@ -11,7 +11,7 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 [assembly: InternalsVisibleTo("SIPClientTests")]
 namespace WebRTCClient.Transactions.SIP
 {
-    internal class SIPRegistrationTransaction : WebRTCLibrary.SIP.SIPTransaction, ISIPRegistrationTransaction, IAsyncDisposable
+    internal class SIPRegistrationTransaction : WebRTCLibrary.SIP.SIPTransaction, ISIPRegistrationTransaction // , IAsyncDisposable
     {
         private readonly ILogger<SIPRegistrationTransaction> logger;
 
@@ -46,7 +46,7 @@ namespace WebRTCClient.Transactions.SIP
         // TODO: remove once base class is changed to take a cancellationtoken
         public override async Task Start()
         {
-            await this.Start(CancellationToken.None);
+            await this.Start(null);
         }
 
         public override async Task Start(CancellationToken? ct = null)
@@ -97,25 +97,27 @@ namespace WebRTCClient.Transactions.SIP
 
         private async Task<bool> SendRegisterMessage()
         {
+            SocketError result;
+
             try
             {
-                SocketError result = await this.Connection.SendSIPRequest(
+                result = await this.Connection.SendSIPRequest(
                     SIPMethodsEnum.REGISTER,
                     this.GetHeaderParams(),
                     this.RegistrationCT,
                     this.SendTimeout);
-
-                if (result != SocketError.Success)
-                {
-                    // request did not get sent.
-                    this.RegistrationFailed($"Failed to send Registration. {result}.");
-                    return false;
-                }
             }
             catch (OperationCanceledException)
             {
                 // Request did not get sent.
                 this.RegistrationFailed($"Registration was cancelled.");
+                return false;
+            }
+
+            if (result != SocketError.Success)
+            {
+                // request did not get sent.
+                this.RegistrationFailed($"Failed to send Registration. {result}.");
                 return false;
             }
 
@@ -162,30 +164,29 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteTag);
 
             int cSeq = sipResponse.Header.CSeq + 1;
+            bool ackSent = await this.SendACK(cSeq);
 
-            try
+            if (ackSent)
             {
-                SocketError result = await this.Connection.SendSIPRequest(
-                    SIPMethodsEnum.ACK,
-                    this.GetHeaderParams(cSeq),
-                    this.RegistrationCT,
-                    this.SendTimeout);
-
-                if (result != SocketError.Success)
-                {
-                    // request did not get sent.
-                    this.RegistrationFailed($"Failed to send ACK. {result}.");
-                    
-                    // TODO: listen for server bye?
-                    await this.SendBYEMessage(cSeq, CancellationToken.None); // no cancellation for bye
-                    return;
-                }
-
                 this.Registered = true;
                 this.Registering = false;
                 this.logger.LogInformation("Successfully registered. \"{fromName}\" - \"{toName}\"",
                     this.Params.SourceParticipant.Name,
                     this.Params.RemoteParticipant.Name);
+            }
+        }
+
+        private async Task<bool> SendACK(int cSeq)
+        {
+            SocketError result;
+
+            try
+            {
+                result = await this.Connection.SendSIPRequest(
+                    SIPMethodsEnum.ACK,
+                    this.GetHeaderParams(cSeq),
+                    this.RegistrationCT,
+                    this.SendTimeout);
             }
             catch (OperationCanceledException)
             {
@@ -197,10 +198,24 @@ namespace WebRTCClient.Transactions.SIP
                     // TODO: listen for bye from server?
                     await this.SendBYEMessage(cSeq, CancellationToken.None); // no cancellation for bye
                 }
+
+                return false;
             }
+
+            if (result != SocketError.Success)
+            {
+                // request did not get sent.
+                this.RegistrationFailed($"Failed to send ACK. {result}.");
+
+                // TODO: listen for server bye?
+                await this.SendBYEMessage(cSeq, CancellationToken.None); // no cancellation for bye
+                return false;
+            }
+
+            return true;
         }
 
-        private async Task Unregister()
+        public async Task Unregister()
         {
             // TODO: get token passed?
             CancellationTokenSource cts = new CancellationTokenSource();
@@ -308,9 +323,9 @@ namespace WebRTCClient.Transactions.SIP
             }
         }
 
-        public async ValueTask DisposeAsync()
-        {
-            await this.Unregister();
-        }
+        //public async ValueTask DisposeAsync()
+        //{
+        //    await this.Unregister();
+        //}
     }
 }

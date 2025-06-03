@@ -172,14 +172,15 @@ namespace WebRTCLibrary.SIP
                     result = await request;
                     if (result == SocketError.Success)
                     {
-                        break;
+                        //break;
+                        return SocketError.Success;
                     }
 
                     this.logger.LogDebug("Sending failed. Error: {error}, try: {tryCount}", result, i+1);
                 }
                 else
                 {
-                    this.logger.LogDebug("Send timeout. try: {tryCount}", i+1);
+                    this.logger.LogDebug("Send timeout. try: {tryCount}", i + 1);
                     result = SocketError.TimedOut;
                 }
             }

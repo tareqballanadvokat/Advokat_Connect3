@@ -162,15 +162,15 @@ namespace WebRTCCaller
             this.AddLineToTextBox(Encoding.UTF8.GetString(message));
         }
 
-        private async Task OnRequestRecived(ISIPMessager sender, SIPRequest request)
-        {
-            this.AddLineToTextBox($"{request.Method} - {request.Body}");
-        }
+        //private async Task OnRequestRecived(ISIPMessager sender, SIPRequest request)
+        //{
+        //    this.AddLineToTextBox($"{request.Method} - {request.Body}");
+        //}
 
-        private async Task OnResponseRecived(ISIPMessager sender, SIPResponse response)
-        {
-            this.AddLineToTextBox($"{response.StatusCode} - {response.Body}");
-        }
+        //private async Task OnResponseRecived(ISIPMessager sender, SIPResponse response)
+        //{
+        //    this.AddLineToTextBox($"{response.StatusCode} - {response.Body}");
+        //}
 
         private void AddLineToTextBox(string message, bool sentMessage = false)
         {

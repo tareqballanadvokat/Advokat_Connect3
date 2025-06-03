@@ -28,14 +28,24 @@ namespace WebRTCClient.Transactions.SIP
 
         private bool Connecting { get; set; }
 
+        private CancellationTokenSource connectionCts;
+
         public SIPConnectionTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(sipScheme, transport, dialogParams, loggerFactory)
         {
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
+
+            this.connectionCts = new CancellationTokenSource();
         }
 
-        public async override Task Start()
+        // TODO: remove once base class is changed to take a cancellationtoken
+        public async Task Start()
+        {
+            await this.Start(null);
+        }
+
+        public async override Task Start(CancellationToken? ct = null)
         {
             if (this.Connected) // TODO: messagingDialogRunning
             {
@@ -49,9 +59,14 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
+            this.connectionCts = ct == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)ct);
+
             this.Connecting = true;
             this.Connection.SIPRequestReceived += this.InitialNotifyListener;
+
+            // TODO: Bye listener
         }
+
 
         // TODO: This method does too much
         private async Task InitialNotifyListener(SIPEndPoint localEndpoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
@@ -79,6 +94,12 @@ namespace WebRTCClient.Transactions.SIP
             this.Params.RemoteTag = sipRequest.Header.From.FromTag;
             this.Params.CallId = sipRequest.Header.CallId;
 
+            if (this.connectionCts.Token.IsCancellationRequested)
+            {
+                await this.SendBYEMessage(4, CancellationToken.None);
+                return;
+            }
+
             this.logger.LogDebug(
                 "Now listening for SIP messages. caller:\"{caller}\" tag:\"{fromTag}\" -  remote:\"{remote}\" tag:\"{toTag}\"",
                 this.Params.SourceParticipant.Name,
@@ -91,12 +112,10 @@ namespace WebRTCClient.Transactions.SIP
 
             this.MessagingDialog.OnRequestReceived += this.RequestRecieved;
             this.MessagingDialog.OnResponseReceived += this.ResponseRecieved;
-            await this.MessagingDialog.Start();
+            await this.MessagingDialog.Start(); // TODO: Pass ct? Seperate from connection token or is it the same?
 
-            // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
-            using CancellationTokenSource cts = new CancellationTokenSource();
-
-            await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5), cts.Token);
+            // TODO: cancellcationlogic
+            await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5), this.connectionCts.Token);
 
             await WaitFor(
                 () => this.PeerListeningConfirmation,
@@ -107,6 +126,30 @@ namespace WebRTCClient.Transactions.SIP
 
             this.Connection.SIPRequestReceived -= this.ConnectionNotifyListener;
             this.Connecting = false;
+        }
+
+        private async Task<bool> SendAck()
+        {
+            SocketError result;
+            try
+            {
+                result = await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5), this.connectionCts.Token, this.SendTimeout);
+            }
+            catch (OperationCanceledException ex)
+            {
+                // ACK not sent
+                // TODO: send bye?
+                return false;
+            }
+
+            if (result != SocketError.Success)
+            {
+                // ACK not sent
+                // TODO: send bye?
+                return false;
+            }
+
+            return true;
         }
 
         // TODO: Move this listener to messaging dialog. Only allow sending once this is has been received.
@@ -130,7 +173,41 @@ namespace WebRTCClient.Transactions.SIP
             this.PeerListeningConfirmation = true;
         }
 
-        //public async override Task Stop()
+        public async Task Disconnect()
+        {
+            if (!this.Connected)
+            {
+                // not connected.
+                return;
+            }
+
+            if (this.Connecting)
+            {
+                // TODO: Cancel token
+            }
+
+
+            // TODO: Get real CSeq
+            await this.SendBYEMessage(6, CancellationToken.None);
+        }
+
+        // TODO: Remove ct as parameter and use Cancellationtoken None?
+        private async Task SendBYEMessage(int CSeq, CancellationToken ct)
+        {
+            SIPHeaderParams headerParams = this.GetHeaderParams(CSeq);
+
+            SocketError result = await this.Connection.SendSIPRequest(
+                SIPMethodsEnum.BYE,
+                headerParams,
+                ct,
+                this.SendTimeout);
+
+            if (result != SocketError.Success)
+            {
+                // TODO: Do something. BYE message could not be sent. Retry?
+            }
+        }
+
         //{
         //    // TODO: Rework completely
 
