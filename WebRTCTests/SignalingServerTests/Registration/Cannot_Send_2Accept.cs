@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
+using SignalingServerTests.Mocks.SIPRequests;
 using SignalingServerTests.Registration.Mocks.SIPConnection;
 using SignalingServerTests.Registration.Mocks.SIPRegistry;
-using SignalingServerTests.Registration.Mocks.SIPRequests;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Transactions;
 using SIPSorcery.SIP;

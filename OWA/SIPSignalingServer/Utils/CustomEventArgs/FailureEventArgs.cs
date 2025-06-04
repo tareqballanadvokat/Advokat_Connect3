@@ -2,7 +2,7 @@
 
 namespace SIPSignalingServer.Utils.CustomEventArgs
 {
-    internal class FailureEventArgs : EventArgs
+    public class FailureEventArgs : EventArgs
     {
         public string? Message { get; set; }
 

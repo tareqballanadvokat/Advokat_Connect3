@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
+using SIPSignalingServer.Transactions.Interfaces;
+using SIPSignalingServer.Transactions.Interfaces.TransactionFactories;
+using SIPSignalingServer.Transactions.TransactionFactories;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
@@ -32,13 +35,17 @@ namespace SIPSignalingServer.Transactions
         /// <version date="25.04.2025" sb="MAC">Created.</version>
         public int? ConnectionTimeout { get; set; } = null; // TODO: add flag if it already started - prevent setting then.
 
-        private SIPRequest InitialRequest {get; set;}
+        private SIPRequest InitialRequest { get; set; }
+
+        private SIPEndPoint SignalingServer { get; set; }
 
         private ISIPRegistry Registry { get; set; }
 
         private SIPConnectionPool ConnectionPool { get; set; }
 
-        private SIPRegistrationTransaction SIPRegistrationTransaction { get; set; }
+        public ISIPRegistrationTransactionFactory SIPRegistrationTransactionFactory { get; set; }
+
+        private ISIPRegistrationTransaction? SIPRegistrationTransaction { get; set; }
 
         private SIPConnectionTransaction? SIPConnectionTransaction { get; set; }
 
@@ -65,11 +72,11 @@ namespace SIPSignalingServer.Transactions
             this.Transport = transport;
 
             this.InitialRequest = initialRequest;
+            this.SignalingServer = signalingServer;
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
 
-            this.SIPRegistrationTransaction = new SIPRegistrationTransaction(this.Connection, initialRequest, signalingServer, this.Registry, this.loggerFactory);
-            this.Params = this.SIPRegistrationTransaction.Params;
+            this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory();
         }
 
         public async override Task Start()
@@ -96,10 +103,23 @@ namespace SIPSignalingServer.Transactions
             return this.SIPConnectionTransaction?.IsConnected() ?? false;
         }
 
+        [MemberNotNull(nameof(this.SIPRegistrationTransaction))]
+        private void SetSIPRegistrationTransaction()
+        {
+            this.SIPRegistrationTransaction = this.SIPRegistrationTransactionFactory.Create(
+                this.Connection,
+                this.InitialRequest,
+                this.SignalingServer,
+                this.Registry,
+                this.loggerFactory);
+        }
+
         private async Task Register()
         {
             // TODO: Check somewhere if the request is valid.
             //       If not return some specific response or don't respond at all
+            this.SetSIPRegistrationTransaction();
+            this.Params = this.SIPRegistrationTransaction.Params;
 
             this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
             this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
@@ -119,17 +139,21 @@ namespace SIPSignalingServer.Transactions
             this.SIPRegistrationTransaction.OnRegistrationFailed -= this.RegistrationFailedListener;
         }
 
-        private void RegistrationFailedListener(SIPRegistrationTransaction sender, FailedRegistrationEventArgs e)
+        private async Task RegistrationFailedListener(ISIPRegistrationTransaction sender, FailedRegistrationEventArgs e)
         {
+            // TODO: get real cseq
+            //       check if we should always unregister
+            await (this.SIPRegistrationTransaction?.Unregister(4) ?? Task.CompletedTask);
             // TODO: Dispose on Registation fail / timeout
             //       Stop waiting for registration
         }
 
         private async Task Connect()
-        {            
+        {
+            // TODO: can be set in constructor?
             this.SIPConnectionTransaction = new SIPConnectionTransaction(
                 this.SIPScheme,
-                this.Transport, // TODO: Check if we sohuld pass connection
+                this.Transport,
                 this.Params,
                 this.Registry,
                 this.ConnectionPool,
@@ -141,14 +165,14 @@ namespace SIPSignalingServer.Transactions
 
             this.SIPConnectionTransaction.OnConnectionFailed += this.ConnectionFailedListener;
 
-            CancellationTokenSource cts = this.ConnectionTimeout == null ? new CancellationTokenSource() : new CancellationTokenSource((int)this.ConnectionTimeout);
-            CancellationToken ct = cts.Token;
+            CancellationTokenSource connectionTimeoutCts = this.ConnectionTimeout == null ? new CancellationTokenSource() : new CancellationTokenSource((int)this.ConnectionTimeout);
+            CancellationToken connectionTimeoutCt = connectionTimeoutCts.Token;
             // TODO pass ct to ConnectionTransaction. Pass it deeper to KeepAliveDialog?
 
-            await this.SIPConnectionTransaction.Start();
+            await this.SIPConnectionTransaction.Start(connectionTimeoutCt);
 
             await WaitForAsync(this.IsConnected,
-                ct,
+                connectionTimeoutCt,
                 CancellationToken.None, // TODO: add cancelation logic
                 // TODO: interval?
                 successCallback: this.StartICENegotiation
@@ -163,25 +187,25 @@ namespace SIPSignalingServer.Transactions
         {
             if (this.IsConnected())
             {
-                SIPTunnel? connection = this.ConnectionPool.GetConnection(this.SIPConnectionTransaction.Params);
-                if (connection == null)
+                SIPTunnel? tunnel = this.ConnectionPool.GetConnection(this.SIPConnectionTransaction.Params);
+                if (tunnel == null)
                 {
                     // not connected
                     return;
                 }
 
-                if (connection.Left.Params == this.SIPConnectionTransaction.Params)
+                if (tunnel.Left.Params == this.SIPConnectionTransaction.Params)
                 {
                     // only start negotiation once per connection
-                    ICENegotiation iceNegotiation = new ICENegotiation(connection, this.loggerFactory);
+                    ICENegotiation iceNegotiation = new ICENegotiation(tunnel, this.loggerFactory);
                     await iceNegotiation.Start();
                 }
             }
         }
 
-        private void ConnectionFailedListener(SIPConnectionTransaction sender, FailureEventArgs e)
+        private async Task ConnectionFailedListener(SIPConnectionTransaction sender, FailureEventArgs e)
         {
-
+            await (this.SIPRegistrationTransaction?.Unregister(4) ?? Task.CompletedTask);
         }
     }
 }

@@ -6,7 +6,7 @@ using WebRTCLibrary.SIP.Interfaces;
 
 namespace SIPSignalingServer.Transactions
 {
-    internal abstract class ServerSideSIPTransaction : WebRTCLibrary.SIP.SIPTransaction
+    internal abstract class ServerSideSIPTransaction : WebRTCLibrary.SIP.SIPTransaction, ISIPTransaction
     {
         public new ServerSideTransactionParams Params
         { 

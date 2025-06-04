@@ -2,7 +2,7 @@
 using System.Net;
 using System.Text;
 
-namespace SignalingServerTests.Registration.Mocks.SIPRequests
+namespace SignalingServerTests.Mocks.SIPRequests
 {
     internal class MockSIPRequest : SIPRequest
     {
@@ -20,12 +20,12 @@ namespace SignalingServerTests.Registration.Mocks.SIPRequests
 
         public void SetRemoteEndPoint(SIPEndPoint endPoint)
         {
-            this.RemoteSIPEndPoint = endPoint;
+            RemoteSIPEndPoint = endPoint;
         }
 
         public void SetLocalEndPoint(SIPEndPoint localEndPoint) 
         {
-            this.LocalSIPEndPoint = localEndPoint;
+            LocalSIPEndPoint = localEndPoint;
         }
 
     }

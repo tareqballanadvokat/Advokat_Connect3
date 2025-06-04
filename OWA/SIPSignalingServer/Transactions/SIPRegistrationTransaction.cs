@@ -10,11 +10,12 @@ using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using SIPSignalingServer.Interfaces;
 using WebRTCLibrary.SIP.Interfaces;
+using SIPSignalingServer.Transactions.Interfaces;
 
 [assembly: InternalsVisibleTo("SignalingServerTests")]
 namespace SIPSignalingServer.Transactions
 {
-    internal class SIPRegistrationTransaction : ServerSideSIPTransaction
+    internal class SIPRegistrationTransaction : ServerSideSIPTransaction, ISIPRegistrationTransaction
     {
         private readonly ILoggerFactory loggerFactory;
 
@@ -38,7 +39,7 @@ namespace SIPSignalingServer.Transactions
 
         private CancellationToken RegistrationCT { get => this.registrationCts.Token; }
 
-        public event Action<SIPRegistrationTransaction, FailedRegistrationEventArgs>? OnRegistrationFailed;
+        public event ISIPRegistrationTransaction.RegistrationFailedDelegate? OnRegistrationFailed;
 
         public SIPRegistrationTransaction(
             ISIPConnection connection,
@@ -104,21 +105,6 @@ namespace SIPSignalingServer.Transactions
             this.registrationCts = ct == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)ct);
             await this.Register();
         }
-
-        //public async override Task Stop()
-        //{
-        //    if (!this.Registered)
-        //    {
-        //        // Not registered
-        //        return;
-        //    }
-
-        //    this.Connection.SIPRequestReceived -= this.BYEListener;
-            
-        //    this.Unregister();
-        //    await this.SendBYEMessage(4);
-        //    // TODO: send event - registering stopped?
-        //}
 
         private async Task Register()
         {
@@ -245,22 +231,33 @@ namespace SIPSignalingServer.Transactions
 
             this.logger.LogInformation("Registration failed {statusCode}. {message}", statusCode, message);
 
-            this.Unregister();
-
-            if (!this.stoppedByClient)
-            {
-                await this.SendBYEMessage(cSeq);
-            }
+            await this.Unregister(cSeq);
 
             FailedRegistrationEventArgs eventArgs = new FailedRegistrationEventArgs();
             eventArgs.StatusCode = statusCode;
             eventArgs.Message = message;
             eventArgs.Registration = this.Registration; // TODO: is this even needed?
 
-            this.OnRegistrationFailed?.Invoke(this, eventArgs);
+            await (this.OnRegistrationFailed?.Invoke(this, eventArgs) ?? Task.CompletedTask);
         }
 
-        private void Unregister()
+        public async Task Unregister(int cSeq)
+        {
+            //if (!this.Registered)
+            //{
+            this.registrationCts.Cancel();
+            //}
+
+            this.RemoveFromRegistry();
+
+            if (!this.stoppedByClient)
+            {
+                // TODO: check if bye was already sent.
+                await this.SendBYEMessage(cSeq);
+            }
+        }
+
+        private void RemoveFromRegistry()
         {
             this.Registry.Unregister(this.Registration);
             this.Registered = false;

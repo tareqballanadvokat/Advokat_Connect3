@@ -37,7 +37,9 @@ namespace SIPSignalingServer.Transactions
 
         private readonly SIPMessageRelay messageRelay;
 
-        public event Action<SIPConnectionTransaction, FailureEventArgs>? OnConnectionFailed;
+        public delegate Task ConnectionFailedDelegate(SIPConnectionTransaction sender, FailureEventArgs e);
+
+        public event ConnectionFailedDelegate? OnConnectionFailed;
 
         private CancellationTokenSource? PeerRegisteringCts { get; set; }
 
@@ -81,13 +83,13 @@ namespace SIPSignalingServer.Transactions
             return this.ConnectionPool.IsConnected(this.messageRelay);
         }
 
-        //public async override Task Start()
-        //{
-        //    this.ConnectionCts = new CancellationTokenSource();
-        //    await this.Start(ConnectionCts.Token);
-        //}
-
+        // TODO: remove once base class changes
         public async override Task Start()
+        {
+            await this.Start(null);
+        }
+
+        public async override Task Start(CancellationToken? ct = null)
         {
             if (this.WaitingForPeer)
             {
@@ -113,7 +115,7 @@ namespace SIPSignalingServer.Transactions
 
             if (!this.Registry.IsRegistered(this.Registration))
             {
-                this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Cannot connect. Not Registered.");
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Cannot connect. Not Registered.");
                 return;
             }
 
@@ -170,11 +172,13 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            await WaitFor(
+            await WaitForAsync(
                 () => this.ConnectionAcknowledged,
                 timeOut: this.ReceiveTimeout,
                 CancellationToken.None, // TODO: implement cancellation
-                timeoutCallback: () => { this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Client took to long to respond to connection notify. Timeout."); });
+                timeoutCallback: async () => { await this.ConnectionFailed(
+                    SIPResponseStatusCodesEnum.RequestTimeout,
+                    "Client took to long to send acknowledge connection notify. Timeout."); });
 
             this.Connection.SIPRequestReceived -= this.ListenForAck;
         }
@@ -210,16 +214,15 @@ namespace SIPSignalingServer.Transactions
             catch (OperationCanceledException ex)
             {
                 // TODO: cancelled
-                // TODO: Let the other peer know that connection was cancelled
-                // this.ResetFlags();
-                // TODO: remove dialog from ConnectionPool
-
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled.", sendBye: false);
                 return false;
             }
 
             if (result != SocketError.Success)
             {
-                // TODO: sending notify failed
+                // sending 4 notify failed
+                // TODO: map socketerror to SIPResponseStatusCodesEnum
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Sending connection Notify failed.", sendBye: false);
                 return false;
             }
 
@@ -230,13 +233,13 @@ namespace SIPSignalingServer.Transactions
         {
             if (request.Method != SIPMethodsEnum.ACK) // This could be a problem if the client is still sending pings - should be ok, pings happen with different params
             {
-                this.ConnectionFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Request was not an ACK request.");
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Request was not an ACK request.");
                 return;
             }
 
             if (request.Header.CSeq != this.StartCSeq + 1)
             {
-                this.ConnectionFailed(SIPResponseStatusCodesEnum.BadRequest, "Request header was invalid.");
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.BadRequest, "Request header was invalid.");
                 return;
             }
 
@@ -260,6 +263,7 @@ namespace SIPSignalingServer.Transactions
 
         private async Task SendConnectionNotify()
         {
+            // TODO: implement sad path
             SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCSeq + 2);
 
             // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
@@ -271,7 +275,7 @@ namespace SIPSignalingServer.Transactions
         private async Task AckTimeout()
         {
             await this.StopSIPTunnel();
-            this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.");
+            await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.");
         }
 
         private void CreateConnection()
@@ -325,20 +329,40 @@ namespace SIPSignalingServer.Transactions
             this.Params.SourceTag = null;
         }
 
-        private void ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
+        private async Task SendBye(int cSeq)
+        {
+            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq);
+            SocketError result;
+
+            result = await this.Connection.SendSIPRequest(SIPMethodsEnum.BYE, headerParams, CancellationToken.None);
+
+            if (result != SocketError.Success)
+            {
+                // Bye failed.
+                // TODO: What to do?
+            }
+        }
+
+        private async Task ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null, bool sendBye = true)
         {
             // TODO: stop and disconnect if necessary
 
             // TODO: add some identifier for request that failed. (caller ip/name/tag, remote name/tag)
-            this.logger.LogInformation("Connection failed {statusCode}. {message}", statusCode, message); 
-
+            this.logger.LogInformation("Connection failed {statusCode}. {message}", statusCode, message);
+            if (sendBye)
+            {
+                await this.SendBye(6); // TODO: Get current cSeq
+            }
             this.ResetFlags();
+
+            //await this.messageRelay.Stop();
+            this.ConnectionPool.Disconnect(this.messageRelay);
 
             FailureEventArgs eventArgs = new FailureEventArgs();
             eventArgs.StatusCode = statusCode;
             eventArgs.Message = message;
 
-            this.OnConnectionFailed?.Invoke(this, eventArgs);
+            await (this.OnConnectionFailed?.Invoke(this, eventArgs) ?? Task.CompletedTask);
         }
     }
 }
