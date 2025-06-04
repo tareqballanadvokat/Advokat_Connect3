@@ -4,35 +4,9 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { CaseItem } from '../../interfaces/ISearchCase'
-import { getCases  } from '../../../utils/api';
-//import 'devextreme/dist/css/dx.material.blue.light.compact.css';
+import { getCases  } from '../../../utils/api'; 
 
-// import 'devextreme/scss/widgets/material/sizes';
-// import 'devextreme/scss/widgets/material/colors';
-// import 'devextreme/scss/widgets/material/icons';
-// import 'devextreme/scss/widgets/base/draggable';
-// import 'devextreme/scss/widgets/base/resizable';
-// import 'devextreme/scss/widgets/base/ui';
-// import 'devextreme/scss/widgets/material/widget';
-// import 'devextreme/scss/widgets/material/card';
-// import 'devextreme/scss/widgets/material/fieldset';
-// import 'devextreme/scss/widgets/material/common';
-// import 'devextreme/scss/widgets/material';
-
-// import 'devextreme/scss/widgets/material/colors'// with ($color: 'blue', $mode: 'light');
-// import 'devextreme/scss/widgets/material/sizes' //with ($size: 'compact');
-// import 'devextreme/scss/widgets/material/icons';
-// import 'devextreme/scss/widgets/material/widget';
-// import 'devextreme/scss/widgets/material/card';
-// import 'devextreme/scss/widgets/material/fieldset';
-// import 'devextreme/scss/widgets/material/common';
-// import 'devextreme/scss/widgets/base/resizable';
-// import 'devextreme/scss/widgets/base/draggable';
-// import 'devextreme/scss/widgets/base/ui';
-// import 'devextreme/scss/widgets/material';
-
-
-
+import notify from 'devextreme/ui/notify'; // ← import DevExtreme notify 
 interface Props {
   onCaseSelect: (caseId: string) => void;
 }
@@ -45,20 +19,24 @@ const SearchCaseList: React.FC<Props> = ({ onCaseSelect }) => {
 
   const handleSearch = async () => {
     const filter = searchValue.trim().toLowerCase();
-    const data = await getCases(filter);
+    try{
+        const data = await getCases(filter);
          setFullData(data);
          setRows(data);
-    if (!filter) {
-      setRows(fullData);
-    } else {
-      // setRows(
-      //   fullData.filter(
-      //     item =>
-      //       item.name.toLowerCase().includes(filter) 
-      //     //||  item.causa.toLowerCase().includes(filter),
-      //   ),
-      // );
-      setRows(data);
+        if (!filter) {
+          setRows(fullData);
+        } else {
+          // setRows(
+          //   fullData.filter(
+          //     item =>
+          //       item.name.toLowerCase().includes(filter) 
+          //     //||  item.causa.toLowerCase().includes(filter),
+          //   ),
+          // );
+          setRows(data);
+        }   
+    } catch(e){
+      notify('Search cases failed', 'error', 5000);
     }
   };
 

@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { API_BASE } from '../../../../config';
 import { SearchProps, CaseItem } from '../../interfaces/ISearchCase'
-import { getCases } from '../../../utils/api'
+import { getCases } from '../../../utils/api';
+import notify from 'devextreme/ui/notify';  
 
 // import { CaseItem } from '../../interfaces/ISearchCase';
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
@@ -14,54 +14,48 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const [fullData, setFullData] = useState<CaseItem[]>([]);
   const [gridVisible, setGridVisible] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await getCases('');
-        // ; await fetch(API_BASE+'api/react-structure/search-cases', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ query: '' })   // lub inny payload
-        // });
-        // const data: CaseItem[] = await resp.json();
-        setFullData(data);
-        setRows(data);
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-  }, []);
+  // useEffect(() => {
+  //   (async () => {
+  //     try {
+  //       const data = await getCases('');
+  //       setFullData(data);
+  //       setRows(data);
+  //     } catch (e) {
+  //       console.error(e);
+  //     }
+  //   })();
+  // }, []);
 
 
 
 
   const handleSearch = async () => {
     const filter = searchValue.trim().toLowerCase();
-
+    try{
 
     if (!filter) 
-    {
-      setRows([]);
-    } else 
-    {
-        const data = await getCases('');
-      // const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
-      //     method: 'POST',
-      //     headers: { 'Content-Type': 'application/json' },
-      //     body: JSON.stringify({ query: '' })   // lub inny payload
-      //   });
-      //   const data: CaseItem[] = await resp.json();
-      setFullData(data);
+        {
+          setRows([]);
+        } else 
+        {
+          
+            const data = await getCases('');
+            setFullData(data);
 
-      setRows(
-        fullData.filter(
-          item =>
-            item.name.toLowerCase().includes(filter) 
-          //||  item.causa.toLowerCase().includes(filter),
-        ),
-      );
-       setGridVisible(true);
+            setRows(
+              fullData.filter(
+                item =>
+                  item.name.toLowerCase().includes(filter) 
+                //||  item.causa.toLowerCase().includes(filter),
+              ),
+            );
+          setGridVisible(true);
+        }
     }
+    catch(e){
+        notify('Search cases failed', 'error', 5000);
+    }
+      
   };
 
 return (

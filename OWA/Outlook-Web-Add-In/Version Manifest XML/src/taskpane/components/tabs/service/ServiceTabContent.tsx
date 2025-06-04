@@ -3,19 +3,17 @@ import React, { useState, useEffect } from 'react';
 // import SearchAndCaseList from './SearchAndCaseList';
 import ServiceSection, { ServiceSectionProps } from '../shared/ServiceSection';
 import SearchCaseList from '../email/SearchCaseList'; 
-// import ServiceSend from './ServiceSend';
 import ServiceSend from '../email/EmailSend';
 import RegisteredService from './RegisteredService';
 import  { saveServiceInformation } from './../../../utils/api';
 
-import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
+import {  getInternetMessageIdAsync } from '../../../hooks/useOfficeItem'; 
 
 const ServiceTabContent: React.FC = () => {
     //Search Panel selection
     const [selectedCaseName, setSelectedCaseName] = useState(''); //case name
     const [selectedCaseId, setSelectedCaseId]     = useState(-1);  //case id
 
-  const [selectedCase, setSelectedCase] = useState('');
   // const [abbrev, setAbbrev] = useState('');  
   const [abbrev, setAbbrev] = useState<number>(0);
   const [time, setTime]   = useState('');
@@ -28,7 +26,7 @@ const ServiceTabContent: React.FC = () => {
   const [transferCaseDisable, setTransferCaseDisable] = useState(true);   //is button on availabe when input not filled
 
   const sendEmailHandler = async () => {
-    console.log('Transfer to ADVOKAT, caseId =', selectedCase);
+ 
     console.log(sb, text,abbrev,time);
  
   const email = Office.context.mailbox.item;
@@ -37,7 +35,7 @@ const ServiceTabContent: React.FC = () => {
  
   const payload   =
    {
-      caseId:       selectedCase,
+      caseId:       selectedCaseId,
       serviceAbbreviationType:  abbrev.toString(),
       serviceSB:           sb,         
       serviceTime:         time,

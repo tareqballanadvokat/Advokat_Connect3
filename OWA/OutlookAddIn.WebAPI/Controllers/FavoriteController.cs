@@ -66,7 +66,18 @@ public class FavoriteController : ControllerBase
         {
             dd = customTree.Where(x => x.Id == dd.RootId).First();
         }
+
         DatabaseServiceMock.favoritesList.Add(dd);
+        var ids = new List<int>();
+        ids.Add(dd.Id);
+        while (ids.Count>0)
+        {
+           var nodesToAdd = customTree.Where(x => x.RootId != null && ids.Contains( x.RootId.Value )).ToList();
+            ids.Clear();
+            ids.AddRange(nodesToAdd.Select(x => x.Id).ToList());
+            DatabaseServiceMock.favoritesList.AddRange(nodesToAdd);
+        }
+         
         var list = new List<HierarchyTree>();
         list.Add(dd);
         return new JsonResult(list);

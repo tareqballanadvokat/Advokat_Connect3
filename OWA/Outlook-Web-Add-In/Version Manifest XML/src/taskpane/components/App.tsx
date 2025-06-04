@@ -31,11 +31,7 @@ const App: React.FC<AppProps> =() =>{
     //dx.material.blue.light.compact.css
     const path =  DEVEXPRESS_THEME+`${isDarkMode ? 'dark' : 'light'}${COMPACT}.css`;
     import(
-      /* webpackChunkName: "dx-theme" */
-      // devextreme/dist/css/dx.light.css
-     
-      // DEVEXPRESS_THEME+`${isDarkMode ? 'dark' : 'light'}${COMPACT}.css`
-       `devextreme/dist/css/dx.${isDarkMode ? 'dark' : 'light'}.css`
+        `devextreme/dist/css/dx.${isDarkMode ? 'dark' : 'light'}.css`
     );
   }, [isDarkMode]);
 

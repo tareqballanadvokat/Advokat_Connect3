@@ -5,7 +5,7 @@ import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { API_BASE } from '../../../../config';
 import { Person } from '../../interfaces/IPerson';
- 
+import notify from 'devextreme/ui/notify'; // ← import DevExtreme notify
 
 interface Props {
   onCaseSelect: (caseId: string) => void;
@@ -17,24 +17,6 @@ const SearchPersonList: React.FC<Props> = ({ onCaseSelect }) => {
   const [rows, setRows] = useState<Person[]>([]);
   const [fullData, setFullData] = useState<Person[]>([]);
 
-  // useEffect(() => {
-  //   // fetch initial data
-  //   (async () => {
-  //     try {
-  //       const resp = await fetch(API_BASE+'api/person/search', {
-  //         method: 'POST',
-  //         headers: { 'Content-Type': 'application/json' },
-  //         body: JSON.stringify({ query: '' })   // lub inny payload
-  //       });
-  //       const data: Person[] = await resp.json();
-  //       setFullData(data);
-  //       setRows(data);
-  //     } catch (e) {
-  //       console.error(e);
-  //     }
-  //   })();
-  // }, []);
-
   const handleSearch = async () => {
     const filter = searchValue.trim().toLowerCase();
 
@@ -42,27 +24,25 @@ const SearchPersonList: React.FC<Props> = ({ onCaseSelect }) => {
     if (!filter) 
     {
       setRows([]);
-    } else {
+    } else 
+    {
+      try{
+        const resp = await fetch(API_BASE+'api/person/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: filter.toString() })   // lub inny payload
+            });
+        const data: Person[] = await resp.json();
+        setFullData(data);
+        setRows(data);
+        setGridVisible(true);
+      }
+      catch(e){
+        notify('Retriving during search failed', 'error', 2000);
+      }
 
-      const resp = await fetch(API_BASE+'api/person/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: filter.toString() })   // lub inny payload
-          });
-      const data: Person[] = await resp.json();
-      setFullData(data);
-
-      setRows(
-        fullData.filter(
-          item =>
-            item.fullName.toLowerCase().includes(filter) 
-          //||  item.causa.toLowerCase().includes(filter),
-        ),
-      );
-       setGridVisible(true);
     }
   };
-
 
 
 return (
@@ -71,7 +51,6 @@ return (
         Search 
       </h3>
 
-      {/* Search panel */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <TextBox
           width={250}
@@ -83,12 +62,11 @@ return (
         />
         <Button icon="search" stylingMode="contained" onClick={handleSearch} />
       </div>
-    {/* … Twój panel wyszukiwania … */}
 
     <DataGrid
       className="compact-grid"
       dataSource={rows}
-      keyExpr="id"               // Twój klucz
+      keyExpr="id"               
       showBorders={false}
    visible={gridVisible}
       showColumnLines={false}
@@ -104,7 +82,6 @@ return (
         allowedPageSizes={[5]}
         showInfo
       />
-      {/* -------------------------------- */}
       <Column
         dataField="id"
         caption="Case ID"
