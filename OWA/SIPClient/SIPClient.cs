@@ -5,6 +5,7 @@ using WebRTCClient.Models;
 using WebRTCClient.Transactions.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
+using WebRTCLibrary.SIP.Utils;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient
@@ -113,7 +114,7 @@ namespace WebRTCClient
             // set listening channels
             foreach (SIPChannelsEnum sipChannelEnum in sipChannelEnums)
             {
-                transport.AddSIPChannel(sipChannelEnum.GetChannelInstance(caller));
+                transport.AddSIPChannel(sipChannelEnum.GetChannelInstance(caller.Endpoint));
             }
 
             return transport;

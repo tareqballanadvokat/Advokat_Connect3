@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using WebRTCClient.Models;
 using WebRTCLibrary.SIP.Models;
-
+using WebRTCLibrary.SIP.Utils;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient
@@ -21,7 +21,7 @@ namespace WebRTCClient
 
         public static readonly SIPSchemesEnum defaultSipScheme = SIPSchemesEnum.sip; // TODO: make SIPS?
         
-        public static readonly SIPChannelsEnum defaulSIPChannel = SIPChannelsEnum.UDP; // TODO: make TLS?
+        public static readonly SIPChannelsEnum defaulSIPChannel = SIPChannelsEnum.WebSocketClient; // TODO: make TLS?
 
         /// <summary>Event that gets fired when a direct message form the peer is received.</summary>
         public event IWebRTCPeer.MessageReceivedDelegate? OnMessageReceived;
@@ -59,8 +59,8 @@ namespace WebRTCClient
             ILoggerFactory loggerFactory)
             : this(
                 new SignalingServerParams(
-                    sourceParticipant: new SIPParticipant(sourceUser, new SIPEndPoint(sourceEndpoint)),
-                    remoteParticipant: new SIPParticipant(remoteUser, new SIPEndPoint(signalingServer)),
+                    sourceParticipant: new SIPParticipant(sourceUser, new SIPEndPoint(defaulSIPChannel.Protocol, sourceEndpoint)),
+                    remoteParticipant: new SIPParticipant(remoteUser, new SIPEndPoint(defaulSIPChannel.Protocol, signalingServer)),
                     sipScheme: defaultSipScheme,
                     sipChannels: [defaulSIPChannel]),
                 iceServers: iceServers,

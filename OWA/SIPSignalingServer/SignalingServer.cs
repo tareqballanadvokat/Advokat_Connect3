@@ -1,10 +1,11 @@
-﻿using SIPSignalingServer.Transactions;
-using System.Net;
-using Microsoft.Extensions.Logging;
-using WebRTCLibrary.SIP;
+﻿using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Interfaces;
+using SIPSignalingServer.Transactions;
 using SIPSorcery.SIP;
+using System.Net;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
+using WebRTCLibrary.SIP.Utils;
 
 namespace SIPSignalingServer
 {
@@ -14,12 +15,14 @@ namespace SIPSignalingServer
 
         private readonly ILogger<SignalingServer> logger;
 
-        //private IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 8081);
+        //private IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 80);
         private IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:8081");
 
         private ISIPRegistry registry;
 
         private SIPSchemesEnum sipScheme = SIPSchemesEnum.sip;
+
+        public static readonly SIPChannelsEnum sipChannel = SIPChannelsEnum.WebSocketServer; // TODO: make TLS or WebSocketServer?
 
         private ISIPTransport transport;
 
@@ -56,12 +59,9 @@ namespace SIPSignalingServer
             ISIPTransport transport = new WebRTCLibrary.Utils.SIPTransport();
 
             // set listening channel
-            SIPUDPChannel channel = new SIPUDPChannel(sourceEndpoint);
-
-            // TODO: add more channels for TCP / ws support
             // TODO: add factory for channels
-            transport.AddSIPChannel(channel);
-
+            transport.AddSIPChannel(sipChannel.GetChannelInstance(new SIPEndPoint(sipChannel.Protocol, sourceEndpoint)));
+            
             return transport;
         }
 
