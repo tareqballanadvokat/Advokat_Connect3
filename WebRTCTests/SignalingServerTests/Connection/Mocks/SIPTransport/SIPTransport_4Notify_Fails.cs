@@ -5,7 +5,7 @@ using WebRTCLibrary.SIP.Interfaces;
 
 namespace SignalingServerTests.Connection.Mocks.SIPTransport
 {
-    internal class SIPTransport_Working_Registration_4Notify_Fails : ISIPTransport
+    internal class SIPTransport_4Notify_Fails : ISIPTransport
     {
         public List<SIPRequest> SentRequests { get; set; } = [];
 

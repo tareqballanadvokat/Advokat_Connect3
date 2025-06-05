@@ -1,16 +1,11 @@
 ﻿using SIPSorcery.SIP;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
 using WebRTCLibrary.SIP.Interfaces;
 
 namespace SignalingServerTests.Connection.Mocks.SIPTransport
 {
-    internal class SIPTransport_Working_Registration_No_5Ack : ISIPTransport
+    internal class SIPTransport_5Ack_After_Timeout(int timeout, int delay) : ISIPTransport
     {
         public List<SIPRequest> SentRequests { get; set; } = [];
 
@@ -28,7 +23,34 @@ namespace SignalingServerTests.Connection.Mocks.SIPTransport
         public async Task<SocketError> SendRequestAsync(SIPRequest request, bool waitForDns = false)
         {
             this.SentRequests.Add(request);
+
+            if (request.Method == SIPMethodsEnum.NOTIFY && request.Header.CSeq == 4)
+            {
+                await this.Send5AckAfterTimeout(request);
+            }
+
             return SocketError.Success;
+        }
+
+        private async Task Send5AckAfterTimeout(SIPRequest request)
+        {
+            SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
+            SIPURI uri = new SIPURI(SIPSchemesEnum.sip, sipEndPoint);
+
+            SIPRequest AckRequest = new SIPRequest(SIPMethodsEnum.ACK, uri)
+            {
+                Header = new SIPHeader(
+                    new SIPFromHeader(request.Header.To.ToName, uri, request.Header.To.ToTag),
+                    new SIPToHeader(request.Header.From.FromName, uri, request.Header.From.FromTag),
+                    callId: request.Header.CallId,
+                    cseq: 5)
+            };
+
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(timeout + delay);
+                await (this.SIPTransportRequestReceived?.Invoke(sipEndPoint, sipEndPoint, AckRequest) ?? Task.CompletedTask);
+            });
         }
 
         public async Task<SocketError> SendResponseAsync(SIPResponse response, bool waitForDns = false)

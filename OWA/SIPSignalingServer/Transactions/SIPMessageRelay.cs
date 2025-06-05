@@ -7,7 +7,7 @@ using WebRTCLibrary.SIP.Models;
 
 namespace SIPSignalingServer.Transactions
 {
-    internal class SIPMessageRelay : ServerSideSIPTransaction
+    public class SIPMessageRelay : ServerSideSIPTransaction
     {
         private readonly ILogger<SIPMessageRelay> logger;
 

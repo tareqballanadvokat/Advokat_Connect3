@@ -37,7 +37,7 @@ namespace SIPSignalingServer.Transactions
 
         private CancellationTokenSource registrationCts = new CancellationTokenSource();
 
-        private CancellationToken RegistrationCT { get => this.registrationCts.Token; }
+        private CancellationToken RegistrationCt { get => this.registrationCts.Token; }
 
         public event ISIPRegistrationTransaction.RegistrationFailedDelegate? OnRegistrationFailed;
 
@@ -120,7 +120,7 @@ namespace SIPSignalingServer.Transactions
                 () => this.Registry.IsConfirmed(this.Registration),
                 //() => this.registrationConfirmed && this.Registry.IsConfirmed(this.Registration),
                 timeOut: this.ReceiveTimeout,
-                this.RegistrationCT,
+                this.RegistrationCt,
                 // TODO: interval?
                 successCallback: async () => { this.Registered = true; },
                 timeoutCallback: async () => await this.RegistrationFailed(3, SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."),
@@ -143,7 +143,7 @@ namespace SIPSignalingServer.Transactions
             {
                 // send Accepted response
                 SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
-                SocketError socketState = await this.Connection.SendSIPResponse(accpetedResponse, this.RegistrationCT);
+                SocketError socketState = await this.Connection.SendSIPResponse(accpetedResponse, this.RegistrationCt);
 
                 if (SocketError.Success != socketState)
                 {
@@ -176,7 +176,7 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            if (this.RegistrationCT.IsCancellationRequested)
+            if (this.RegistrationCt.IsCancellationRequested)
             {
                 await this.RegistrationFailed(4, SIPResponseStatusCodesEnum.RequestTerminated, "Confirmation failed. Registration was cancelled.");
                 return;

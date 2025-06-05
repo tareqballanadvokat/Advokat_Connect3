@@ -2,25 +2,25 @@
 using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using Microsoft.Extensions.Logging;
+using SIPSignalingServer.Interfaces;
 
 namespace SIPSignalingServer
 {
-    internal class SIPConnectionPool
+    internal class SIPMemoryConnectionPool : ISIPConnectionPool
     {
-        private readonly ILogger<SIPConnectionPool> logger;
+        private readonly ILogger<SIPMemoryConnectionPool> logger;
 
         private readonly object lockObject = new object();
-        
+
         private readonly List<SIPTunnel> Connections = new List<SIPTunnel>();
 
         private readonly List<SIPMessageRelay> PendingConnections = new List<SIPMessageRelay>();
-        public delegate Task ConnectionRemovedDelegate(SIPConnectionPool sender, ServerSideTransactionParams connectionParams);
-        
-        public event ConnectionRemovedDelegate? ConnectionRemoved;
 
-        public SIPConnectionPool(ILoggerFactory loggerFactory)
+        public event ISIPConnectionPool.ConnectionRemovedDelegate? ConnectionRemoved;
+
+        public SIPMemoryConnectionPool(ILoggerFactory loggerFactory)
         {
-            this.logger = loggerFactory.CreateLogger<SIPConnectionPool>();
+            this.logger = loggerFactory.CreateLogger<SIPMemoryConnectionPool>();
         }
 
         public void Connect(SIPMessageRelay messageRelay)

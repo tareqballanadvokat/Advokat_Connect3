@@ -2,7 +2,7 @@
 
 namespace SIPSignalingServer.Models
 {
-    internal class SIPTunnel
+    public class SIPTunnel
     {
         public SIPMessageRelay Left { get; private set; }
 

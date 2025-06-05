@@ -20,14 +20,15 @@ namespace SIPSignalingServer.Transactions
 
         public readonly static int defaultRegistrationTimeout = 3000;
 
-        /// <summary>Timeout for the peer to finish the registration process. Must be set before starting.</summary>
+        /// <summary>Timeout for the client to finish the registration process. Must be set before starting.</summary>
         /// <value>Defualt value specified in the <see cref="defaultRegistrationTimeout"/> field.</value>
         /// <version date="25.04.2025" sb="MAC">Created.</version>
         public int RegistrationTimeout { get; set; } = defaultRegistrationTimeout; // TODO: add flag if it already started - prevent setting then.
 
-        /// <summary>Timeout for the connection process after the registration.
-        ///          How long the connection should wait for the peer to register.
-        ///          If set to null the connection will wait indeffinetly.
+        public readonly static int defaultConnectionTimeout = 3000;
+
+        /// <summary>Timeout for the connection process after client and peer registration.
+        ///          Specify how long the connection process should take before it is cancelled.
         ///          Must be set before starting.
         ///          
         ///          This could be adjusted in the future and sent by the client in the registration.</summary>
@@ -35,13 +36,25 @@ namespace SIPSignalingServer.Transactions
         /// <version date="25.04.2025" sb="MAC">Created.</version>
         public int? ConnectionTimeout { get; set; } = null; // TODO: add flag if it already started - prevent setting then.
 
+        /// <summary>Timeout for the peer to register.
+        ///          How long to wait after client registration was successful for the peer to connect.
+        ///          If set to null the connection will wait indeffinetly.
+        ///          Must be set before starting.
+        ///
+        ///          This could be adjusted in the future and sent by the client in the registration.</summary>
+        /// <value>Default value is null.</value>
+        /// <version date="04.06.2025" sb="MAC">Created.</version>
+        public int? PeerRegistrationTimeout { get; set; } = null; // TODO: add flag if it already started - prevent setting then.
+                                                                  // TODO: Should we remove the timeout completely? let the client determine it's own timeout and stop responding after that.
+                                                                  //       If the keep alive dialog is held we keep wait for the peer indefinetly
+
         private SIPRequest InitialRequest { get; set; }
 
         private SIPEndPoint SignalingServer { get; set; }
 
         private ISIPRegistry Registry { get; set; }
 
-        private SIPConnectionPool ConnectionPool { get; set; }
+        private ISIPConnectionPool ConnectionPool { get; set; }
 
         public ISIPRegistrationTransactionFactory SIPRegistrationTransactionFactory { get; set; }
 
@@ -51,13 +64,15 @@ namespace SIPSignalingServer.Transactions
 
         private ISIPTransport Transport { get; set; }
 
+        private bool WaitingForPeer { get; set; }
+
         public SIPDialog(
             SIPSchemesEnum sipScheme,
             ISIPTransport transport,
             SIPRequest initialRequest,
             SIPEndPoint signalingServer,
             ISIPRegistry registry,
-            SIPConnectionPool connectionPool,
+            ISIPConnectionPool connectionPool,
             ILoggerFactory loggerFactory)
             : base(
                   sipScheme,
@@ -134,7 +149,7 @@ namespace SIPSignalingServer.Transactions
                 CancellationToken.None, // TODO: implement cancellation logic
                 // TODO: interval?
                 //failureCallback: // StopRegistration , // TODO: do something on timeout
-                successCallback: this.Connect);
+                successCallback: this.WaitForPeer);
 
             this.SIPRegistrationTransaction.OnRegistrationFailed -= this.RegistrationFailedListener;
         }
@@ -146,6 +161,25 @@ namespace SIPSignalingServer.Transactions
             await (this.SIPRegistrationTransaction?.Unregister(4) ?? Task.CompletedTask);
             // TODO: Dispose on Registation fail / timeout
             //       Stop waiting for registration
+        }
+
+        private async Task WaitForPeer()
+        {
+            this.WaitingForPeer = true;
+
+            SIPRegistration registration = new SIPRegistration(this.Params);
+            this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", registration.RemoteUser, registration.SourceParticipant);
+
+            // TODO: add own timeout for waiting for peer
+            CancellationTokenSource peerRegisteringCts = new CancellationTokenSource();
+
+
+            await WaitForAsync(
+                () => this.Registry.PeerIsRegistered(registration), // TODO: make PeerIsRegistered an event. If registry is a db we shouldn't hit it this often.
+                peerRegisteringCts.Token,
+                CancellationToken.None, // TODO: implement cancellation logic
+                                        // TODO: interval?
+                successCallback: this.Connect);
         }
 
         private async Task Connect()
@@ -175,7 +209,8 @@ namespace SIPSignalingServer.Transactions
                 connectionTimeoutCt,
                 CancellationToken.None, // TODO: add cancelation logic
                 // TODO: interval?
-                successCallback: this.StartICENegotiation
+                successCallback: this.StartICENegotiation,
+                timeoutCallback: this.SIPConnectionTransaction.Disconnect
                 //failureCallback: () => { } // timeout - token got cancelled // TODO: Stop Connection and unregister?
                 ); 
 

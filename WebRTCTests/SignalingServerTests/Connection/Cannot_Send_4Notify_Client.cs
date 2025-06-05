@@ -37,7 +37,7 @@ namespace SignalingServerTests.Connection
                 clientTag: CallProperties.CreateNewTag());
 
             SIPRegistry_Is_Registered sipRegistration = new SIPRegistry_Is_Registered(peerRegistrationParams);
-            SIPConnectionPool connectionPool = new SIPConnectionPool(NullLoggerFactory.Instance);
+            SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
 
             SIPConnectionTransaction sipConnectionTransaction = new SIPConnectionTransaction(
                 SIPSchemesEnum.sip,
@@ -83,7 +83,7 @@ namespace SignalingServerTests.Connection
             sipRegistry.Register(new SIPRegistration(peerRegistrationParams));
             sipRegistry.Confirm(new SIPRegistration(peerRegistrationParams));
 
-            SIPConnectionPool connectionPool = new SIPConnectionPool(NullLoggerFactory.Instance);
+            SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
             
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
             initialRequest.Header = new SIPHeader(
@@ -118,7 +118,8 @@ namespace SignalingServerTests.Connection
 
             Assert.True(sipRegistrationTransaction.Registered);
 
-            await sipDialog.Start();
+            _ = Task.Run(sipDialog.Start);
+            await Task.Delay(150);
 
             Assert.False(sipRegistrationTransaction.Registered);
         }
@@ -143,7 +144,7 @@ namespace SignalingServerTests.Connection
             sipRegistry.Register(new SIPRegistration(peerRegistrationParams));
             sipRegistry.Confirm(new SIPRegistration(peerRegistrationParams));
 
-            SIPConnectionPool connectionPool = new SIPConnectionPool(NullLoggerFactory.Instance);
+            SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
 
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
             initialRequest.Header = new SIPHeader(
@@ -153,7 +154,7 @@ namespace SignalingServerTests.Connection
                 CallProperties.CreateNewCallId());
             initialRequest.SetRemoteEndPoint(sipEndPoint);
 
-            SIPTransport_Working_Registration_4Notify_Fails mockSIPTransport = new SIPTransport_Working_Registration_4Notify_Fails();
+            SIPTransport_4Notify_Fails mockSIPTransport = new SIPTransport_4Notify_Fails();
 
             SIPDialog sipDialog = new SIPDialog(
                 SIPSchemesEnum.sip,
@@ -169,7 +170,8 @@ namespace SignalingServerTests.Connection
             sipDialog.SendTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
 
-            await sipDialog.Start();
+            _ = Task.Run(sipDialog.Start);
+            await Task.Delay(150);
 
             Assert.False(sipRegistry.IsRegistered(new SIPRegistration(sipDialog.Params)));
         }
@@ -194,7 +196,7 @@ namespace SignalingServerTests.Connection
             sipRegistry.Register(new SIPRegistration(peerRegistrationParams));
             sipRegistry.Confirm(new SIPRegistration(peerRegistrationParams));
 
-            SIPConnectionPool connectionPool = new SIPConnectionPool(NullLoggerFactory.Instance);
+            SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
 
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
             initialRequest.Header = new SIPHeader(
@@ -204,7 +206,7 @@ namespace SignalingServerTests.Connection
                 CallProperties.CreateNewCallId());
             initialRequest.SetRemoteEndPoint(sipEndPoint);
 
-            SIPTransport_Working_Registration_4Notify_Fails mockSIPTransport = new SIPTransport_Working_Registration_4Notify_Fails();
+            SIPTransport_4Notify_Fails mockSIPTransport = new SIPTransport_4Notify_Fails();
 
             SIPDialog sipDialog = new SIPDialog(
                 SIPSchemesEnum.sip,
@@ -220,7 +222,8 @@ namespace SignalingServerTests.Connection
             sipDialog.SendTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
 
-            await sipDialog.Start();
+            _ = Task.Run(sipDialog.Start);
+            await Task.Delay(150);
 
             // 4 Notify - failed, 4 Bye
             Assert.Equal(2, mockSIPTransport.SentRequests.Count);
