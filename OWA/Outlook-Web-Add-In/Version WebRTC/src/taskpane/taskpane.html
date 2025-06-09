@@ -1,0 +1,237 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license. -->
+<!-- See LICENSE in the project root for license information -->
+
+<!doctype html>
+<html lang="en" data-framework="typescript">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Contoso Task Pane Add-in</title>
+<style>
+
+.compact-grid .dx-datagrid-headers .dx-header-row > td,
+.compact-grid .dx-datagrid-content .dx-data-row > td {
+  padding: 4px 8px !important;
+}
+.compact-grid .dx-pager {
+  padding: 4px 8px !important;
+  font-size: 12px;
+}
+</style>
+    <!-- <script src="https://jssip.net/download/releases/jssip-3.10.0.min.js"></script>
+   Office JavaScript API -->
+ 
+
+         <script type="text/javascript">
+     const WEBSOCKET_URL = "ws://127.0.0.1:8081/"
+
+     var pc, ws;
+
+     async function start() {
+         pc = new RTCPeerConnection();
+
+         pc.ontrack = evt => {
+	console.log("Adding track to video control.");
+//	document.querySelector('#videoCtl').srcObject = evt.streams[0];
+	
+	evt.streams[0].onunmute = () => {
+		console.log("Adding track to video control.");
+	};
+                 
+   evt.streams[0].onended = () => {
+	  console.log("Track ended.");
+   };
+}
+
+         pc.onicecandidate = evt => evt.candidate && ws.send(JSON.stringify(evt.candidate));
+
+pc.onclose= () => {
+   console.log("pc close");
+};
+
+         ws = new WebSocket("ws://127.0.0.1:8081/", []);
+         ws.onmessage = async function (evt) {
+             var obj = JSON.parse(evt.data);
+             if (obj?.candidate) {
+                 pc.addIceCandidate(obj);
+             }
+             else if (obj?.sdp) {
+                 await pc.setRemoteDescription(new RTCSessionDescription(obj));
+                 pc.createAnswer()
+                     .then((answer) => pc.setLocalDescription(answer))
+                     .then(() => ws.send(JSON.stringify(pc.localDescription)));
+             }
+         };
+     };
+
+     async function closePeer() {
+         await pc?.close();
+         await ws?.close();
+     };
+
+	start();
+ 
+     </script>
+<!-- 
+  <script>
+    (function() {
+      const logEl = document.getElementById('log');
+      const startBtn = document.getElementById('startBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      const sipUriInput ="sip:1001@192.168.0.110:8081";
+      let ua = null;
+
+      function log(msg) {
+        const ts = new Date().toLocaleTimeString();
+        logEl.textContent += `[${ts}] ${msg}\n`;
+        logEl.scrollTop = logEl.scrollHeight;
+        console.log(msg);
+      }
+
+      function startUA() {
+        if (ua) {
+          log('UA jest już uruchomiony.');
+          return;
+        }
+
+        const socket = new JsSIP.WebSocketInterface('ws://192.168.0.110:8081');       
+
+
+        // 2. Konfiguracja UA
+        const configuration = {
+          sockets: [socket],
+          uri: sipUriInput.trim(),
+          // Jeśli potrzebujesz hasła, odkomentuj poniższą linię i wpisz właściwe hasło:
+          // password: 'tajneHaslo'
+        };
+
+        // 3. Utworzenie instancji UA
+        ua = new JsSIP.UA(configuration);
+
+        // 4. Rejestracja eventów
+        ua.on('connected', () => {
+          log('✔️ Połączono do serwera WebSocket (SIP)');
+        });
+
+        ua.on('disconnected', () => {
+          log('🔌 Rozłączono z serwerem WebSocket (SIP)');
+        });
+
+        ua.on('registered', () => {
+          log('✅ Zarejestrowano w SIP (registered)');
+        });
+
+        ua.on('unregistered', () => {
+          log('ℹ️ Wyrejestrowano z SIP (unregistered)');
+        });
+
+        ua.on('registrationFailed', (e) => {
+          log(`❌ Rejestracja nie powiodła się: ${e.cause}`);
+        });
+
+        ua.on('newRTCSession', (e) => {
+          const session = e.session;
+
+          if (e.originator === 'remote') {
+            log('📞 Przychodzące połączenie SIP');
+            // Odpowiedz automatycznie (bez video, tylko audio)
+            session.answer({
+              mediaConstraints: { audio: true, video: false }
+            });
+            log('▶️ Odpowiedziano na połączenie (session.answer)');
+          }
+
+          session.on('ended', () => {
+            log('🚫 Sesja zakończona (ended)');
+          });
+
+          session.on('failed', (e2) => {
+            log(`❌ Sesja nieudana: ${e2.cause}`);
+          });
+
+          session.on('accepted', () => {
+            log('✔️ Połączenie zaakceptowane (accepted)');
+          });
+
+          session.on('confirmed', () => {
+            log('✅ Połączenie potwierdzone (confirmed)');
+          });
+        });
+
+        ua.on('sipEvent', (e) => {
+
+        });
+
+        // 5. Uruchom UA (inicjuje rejestrację)
+        ua.start();
+        log('🔄 UA.start() – próbuję zarejestrować się w SIP'); 
+      }
+
+      function stopUA() {
+        if (!ua) {
+          log('UA nie jest uruchomiony.');
+          return;
+        }
+        ua.stop(); // zakończy rejestrację i zamknie WebSocket
+        log('⏹ UA.stop() – zakończono działanie UA');
+        ua = null;
+     
+      }
+ startUA();
+    })();
+  </script> -->
+
+ 
+
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <style>
+
+ .dx-accordion-item-title .dx-icon {
+    float: left;
+}
+
+.dx-accordion-item-title::before{
+    position: left;
+}
+    </style>
+</head>
+
+<body style="width: 100%; height: 100%; margin: 5px; padding: 0;" class="dx-viewport">
+    <div id="container"></div>
+  <h2>Prosty klient SIP w czystym HTML/JS (JsSIP)</h2>
+  <div>
+    <label>
+      SIP URI:
+      <input type="text" id="sipUri" value="sip:1001@192.168.0.107:8081" style="width: 250px;" />
+    </label>
+  </div>
+  <button id="startBtn">Uruchom rejestrację SIP</button>
+  <button id="stopBtn" disabled>Zatrzymaj UA</button>
+
+  <h3>Logi:</h3>
+  <div id="log"></div>
+
+    <!-- 
+        Fluent UI React v. 9 uses modern JavaScript syntax that is not supported in
+        Trident (Internet Explorer) or EdgeHTML (Edge Legacy), so this add-in won't
+        work in Office versions that use these webviews. The script below makes the 
+        following div display when an unsupported webview is in use, and hides the 
+        React container div. 
+    -->
+    <div id="tridentmessage" style="display: none; padding: 10;">
+        This add-in will not run in your version of Office. Please upgrade either to perpetual Office 2021 (or later) 
+        or to a Microsoft 365 account.
+    </div>
+    <script>
+        if ((navigator.userAgent.indexOf("Trident") !== -1) || (navigator.userAgent.indexOf("Edge") !== -1)) {
+            var tridentMessage = document.getElementById("tridentmessage");
+            var normalContainer = document.getElementById("container");
+            tridentMessage.style.display = "block";
+            normalContainer.style.display = "none";
+        } 
+    </script>
+</body>
+
+</html>
