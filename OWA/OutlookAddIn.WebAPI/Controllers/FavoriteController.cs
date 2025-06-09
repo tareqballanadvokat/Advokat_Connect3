@@ -1,9 +1,11 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Linq.Expressions;
+using System.Text;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using OutlookAddIn.WebAPI.Models;
 using OutlookAddIn.WebAPI.Services;
+using SIPSorcery.Net;
 
 namespace OutlookAddIn.WebAPI.Controllers;
 
@@ -13,11 +15,18 @@ namespace OutlookAddIn.WebAPI.Controllers;
 public class FavoriteController : ControllerBase
 {
     private readonly IDatabaseServiceMock _databaseMock;
+    IPeerConnection _peerConnection;
+
+    private static RTCPeerConnection _connection;
+    RTCDataChannel _dataChannel;
     private readonly ILogger<FavoriteController> _logger;
 
-    public FavoriteController(ILogger<FavoriteController> logger, IDatabaseServiceMock databaseMock)
+    public FavoriteController(ILogger<FavoriteController> logger,
+        IPeerConnection peerConnection,
+        IDatabaseServiceMock databaseMock)
     {
         _logger = logger;
+        _peerConnection = peerConnection;
         _databaseMock = databaseMock;
     }
 
@@ -26,7 +35,14 @@ public class FavoriteController : ControllerBase
     public ActionResult FillCustomData()
     {
         _databaseMock.FillCustomData();
-      
+        //    _connection = _peerConnection.Start().Result;
+        // connection.DataChannels;
+
+        //foreach (var peer in WebSocketPeerManager.ConnectedPeers)
+        //{
+        //   var dc =  peer.RTCPeerConnection.createDataChannel("nazwa");
+        //    dc.Result.send("sdsd");
+        //}
         return Ok();
     }
 
@@ -54,6 +70,14 @@ public class FavoriteController : ControllerBase
             });
         };
 
+
+
+        if (_dataChannel != null)
+        {
+            byte[] messageBytes = Encoding.UTF8.GetBytes("Asdsa");
+            _dataChannel.send(messageBytes);
+        }
+     
         return new JsonResult(allFavorites);
     }
   
@@ -91,5 +115,5 @@ public class FavoriteController : ControllerBase
         return Ok();
     }
 
-} 
- 
+}
+

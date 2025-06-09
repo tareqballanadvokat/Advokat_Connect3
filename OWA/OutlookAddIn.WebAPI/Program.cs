@@ -17,8 +17,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IDatabaseServiceMock, DatabaseServiceMock>();
+builder.Services.AddSingleton<IPeerConnection, PeerConnection>();
 builder.Services.AddSingleton<IFileReader, FileReader>();
-
+builder.Services.AddHostedService<WebRtcService>();  
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
