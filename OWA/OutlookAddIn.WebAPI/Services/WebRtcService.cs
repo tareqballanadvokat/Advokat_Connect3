@@ -6,6 +6,7 @@ namespace OutlookAddIn.WebAPI.Services
     using System.Collections.Generic;
     using System.Linq;
     using System.Net;
+    using System.Security.Cryptography.X509Certificates;
     using System.Threading;
     using System.Threading.Tasks;
     using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace OutlookAddIn.WebAPI.Services
  
     using SIPSorcery.Media;
     using SIPSorcery.Net;
+    using SIPSorcery.SIP;
     using SIPSorceryMedia.Encoders;
     using WebSocketSharp.Server;
     public class WebRtcService : BackgroundService
@@ -20,6 +22,7 @@ namespace OutlookAddIn.WebAPI.Services
         private readonly ILogger<WebRtcService> _logger;
         private WebSocketServer _webSocketServer;
         private const int WEBSOCKET_PORT = 8081;
+        //private const int WEBSOCKET_PORT = 443;
         private const string STUN_URL = "stun:stun.sipsorcery.com";
 
         public WebRtcService(ILogger<WebRtcService> logger)
@@ -30,7 +33,14 @@ namespace OutlookAddIn.WebAPI.Services
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("Starting WebRTC WebSocket server...");
-            _webSocketServer = new WebSocketServer(IPAddress.Any, WEBSOCKET_PORT);
+           // var wssCertificate = new System.Security.Cryptography.X509Certificates.X509Certificate2(@"C:\GIT\localhost.pfx");
+            //_webSocketServer = new WebSocketServer(IPAddress.Any, WEBSOCKET_PORT, true);
+            //_webSocketServer.SslConfiguration.ServerCertificate = new X509Certificate2(wssCertificate);
+            //_webSocketServer.SslConfiguration.CheckCertificateRevocation = false;
+            //_webSocketServer.SslConfiguration.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+
+
+           _webSocketServer = new WebSocketServer(IPAddress.Any, WEBSOCKET_PORT);
             _webSocketServer.AddWebSocketService<WebRTCWebSocketPeer>("/", peer =>
             {
                 peer.CreatePeerConnection = CreatePeerConnection;
