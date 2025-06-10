@@ -1,0 +1,26 @@
+﻿using SIPSignalingServer.Transactions;
+
+namespace SIPSignalingServer.Models
+{
+    public class SIPTunnel
+    {
+        public SIPMessageRelay Left { get; private set; }
+
+        public SIPMessageRelay Right { get; private set; }
+
+        public bool Connected { get => this.Left.Relaying && this.Right.Relaying; }
+
+        public SIPTunnel(SIPMessageRelay left, SIPMessageRelay right)
+        {
+            // TODO: Check params if they match?
+            Left = left;
+            Right = right;
+
+            this.Left.OnRequestReceived += this.Right.RelayRequest;
+            this.Left.OnResponseReceived += this.Right.RelayResponse;
+
+            this.Right.OnRequestReceived += this.Left.RelayRequest;
+            this.Right.OnResponseReceived += this.Left.RelayResponse;
+        }
+    }
+}

@@ -1,4 +1,0 @@
-﻿this project is a first atept for client communication via signalling server
-Works but duplicated code here and in SignallingClient 
-
-BEFORE REMOVE THIS PRJECT CHECK IF HAS SOME IMPORTANT INFORMATION HERE

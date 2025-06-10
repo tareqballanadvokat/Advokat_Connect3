@@ -1,0 +1,62 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35919.96
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPClientTests", "WebRTCTests\SIPClientTests.csproj", "{050207ED-6BC4-44DC-B9C3-CEA34C957E2D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "projects_to_test", "projects_to_test", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCClient", "..\OWA\SIPClient\WebRTCClient.csproj", "{FF2750E8-9A76-BDF4-5FA4-785F9A0BFBA7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCLibrary", "..\OWA\WebRTCLibrary\WebRTCLibrary.csproj", "{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCIntegrationTests", "WebRTCIntegrationTests\WebRTCIntegrationTests.csproj", "{6668EB4C-FB49-49DB-AEBE-46645EF0651F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSignalingServer", "..\OWA\SIPSignalingServer\SIPSignalingServer.csproj", "{224C356D-8599-BC95-A270-C0DF00A0BF78}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SignalingServerTests", "SignalingServerTests\SignalingServerTests.csproj", "{3F9F1AF7-2B06-46E4-8C46-588A2B5A7B60}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{050207ED-6BC4-44DC-B9C3-CEA34C957E2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{050207ED-6BC4-44DC-B9C3-CEA34C957E2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{050207ED-6BC4-44DC-B9C3-CEA34C957E2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{050207ED-6BC4-44DC-B9C3-CEA34C957E2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FF2750E8-9A76-BDF4-5FA4-785F9A0BFBA7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FF2750E8-9A76-BDF4-5FA4-785F9A0BFBA7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FF2750E8-9A76-BDF4-5FA4-785F9A0BFBA7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FF2750E8-9A76-BDF4-5FA4-785F9A0BFBA7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6668EB4C-FB49-49DB-AEBE-46645EF0651F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6668EB4C-FB49-49DB-AEBE-46645EF0651F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6668EB4C-FB49-49DB-AEBE-46645EF0651F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6668EB4C-FB49-49DB-AEBE-46645EF0651F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F9F1AF7-2B06-46E4-8C46-588A2B5A7B60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F9F1AF7-2B06-46E4-8C46-588A2B5A7B60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F9F1AF7-2B06-46E4-8C46-588A2B5A7B60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F9F1AF7-2B06-46E4-8C46-588A2B5A7B60}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FF2750E8-9A76-BDF4-5FA4-785F9A0BFBA7} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{224C356D-8599-BC95-A270-C0DF00A0BF78} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C46747FA-119D-4028-804E-A2E66C2525A5}
+	EndGlobalSection
+EndGlobal
