@@ -17,11 +17,11 @@ namespace WebRTCClient
     {
         private readonly ILoggerFactory loggerFactory;
 
-        private readonly ILogger<WebRTCPeer> logger; 
+        private readonly ILogger<WebRTCPeer> logger;
 
         public static readonly SIPSchemesEnum defaultSipScheme = SIPSchemesEnum.sip; // TODO: make SIPS?
         
-        public static readonly SIPChannelsEnum defaulSIPChannel = SIPChannelsEnum.WebSocketClient; // TODO: make TLS?
+        public static readonly SIPChannelsEnum defaulSIPChannel = SIPChannelsEnum.WebSocketSSLClient; // TODO: make TLS?
 
         /// <summary>Event that gets fired when a direct message form the peer is received.</summary>
         public event IWebRTCPeer.MessageReceivedDelegate? OnMessageReceived;

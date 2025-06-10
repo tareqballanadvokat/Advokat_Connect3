@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SIPSorcery" Version="8.0.11" />
+    <ProjectReference Include="..\SIPSorcery\sipsorcery\src\SIPSorcery.csproj" />
   </ItemGroup>
 
 <!--

@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\sipsorcery-master\src\SIPSorcery.csproj" />
+    <ProjectReference Include="..\SIPSorcery\sipsorcery\src\SIPSorcery.csproj" />
   </ItemGroup>
 
 </Project>
