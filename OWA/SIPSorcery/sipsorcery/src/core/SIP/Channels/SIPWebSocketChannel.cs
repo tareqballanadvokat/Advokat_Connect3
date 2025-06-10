@@ -180,7 +180,7 @@ namespace SIPSorcery.SIP
                 var sslConfig = m_webSocketServer.SslConfiguration;
                 sslConfig.ServerCertificate = certificate;
                 sslConfig.CheckCertificateRevocation = false;
-                sslConfig.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12; // DEBUG
+                sslConfig.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls13; // DEBUG
                 IsSecure = true;
             }
 
@@ -268,11 +268,13 @@ namespace SIPSorcery.SIP
         }
 
         /// <summary>
-        /// Not implemented for the WebSocket channel.
+        /// Not Implemented by the Library itself.
+        /// Looked at in Wireshark. the connection is working and is encrypted.
         /// </summary>
-        public override Task<SocketError> SendSecureAsync(SIPEndPoint dstEndPoint, byte[] buffer, string serverCertificateName, bool canInitiateConnection, string connectionIDHint)
+        public async override Task<SocketError> SendSecureAsync(SIPEndPoint dstEndPoint, byte[] buffer, string serverCertificateName, bool canInitiateConnection, string connectionIDHint)
         {
-            throw new NotImplementedException("This Send method is not available in the SIP Web Socket channel, please use an alternative overload.");
+            return await this.SendAsync(dstEndPoint, buffer, canInitiateConnection, connectionIDHint);
+            //throw new NotImplementedException("This Send method is not available in the SIP Web Socket channel, please use an alternative overload.");
         }
 
         /// <summary>

@@ -8,6 +8,6 @@ $cert = New-SelfSignedCertificate -Subject "CN=$certname" -CertStoreLocation "Ce
 $mypwd = ConvertTo-SecureString -String $password -Force -AsPlainText
 $currentDirectory = Get-Location
 
-$fullFilePath = ($currentDirectory + "\" +$certname + ".pfx")
+$fullFilePath = "$currentDirectory\$certname.pfx")
 
 Export-PfxCertificate -Cert $cert -FilePath $fullFilePath -Password $mypwd
