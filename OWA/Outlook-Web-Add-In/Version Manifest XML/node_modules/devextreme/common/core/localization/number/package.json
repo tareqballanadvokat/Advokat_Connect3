@@ -1,5 +1,0 @@
-{
-  "sideEffects": false,
-  "main": "../../../../cjs/common/core/localization/number.js",
-  "module": "../../../../esm/common/core/localization/number.js"
-}

@@ -1,5 +1,0 @@
-{
-  "sideEffects": false,
-  "main": "../../cjs/common/set_template_engine.js",
-  "module": "../../esm/common/set_template_engine.js"
-}

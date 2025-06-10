@@ -1,8 +1,0 @@
-{
-  "sideEffects": [
-    "../../esm/common/core/localization/currency.js"
-  ],
-  "main": "../../cjs/viz/chart.js",
-  "module": "../../esm/viz/chart.js",
-  "typings": "../chart.d.ts"
-}

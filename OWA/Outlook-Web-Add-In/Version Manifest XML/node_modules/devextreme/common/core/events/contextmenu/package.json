@@ -1,5 +1,0 @@
-{
-  "sideEffects": false,
-  "main": "../../../../cjs/common/core/events/contextmenu.js",
-  "module": "../../../../esm/common/core/events/contextmenu.js"
-}

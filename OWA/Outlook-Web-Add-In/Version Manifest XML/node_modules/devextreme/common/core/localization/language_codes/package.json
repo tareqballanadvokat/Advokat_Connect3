@@ -1,5 +1,0 @@
-{
-  "sideEffects": false,
-  "main": "../../../../cjs/common/core/localization/language_codes.js",
-  "module": "../../../../esm/common/core/localization/language_codes.js"
-}

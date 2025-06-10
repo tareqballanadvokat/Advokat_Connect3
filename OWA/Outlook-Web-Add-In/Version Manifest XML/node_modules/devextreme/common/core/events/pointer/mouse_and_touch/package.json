@@ -1,5 +1,0 @@
-{
-  "sideEffects": false,
-  "main": "../../../../../cjs/common/core/events/pointer/mouse_and_touch.js",
-  "module": "../../../../../esm/common/core/events/pointer/mouse_and_touch.js"
-}

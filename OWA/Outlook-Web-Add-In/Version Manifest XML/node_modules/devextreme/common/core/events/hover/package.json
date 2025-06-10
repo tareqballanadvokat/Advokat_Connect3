@@ -1,5 +1,0 @@
-{
-  "sideEffects": false,
-  "main": "../../../../cjs/common/core/events/hover.js",
-  "module": "../../../../esm/common/core/events/hover.js"
-}

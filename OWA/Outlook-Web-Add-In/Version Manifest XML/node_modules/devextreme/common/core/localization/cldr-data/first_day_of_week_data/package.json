@@ -1,5 +1,0 @@
-{
-  "sideEffects": false,
-  "main": "../../../../../cjs/common/core/localization/cldr-data/first_day_of_week_data.js",
-  "module": "../../../../../esm/common/core/localization/cldr-data/first_day_of_week_data.js"
-}

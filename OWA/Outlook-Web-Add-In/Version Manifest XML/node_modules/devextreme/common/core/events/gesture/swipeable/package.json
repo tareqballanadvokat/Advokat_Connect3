@@ -1,5 +1,0 @@
-{
-  "sideEffects": false,
-  "main": "../../../../../cjs/common/core/events/gesture/swipeable.js",
-  "module": "../../../../../esm/common/core/events/gesture/swipeable.js"
-}

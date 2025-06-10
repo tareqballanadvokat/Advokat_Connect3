@@ -1,5 +1,0 @@
-{
-  "sideEffects": false,
-  "main": "../../../../cjs/common/core/events/hold.js",
-  "module": "../../../../esm/common/core/events/hold.js"
-}
