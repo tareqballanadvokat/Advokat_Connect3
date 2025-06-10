@@ -5,8 +5,6 @@ VisualStudioVersion = 17.12.35527.113
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{FA2E652A-9DFC-46FD-88CF-F3368C659CF6}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SIPSorcery", "sipsorcery-master\src\SIPSorcery.csproj", "{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OWA.SignallingServer", "OWA.SignallingServer\OWA.SignallingServer.csproj", "{EBCAD2A2-43DB-4D6B-BE76-934AADC291E7}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "WebRTC", "WebRTC", "{EE7A1761-69C1-45B5-A49C-CFC7B096871C}"
@@ -35,16 +33,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCRemoteWPF", "WebRTCRe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Serilog.Sinks.LogList", "Serilog.Sinks.LogList\Serilog.Sinks.LogList.csproj", "{9785FC56-0B37-4AB6-A0BA-9D050E8AD4A9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSorcery", "sipsorcery-master\sipsorcery\src\SIPSorcery.csproj", "{B74652F4-2295-B55B-2F6E-F25CC6A06CDF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5FF7BED5-C2DD-484F-8EB3-0EF50F11F2FF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{EBCAD2A2-43DB-4D6B-BE76-934AADC291E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{EBCAD2A2-43DB-4D6B-BE76-934AADC291E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EBCAD2A2-43DB-4D6B-BE76-934AADC291E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -85,6 +81,10 @@ Global
 		{9785FC56-0B37-4AB6-A0BA-9D050E8AD4A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9785FC56-0B37-4AB6-A0BA-9D050E8AD4A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9785FC56-0B37-4AB6-A0BA-9D050E8AD4A9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B74652F4-2295-B55B-2F6E-F25CC6A06CDF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B74652F4-2295-B55B-2F6E-F25CC6A06CDF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B74652F4-2295-B55B-2F6E-F25CC6A06CDF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B74652F4-2295-B55B-2F6E-F25CC6A06CDF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

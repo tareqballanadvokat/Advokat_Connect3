@@ -120,8 +120,6 @@ namespace WebRTCLibrary.SIP
         {
             if (this.MessagePredicate?.Invoke(sipResponse) ?? true)
             {
-                // we can filter for current connection, but it should only recieve current connections anyway.
-
                 this.logger.LogDebug(
                     "<< Receiving {statusCode} {cSeq} - from:'{from}'; to:\"{toName}\" tag:\"{toTag}\"; callId:\"{callId}\"",
                     sipResponse.StatusCode,

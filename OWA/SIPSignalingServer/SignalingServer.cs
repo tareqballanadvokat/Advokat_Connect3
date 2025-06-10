@@ -16,13 +16,14 @@ namespace SIPSignalingServer
         private readonly ILogger<SignalingServer> logger;
 
         //private IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 80);
-        private IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:8081");
-
+        //private IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:443");
+        private IPEndPoint ServerEndpoint = new IPEndPoint(IPAddress.Loopback, 443);
+        
         private ISIPRegistry registry;
 
         private SIPSchemesEnum sipScheme = SIPSchemesEnum.sip;
 
-        public static readonly SIPChannelsEnum sipChannel = SIPChannelsEnum.WebSocketServer; // TODO: make TLS or WebSocketServer?
+        public static readonly SIPChannelsEnum sipChannel = SIPChannelsEnum.WebSocketSSLServer;
 
         private ISIPTransport transport;
 
@@ -45,6 +46,8 @@ namespace SIPSignalingServer
 
             this.connectionPool = new SIPMemoryConnectionPool(this.loggerFactory);
         }
+
+        // TODO: StartServer method?
 
         private bool IsRegistrationRequest(SIPMessageBase message)
         {
