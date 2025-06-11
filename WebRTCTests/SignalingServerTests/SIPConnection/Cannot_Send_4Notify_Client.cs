@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
-using SignalingServerTests.Connection.Mocks.SIPRegistrationTransaction;
-using SignalingServerTests.Connection.Mocks.SIPRegistry;
-using SignalingServerTests.Connection.Mocks.SIPTransport;
-using SignalingServerTests.Connection.Mocks.TransactionFactories;
+using SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction;
+using SignalingServerTests.SIPConnection.Mocks.SIPRegistry;
+using SignalingServerTests.SIPConnection.Mocks.SIPTransport;
+using SignalingServerTests.SIPConnection.Mocks.TransactionFactories;
 using SignalingServerTests.Mocks.SIPRequests;
 using SIPSignalingServer;
 using SIPSignalingServer.Models;
@@ -11,7 +11,7 @@ using SIPSorcery.SIP;
 using System.Net;
 using WebRTCLibrary.SIP.Models;
 
-namespace SignalingServerTests.Connection
+namespace SignalingServerTests.SIPConnection
 {
     public class Cannot_Send_4Notify_Client
     {
@@ -77,11 +77,11 @@ namespace SignalingServerTests.Connection
                 clientTag: CallProperties.CreateNewTag());
 
             SIPMemoryRegistry sipRegistry = new SIPMemoryRegistry(NullLoggerFactory.Instance);
-            sipRegistry.Register(new SIPRegistration(registrationParams));
-            sipRegistry.Confirm(new SIPRegistration(registrationParams));
+            sipRegistry.Register(new SIPSignalingServer.Models.SIPRegistration(registrationParams));
+            sipRegistry.Confirm(new SIPSignalingServer.Models.SIPRegistration(registrationParams));
 
-            sipRegistry.Register(new SIPRegistration(peerRegistrationParams));
-            sipRegistry.Confirm(new SIPRegistration(peerRegistrationParams));
+            sipRegistry.Register(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
+            sipRegistry.Confirm(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
 
             SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
             
@@ -141,8 +141,8 @@ namespace SignalingServerTests.Connection
             SIPMemoryRegistry sipRegistry = new SIPMemoryRegistry(NullLoggerFactory.Instance);
 
             // register peer
-            sipRegistry.Register(new SIPRegistration(peerRegistrationParams));
-            sipRegistry.Confirm(new SIPRegistration(peerRegistrationParams));
+            sipRegistry.Register(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
+            sipRegistry.Confirm(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
 
             SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
 
@@ -173,7 +173,7 @@ namespace SignalingServerTests.Connection
             _ = Task.Run(sipDialog.Start);
             await Task.Delay(150);
 
-            Assert.False(sipRegistry.IsRegistered(new SIPRegistration(sipDialog.Params)));
+            Assert.False(sipRegistry.IsRegistered(new SIPSignalingServer.Models.SIPRegistration(sipDialog.Params)));
         }
 
         [Fact]
@@ -193,8 +193,8 @@ namespace SignalingServerTests.Connection
             SIPMemoryRegistry sipRegistry = new SIPMemoryRegistry(NullLoggerFactory.Instance);
 
             // register peer
-            sipRegistry.Register(new SIPRegistration(peerRegistrationParams));
-            sipRegistry.Confirm(new SIPRegistration(peerRegistrationParams));
+            sipRegistry.Register(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
+            sipRegistry.Confirm(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
 
             SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
 

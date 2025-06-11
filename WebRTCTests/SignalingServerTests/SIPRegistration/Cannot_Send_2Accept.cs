@@ -1,13 +1,13 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
 using SignalingServerTests.Mocks.SIPRequests;
-using SignalingServerTests.Registration.Mocks.SIPConnection;
-using SignalingServerTests.Registration.Mocks.SIPRegistry;
+using SignalingServerTests.SIPRegistration.Mocks.SIPConnection;
+using SignalingServerTests.SIPRegistration.Mocks.SIPRegistry;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Transactions;
 using SIPSorcery.SIP;
 using System.Net;
 
-namespace SignalingServerTests.Registration
+namespace SignalingServerTests.SIPRegistration
 {
     public class Timeout_2Accept
     {

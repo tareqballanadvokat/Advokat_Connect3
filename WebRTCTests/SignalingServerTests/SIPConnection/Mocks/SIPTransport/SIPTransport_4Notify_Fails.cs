@@ -3,9 +3,9 @@ using System.Net;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP.Interfaces;
 
-namespace SignalingServerTests.Connection.Mocks.SIPTransport
+namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
 {
-    internal class SIPTransport_6Notify_Fails : ISIPTransport
+    internal class SIPTransport_4Notify_Fails : ISIPTransport
     {
         public List<SIPRequest> SentRequests { get; set; } = [];
 
@@ -24,37 +24,12 @@ namespace SignalingServerTests.Connection.Mocks.SIPTransport
         {
             this.SentRequests.Add(request);
 
-            if (request.Method == SIPMethodsEnum.NOTIFY)
+            if (request.Method == SIPMethodsEnum.NOTIFY && request.Header.CSeq == 4)
             {
-                if (request.Header.CSeq == 4)
-                {
-                    await this.Send5AckAfterTimeout(request);
-                }
-
-                if (request.Header.CSeq == 6)
-                {
-                    return SocketError.AccessDenied;
-                }
+                return SocketError.NotConnected;
             }
 
             return SocketError.Success;
-        }
-
-        private async Task Send5AckAfterTimeout(SIPRequest request)
-        {
-            SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
-            SIPURI uri = new SIPURI(SIPSchemesEnum.sip, sipEndPoint);
-
-            SIPRequest AckRequest = new SIPRequest(SIPMethodsEnum.ACK, uri)
-            {
-                Header = new SIPHeader(
-                    new SIPFromHeader(request.Header.To.ToName, uri, request.Header.To.ToTag),
-                    new SIPToHeader(request.Header.From.FromName, uri, request.Header.From.FromTag),
-                    callId: request.Header.CallId,
-                    cseq: 5)
-            };
-
-            await (this.SIPTransportRequestReceived?.Invoke(sipEndPoint, sipEndPoint, AckRequest) ?? Task.CompletedTask);
         }
 
         public async Task<SocketError> SendResponseAsync(SIPResponse response, bool waitForDns = false)

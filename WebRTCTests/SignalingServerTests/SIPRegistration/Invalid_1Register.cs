@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
-using SignalingServerTests.Registration.Mocks.SIPConnection;
-using SignalingServerTests.Registration.Mocks.SIPRegistry;
+using SignalingServerTests.SIPRegistration.Mocks.SIPConnection;
+using SignalingServerTests.SIPRegistration.Mocks.SIPRegistry;
 using SIPSignalingServer;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Transactions;
@@ -9,7 +9,7 @@ using System.Net;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 
-namespace SignalingServerTests.Registration
+namespace SignalingServerTests.SIPRegistration
 {
     public class Invalid_1Register
     {

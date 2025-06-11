@@ -5,7 +5,7 @@ using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 
-namespace SignalingServerTests.Registration.Mocks.SIPConnection
+namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
 {
     internal class SIPConnection_Sends_3ACK_After_Timeout(int receiveTimeout, int delay) : ISIPConnection
     {

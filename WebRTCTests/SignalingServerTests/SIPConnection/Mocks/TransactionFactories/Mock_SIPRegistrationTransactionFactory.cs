@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
-using SignalingServerTests.Connection.Mocks.SIPRegistrationTransaction;
+using SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Transactions.Interfaces;
 using SIPSignalingServer.Transactions.Interfaces.TransactionFactories;
 using SIPSorcery.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 
-namespace SignalingServerTests.Connection.Mocks.TransactionFactories
+namespace SignalingServerTests.SIPConnection.Mocks.TransactionFactories
 {
     internal class Mock_SIPRegistrationTransactionFactory(ISIPRegistrationTransaction sipRegistrationTransaction) : ISIPRegistrationTransactionFactory
     {

@@ -5,7 +5,7 @@ using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
 
-namespace SignalingServerTests.Registration.Mocks.SIPConnection
+namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
 {
     internal class SIPConnection_2Accept_Failed_Sends_3ACK : ISIPConnection
     {

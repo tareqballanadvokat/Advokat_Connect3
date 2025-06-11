@@ -6,7 +6,7 @@ using SIPSorcery.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
-namespace SignalingServerTests.Connection.Mocks.SIPRegistrationTransaction
+namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
 {
     internal class SIPRegistrationTransaction_Can_Unregister : ISIPRegistrationTransaction
     {

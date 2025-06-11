@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
-using SignalingServerTests.Connection.Mocks.SIPTransport;
+using SignalingServerTests.SIPConnection.Mocks.SIPTransport;
 using SignalingServerTests.Mocks.SIPRequests;
 using SIPSignalingServer;
 using SIPSignalingServer.Models;
@@ -8,7 +8,7 @@ using SIPSorcery.SIP;
 using System.Net;
 using WebRTCLibrary.SIP.Models;
 
-namespace SignalingServerTests.Connection
+namespace SignalingServerTests.SIPConnection
 {
     public class Cannot_Send_6Notify_Client
     {

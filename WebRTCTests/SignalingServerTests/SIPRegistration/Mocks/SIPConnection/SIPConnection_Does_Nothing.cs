@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
-namespace SignalingServerTests.Registration.Mocks.SIPConnection
+namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
 {
     internal class SIPConnection_Does_Nothing : ISIPConnection
     {

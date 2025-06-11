@@ -1,15 +1,15 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
-using SignalingServerTests.Registration.Mocks.SIPConnection;
+using SignalingServerTests.SIPRegistration.Mocks.SIPConnection;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions;
 using SIPSignalingServer;
 using SIPSorcery.SIP;
 using System.Net;
-using SignalingServerTests.Registration.Mocks.SIPRegistry;
+using SignalingServerTests.SIPRegistration.Mocks.SIPRegistry;
 using SignalingServerTests.Mocks.SIPRequests;
 
-namespace SignalingServerTests.Registration
+namespace SignalingServerTests.SIPRegistration
 {
     public class Timeout_3ACK
     {
@@ -39,7 +39,7 @@ namespace SignalingServerTests.Registration
             // before timeout
             Assert.False(sipRegistrationTransaction.Registered);
             //Assert.False(sipRegistry.IsRegistered(new SIPRegistration(sipRegistrationTransaction.Params)));
-            Assert.False(sipRegistry.IsConfirmed(new SIPRegistration(sipRegistrationTransaction.Params)));
+            Assert.False(sipRegistry.IsConfirmed(new SIPSignalingServer.Models.SIPRegistration(sipRegistrationTransaction.Params)));
         }
 
         [Fact]

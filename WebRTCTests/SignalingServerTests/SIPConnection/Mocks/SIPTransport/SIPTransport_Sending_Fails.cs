@@ -2,7 +2,7 @@
 using System.Net.Sockets;
 using WebRTCLibrary.SIP.Interfaces;
 
-namespace SignalingServerTests.Connection.Mocks.SIPTransport
+namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
 {
     internal class SIPTransport_Sending_Fails : ISIPTransport
     {
