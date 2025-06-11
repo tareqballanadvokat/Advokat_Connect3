@@ -1,4 +1,4 @@
-﻿namespace WebRTCLibrary.Utils
+﻿namespace WebRTCLibrary.SIP.Utils
 {
     public class SIPDialogEventArgs : EventArgs
     {

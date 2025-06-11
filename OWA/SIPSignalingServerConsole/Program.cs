@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
+using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using WebRTCLibrary.SIP.Utils;
 
 namespace SIPSignalingServer
 {
@@ -17,21 +17,28 @@ namespace SIPSignalingServer
                     //builder.AddDebug();
                 });
 
-            string certPath;
+            SignalingServer signalingServer;
 
             try
             {
                 // TODO: Get certpath from appsettings? Get Password from environment / registry?
-                certPath = Path.Combine(Directory.GetCurrentDirectory(), "127.0.0.1.pfx");
-                SIPChannelsEnum.SSLCertificate = new X509Certificate2(certPath, "test");
+
+                // IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 80);
+                // IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:443");
+                IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Loopback, 443);
+                signalingServer = new SignalingServer(serverEndpoint, loggerFactory);
+
+                string certPath = Path.Combine(Directory.GetCurrentDirectory(), "127.0.0.1.pfx");
+                signalingServer.SSLCertificate = new X509Certificate2(certPath, "test");
             }
             catch (CryptographicException ex)
             {
                 Console.WriteLine($"Cannot Start Server. {ex.Message}");
                 Environment.Exit(-1);
+                return;
             }
 
-            new SignalingServer(loggerFactory);
+            signalingServer.StartServer();
             
             while (true)
             {

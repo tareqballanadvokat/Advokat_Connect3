@@ -2,11 +2,10 @@
 using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using WebRTCClient.Models;
+using WebRTCClient.Utils;
 using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.SIP.Utils;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient
@@ -21,7 +20,7 @@ namespace WebRTCClient
 
         public static readonly SIPSchemesEnum defaultSipScheme = SIPSchemesEnum.sip; // TODO: make SIPS?
         
-        public static readonly SIPChannelsEnum defaulSIPChannel = SIPChannelsEnum.WebSocketSSLClient; // TODO: make TLS?
+        public static readonly SIPClientChannelsEnum defaulSIPChannel = SIPClientChannelsEnum.WebSocketSSL;
 
         /// <summary>Event that gets fired when a direct message form the peer is received.</summary>
         public event IWebRTCPeer.MessageReceivedDelegate? OnMessageReceived;
@@ -86,7 +85,8 @@ namespace WebRTCClient
         }
 
         /// <summary>Starts the connection process with the signaling server and subsequently with the peer through the signaling server.
-        ///          The process is finished successfully when the <see cref="OnConnected"/> event fires.</summary>
+        ///          The process is finished successfully when the <see cref="OnConnected"/> event fires.
+        ///          The SendMessageToPeer method and the OnMessageReceived event can then be used to communicate with the peer.</summary>
         /// <version date="22.04.2025" sb="MAC">Created.</version>
         public async Task Connect()
         {

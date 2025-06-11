@@ -1,8 +1,13 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using SIPSignalingServer;
+using SIPSignalingServer.Utils;
+using SIPSorcery.SIP;
 using System.Net;
 using System.Text;
 using WebRTCClient;
+using WebRTCClient.Models;
+using WebRTCClient.Utils;
+using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCIntegrationTests
 {
@@ -14,31 +19,40 @@ namespace WebRTCIntegrationTests
         [Fact]
         public async Task Can_Connect()
         {
-            SignalingServer signalingServer = new SignalingServer(NullLoggerFactory.Instance);
-            
-            // TODO: replace with loopback when singaling server endpoint can be set
-            IPEndPoint signalingServerEndpoint = IPEndPoint.Parse("192.168.1.58:8081");
-            
-            IPEndPoint callerEndpoint = IPEndPoint.Parse("192.168.1.58:8098");
-            IPEndPoint remoteEndpoint = IPEndPoint.Parse("192.168.1.58:7080");
+            IPEndPoint signalingServerEndpoint = new IPEndPoint(IPAddress.Loopback, 8081);
+
+            SignalingServer signalingServer = new SignalingServer(signalingServerEndpoint, NullLoggerFactory.Instance);
+            signalingServer.SIPChannels = [SIPServerChannelsEnum.WebSocket];
+            signalingServer.StartServer();
+
+            IPEndPoint callerEndpoint = new IPEndPoint(IPAddress.Any, 8098);
+            IPEndPoint remoteEndpoint = new IPEndPoint(IPAddress.Any, 7080);
 
             string callerName = "caller12345";
             string remoteName = "remote12345";
 
+            SIPClientChannelsEnum sipChannel = SIPClientChannelsEnum.WebSocket;
+
+            SignalingServerParams callerParams = new SignalingServerParams(
+                sourceParticipant: new SIPParticipant(callerName, new SIPEndPoint(sipChannel.Protocol, callerEndpoint)),
+                remoteParticipant: new SIPParticipant(remoteName, new SIPEndPoint(sipChannel.Protocol, signalingServerEndpoint)),
+                sipScheme: SIPSchemesEnum.sip,
+                sipChannels: [sipChannel]);
+
+            SignalingServerParams remoteParams = new SignalingServerParams(
+                sourceParticipant: new SIPParticipant(remoteName, new SIPEndPoint(sipChannel.Protocol, remoteEndpoint)),
+                remoteParticipant: new SIPParticipant(callerName, new SIPEndPoint(sipChannel.Protocol, signalingServerEndpoint)),
+                sipScheme: SIPSchemesEnum.sip,
+                sipChannels: [sipChannel]);
+
             WebRTCPeer caller = new(
-                sourceUser: callerName,
-                remoteUser: remoteName,
-                sourceEndpoint: callerEndpoint,
-                signalingServer: signalingServerEndpoint,
-                iceServers: [],
+                callerParams,
+                iceServers: [], // we use the host ice candidate here
                 NullLoggerFactory.Instance);
 
             WebRTCPeer remote = new(
-                sourceUser: remoteName,
-                remoteUser: callerName,
-                sourceEndpoint: remoteEndpoint,
-                signalingServer: signalingServerEndpoint,
-                iceServers:[],
+                remoteParams,
+                iceServers:[], // we use the host ice candidate here
                 NullLoggerFactory.Instance);
 
             caller.OnMessageReceived += this.CallerReceivedMessage;
