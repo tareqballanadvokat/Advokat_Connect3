@@ -42,7 +42,7 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
             throw new NotImplementedException();
         }
 
-        public async Task Unregister(int cSeq)
+        public async Task Unregister()
         {
             this.Registered = false;
         }

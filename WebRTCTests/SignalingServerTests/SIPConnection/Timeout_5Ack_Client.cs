@@ -626,79 +626,79 @@ namespace SignalingServerTests.SIPConnection
             Assert.Equal(4, bye4.Header.CSeq);
         }
 
-        //[Theory]
-        //[InlineData(100, 1000)]
-        //[InlineData(100, 500)]
-        //[InlineData(100, 200)]
-        //[InlineData(100, 100)]
-        //[InlineData(100, 10)]
-        //[InlineData(100, 1)]
-        //[InlineData(100, 0)]
-        //[InlineData(1000, 1)]
-        //[InlineData(1000, 10)]
-        //[InlineData(1000, 100)]
-        //[InlineData(1000, 200)]
-        //[InlineData(1000, 500)]
-        //public async Task Does_Not_Accept_Ack_After_ReceiveTimeout(int receiveTimeout, int delay)
-        //{
-        //    SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
-        //    SIPParticipant client = new SIPParticipant("caller-12345ab", sipEndPoint);
-        //    SIPParticipant remote = new SIPParticipant("remote-fsf1234", sipEndPoint);
+        [Theory]
+        [InlineData(100, 1000)]
+        [InlineData(100, 500)]
+        [InlineData(100, 200)]
+        [InlineData(100, 100)]
+        [InlineData(100, 10)]
+        [InlineData(100, 1)]
+        [InlineData(100, 0)]
+        [InlineData(1000, 1)]
+        [InlineData(1000, 10)]
+        [InlineData(1000, 100)]
+        [InlineData(1000, 200)]
+        [InlineData(1000, 500)]
+        public async Task Does_Not_Accept_Ack_After_ReceiveTimeout(int receiveTimeout, int delay)
+        {
+            SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
+            SIPParticipant client = new SIPParticipant("caller-12345ab", sipEndPoint);
+            SIPParticipant remote = new SIPParticipant("remote-fsf1234", sipEndPoint);
 
-        //    ServerSideTransactionParams registrationParams = new ServerSideTransactionParams(
-        //        remote,
-        //        client,
-        //        callId: CallProperties.CreateNewCallId(),
-        //        remoteTag: null,
-        //        clientTag: CallProperties.CreateNewTag());
+            ServerSideTransactionParams registrationParams = new ServerSideTransactionParams(
+                remote,
+                client,
+                callId: CallProperties.CreateNewCallId(),
+                remoteTag: null,
+                clientTag: CallProperties.CreateNewTag());
 
-        //    ServerSideTransactionParams peerRegistrationParams = new ServerSideTransactionParams(
-        //        client,
-        //        remote,
-        //        callId: CallProperties.CreateNewCallId(),
-        //        remoteTag: null,
-        //        clientTag: CallProperties.CreateNewTag());
+            ServerSideTransactionParams peerRegistrationParams = new ServerSideTransactionParams(
+                client,
+                remote,
+                callId: CallProperties.CreateNewCallId(),
+                remoteTag: null,
+                clientTag: CallProperties.CreateNewTag());
 
-        //    SIPMemoryRegistry sipRegistry = new SIPMemoryRegistry(NullLoggerFactory.Instance);
+            SIPMemoryRegistry sipRegistry = new SIPMemoryRegistry(NullLoggerFactory.Instance);
 
-        //    // register peer
-        //    sipRegistry.Register(new SIPRegistration(peerRegistrationParams));
-        //    sipRegistry.Confirm(new SIPRegistration(peerRegistrationParams));
+            // register peer
+            sipRegistry.Register(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
+            sipRegistry.Confirm(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
 
-        //    SIPConnectionPool connectionPool = new SIPConnectionPool(NullLoggerFactory.Instance);
+            SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
 
-        //    MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
-        //    initialRequest.Header = new SIPHeader(
-        //        new SIPFromHeader(registrationParams.ClientParticipant.Name, new SIPURI(SIPSchemesEnum.sip, sipEndPoint), registrationParams.ClientTag),
-        //        new SIPToHeader(registrationParams.RemoteParticipant.Name, new SIPURI(SIPSchemesEnum.sip, sipEndPoint), null),
-        //        1,
-        //        registrationParams.CallId);
-        //    initialRequest.SetRemoteEndPoint(sipEndPoint);
+            MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
+            initialRequest.Header = new SIPHeader(
+                new SIPFromHeader(registrationParams.ClientParticipant.Name, new SIPURI(SIPSchemesEnum.sip, sipEndPoint), registrationParams.ClientTag),
+                new SIPToHeader(registrationParams.RemoteParticipant.Name, new SIPURI(SIPSchemesEnum.sip, sipEndPoint), null),
+                1,
+                registrationParams.CallId);
+            initialRequest.SetRemoteEndPoint(sipEndPoint);
 
-        //    SIPTransport_5Ack_After_Timeout mockSIPTransport = new SIPTransport_5Ack_After_Timeout(receiveTimeout, delay);
+            SIPTransport_5Ack_After_Timeout mockSIPTransport = new SIPTransport_5Ack_After_Timeout(receiveTimeout, delay);
 
-        //    SIPDialog sipDialog = new SIPDialog(
-        //        SIPSchemesEnum.sip,
-        //        mockSIPTransport,
-        //        initialRequest,
-        //        sipEndPoint,
-        //        sipRegistry,
-        //        connectionPool,
-        //        NullLoggerFactory.Instance);
+            SIPDialog sipDialog = new SIPDialog(
+                SIPSchemesEnum.sip,
+                mockSIPTransport,
+                initialRequest,
+                sipEndPoint,
+                sipRegistry,
+                connectionPool,
+                NullLoggerFactory.Instance);
 
-        //    sipDialog.RegistrationTimeout = 1000;
-        //    sipDialog.ConnectionTimeout = 1000;
-        //    sipDialog.SendTimeout = 1000;
-        //    sipDialog.ReceiveTimeout = receiveTimeout;
+            sipDialog.RegistrationTimeout = 1000;
+            sipDialog.ConnectionTimeout = 1000;
+            sipDialog.SendTimeout = 1000;
+            sipDialog.ReceiveTimeout = receiveTimeout;
 
-        //    _ = Task.Run(sipDialog.Start);
-        //    await Task.Delay(receiveTimeout + delay + 1500);
+            _ = Task.Run(sipDialog.Start);
+            await Task.Delay(receiveTimeout + delay + 1500);
 
-        //    Assert.False(sipDialog.IsConnected());
+            Assert.False(sipDialog.IsConnected());
 
-        //    // TODO: make childclass of connectionPool to look inside. 
+            // TODO: make childclass of connectionPool to look inside. 
 
-        //    Assert.Equal(3, mockSIPTransport.SentRequests.Count);
-        //}
+            Assert.Equal(3, mockSIPTransport.SentRequests.Count);
+        }
     }
 }

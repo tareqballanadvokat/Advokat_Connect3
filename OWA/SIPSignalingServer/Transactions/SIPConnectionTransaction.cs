@@ -41,7 +41,7 @@ namespace SIPSignalingServer.Transactions
 
         public event ConnectionFailedDelegate? OnConnectionFailed;
 
-        private CancellationTokenSource? PeerRegisteringCts { get; set; }
+        //private CancellationTokenSource? PeerRegisteringCts { get; set; }
 
         private CancellationTokenSource connectionCts = new CancellationTokenSource();
 

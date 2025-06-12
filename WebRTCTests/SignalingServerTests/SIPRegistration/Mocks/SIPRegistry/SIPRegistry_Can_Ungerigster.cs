@@ -34,7 +34,7 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPRegistry
 
         public bool IsRegistered(SIPSignalingServer.Models.SIPRegistration registration)
         {
-            throw new NotImplementedException();
+            return false;
         }
 
         public bool PeerIsRegistered(SIPSignalingServer.Models.SIPRegistration registration)

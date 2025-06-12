@@ -21,17 +21,33 @@ namespace SIPSignalingServer.Transactions
 
         private readonly ILogger<SIPRegistrationTransaction> logger;
 
-        // TODO: Check if this can be out of sync.
-        // Flag to reduce the times registry IsConfirmed is called.
-        //private bool registrationConfirmed;
+        private readonly object registrationLock = new object();
 
         public bool Registered { get; private set; }
 
-        private bool stoppedByClient;
+        private bool Registering { get; set; }
 
         private ISIPRegistry Registry { get; set; }
 
         private SIPRequest InitialRequest { get; set; }
+
+        private int CurrentCseq { get; set; }
+
+        private int startCseq = 1;
+
+        public int StartCseq
+        {
+            get => this.startCseq;
+            set
+            {
+                if (this.Registering || this.Registered)
+                {
+                    throw new InvalidOperationException("StartCseq cannot be changed when a registraion is running or completed.");
+                }
+
+                this.startCseq = value;
+            }
+        }
 
         private SIPRegistration Registration { get; set; }
 
@@ -81,50 +97,62 @@ namespace SIPSignalingServer.Transactions
 
         public async override Task Start(CancellationToken? ct = null)
         {
-            if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
+            lock (this.registrationLock)
             {
-                // TODO: Check if token that gets cancelled could be a problem - old token
-                await this.RegistrationFailed(2, SIPResponseStatusCodesEnum.MethodNotAllowed, "Registration failed. Initial request was not a registration request.");
-                return;
+                this.Reset();
+
+                if (this.Registering)
+                {
+                    // already a registering process running
+                    return;
+                }
+
+                if (this.Registry.IsRegistered(this.Registration))
+                {
+                    // already registered
+                    return;
+                }
+
+                this.Registering = true;
+                this.registrationCts = ct == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)ct);
             }
 
-            // TODO: Set startCseq as request cseq + 1?
-
-            //if (this.InitialRequest.Header.CSeq != 1)
-            //{
-            //    this.RegistrationFailed(SIPResponseStatusCodesEnum.BadRequest, "Registration failed. Header was invalid.");
-            //    return;
-            //}
-
-            if (this.Registry.IsRegistered(this.Registration))
-            {
-                // already registered
-                return;
-            }
-            
-            this.registrationCts = ct == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)ct);
             await this.Register();
         }
 
         private async Task Register()
         {
+            if (this.InitialRequest.Header?.CSeq == null || this.InitialRequest.Header.CSeq != this.CurrentCseq)
+            {
+                this.CurrentCseq++;
+                await this.RegistrationFailed(SIPResponseStatusCodesEnum.BadRequest, "Registration failed. Header was invalid.");
+                return;
+            }
+
+            this.CurrentCseq++; // 2
+
+            if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
+            {
+                await this.RegistrationFailed(SIPResponseStatusCodesEnum.MethodNotAllowed, "Registration failed. Initial request was not a registration request.");
+                return;
+            }
+
             this.Connection.SIPRequestReceived += this.BYEListener;
             this.Connection.SIPRequestReceived += this.ACKListener;
 
             this.Registry.Register(this.Registration);
 
+            // SendAcceptedResponse handles failed registration state. Stop registration in that case
             bool success = await this.SendAcceptedResponse();
             if (!success) return;
 
             await WaitForAsync(
-                () => this.Registry.IsConfirmed(this.Registration),
-                //() => this.registrationConfirmed && this.Registry.IsConfirmed(this.Registration),
+                () => this.Registered,
                 timeOut: this.ReceiveTimeout,
                 this.RegistrationCt,
                 // TODO: interval?
-                successCallback: async () => { this.Registered = true; },
-                timeoutCallback: async () => await this.RegistrationFailed(3, SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."),
-                cancellationCallback: async () => await this.RegistrationFailed(3, SIPResponseStatusCodesEnum.RequestTerminated, "Registration was cancelled.")
+                timeoutCallback: async () => await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."),
+                cancellationCallback: async () => await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Registration was cancelled.")
                 );
 
             // remove listener
@@ -133,7 +161,7 @@ namespace SIPSignalingServer.Transactions
 
         private SIPResponse GetRegisteredAcceptedResponse()
         {
-            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: 2);
+            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: this.CurrentCseq);
             return SIPHelper.GetResponse(this.SIPScheme, SIPResponseStatusCodesEnum.Accepted, headerParams);
         }
 
@@ -143,19 +171,23 @@ namespace SIPSignalingServer.Transactions
             {
                 // send Accepted response
                 SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
+                
+                // must be before sending response. A fast response happens before Cseq can be updated
+                this.CurrentCseq++; // 3
                 SocketError socketState = await this.Connection.SendSIPResponse(accpetedResponse, this.RegistrationCt);
 
                 if (SocketError.Success != socketState)
                 {
                     // response did not get sent
-                    await this.RegistrationFailed(2, SIPResponseStatusCodesEnum.InternalServerError, "Failed to send Accepted response.");
+                    this.CurrentCseq--; // 2 - accept did not get sent. Revert current cseq.
+                    await this.RegistrationFailed(SIPResponseStatusCodesEnum.InternalServerError, "Failed to send Accepted response.");
                     return false;
                 }
             }
             catch (OperationCanceledException ex)
             {
                 // response did not get sent
-                await this.RegistrationFailed(2, SIPResponseStatusCodesEnum.RequestTerminated, "Accept not sent. Registration was cancelled.");
+                await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Accept not sent. Registration was cancelled.");
                 return false;
             }
 
@@ -170,23 +202,28 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            if (request.Header.CSeq != 3)
+            if (request.Header.CSeq != this.CurrentCseq)
             {
-                await this.RegistrationFailed(4, SIPResponseStatusCodesEnum.BadRequest, "Confirmation failed. Header was invalid.");
+                this.CurrentCseq++; // 4
+                await this.RegistrationFailed(SIPResponseStatusCodesEnum.BadRequest, "Confirmation failed. Header was invalid.");
                 return;
             }
+
+            this.CurrentCseq++; // 4
 
             if (this.RegistrationCt.IsCancellationRequested)
             {
-                await this.RegistrationFailed(4, SIPResponseStatusCodesEnum.RequestTerminated, "Confirmation failed. Registration was cancelled.");
+                await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Confirmation failed. Registration was cancelled.");
                 return;
             }
 
-            //this.registrationConfirmed = true;
-            
-            // TODO: Should fire event or return bool if confirmation was successful
-            //       In the case that the client sent a bye in the meantime
-            this.Registry.Confirm(this.Registration);
+            lock (this.registrationLock)
+            {
+                // TODO: Registry should fire an event when registration was successful or return a bool
+                this.Registry.Confirm(this.Registration);
+                this.Registered = true;
+                this.Registering = false;
+            }
         }
 
         private async Task BYEListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
@@ -197,23 +234,21 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            if (request.Header.CSeq != 2
-                && request.Header.CSeq != 4)
+            if (request.Header.CSeq != this.CurrentCseq)
             {
                 // TODO: Header invalid. What to do here?
                 return;
             }
 
-            this.stoppedByClient = true;
-            this.registrationCts.Cancel();
-            await this.SendBYEMessage(request.Header.CSeq + 1);
+            this.CurrentCseq++;
+            await this.Unregister();
         }
 
-        private async Task SendBYEMessage(int cSeq)
+        private async Task SendBYEMessage()
         {
             SocketError result = await this.Connection.SendSIPRequest(
                 SIPMethodsEnum.BYE,
-                this.GetHeaderParams(cSeq),
+                this.GetHeaderParams(this.CurrentCseq),
                 CancellationToken.None,
                 this.SendTimeout);
 
@@ -224,14 +259,14 @@ namespace SIPSignalingServer.Transactions
             }
         }
 
-        private async Task RegistrationFailed(int cSeq, SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
+        private async Task RegistrationFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
         {
             this.Connection.SIPRequestReceived -= this.BYEListener;
             this.Connection.SIPRequestReceived -= this.ACKListener;
 
             this.logger.LogInformation("Registration failed {statusCode}. {message}", statusCode, message);
 
-            await this.Unregister(cSeq);
+            await this.Unregister();
 
             FailedRegistrationEventArgs eventArgs = new FailedRegistrationEventArgs();
             eventArgs.StatusCode = statusCode;
@@ -241,20 +276,34 @@ namespace SIPSignalingServer.Transactions
             await (this.OnRegistrationFailed?.Invoke(this, eventArgs) ?? Task.CompletedTask);
         }
 
-        public async Task Unregister(int cSeq)
+        public async Task Unregister()
         {
-            //if (!this.Registered)
-            //{
-            this.registrationCts.Cancel();
-            //}
 
-            this.RemoveFromRegistry();
-
-            if (!this.stoppedByClient)
+            lock (registrationLock)
             {
-                // TODO: check if bye was already sent.
-                await this.SendBYEMessage(cSeq);
+                if (!this.Registered && !this.Registering)
+                {
+                    // not registered or a registering process running
+                    return;
+                }
+
+                if (this.Registering)
+                {
+                    this.registrationCts.Cancel();
+                    this.Registering = false;
+                }
+
+                this.RemoveFromRegistry();
             }
+
+            await this.SendBYEMessage();
+
+            this.Reset();
+        }
+
+        private void Reset()
+        {
+            this.CurrentCseq = this.StartCseq;
         }
 
         private void RemoveFromRegistry()

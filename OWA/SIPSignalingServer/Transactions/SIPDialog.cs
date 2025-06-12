@@ -158,7 +158,7 @@ namespace SIPSignalingServer.Transactions
         {
             // TODO: get real cseq
             //       check if we should always unregister
-            await (this.SIPRegistrationTransaction?.Unregister(4) ?? Task.CompletedTask);
+            //await (this.SIPRegistrationTransaction?.Unregister(4) ?? Task.CompletedTask);
             // TODO: Dispose on Registation fail / timeout
             //       Stop waiting for registration
         }
@@ -240,7 +240,7 @@ namespace SIPSignalingServer.Transactions
 
         private async Task ConnectionFailedListener(SIPConnectionTransaction sender, FailureEventArgs e)
         {
-            await (this.SIPRegistrationTransaction?.Unregister(4) ?? Task.CompletedTask);
+            await (this.SIPRegistrationTransaction?.Unregister() ?? Task.CompletedTask);
         }
     }
 }

@@ -11,6 +11,6 @@ namespace SIPSignalingServer.Transactions.Interfaces
 
         public bool Registered { get; }
 
-        public Task Unregister(int cSeq);
+        public Task Unregister();
     }
 }
