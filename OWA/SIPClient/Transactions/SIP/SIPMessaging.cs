@@ -22,7 +22,12 @@ namespace WebRTCClient.Transactions.SIP
             this.logger = loggerFactory.CreateLogger<SIPMessaging>();
         }
 
-        public async override Task Start()
+        protected async override Task Start()
+        {
+        }
+
+        // TODO: Use ct
+        public async override Task Start(CancellationToken? ct = null)
         {
             if (Running)
             {

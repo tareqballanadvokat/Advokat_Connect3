@@ -32,7 +32,7 @@ namespace SignalingServerTests.SIPRegistration
                 );
 
             sipRegistrationTransaction.ReceiveTimeout = 100;
-            _ = Task.Run(sipRegistrationTransaction.Start);
+            _ = Task.Run(async () => await sipRegistrationTransaction.Start());
 
             await Task.Delay(10);
 
@@ -61,7 +61,7 @@ namespace SignalingServerTests.SIPRegistration
                 );
 
             sipRegistrationTransaction.ReceiveTimeout = 100;
-            _ = Task.Run(sipRegistrationTransaction.Start);
+            _ = Task.Run(async () => await sipRegistrationTransaction.Start());
 
             await Task.Delay(10);
 
@@ -100,7 +100,7 @@ namespace SignalingServerTests.SIPRegistration
                 );
 
             sipRegistrationTransaction.ReceiveTimeout = 100;
-            _ = Task.Run(sipRegistrationTransaction.Start);
+            _ = Task.Run(async () => await sipRegistrationTransaction.Start());
 
             await Task.Delay(10);
 
@@ -128,7 +128,7 @@ namespace SignalingServerTests.SIPRegistration
                 );
 
             sipRegistrationTransaction.ReceiveTimeout = 100;
-            _ = Task.Run(sipRegistrationTransaction.Start);
+            _ = Task.Run(async () => await sipRegistrationTransaction.Start());
 
             await Task.Delay(10);
 

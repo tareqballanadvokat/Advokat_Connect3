@@ -116,7 +116,7 @@ namespace SignalingServerTests.SIPConnection
 
             Assert.True(sipRegistrationTransaction.Registered);
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 
             // Unregister of registrationTransaction gets called.
@@ -176,7 +176,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
 
             // timeout needs to be triggered for bye and removal of registry
             // cutoff thime seems to be between 115 and 120
@@ -238,7 +238,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
@@ -323,7 +323,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
@@ -411,7 +411,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 10000;
             sipDialog.ReceiveTimeout = 100;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
@@ -478,7 +478,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 10000;
             sipDialog.ReceiveTimeout = 100;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
@@ -545,7 +545,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 10000;
             sipDialog.ReceiveTimeout = 10000;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(1000); // DEBUG real 150
 
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
@@ -612,7 +612,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 10000;
             sipDialog.ReceiveTimeout = 10000;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
@@ -691,7 +691,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 1000;
             sipDialog.ReceiveTimeout = receiveTimeout;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(receiveTimeout + delay + 1500);
 
             Assert.False(sipDialog.IsConnected());

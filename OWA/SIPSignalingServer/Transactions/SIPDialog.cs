@@ -94,7 +94,12 @@ namespace SIPSignalingServer.Transactions
             this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory();
         }
 
-        public async override Task Start()
+        protected async override Task Start()
+        {
+        }
+
+        // TODO: Use passed token
+        public async override Task Start(CancellationToken? ct = null)
         {
             // TODO: let it pass through to the registrationTransaction?
             if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
@@ -191,9 +196,9 @@ namespace SIPSignalingServer.Transactions
                 this.Params,
                 this.Registry,
                 this.ConnectionPool,
-                this.loggerFactory,
-                startCSeq: 4);
+                this.loggerFactory);
 
+            this.SIPConnectionTransaction.StartCseq = 4;
             this.SIPConnectionTransaction.ReceiveTimeout = this.ReceiveTimeout;
             this.SIPConnectionTransaction.SendTimeout = this.SendTimeout;
 

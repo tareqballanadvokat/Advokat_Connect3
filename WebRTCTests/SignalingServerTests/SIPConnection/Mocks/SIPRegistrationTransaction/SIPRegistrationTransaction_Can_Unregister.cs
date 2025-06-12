@@ -33,13 +33,8 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
 
         public event ISIPRegistrationTransaction.RegistrationFailedDelegate? OnRegistrationFailed;
 
-        public async Task Start()
+        public async Task Start(CancellationToken? ct = null)
         {
-        }
-
-        public Task Start(CancellationToken? ct = null)
-        {
-            throw new NotImplementedException();
         }
 
         public async Task Unregister()
@@ -67,6 +62,11 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
                 remoteTag: CallProperties.CreateNewTag(),
                 clientTag: request.Header.From.FromTag, // TODO: What if request does not contain a tag?
                 callId: request.Header.CallId);
+        }
+
+        public Task Stop()
+        {
+            throw new NotImplementedException();
         }
     }
 }

@@ -16,8 +16,12 @@ namespace WebRTCClient.Transactions.SIP
         {
             this.logger = loggerFactory.CreateLogger<SIPKeepAlive>();
         }
+        protected async override Task Start()
+        {
+        }
 
-        public async override Task Start()
+        // TODO: Use ct
+        public async override Task Start(CancellationToken? ct = null)
         {
             WaitingForPeer = true;
             Connection.SIPRequestReceived += PingListener;

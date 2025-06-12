@@ -67,7 +67,12 @@ namespace WebRTCClient.Transactions.SIP
             this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params, this.loggerFactory);
         }
 
-        public override async Task Start()
+        protected async override Task Start()
+        {
+        }
+
+        // TODO: Use ct
+        public async override Task Start(CancellationToken? ct = null)
         {
             this.SetSIPRegistrationTransaction();
             await this.SIPRegistrationTransaction.Start();

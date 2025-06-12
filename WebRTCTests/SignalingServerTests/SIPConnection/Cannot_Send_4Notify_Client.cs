@@ -118,7 +118,7 @@ namespace SignalingServerTests.SIPConnection
 
             Assert.True(sipRegistrationTransaction.Registered);
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 
             Assert.False(sipRegistrationTransaction.Registered);
@@ -170,7 +170,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 
             Assert.False(sipRegistry.IsRegistered(new SIPSignalingServer.Models.SIPRegistration(sipDialog.Params)));
@@ -222,7 +222,7 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.SendTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
 
-            _ = Task.Run(sipDialog.Start);
+            _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 
             // 4 Notify - failed, 4 Bye
