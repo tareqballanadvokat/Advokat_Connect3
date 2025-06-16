@@ -7,6 +7,8 @@ namespace WebRTCClient.Transactions.SDP
     {
         protected static readonly string SDPContentType = "application/sdp";
 
+        protected static readonly string SDPAllocationContentType = "application/json";
+
         protected RTCPeerConnection PeerConnection { get; private set; }
 
         protected int StartCSeq { get; private set; }
