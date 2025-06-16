@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Prosty SIP z JsSIP</title>
+  <!-- Import biblioteki JsSIP z CDN -->
+ 
+<script src="jssip-3.10.0.min.js"></script>
+   <style>
+    body { font-family: sans-serif; margin: 20px; }
+    #log { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; background: #fafafa; white-space: pre-wrap; font-size: 14px; }
+    button { margin-top: 10px; padding: 8px 12px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h2>Prosty klient SIP w czystym HTML/JS (JsSIP)</h2>
+  <div>
+    <label>SIP URI:
+      <input type="text" id="sipUri" value="sip:macc@127.0.0.1:443" style="width: 200px;" />
+    </label>
+  </div>
+  <div>
+    <label>WebSocket URI:
+      <input type="text" id="wsUri" value="wss://localhost:443" style="width: 200px;" />
+    </label>
+  </div>
+  <button id="startBtn">Start SIP REGISTER</button>
+  <button id="stopBtn" disabled>Stop UA</button>
+
+  <h3>Logi:</h3>
+  <div id="log"></div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const startBtn = document.getElementById('startBtn');
+	let fromUri = "";
+	let fromTag = "";
+	let fromDisplayName = "macc";
+	let toDisplayName ="macs";
+	
+	
+	function getIsOFeer(data){
+		  const offeringMatch = /\"IsOffering\"\s*:\s*(true|false)/i.exec(data);
+		  if (offeringMatch) {
+			const isOffering = offeringMatch[1] === 'true';
+			log(`📡 IsOffering: ${isOffering}`);
+			return isOffering;
+		  }		
+	}
+	
+	function blobToString(b) {
+		var u, x;
+		u = URL.createObjectURL(b);
+		x = new XMLHttpRequest();
+		x.open('GET', u, false); // although sync, you're not fetching over internet
+		x.send();
+		URL.revokeObjectURL(u);
+		return x.responseText;
+	}
+
+	function getFROMParts(data)
+	{
+		if (fromTag != "" && fromUri != "") return;
+		const line = data;//`From: "macs" <sip:macs@127.0.0.1:443;transport=wss>;tag=OVMXIDKBSG`;
+
+		const re = /^From:\s*(?:"([^"]+)"\s*)?<([^>]+)>;tag=(\S+)/m;
+		const m  = re.exec(line);
+
+		if (m) {
+		  //fromDisplayName = m[1] || null;           // "macs"
+		  fromUri        = m[2];                   // sip:macs@127.0.0.1:443;transport=wss
+		  fromTag        = m[3];                   // OVMXIDKBSG
+
+		  console.log({ fromDisplayName, fromUri, fromTag });
+		} else {
+		  console.error("Nie udało się sparsować From");
+		}
+				
+		
+	}
+
+    function log(msg) {
+      const ts = new Date().toLocaleTimeString();
+      logEl.textContent += `[${ts}] ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(msg);
+    }
+
+    startBtn.addEventListener('click', () => {
+      const sipUri = document.getElementById('sipUri').value.trim();
+      const wsUri  = document.getElementById('wsUri').value.trim();
+      const tag    = Math.random().toString(36).substr(2, 10);
+      const callId = Math.random().toString(36).substr(2, 10);
+      let cseq     = 1;
+		fromUri = "";
+		fromTag = "";
+
+      const socket = new WebSocket(wsUri, 'sip');
+
+      socket.onopen = () => {
+        log('🔗 Połączono WebSocket');
+        // Budowa i wysłanie REGISTER
+        const branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+		const register = 
+          'REGISTER ' + sipUri + ' SIP/2.0\r\n' +
+          'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branch + '\r\n'  +
+          'Max-Forwards: 70\r\n' +
+          'To: "' + toDisplayName + '" <sip:macs@127.0.0.1:443>\r\n' +
+          'From: "' + fromDisplayName + '" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
+          'Call-ID: ' + callId + '\r\n' +
+          'CSeq: ' + cseq + ' REGISTER\r\n' +
+          'Expires: 300\r\n' +
+          'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
+          'Supported: path,gruu,outbound\r\n' +
+          'User-Agent: JsSIP 3.10.0\r\n' +
+		  'Contact: <' + sipUri + '>\r\n' + 
+          'Content-Length: 0\r\n\r\n';
+        socket.send(register);
+		
+        log('🔄 Wysłano REGISTER (CSeq=' + cseq + ')');
+      };
+
+
+
+      socket.onmessage = event => {
+		const data =   blobToString(event.data);
+        log('📥 Otrzymano:\n' + data); 
+		
+		
+        // Sprawdź 202 ACCEPTED DLA REGISTER
+        if (/SIP\/2\.0 202/.test(data)) {
+          // Wyślij ACK
+          cseq++;
+			getFROMParts(data);
+
+          const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+
+			
+			const ack =
+				'ACK ' + sipUri + ' SIP/2.0\r\n' +
+				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
+				'Max-Forwards: 70\r\n' +
+				'To: "' + toDisplayName + '" <' + fromUri + '>;tag=' + fromTag + '\r\n' +
+				'From: "' + fromDisplayName + '" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
+				'Call-ID: ' + callId + '\r\n' +
+				'CSeq: ' + 3 + ' ACK\r\n' +  
+				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
+				'Content-Length: 0\r\n\r\n';
+			
+          socket.send(ack);
+          log('✔️ Wysłano ACK (CSeq=' + cseq + ')');
+
+        //  socket.close();
+          log('🔌 Zamknięto WebSocket');
+        }
+		
+		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) &&  /CSeq: 4 NOTIFY/.test(data)) //after register
+		{
+			const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+	
+			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
+			const m = data.match(reCallId);
+	 
+			const fromLineMatch = data.match(/^From:.*$/m);
+			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+			const toLine = fromLine.replace(/^From:/i, 'To:');
+			log('📥 Linia From: ' + fromLine);
+			 
+ 
+			const ack2 =
+				'ACK ' + sipUri + ' SIP/2.0\r\n' +
+				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
+				'Max-Forwards: 70\r\n' +
+toLine + '\r\n' +
+				'From: "' + fromDisplayName + '" <' + sipUri + '>;tag=' + tag + '\r\n' +
+				'Call-ID: ' + m[1] + '\r\n' +
+				'CSeq: ' + 5 + ' ACK\r\n' +  
+				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
+				'Content-Length: 0\r\n\r\n';
+          socket.send(ack2);
+	}
+		
+		
+		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) &&  /CSeq:\s*1 ACK/.test(data)) 
+		{
+			const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+	
+			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
+			const m = data.match(reCallId);
+	 
+			const fromLineMatch = data.match(/^From:.*$/m);
+			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+			const toLine = fromLine.replace(/^From:/i, 'To:');
+			log('📥 Linia From: ' + fromLine);
+			 
+ 
+			const ack2 =
+				'ACK ' + sipUri + ' SIP/2.0\r\n' +
+				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
+				'Max-Forwards: 70\r\n' +
+				toLine + '\r\n' +
+				'From: "' + fromDisplayName + '" <' + sipUri + '>;tag=' + tag + '\r\n' +
+				'Call-ID: ' + m[1] + '\r\n' +
+				'CSeq: ' + 5 + ' ACK\r\n' +  
+				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
+				'Content-Length: 0\r\n\r\n';
+ 
+				socket.send(ack2);
+		}
+		
+		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) ) 
+		{
+		
+			const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+			var isOffering = getIsOFeer(data);
+			if (isOffering)
+			{
+				const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
+				const m = data.match(reCallId);
+				const fromLineMatch = data.match(/^From:.*$/m);
+				const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+				const toLine = fromLine.replace(/^From:/i, 'To:');
+				log('📥 Linia From: ' + fromLine);
+			 
+				const ackOffering =
+				'ACK ' + sipUri + ' SIP/2.0\r\n' +
+				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
+				'Max-Forwards: 70\r\n' +
+				toLine + '\r\n' +
+				'From: "' + fromDisplayName + '" <' + sipUri + '>;tag=' + tag + '\r\n' +
+				'Call-ID: ' + m[1] + '\r\n' +
+				'CSeq: ' + 2 + ' ACK\r\n' +  
+				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
+				'Content-Length: 0\r\n\r\n'+				
+				'{"IsOffering":true}'
+ 
+				socket.send(ackOffering);
+			}
+		 
+		}
+	
+	
+		if (/^ACK\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) ) 
+		{
+			var isOffering = getIsOFeer(data);
+			if (isOffering)
+			{
+				debugger;
+				const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
+				const m = data.match(reCallId);
+				const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+				const fromLineMatch = data.match(/^From:.*$/m);
+				const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+				const toLine = fromLine.replace(/^From:/i, 'To:');
+				log('📥 Linia From: ' + fromLine);
+			 
+				const ackOffering =
+				'ACK ' + sipUri + ' SIP/2.0\r\n' +
+				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
+				'Max-Forwards: 70\r\n' +
+				toLine + '\r\n' +
+				'From: "' + fromDisplayName + '" <' + sipUri + '>;tag=' + tag + '\r\n' +
+				'Call-ID: ' + m[1] + '\r\n' +
+				'CSeq: ' + 3 + ' ACK\r\n' +  
+				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
+				'Content-Length: 0\r\n\r\n'+				
+				'{"IsOffering":false}'
+ 
+				socket.send(ackOffering);
+			}
+		 
+		}
+	
+	
+		
+		
+		
+      };
+
+      socket.onerror = err => log('❌ Błąd WebSocket: ' + err.message);
+      socket.onclose = () => log('🔌 Połączenie WebSocket zamknięte');
+    });
+  </script>
+</body>
+</html>
+
+ 
+ 
+ 
+           <!-- const ack = -->
+            <!-- 'ACK ' + sipUri + ' SIP/2.0\r\n' + -->
+            <!-- 'Via: SIP/2.0/WSS ' + window.location.hostname + ';branch=' + branchAck + '\r\n' + -->
+            <!-- 'Max-Forwards: 70\r\n' + -->
+            <!-- 'To: <' + sipUri + '>;tag=' + /To:.*;tag=([^\r\n]+)/.exec(data)[1] + '\r\n' + -->
+            <!-- 'From: <' + sipUri + '>;tag=' + tag + '\r\n' + -->
+            <!-- 'Call-ID: ' + callId + '\r\n' + -->
+            <!-- 'CSeq: ' + cseq + ' ACK\r\n' + -->
+            <!-- 'Content-Length: 0\r\n\r\n'; -->
+			
+ 
+
+
+ 
