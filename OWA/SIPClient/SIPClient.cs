@@ -3,9 +3,9 @@ using SIPSorcery.SIP;
 using System.Net.Sockets;
 using WebRTCClient.Models;
 using WebRTCClient.Transactions.SIP;
+using WebRTCClient.Utils;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.SIP.Utils;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace WebRTCClient
@@ -101,23 +101,14 @@ namespace WebRTCClient
             // await this.Dialog.Stop();
         }
 
-        private static ISIPTransport GetTransport(SIPParticipant caller, HashSet<SIPChannelsEnum> sipChannelEnums)
+        private static ISIPTransport GetTransport(SIPParticipant caller, HashSet<SIPClientChannelsEnum> sipChannelEnums)
         {
-            ISIPTransport transport = new WebRTCLibrary.Utils.SIPTransport();
-
             if (sipChannelEnums.Count == 0)
             {
-                // TODO: find suitable exception
-                throw new Exception("No SIPChannel set. Cannot create SIP connection.");
+                throw new ArgumentException("No SIPChannel set. Cannot create a SIP connection.");
             }
 
-            // set listening channels
-            foreach (SIPChannelsEnum sipChannelEnum in sipChannelEnums)
-            {
-                transport.AddSIPChannel(sipChannelEnum.GetChannelInstance(caller.Endpoint));
-            }
-
-            return transport;
+            return new WebRTCLibrary.SIP.Utils.SIPTransport(caller.Endpoint.GetIPEndPoint(), sipChannelEnums);
         }
     }
 }

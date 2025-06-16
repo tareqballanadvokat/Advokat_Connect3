@@ -5,7 +5,6 @@ using System.Net;
 using System.Text;
 using System.Windows;
 using WebRTCClient;
-using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using Serilog;
 using Serilog.Sinks.LogList;
@@ -20,7 +19,8 @@ namespace WebRTCCaller
     public partial class MainWindow : Window
     {
         //private static readonly string testingSignalingServer = "92.205.233.81:8081";
-        private static readonly string testingSignalingServer = "192.168.1.58:8081";
+        //private static readonly string testingSignalingServer = "192.168.1.58:8081";
+        private static readonly string testingSignalingServer = new IPEndPoint(IPAddress.Loopback, 443).ToString();
 
         private static readonly string testingCallerName = "macc";
         private static readonly string testingRemoteName = "macs";

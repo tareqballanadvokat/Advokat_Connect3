@@ -15,10 +15,10 @@ namespace WebRTCLibrary.SIP.Interfaces
         
         public SIPSchemesEnum SIPScheme { get; }
 
-        public Task Start();
+        //public Task Start();
         
         public Task Start(CancellationToken? ct = null);
          
-        //public Task Stop();
+        public Task Stop();
     }
 }

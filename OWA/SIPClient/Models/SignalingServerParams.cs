@@ -1,34 +1,21 @@
 ﻿using SIPSorcery.SIP;
+using WebRTCClient.Utils;
 using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.SIP.Utils;
 
 namespace WebRTCClient.Models
 {
-    public class SignalingServerParams
+    public class SignalingServerParams(
+        SIPParticipant sourceParticipant,
+        SIPParticipant remoteParticipant,
+        SIPSchemesEnum sipScheme,
+        HashSet<SIPClientChannelsEnum> sipChannels)
     {
-        public SignalingServerParams(
-            SIPParticipant sourceParticipant,
-            SIPParticipant remoteParticipant,
-            SIPSchemesEnum sipScheme,
-            IEnumerable<SIPChannelsEnum> sipChannels
-            )
-        {
-            this.SourceParticipant = sourceParticipant;
-            this.RemoteParticipant = remoteParticipant;
-            this.SIPScheme = sipScheme;
+        public SIPParticipant SourceParticipant { get; set; } = sourceParticipant;
 
-            foreach (SIPChannelsEnum sipChannel in sipChannels)
-            {
-                this.SIPChannels.Add(sipChannel);
-            }
-        }
+        public SIPParticipant RemoteParticipant { get; set; } = remoteParticipant;
 
-        public SIPParticipant SourceParticipant { get; set; }
+        public SIPSchemesEnum SIPScheme { get; set; } = sipScheme;
 
-        public SIPParticipant RemoteParticipant { get; set; }
-
-        public SIPSchemesEnum SIPScheme { get; set; }
-
-        public HashSet<SIPChannelsEnum> SIPChannels { get; set; } = new HashSet<SIPChannelsEnum>();
+        public HashSet<SIPClientChannelsEnum> SIPChannels { get; set; } = sipChannels;
     }
 }

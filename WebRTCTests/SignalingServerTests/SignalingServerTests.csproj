@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Connection\Mocks\ConnectionPool\" />
+    <Folder Include="SIPConnection\Mocks\ConnectionPool\" />
   </ItemGroup>
 
 </Project>

@@ -18,8 +18,6 @@ namespace SIPSignalingServer.Transactions
 
         private readonly ILogger<SIPConnectionTransaction> logger;
 
-        public int StartCSeq { get; set; }
-
         //private bool WaitingForPeer { get; set; }
 
         private bool Connecting { get; set; } // TODO: ConnectionPool.GetConnection(this.Registration).Confirmed == false -> connection exists but is not confirmed
@@ -41,7 +39,7 @@ namespace SIPSignalingServer.Transactions
 
         public event ConnectionFailedDelegate? OnConnectionFailed;
 
-        private CancellationTokenSource? PeerRegisteringCts { get; set; }
+        //private CancellationTokenSource? PeerRegisteringCts { get; set; }
 
         private CancellationTokenSource connectionCts = new CancellationTokenSource();
 
@@ -53,8 +51,7 @@ namespace SIPSignalingServer.Transactions
             ServerSideTransactionParams signalingServerTransactionParams,
             ISIPRegistry registry,
             ISIPConnectionPool connectionPool,
-            ILoggerFactory loggerFactory,
-            int startCSeq = 1)
+            ILoggerFactory loggerFactory)
             : base(
                   sipScheme,
                   transport,
@@ -74,7 +71,6 @@ namespace SIPSignalingServer.Transactions
             this.ConnectionPool = connectionPool;
 
             this.Registration = new SIPRegistration(this.ServerSideTransactionParams);
-            this.StartCSeq = startCSeq;
 
             this.messageRelay = new SIPMessageRelay(this.Connection, this.Params, this.loggerFactory);
             this.messageRelay.SendTimeout = this.SendTimeout;
@@ -86,19 +82,12 @@ namespace SIPSignalingServer.Transactions
         }
 
         // TODO: remove once base class changes
-        public async override Task Start()
+        protected async override Task Start()
         {
-            await this.Start(null);
         }
 
         public async override Task Start(CancellationToken? ct = null)
         {
-            //if (this.WaitingForPeer)
-            //{
-            //    // Another connection process is already running
-            //    return;
-            //}
-
             if (this.Connecting)
             {
                 // Another connection process is already running
@@ -123,7 +112,7 @@ namespace SIPSignalingServer.Transactions
 
             if (this.ConnectionCt.IsCancellationRequested)
             {
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Connection cancelled.", sendBye: false);
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Connection cancelled.", sendBye: false);
                 return;
             }
 
@@ -133,7 +122,7 @@ namespace SIPSignalingServer.Transactions
             }
             else
             {
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Peer not registered.", sendBye: false);
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.PreconditionFailure, "Peer not registered.", sendBye: false);
                 
                 //this.WaitingForPeer = true;
                 //this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", this.Registration.RemoteUser, this.Registration.SourceParticipant);
@@ -166,7 +155,7 @@ namespace SIPSignalingServer.Transactions
             this.CreateConnection();
             this.Connection.SIPRequestReceived += this.ListenForAck;
 
-            bool notifySent = await this.SendNotifyRequest(this.StartCSeq);
+            bool notifySent = await this.SendNotifyRequest(this.StartCseq);
             if (!notifySent)
             {
                 // sending notify failed
@@ -206,7 +195,7 @@ namespace SIPSignalingServer.Transactions
 
         private async Task<bool> SendNotifyRequest(int cSeq)
         {
-            SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCSeq);
+            SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCseq);
 
             SocketError result;
             try
@@ -240,7 +229,7 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            if (request.Header.CSeq != this.StartCSeq + 1)
+            if (request.Header.CSeq != this.StartCseq + 1)
             {
                 await this.ConnectionFailed(SIPResponseStatusCodesEnum.BadRequest, "Request header was invalid.");
                 return;
@@ -270,7 +259,7 @@ namespace SIPSignalingServer.Transactions
         private async Task SendConnectionNotify()
         {
             // TODO: implement sad path
-            SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCSeq + 2);
+            SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCseq + 2);
 
             // TODO: Implement cancellation logic. Where to save tokensource? Which requests should use the same token?
             using CancellationTokenSource cts = new CancellationTokenSource();

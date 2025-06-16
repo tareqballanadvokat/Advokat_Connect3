@@ -9,6 +9,10 @@ namespace WebRTCLibrary.SIP
     {
         private readonly ILogger<SIPTransaction> logger;
 
+        protected object isRunningLock = new object();
+
+        protected virtual bool Running { get; set; }
+
         //private static readonly int DefaultTimeOut = 2000;
         private static readonly int DefaultTimeOut = 20000; // DEBUG
 
@@ -31,6 +35,28 @@ namespace WebRTCLibrary.SIP
         public TransactionParams Params { get; protected set; }
 
         public ISIPConnection Connection { get; private set; }
+        
+        public int CurrentCseq { get; protected set; }
+
+        private int startCseq = 1;
+
+        public virtual int StartCseq
+        {
+            get => this.startCseq;
+            set
+            {
+                if (this.Running)
+                {
+                    throw new InvalidOperationException("StartCseq cannot be changed when the SIPTransaction is running.");
+                }
+
+                this.startCseq = value;
+            }
+        }
+
+        protected CancellationTokenSource Cts { get; set; }
+
+        protected CancellationToken Ct { get => this.Cts.Token; }
 
         // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
         public SIPTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
@@ -48,14 +74,51 @@ namespace WebRTCLibrary.SIP
             this.Connection = connection;
         }
 
-        // TODO: remove completely - remplace with start with a ct
-        public async virtual Task Start() { }
+        protected abstract Task Start();
 
-        // TODO: make abstract
-        public async virtual Task Start(CancellationToken? ct = null) { }
+        public async virtual Task Start(CancellationToken? ct = null)
+        {
+            lock (this.isRunningLock)
+            {
+                if (!this.CanStart())
+                {
+                    return;
+                }
 
+                this.SetInitalParametes(ct);
+                this.Running = true;
+            }
 
-        //public abstract Task Stop(); // ??
+            await Start();
+        }
+
+        public async virtual Task Stop()
+        {
+            lock (this.isRunningLock)
+            {
+                if (!this.CanStop())
+                {
+                    return;
+                }
+
+                this.StopRunning();
+            }
+
+            await this.Finish();
+        }
+
+        protected async virtual Task Finish()
+        {
+        }
+
+        protected virtual void StopRunning()
+        {
+            if (this.Running)
+            {
+                this.Cts.Cancel();
+                this.Running = false;
+            }
+        }
 
         protected virtual SIPHeaderParams GetHeaderParams(int cSeq = 1)
         {
@@ -72,6 +135,24 @@ namespace WebRTCLibrary.SIP
         {
             return this.IsPartOfTransaction(message);
         }
+
+        protected virtual void SetInitalParametes(CancellationToken? newCt)
+        {
+            this.CurrentCseq = this.StartCseq;
+            this.Cts = newCt == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)newCt);
+        }
+
+        protected virtual bool CanStart()
+        {
+            return !this.Running;
+        }
+
+        protected virtual bool CanStop()
+        {
+            return this.Running;
+        }
+
+        protected virtual 
 
         /// <summary>Checks if an incoming message is part of this dialog.</summary>
         /// <param name="message">Incoming SIPMessage. SIPRequest or SIPResponse.</param>

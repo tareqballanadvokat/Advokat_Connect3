@@ -101,7 +101,11 @@ namespace SIPSignalingServer
         // TODO: do we net it? (does this mean "do we need it?")
         public SIPTunnel? GetConnection(ServerSideTransactionParams transactionParams)
         {
-            return this.Connections.SingleOrDefault(t => t.Left.Params == transactionParams || t.Right.Params == transactionParams);
+            // lock it?
+            lock (lockObject)
+            {
+                return this.Connections.SingleOrDefault(t => t.Left.Params == transactionParams || t.Right.Params == transactionParams);
+            }
         }
 
         private static bool ParamsAreValid(ServerSideTransactionParams transactionParams)
@@ -115,7 +119,13 @@ namespace SIPSignalingServer
         private SIPTunnel? GetConnection(SIPMessageRelay messageRelay)
         {
             // TODO: also get connections with same parameters not just same reference? Equality comparer in transaction?
-            return this.Connections.SingleOrDefault(t => t.Left == messageRelay || t.Right == messageRelay);
+            // 
+            // TODO: Throws a nullreference exception when more than one pair try to connect
+            // lock it?
+            lock (lockObject)
+            {
+                return this.Connections.SingleOrDefault(t => t.Left == messageRelay || t.Right == messageRelay);
+            }
         }
 
         private SIPMessageRelay? GetPendingPeer(SIPMessageRelay messageRelay)

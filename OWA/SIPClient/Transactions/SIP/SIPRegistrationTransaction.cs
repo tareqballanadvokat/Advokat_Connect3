@@ -43,10 +43,8 @@ namespace WebRTCClient.Transactions.SIP
             this.registrationCts = new CancellationTokenSource();
         }
 
-        // TODO: remove once base class is changed to take a cancellationtoken
-        public override async Task Start()
+        protected override async Task Start()
         {
-            await this.Start(null);
         }
 
         public override async Task Start(CancellationToken? ct = null)

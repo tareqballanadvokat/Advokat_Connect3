@@ -119,7 +119,10 @@ namespace SIPSignalingServer.Transactions
             }
         }
 
-        public async override Task Start()
+        protected async override Task Start() { }
+
+        // TODO: use ct
+        public override async Task Start(CancellationToken? ct = null)
         {
             if (this.Relaying)
             {

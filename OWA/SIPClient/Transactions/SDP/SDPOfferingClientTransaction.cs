@@ -50,7 +50,7 @@ namespace WebRTCClient.Transactions.SDP
 
             string sdpConfigJson = JsonSerializer.Serialize(sdpConfig);
 
-            await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, sdpConfigJson, SDPContentType, this.StartCSeq);
+            await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, sdpConfigJson, SDPAllocationContentType, this.StartCSeq);
         }
 
         private async Task ListenForAck(ISIPMessager sender, SIPRequest request)
@@ -79,7 +79,7 @@ namespace WebRTCClient.Transactions.SDP
                 return;
             }
 
-            if (request.Header.ContentType != SDPContentType)
+            if (request.Header.ContentType != SDPAllocationContentType)
             {
                 // wrong content type
                 return;
