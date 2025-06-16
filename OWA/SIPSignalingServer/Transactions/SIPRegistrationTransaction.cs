@@ -71,8 +71,9 @@ namespace SIPSignalingServer.Transactions
             this.Registration = new SIPRegistration(this.Params);
         }
 
-        protected async override Task Start()
+        protected async override Task StartRunning()
         {
+            await base.StartRunning();
             await this.Register();
         }
 

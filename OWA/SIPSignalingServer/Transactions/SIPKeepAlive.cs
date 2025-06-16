@@ -31,7 +31,7 @@ namespace SIPSignalingServer.Transactions
 
         private bool Running { get; set; }
 
-        protected async override Task Start()
+        protected async override Task StartRunning()
         {
         }
 

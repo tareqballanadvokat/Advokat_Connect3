@@ -4,6 +4,7 @@ using SIPSorcery.SIP;
 using System.Net.Sockets;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
+using WebRTCLibrary.Utils;
 
 namespace SIPSignalingServer.Transactions
 {
@@ -11,141 +12,205 @@ namespace SIPSignalingServer.Transactions
     {
         private readonly ILogger<SIPMessageRelay> logger;
 
-        public bool Relaying { get; private set; }
+        public bool Relaying => this.Running;
 
         public SIPMessageRelay(ISIPConnection connection, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
             : base(connection, transactionParams, loggerFactory)
         {
-            //this.loggerFactory = loggerFactory;
             this.logger = loggerFactory.CreateLogger<SIPMessageRelay>();
         }
 
         public delegate Task RequestReceivedDelegate(SIPMessageRelay sender, SIPRequest request);
+
         public delegate Task ResponseReceivedDelegate(SIPMessageRelay sender, SIPResponse response);
 
+        public delegate Task RelayStatusChangedDelegate(SIPMessageRelay sender);
+
         public event RequestReceivedDelegate? OnRequestReceived;
+
         public event ResponseReceivedDelegate? OnResponseReceived;
+
+        public event RelayStatusChangedDelegate? RelayStopped;
+        
+        public event RelayStatusChangedDelegate? RelayStarted;
+
 
         public async Task RelayRequest(SIPMessageRelay sender, SIPRequest request)
         {
-            if (this.Relaying)
+            if (!this.Relaying)
             {
-                // TODO: Get cancellationToken passed?
-                using CancellationTokenSource cts = new CancellationTokenSource();
-                SIPHeaderParams headerParams = this.GetHeaderParams(request.Header.CSeq);
+                return;
+            }
+
+            if (this.Ct.IsCancellationRequested)
+            {
+                await this.Stop();
+            }
+
+            SIPHeaderParams headerParams = this.GetHeaderParams(request.Header.CSeq);
                 
-                this.logger.LogDebug(
-                    "<> Relaying {method} {cSeq} - from: '{from}', to:\"{to}\" toTag:\"{toTag}\".",
-                    request.Method,
-                    headerParams.CSeq,
-                    request.Header.From,
-                    headerParams.DestinationParticipant,
-                    headerParams.ToTag);
+            this.logger.LogDebug(
+                "<> Relaying {method} {cSeq} - from: '{from}', to:\"{to}\" toTag:\"{toTag}\".",
+                request.Method,
+                headerParams.CSeq,
+                request.Header.From,
+                headerParams.DestinationParticipant,
+                headerParams.ToTag);
 
-                // TODO: maybe check if request matches transactionParams?
+            // TODO: maybe check if request matches transactionParams?
+            // TODO: Catch OerationCancelled?
+            SocketError sendingStatus = await this.Connection.SendSIPRequest(
+                request.Method,
+                headerParams,
+                request.Body,
+                request.Header.ContentType,
+                this.Ct);
 
-                SocketError sendingStatus = await this.Connection.SendSIPRequest(
-                    request.Method,
-                    headerParams,
-                    request.Body,
-                    request.Header.ContentType,
-                    cts.Token);
-
-                if (sendingStatus != SocketError.Success)
-                {
-                    // TODO: do something here. Relay failed
-                    //       Maybe send message to sending client
-                }
+            if (sendingStatus != SocketError.Success)
+            {
+                // TODO: do something here. Relay failed
+                //       Maybe send message to sending client
             }
         }
 
         // TODO: Remove? or make this a full ISIPMessager? This is currently used for Notify to start SDP negotiation
         public async Task SendRequest(SIPMethodsEnum method, string message, string contentType, int cSeq = 1)
         {
-            if (this.Relaying)
+            if (!this.Relaying)
             {
-                // TODO: Get cancellationToken passed?
-                using CancellationTokenSource cts = new CancellationTokenSource();
-                SIPHeaderParams headersParams = this.GetHeaderParams(cSeq);
-                
-                await this.Connection.SendSIPRequest(
-                    method,
-                    this.GetHeaderParams(cSeq),
-                    message,
-                    contentType,
-                    cts.Token);
+                return;
             }
+
+            if (this.Ct.IsCancellationRequested)
+            {
+                await this.Stop();
+            }
+
+            // TODO: Get cancellationToken passed?
+            using CancellationTokenSource cts = new CancellationTokenSource();
+            SIPHeaderParams headersParams = this.GetHeaderParams(cSeq);
+                
+            await this.Connection.SendSIPRequest(
+                method,
+                this.GetHeaderParams(cSeq),
+                message,
+                contentType,
+                cts.Token);
+            
         }
 
         public async Task RelayResponse(SIPMessageRelay sender, SIPResponse response)
         {
-
-            if (this.Relaying)
+            if (!this.Relaying)
             {
-                // TODO: Get cancellationToken passed?
-                using CancellationTokenSource cts = new CancellationTokenSource();
-                //this.logger.LogDebug(
-                //    "<> Relaying {statusCode} {cSeq} - from: '{from}', to:\"{to}\" toTag:\"{toTag}\".",
-                //    response.StatusCode,
-                //    headerParams.CSeq,
-                //    response.Header.From,
-                //    headerParams.DestinationParticipant,
-                //    headerParams.ToTag);
+                return;
+            }
 
-                // TODO: I think this has to be fixed aswell - Headerparams are not correct
-                SocketError sendingStatus = await this.Connection.SendSIPResponse(response, cts.Token);
+            if (this.Ct.IsCancellationRequested)
+            {
+                await this.Stop();
+            }
 
-                if (sendingStatus != SocketError.Success)
-                {
-                    // TODO: do something here. Relay failed.
-                    //       Maybe send message to sending client
-                }
+            //this.logger.LogDebug(
+            //    "<> Relaying {statusCode} {cSeq} - from: '{from}', to:\"{to}\" toTag:\"{toTag}\".",
+            //    response.StatusCode,
+            //    headerParams.CSeq,
+            //    response.Header.From,
+            //    headerParams.DestinationParticipant,
+            //    headerParams.ToTag);
+
+            // TODO: I think this has to be fixed aswell - Headerparams are not correct
+            // TODO: catch OperationCancelled?
+            SocketError sendingStatus = await this.Connection.SendSIPResponse(response, this.Ct);
+
+            if (sendingStatus != SocketError.Success)
+            {
+                // TODO: do something here. Relay failed.
+                //       Maybe send message to sending client
             }
         }
 
         private async Task ReceiveMessage(SIPEndPoint _, SIPEndPoint __, SIPRequest request)
         {
-            if (this.Relaying)
+            if (!this.Relaying)
             {
-                await (this.OnRequestReceived?.Invoke(this, request) ?? Task.CompletedTask);
+                return;
             }
+
+            if (this.Ct.IsCancellationRequested)
+            {
+                await this.Stop();
+            }
+
+            await (this.OnRequestReceived?.Invoke(this, request) ?? Task.CompletedTask);
         }
 
         private async Task ReceiveMessage(SIPEndPoint _, SIPEndPoint __, SIPResponse response)
         {
-            if (this.Relaying)
-            {
-                await (this.OnResponseReceived?.Invoke(this, response) ?? Task.CompletedTask);
-            }
-        }
-
-        protected async override Task Start() { }
-
-        // TODO: use ct
-        public override async Task Start(CancellationToken? ct = null)
-        {
-            if (this.Relaying)
-            {
-                // already relaying
-                return;
-            }
-
-            this.Connection.SIPRequestReceived += this.ReceiveMessage;
-            this.Connection.SIPResponseReceived += this.ReceiveMessage;
-            this.Relaying = true;
-        }
-
-        public async Task Stop()
-        {
             if (!this.Relaying)
             {
-                // not started
                 return;
             }
 
+            if (this.Ct.IsCancellationRequested)
+            {
+                await this.Stop();
+            }
+
+            await (this.OnResponseReceived?.Invoke(this, response) ?? Task.CompletedTask);   
+        }
+
+        protected async override Task StartRunning()
+        {
+            await base.StartRunning();
+            this.Connection.SIPRequestReceived += this.ReceiveMessage;
+            this.Connection.SIPResponseReceived += this.ReceiveMessage;
+
+            // run check for cancellation of the relay in bg thread
+            _ = Task.Run(async () => {
+                await TaskHelpers.WaitForAsync(
+                () => this.Ct.IsCancellationRequested,
+                timeoutToken: CancellationToken.None,
+                this.Ct,
+                successCallback: this.Stop
+                );
+            });
+        }
+
+        protected async override Task Finish()
+        {
+            await base.Finish();
             this.Connection.SIPRequestReceived -= this.ReceiveMessage;
             this.Connection.SIPResponseReceived -= this.ReceiveMessage;
-            this.Relaying = false;
+
+            this.RelayStarted?.Invoke(this);
         }
+
+        // TODO: use ct
+        //public override async Task Start(CancellationToken? ct = null)
+        //{
+        //    if (this.Relaying)
+        //    {
+        //        // already relaying
+        //        return;
+        //    }
+
+        //    this.Connection.SIPRequestReceived += this.ReceiveMessage;
+        //    this.Connection.SIPResponseReceived += this.ReceiveMessage;
+        //    this.Relaying = true;
+        //}
+
+        //protected override async Task Stop()
+        //{
+        //    if (!this.Relaying)
+        //    {
+        //        // not started
+        //        return;
+        //    }
+
+        //    this.Connection.SIPRequestReceived -= this.ReceiveMessage;
+        //    this.Connection.SIPResponseReceived -= this.ReceiveMessage;
+        //    this.Relaying = false;
+        //}
     }
 }

@@ -9,9 +9,13 @@ namespace SIPSignalingServer.Interfaces
 
         public event ConnectionRemovedDelegate? ConnectionRemoved;
 
-        public void Connect(SIPMessageRelay messageRelay);
+        public delegate Task ConnectionEstablishedDelegate(ISIPConnectionPool sender, SIPTunnel tunnel);
 
-        public void Disconnect(SIPMessageRelay messageRelay);
+        public event ConnectionEstablishedDelegate? ConnectionEstablished;
+
+        public Task<SIPTunnel> Connect(SIPMessageRelay messageRelay);
+
+        public Task Disconnect(SIPMessageRelay messageRelay);
 
         public bool IsConnected(SIPMessageRelay messageRelay);
 

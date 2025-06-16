@@ -22,7 +22,7 @@ namespace WebRTCClient.Transactions.SIP
             this.logger = loggerFactory.CreateLogger<SIPMessaging>();
         }
 
-        protected async override Task Start()
+        protected async override Task StartRunning()
         {
         }
 

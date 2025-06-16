@@ -23,7 +23,15 @@ namespace SIPSignalingServer.Transactions
         private bool Connecting { get; set; } // TODO: ConnectionPool.GetConnection(this.Registration).Confirmed == false -> connection exists but is not confirmed
                                               //       Or this.PeerRegistration != null && this.Connected == false 
 
+        private bool Connected { get; set; }
+
         private bool ConnectionAcknowledged { get; set; }
+
+        protected override bool Running
+        {
+            get => this.Connecting || this.Connected;
+            set => this.Connecting = value;
+        }
 
         private SIPRegistration Registration { get; set; }
 
@@ -38,12 +46,6 @@ namespace SIPSignalingServer.Transactions
         public delegate Task ConnectionFailedDelegate(SIPConnectionTransaction sender, FailureEventArgs e);
 
         public event ConnectionFailedDelegate? OnConnectionFailed;
-
-        //private CancellationTokenSource? PeerRegisteringCts { get; set; }
-
-        private CancellationTokenSource connectionCts = new CancellationTokenSource();
-
-        private CancellationToken ConnectionCt { get => this.connectionCts.Token; }
 
         public SIPConnectionTransaction(
             SIPSchemesEnum sipScheme,
@@ -82,17 +84,20 @@ namespace SIPSignalingServer.Transactions
         }
 
         // TODO: remove once base class changes
-        protected async override Task Start()
+        protected async override Task StartRunning()
         {
+            //await this.Connect();
         }
 
         public async override Task Start(CancellationToken? ct = null)
         {
-            if (this.Connecting)
-            {
-                // Another connection process is already running
-                return;
-            }
+            await base.Start(ct); // DEBUG - temporary
+
+            //if (this.Connecting)
+            //{
+            //    // Another connection process is already running
+            //    return;
+            //}
 
             if (this.IsConnected())
             {
@@ -108,9 +113,9 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            this.connectionCts = ct == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)ct);
+            //this.Cts = ct == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)ct);
 
-            if (this.ConnectionCt.IsCancellationRequested)
+            if (this.Ct.IsCancellationRequested)
             {
                 await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Connection cancelled.", sendBye: false);
                 return;
@@ -141,7 +146,7 @@ namespace SIPSignalingServer.Transactions
 
         private async Task Connect()
         {
-            if (this.ConnectionCt.IsCancellationRequested)
+            if (this.Ct.IsCancellationRequested)
             {
                 await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Connection cancelled.", sendBye: false);
                 return;
@@ -165,7 +170,7 @@ namespace SIPSignalingServer.Transactions
             await WaitForAsync(
                 () => this.ConnectionAcknowledged,
                 timeOut: this.ReceiveTimeout,
-                this.ConnectionCt,
+                this.Ct,
                 timeoutCallback: async () => 
                     await this.ConnectionFailed(
                         SIPResponseStatusCodesEnum.RequestTimeout,
@@ -200,7 +205,7 @@ namespace SIPSignalingServer.Transactions
             SocketError result;
             try
             {
-                result = await this.Connection.SendSIPRequest(notifyRequest, this.ConnectionCt);
+                result = await this.Connection.SendSIPRequest(notifyRequest, this.Ct);
             }
             catch (OperationCanceledException ex)
             {
@@ -235,18 +240,20 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            if (this.ConnectionCt.IsCancellationRequested)
+            if (this.Ct.IsCancellationRequested)
             {
                 await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled");
                 return;
             }
 
             this.ConnectionAcknowledged = true;
+            this.ConnectionPool.ConnectionEstablished += this.ConnectionEstablished;
+
             await this.messageRelay.Start(); // TODO: Pass a ct?
 
             await WaitForAsync(
                 this.IsConnected,
-                this.ConnectionCt, // TODO: differentiate between timeout and cancellation
+                this.Ct, // TODO: differentiate between timeout and cancellation
                 CancellationToken.None,
                 successCallback: this.SendConnectionNotify,
                 timeoutCallback: this.AckTimeout
@@ -256,8 +263,22 @@ namespace SIPSignalingServer.Transactions
             this.Connecting = false;
         }
 
+        private async Task ConnectionEstablished(ISIPConnectionPool sender, SIPTunnel tunnel)
+        {
+            if (tunnel.Left == this.messageRelay || tunnel.Right == this.messageRelay)
+            {
+                lock (this.isRunningLock)
+                {
+                    this.Connected = true;
+                    this.Connecting = false;
+                }
+            }
+        }
+
         private async Task SendConnectionNotify()
         {
+            //this.Connected = true;
+
             // TODO: implement sad path
             SIPRequest notifyRequest = this.GetNotifyRequest(this.StartCseq + 2);
 
@@ -350,7 +371,7 @@ namespace SIPSignalingServer.Transactions
             await this.StopSIPTunnel();
 
             this.Connection.SIPRequestReceived -= this.ListenForAck;
-            this.connectionCts.Cancel();
+            this.Cts.Cancel();
 
             if (sendBye)
             {

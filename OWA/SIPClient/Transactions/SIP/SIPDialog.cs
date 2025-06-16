@@ -67,7 +67,7 @@ namespace WebRTCClient.Transactions.SIP
             this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params, this.loggerFactory);
         }
 
-        protected async override Task Start()
+        protected async override Task StartRunning()
         {
         }
 

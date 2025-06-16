@@ -74,7 +74,9 @@ namespace WebRTCLibrary.SIP
             this.Connection = connection;
         }
 
-        protected abstract Task Start();
+        protected async virtual Task StartRunning()
+        {
+        }
 
         public async virtual Task Start(CancellationToken? ct = null)
         {
@@ -89,7 +91,7 @@ namespace WebRTCLibrary.SIP
                 this.Running = true;
             }
 
-            await Start();
+            await StartRunning();
         }
 
         public async virtual Task Stop()

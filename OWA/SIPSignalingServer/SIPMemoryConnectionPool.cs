@@ -14,59 +14,87 @@ namespace SIPSignalingServer
 
         private readonly List<SIPTunnel> Connections = new List<SIPTunnel>();
 
-        private readonly List<SIPMessageRelay> PendingConnections = new List<SIPMessageRelay>();
-
         public event ISIPConnectionPool.ConnectionRemovedDelegate? ConnectionRemoved;
+
+        public event ISIPConnectionPool.ConnectionEstablishedDelegate? ConnectionEstablished;
 
         public SIPMemoryConnectionPool(ILoggerFactory loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPMemoryConnectionPool>();
         }
 
-        public void Connect(SIPMessageRelay messageRelay)
+        public async Task<SIPTunnel> Connect(SIPMessageRelay messageRelay)
         {
             if (!ParamsAreValid(messageRelay.Params))
             {
                 // params are invalid - cannot create any connection
-                return;
+                throw new ArgumentException("Invalid params. Cannot connect");
+
+                //return;
             }
 
-            if (this.GetConnection(messageRelay) != null)
-            {
-                // connection does already exist
-                return;
-            }
+            SIPTunnel? tunnel;
 
             lock (this.lockObject)
             {
-                SIPMessageRelay? pendingPeerMessageRelay = this.GetPendingPeer(messageRelay);
+                tunnel = this.GetConnection(messageRelay);
 
-                if (pendingPeerMessageRelay == null)
+                if (tunnel != null)
                 {
-                    this.AddPending(messageRelay);
+                    if (tunnel.Right == null)
+                    {
+                        // is already a pending connection
+                        return tunnel;
+                    }
+
+                    return tunnel;
+                }
+
+                tunnel = this.GetPendingFor(messageRelay);
+
+                if (tunnel == null)
+                {
+                    // Add new pending connection
+                    return this.AddPending(messageRelay);
+                }
+
+                tunnel = this.Connect(tunnel, messageRelay);
+            }
+
+            await tunnel.CheckForConnection();
+            return tunnel;
+        }
+
+        private SIPTunnel Connect(SIPTunnel pendingConnection, SIPMessageRelay messageRelay)
+        {
+            messageRelay.Params.CallId = pendingConnection.Left.Params.CallId;
+
+            // TODO: Check if we should have ip addresses in logs on info level
+            this.logger.LogInformation("Connection established. '{caller}' - '{remote}'.", pendingConnection.Left.Params.ClientParticipant, messageRelay.Params.ClientParticipant);
+            pendingConnection.Connect(messageRelay);
+            return pendingConnection;
+        }
+
+        // TODO: Disconnect when one peer stops
+        public async Task Disconnect(SIPMessageRelay messageRelay)
+        {
+            SIPTunnel? tunnel;
+
+            lock (lockObject)
+            {
+                tunnel = this.GetConnection(messageRelay);
+
+                if (tunnel == null)
+                {
+                    // no connection to disconnect
                     return;
                 }
 
-                this.CreateNewConnection(messageRelay, pendingPeerMessageRelay);
-                this.PendingConnections.Remove(pendingPeerMessageRelay);
+                this.Connections.Remove(tunnel);
             }
-        }
 
-        public void Disconnect(SIPMessageRelay messageRelay)
-        {
-            lock (lockObject)
-            {
-                if (this.IsConnected(messageRelay))
-                {
-                    // TODO: Disconnect both
-                    //       stop the messaging
-                }
-
-                if (this.PendingConnections.Remove(messageRelay))
-                {
-                    this.ConnectionRemoved?.Invoke(this, messageRelay.Params);
-                }
-            }
+            await tunnel.Disconnect();
+            await (this.ConnectionRemoved?.Invoke(this, messageRelay.Params) ?? Task.CompletedTask);
         }
 
         //public bool IsConnected(ServerSideTransactionParams transactionParams)
@@ -91,20 +119,13 @@ namespace SIPSignalingServer
             return this.GetConnection(messageRelay)?.Connected ?? false;
         }
 
-        //public SIPMessageRelay? GetMessageRelay(ServerSideTransactionParams transactionParams)
-        //{
-        //    return this.GetPendingMessageRelay(transactionParams)
-        //        ?? this.Connections.SingleOrDefault(t => t.Left.Params == transactionParams)?.Left
-        //        ?? this.Connections.SingleOrDefault(t => t.Right.Params == transactionParams)?.Right;
-        //}
-
-        // TODO: do we net it? (does this mean "do we need it?")
+        // TODO: do we need it?
         public SIPTunnel? GetConnection(ServerSideTransactionParams transactionParams)
         {
             // lock it?
             lock (lockObject)
             {
-                return this.Connections.SingleOrDefault(t => t.Left.Params == transactionParams || t.Right.Params == transactionParams);
+                return this.Connections.SingleOrDefault(t => t.Left.Params == transactionParams || t.Right?.Params == transactionParams);
             }
         }
 
@@ -128,9 +149,10 @@ namespace SIPSignalingServer
             }
         }
 
-        private SIPMessageRelay? GetPendingPeer(SIPMessageRelay messageRelay)
+        private SIPTunnel? GetPendingFor(SIPMessageRelay messageRelay)
         {
-            return this.PendingConnections.SingleOrDefault(r => r.Params.IsPeer(messageRelay.Params));
+            // TODO: What if there are multiple?
+            return this.Connections.SingleOrDefault(c => c.Left.Params.IsPeer(messageRelay.Params));
         }
 
         //private SIPMessageRelay? GetPendingMessageRelay(ServerSideTransactionParams transactionParams)
@@ -139,32 +161,22 @@ namespace SIPSignalingServer
         //    return this.PendingConnections.SingleOrDefault(r => r.Params == transactionParams);
         //}
 
-        private void AddPending(SIPMessageRelay messageRelay)
+        private SIPTunnel AddPending(SIPMessageRelay messageRelay)
         {
             lock (this.lockObject)
             {
-                // TODO: check which equality comparer gets used? override?
-                if (this.PendingConnections.Contains(messageRelay))
+                if (this.GetConnection(messageRelay) != null)
                 {
-                    // already contains messageRelay
-
-                    return;
+                    throw new ArgumentException("Messagerelay already connected. Cannot add as pending connection.");
                 }
 
                 messageRelay.Params.CallId = CallProperties.CreateNewCallId(); // creates new call id for connection
-
+                SIPTunnel tunnel = new SIPTunnel(messageRelay);
+                this.Connections.Add(tunnel);
                 this.logger.LogDebug("Added new pending connection. From:'{caller}', to:'{remote}'.", messageRelay.Params.ClientParticipant, messageRelay.Params.RemoteParticipant);
-                this.PendingConnections.Add(messageRelay);
+
+                return tunnel;
             }
-        }
-
-        private void CreateNewConnection(SIPMessageRelay messageRelay, SIPMessageRelay pendingPeerMessageRelay)
-        {
-            messageRelay.Params.CallId = pendingPeerMessageRelay.Params.CallId;
-
-            // TODO: Check if we should have ip addresses in logs on info level
-            this.logger.LogInformation("Connection established. '{caller}' - '{remote}'.", messageRelay.Params.ClientParticipant, pendingPeerMessageRelay.Params.ClientParticipant);
-            this.Connections.Add(new SIPTunnel(messageRelay, pendingPeerMessageRelay));
         }
     }
 }

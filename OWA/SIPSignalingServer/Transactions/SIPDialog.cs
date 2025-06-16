@@ -94,7 +94,7 @@ namespace SIPSignalingServer.Transactions
             this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory();
         }
 
-        protected async override Task Start()
+        protected async override Task StartRunning()
         {
         }
 

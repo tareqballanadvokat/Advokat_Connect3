@@ -39,7 +39,7 @@ namespace WebRTCClient.Transactions.SIP
             this.connectionCts = new CancellationTokenSource();
         }
 
-        protected async override Task Start()
+        protected async override Task StartRunning()
         {
         }
 
