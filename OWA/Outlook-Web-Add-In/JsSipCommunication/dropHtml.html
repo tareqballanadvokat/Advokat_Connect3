@@ -26,7 +26,9 @@
   </div>
   <button id="startBtn">Start SIP REGISTER</button>
   <button id="stopBtn" disabled>Stop UA</button>
-
+<h3>DataChannel komunikacja:</h3>
+<input type="text" id="dcInput" placeholder="Wpisz wiadomość" style="width: 300px;" />
+<button id="sendDcBtn">Wyślij przez DataChannel</button>
   <h3>Logi:</h3>
   <div id="log"></div>
 
@@ -37,7 +39,49 @@
 	let fromTag = "";
 	let fromDisplayName = "macc";
 	let toDisplayName ="macs";
+	<!-- const certificate = await RTCPeerConnection.generateCertificate({ -->
+	  <!-- name: "ECDSA", -->
+	  <!-- namedCurve: "P-256", -->
+	  <!-- hash: "SHA-256" -->
+	<!-- }); -->
 	var pc =new RTCPeerConnection();
+	var dataChannelAnswer = pc.createDataChannel("answer");
+	var dataChannelOffer = pc.createDataChannel("offer");
+			  dataChannelAnswer.onopen = () => {
+				console.log("🟢 DataChannel opened");
+				dataChannelAnswer.send("Hello via DataChannel ANSWER!");
+			  };
+
+			  dataChannelAnswer.onmessage = event => {
+				console.log("📨 DataChannel message:", event.data);
+			  };
+
+			  dataChannelAnswer.onclose = () => {
+				console.log("🔴 DataChannel closed");
+			  };
+
+			  dataChannelAnswer.onerror = err => {
+				console.error("❌ DataChannel error:", err);
+			  };
+			 
+	  dataChannelOffer.onopen = () => {
+				console.log("🟢 DataChannel opened");
+				dataChannelOffer.send("Hello via DataChannel - OFFER!");
+		};
+
+			  dataChannelOffer.onmessage = event => {
+				console.log("📨 DataChannel message:", event.data);
+			  };
+
+			  dataChannelOffer.onclose = () => {
+				console.log("🔴 DataChannel closed");
+			  };
+
+			  dataChannelOffer.onerror = err => {
+				console.error("❌ DataChannel error:", err);
+			  };		 
+			 
+			 
 	var sdpAnswer;
 	 
 	function getIsOFeer(data)
@@ -324,6 +368,10 @@
 			const toLine = fromLine.replace(/^From:/i, 'To:');
 	 
 			 <!-- pc.onicecandidate = evt => evt.candidate; -->
+			 
+
+	
+			 
             pc.onicecandidate = evt => evt.candidate && console.log(JSON.stringify(evt.candidate));
 			pc.onclose= () => {
 			   console.log("pc close");
@@ -355,6 +403,15 @@
 				console.log("Final SDP:", JSON.stringify(pc.localDescription));
 				socket.send(sendSDPAnswer(JSON.stringify(pc.localDescription), m[1], sipUri, tag, toLine));
 			  }
+			  
+			  pc.getSenders().forEach(sender => {
+				const transport = sender.transport;
+				if (transport) {
+					transport.ondtlsstatechange = () => {
+						console.log("DTLS state:", transport.dtlsTransport.state);
+					};
+				}
+			});
 			};
 		}
 	
@@ -366,7 +423,32 @@
       socket.onerror = err => log('❌ Błąd WebSocket: ' + err.message);
       socket.onclose = () => log('🔌 Połączenie WebSocket zamknięte');
     });
-  </script>
+ 
+const dcInput = document.getElementById('dcInput');
+const sendDcBtn = document.getElementById('sendDcBtn');
+
+// Domyślny kanał do wysyłania – ustawiony po stronie offerera
+let activeDataChannel = dataChannelAnswer; // Możesz tu przypisać offer/answer zależnie od roli
+let activeDataChannel2 = dataChannelAnswer; // Możesz tu przypisać offer/answer zależnie od roli
+
+sendDcBtn.addEventListener('click', () => {
+  const msg = dcInput.value.trim();
+  if (msg && activeDataChannel && activeDataChannel.readyState === "open") {
+    activeDataChannel.send("ANSWER: "+msg);
+    log(`📤 Wysłano ANSWER: ${msg}`);
+  } else {
+    log("⚠️ Nie można wysłać – kanał nieaktywny.");
+  }
+  
+   if (msg && activeDataChannel2 && activeDataChannel2.readyState === "open") {
+    activeDataChannel2.send("Offer: "+msg);
+    log(`📤 Wysłano OFFER: ${msg}`);
+  } else {
+    log("⚠️ Nie można wysłać – kanał nieaktywny.");
+  }
+     dcInput.value = "";
+});
+ </script>
 </body>
 </html>
 
