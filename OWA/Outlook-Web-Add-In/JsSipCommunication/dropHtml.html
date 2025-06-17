@@ -45,15 +45,37 @@
 	  <!-- hash: "SHA-256" -->
 	<!-- }); -->
 	var pc =new RTCPeerConnection();
-	var dataChannelAnswer = pc.createDataChannel("answer");
-	var dataChannelOffer = pc.createDataChannel("offer");
-			  dataChannelAnswer.onopen = () => {
-				console.log("🟢 DataChannel opened");
+
+	  pc.ondatachannel = (ev) => {
+		  console.log("datachannel found");
+
+          ev.channel.onopen = () => {
+              console.log("🟢 DataChannel opened: ", ev.channel.label);
+              ev.channel.send("Hello via DataChannel - OFFER!");
+          };
+
+          ev.channel.onmessage = event => {
+              console.log("📨 DataChannel message:", event.data.text());
+          };
+
+          ev.channel.onclose = () => {
+              console.log("🔴 DataChannel closed");
+          };
+
+          ev.channel.onerror = err => {
+              console.error("❌ DataChannel error:", err);
+          };		 
+	  };
+
+		var dataChannelAnswer = pc.createDataChannel("answer");
+			dataChannelAnswer.onopen = () => {
+				debugger;
+                console.log("🟢 DataChannel opened: answer");
 				dataChannelAnswer.send("Hello via DataChannel ANSWER!");
 			  };
 
 			  dataChannelAnswer.onmessage = event => {
-				console.log("📨 DataChannel message:", event.data);
+				  console.log("📨 DataChannel message:", event.data);
 			  };
 
 			  dataChannelAnswer.onclose = () => {
@@ -64,22 +86,7 @@
 				console.error("❌ DataChannel error:", err);
 			  };
 			 
-	  dataChannelOffer.onopen = () => {
-				console.log("🟢 DataChannel opened");
-				dataChannelOffer.send("Hello via DataChannel - OFFER!");
-		};
-
-			  dataChannelOffer.onmessage = event => {
-				console.log("📨 DataChannel message:", event.data);
-			  };
-
-			  dataChannelOffer.onclose = () => {
-				console.log("🔴 DataChannel closed");
-			  };
-
-			  dataChannelOffer.onerror = err => {
-				console.error("❌ DataChannel error:", err);
-			  };		 
+	 
 			 
 			 
 	var sdpAnswer;
