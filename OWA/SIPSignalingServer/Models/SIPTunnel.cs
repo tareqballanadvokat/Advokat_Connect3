@@ -26,26 +26,14 @@ namespace SIPSignalingServer.Models
 
             // TODO: Check params if they match?
             Left = left;
-            //Right = right;
-
-            //this.Left.OnRequestReceived += this.Right.RelayRequest;
-            //this.Left.OnResponseReceived += this.Right.RelayResponse;
-
-            //this.Right.OnRequestReceived += this.Left.RelayRequest;
-            //this.Right.OnResponseReceived += this.Left.RelayResponse;
-
             this.Left.RelayStarted += this.RelayStarted;
-            //this.Right.RelayStarted += this.RelayStarted;
-
             this.Left.RelayStopped += this.RelayStopped;
-            //this.Right.RelayStopped += this.RelayStopped;
         }
 
         [MemberNotNull(nameof(this.Right))]
         public void Connect(SIPMessageRelay right)
         {
             // TODO: Check params if they match
-            // TODO: forbid changing while it is Connected
 
             if (this.Connected)
             {

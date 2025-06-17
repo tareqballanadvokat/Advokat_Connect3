@@ -166,6 +166,8 @@ namespace SIPSignalingServer.Transactions
             this.Connection.SIPRequestReceived += this.ReceiveMessage;
             this.Connection.SIPResponseReceived += this.ReceiveMessage;
 
+            await (this.RelayStarted?.Invoke(this) ?? Task.CompletedTask);
+
             // run check for cancellation of the relay in bg thread
             _ = Task.Run(async () => {
                 await TaskHelpers.WaitForAsync(
@@ -183,7 +185,7 @@ namespace SIPSignalingServer.Transactions
             this.Connection.SIPRequestReceived -= this.ReceiveMessage;
             this.Connection.SIPResponseReceived -= this.ReceiveMessage;
 
-            this.RelayStarted?.Invoke(this);
+            this.RelayStopped?.Invoke(this);
         }
 
         // TODO: use ct

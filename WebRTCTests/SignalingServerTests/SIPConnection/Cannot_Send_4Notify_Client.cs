@@ -52,7 +52,7 @@ namespace SignalingServerTests.SIPConnection
 
             await sipConnectionTransaction.Start();
 
-            Assert.False(sipConnectionTransaction.IsConnected());
+            Assert.False(sipConnectionTransaction.Connected);
         }
 
         [Fact]

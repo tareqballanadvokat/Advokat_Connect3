@@ -120,7 +120,7 @@ namespace SIPSignalingServer.Transactions
         [MemberNotNullWhen(true, nameof(this.SIPConnectionTransaction))]
         public bool IsConnected()
         {
-            return this.SIPConnectionTransaction?.IsConnected() ?? false;
+            return this.SIPConnectionTransaction?.Connected ?? false;
         }
 
         [MemberNotNull(nameof(this.SIPRegistrationTransaction))]
@@ -215,7 +215,7 @@ namespace SIPSignalingServer.Transactions
                 CancellationToken.None, // TODO: add cancelation logic
                 // TODO: interval?
                 successCallback: this.StartICENegotiation,
-                timeoutCallback: this.SIPConnectionTransaction.Disconnect
+                timeoutCallback: this.SIPConnectionTransaction.Stop
                 //failureCallback: () => { } // timeout - token got cancelled // TODO: Stop Connection and unregister?
                 ); 
 

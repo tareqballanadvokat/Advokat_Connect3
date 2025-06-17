@@ -75,38 +75,27 @@ namespace SIPSignalingServer
             return pendingConnection;
         }
 
-        // TODO: Disconnect when one peer stops
         public async Task Disconnect(SIPMessageRelay messageRelay)
         {
             SIPTunnel? tunnel;
 
-            lock (lockObject)
+            tunnel = this.GetConnection(messageRelay);
+
+            if (tunnel == null)
             {
-                tunnel = this.GetConnection(messageRelay);
-
-                if (tunnel == null)
-                {
-                    // no connection to disconnect
-                    return;
-                }
-
-                this.Connections.Remove(tunnel);
+                // no connection to disconnect
+                return;
             }
 
             await tunnel.Disconnect();
-            await (this.ConnectionRemoved?.Invoke(this, messageRelay.Params) ?? Task.CompletedTask);
         }
 
-        //public bool IsConnected(ServerSideTransactionParams transactionParams)
-        //{
-        //    if (!ParamsAreValid(transactionParams))
-        //    {
-        //        // params are invalid. Cannot be connected
-        //        return false;
-        //    }
-
-        //    return this.GetConnection(transactionParams)?.Connected ?? false;
-        //}
+        public async Task Disconnect(SIPTunnel tunnel)
+        {
+            this.Connections.Remove(tunnel);
+            await tunnel.Disconnect();
+            await (this.ConnectionRemoved?.Invoke(this, tunnel) ?? Task.CompletedTask);
+        }
 
         public bool IsConnected(SIPMessageRelay messageRelay)
         {
@@ -155,12 +144,6 @@ namespace SIPSignalingServer
             return this.Connections.SingleOrDefault(c => c.Left.Params.IsPeer(messageRelay.Params));
         }
 
-        //private SIPMessageRelay? GetPendingMessageRelay(ServerSideTransactionParams transactionParams)
-        //{
-        //    // TODO: implement equality comparer
-        //    return this.PendingConnections.SingleOrDefault(r => r.Params == transactionParams);
-        //}
-
         private SIPTunnel AddPending(SIPMessageRelay messageRelay)
         {
             lock (this.lockObject)
@@ -172,6 +155,10 @@ namespace SIPSignalingServer
 
                 messageRelay.Params.CallId = CallProperties.CreateNewCallId(); // creates new call id for connection
                 SIPTunnel tunnel = new SIPTunnel(messageRelay);
+
+                //tunnel.ConnectionEstablished += 
+                
+                tunnel.ConnectionStopped += this.Disconnect;
                 this.Connections.Add(tunnel);
                 this.logger.LogDebug("Added new pending connection. From:'{caller}', to:'{remote}'.", messageRelay.Params.ClientParticipant, messageRelay.Params.RemoteParticipant);
 

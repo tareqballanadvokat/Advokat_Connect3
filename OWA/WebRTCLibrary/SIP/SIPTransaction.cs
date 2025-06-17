@@ -122,7 +122,7 @@ namespace WebRTCLibrary.SIP
             }
         }
 
-        protected virtual SIPHeaderParams GetHeaderParams(int cSeq = 1)
+        protected virtual SIPHeaderParams GetHeaderParams(int cSeq = 1) // TODO: make cseq nullable - default = current Cseq
         {
             return new SIPHeaderParams(
                 this.Params.SourceParticipant,

@@ -5,7 +5,7 @@ namespace SIPSignalingServer.Interfaces
 {
     public interface ISIPConnectionPool
     {
-        public delegate Task ConnectionRemovedDelegate(ISIPConnectionPool sender, ServerSideTransactionParams connectionParams);
+        public delegate Task ConnectionRemovedDelegate(ISIPConnectionPool sender, SIPTunnel connectionParams);
 
         public event ConnectionRemovedDelegate? ConnectionRemoved;
 
@@ -16,6 +16,8 @@ namespace SIPSignalingServer.Interfaces
         public Task<SIPTunnel> Connect(SIPMessageRelay messageRelay);
 
         public Task Disconnect(SIPMessageRelay messageRelay);
+
+        public Task Disconnect(SIPTunnel tunnel);
 
         public bool IsConnected(SIPMessageRelay messageRelay);
 

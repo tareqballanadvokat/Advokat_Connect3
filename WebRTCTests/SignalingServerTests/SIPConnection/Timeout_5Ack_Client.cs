@@ -186,7 +186,7 @@ namespace SignalingServerTests.SIPConnection
         }
 
         [Fact]
-        public async Task Sends_6BYE_Connection()
+        public async Task Sends_5BYE_Connection()
         {
             SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
             SIPParticipant client = new SIPParticipant("caller-12345ab", sipEndPoint);
@@ -244,30 +244,30 @@ namespace SignalingServerTests.SIPConnection
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
 
             SIPRequest notify4 = mockSIPTransport.SentRequests[0];
-            SIPRequest bye6 = mockSIPTransport.SentRequests[1];
+            SIPRequest bye5 = mockSIPTransport.SentRequests[1];
 
 
             Assert.Equal(SIPMethodsEnum.NOTIFY, notify4.Method);
-            Assert.Equal(SIPMethodsEnum.BYE,bye6.Method);
+            Assert.Equal(SIPMethodsEnum.BYE,bye5.Method);
 
-            Assert.Equal(6,bye6.Header.CSeq);
+            Assert.Equal(5, bye5.Header.CSeq);
 
             // Should have unique callId for connection
-            Assert.NotEqual(initialRequest.Header.CallId,bye6.Header.CallId);
+            Assert.NotEqual(initialRequest.Header.CallId,bye5.Header.CallId);
             // Should be same as Notify
-            Assert.Equal(notify4.Header.CallId, bye6.Header.CallId);
+            Assert.Equal(notify4.Header.CallId, bye5.Header.CallId);
 
-            Assert.Equal(initialRequest.Header.From.FromName, bye6.Header.To.ToName);
-            Assert.Equal(initialRequest.Header.To.ToName, bye6.Header.From.FromName);
+            Assert.Equal(initialRequest.Header.From.FromName, bye5.Header.To.ToName);
+            Assert.Equal(initialRequest.Header.To.ToName, bye5.Header.From.FromName);
 
-            Assert.Equal(initialRequest.Header.From.FromTag, bye6.Header.To.ToTag);
-            Assert.Equal(notify4.Header.To.ToTag, bye6.Header.To.ToTag);
+            Assert.Equal(initialRequest.Header.From.FromTag, bye5.Header.To.ToTag);
+            Assert.Equal(notify4.Header.To.ToTag, bye5.Header.To.ToTag);
 
-            Assert.Equal(peerRegistrationParams.ClientTag, bye6.Header.From.FromTag);
-            Assert.Equal(notify4.Header.From.FromTag, bye6.Header.From.FromTag);
+            Assert.Equal(peerRegistrationParams.ClientTag, bye5.Header.From.FromTag);
+            Assert.Equal(notify4.Header.From.FromTag, bye5.Header.From.FromTag);
 
             SIPResponse accepted2 = mockSIPTransport.SentResponses[0];
-            Assert.NotEqual(accepted2.Header.From.FromTag, bye6.Header.From.FromTag);
+            Assert.NotEqual(accepted2.Header.From.FromTag, bye5.Header.From.FromTag);
         }
 
         [Fact]
@@ -426,7 +426,7 @@ namespace SignalingServerTests.SIPConnection
         }
 
         [Fact]
-        public async Task Sends_6BYE_Connection_After_ReceiveTimeout()
+        public async Task Sends_5BYE_Connection_After_ReceiveTimeout()
         {
             SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
             SIPParticipant client = new SIPParticipant("caller-12345aba", sipEndPoint);
@@ -484,16 +484,16 @@ namespace SignalingServerTests.SIPConnection
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
 
             SIPRequest notify4 = mockSIPTransport.SentRequests[0];
-            SIPRequest bye6 = mockSIPTransport.SentRequests[1];
+            SIPRequest bye5 = mockSIPTransport.SentRequests[1];
 
             Assert.Equal(SIPMethodsEnum.NOTIFY, notify4.Method);
 
-            Assert.Equal(SIPMethodsEnum.BYE, bye6.Method);
-            Assert.Equal(6, bye6.Header.CSeq);
+            Assert.Equal(SIPMethodsEnum.BYE, bye5.Method);
+            Assert.Equal(5, bye5.Header.CSeq);
         }
 
         [Fact]
-        public async Task Sends_6BYE_Connection_After_ConnectionTimout()
+        public async Task Sends_5BYE_Connection_After_ConnectionTimout()
         {
             SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
             SIPParticipant client = new SIPParticipant("caller-12345ab", sipEndPoint);
@@ -551,12 +551,12 @@ namespace SignalingServerTests.SIPConnection
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
 
             SIPRequest notify4 = mockSIPTransport.SentRequests[0];
-            SIPRequest bye6 = mockSIPTransport.SentRequests[1];
+            SIPRequest bye5 = mockSIPTransport.SentRequests[1];
 
             Assert.Equal(SIPMethodsEnum.NOTIFY, notify4.Method);
 
-            Assert.Equal(SIPMethodsEnum.BYE, bye6.Method);
-            Assert.Equal(6, bye6.Header.CSeq);
+            Assert.Equal(SIPMethodsEnum.BYE, bye5.Method);
+            Assert.Equal(5, bye5.Header.CSeq);
         }
 
         [Fact]
@@ -639,7 +639,7 @@ namespace SignalingServerTests.SIPConnection
         [InlineData(1000, 100)]
         [InlineData(1000, 200)]
         [InlineData(1000, 500)]
-        public async Task Does_Not_Accept_Ack_After_ReceiveTimeout(int receiveTimeout, int delay)
+        public async Task Does_Not_Accept_Ack_After_ReceiveTimeout(int connectionTimeout, int delay)
         {
             SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
             SIPParticipant client = new SIPParticipant("caller-12345ab", sipEndPoint);
@@ -675,7 +675,7 @@ namespace SignalingServerTests.SIPConnection
                 registrationParams.CallId);
             initialRequest.SetRemoteEndPoint(sipEndPoint);
 
-            SIPTransport_5Ack_After_Timeout mockSIPTransport = new SIPTransport_5Ack_After_Timeout(receiveTimeout, delay);
+            SIPTransport_5Ack_After_Timeout mockSIPTransport = new SIPTransport_5Ack_After_Timeout(connectionTimeout, delay);
 
             SIPDialog sipDialog = new SIPDialog(
                 SIPSchemesEnum.sip,
@@ -689,10 +689,85 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.RegistrationTimeout = 1000;
             sipDialog.ConnectionTimeout = 1000;
             sipDialog.SendTimeout = 1000;
-            sipDialog.ReceiveTimeout = receiveTimeout;
+            sipDialog.ReceiveTimeout = connectionTimeout;
 
             _ = Task.Run(async () => await sipDialog.Start());
-            await Task.Delay(receiveTimeout + delay + 1500);
+            await Task.Delay(connectionTimeout + delay + 1500);
+
+            Assert.False(sipDialog.IsConnected());
+
+            // TODO: make childclass of connectionPool to look inside. 
+
+            Assert.Equal(3, mockSIPTransport.SentRequests.Count);
+        }
+
+        [Theory]
+        [InlineData(100, 1000)]
+        [InlineData(100, 500)]
+        [InlineData(100, 200)]
+        [InlineData(100, 100)]
+        [InlineData(100, 10)]
+        [InlineData(100, 1)]
+        [InlineData(100, 0)]
+        [InlineData(1000, 1)]
+        [InlineData(1000, 10)]
+        [InlineData(1000, 100)]
+        [InlineData(1000, 200)]
+        [InlineData(1000, 500)]
+        public async Task Does_Not_Accept_Ack_After_ConnectionTimeout(int connectionTimeout, int delay)
+        {
+            SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
+            SIPParticipant client = new SIPParticipant("caller-12345ab", sipEndPoint);
+            SIPParticipant remote = new SIPParticipant("remote-fsf1234", sipEndPoint);
+
+            ServerSideTransactionParams registrationParams = new ServerSideTransactionParams(
+                remote,
+                client,
+                callId: CallProperties.CreateNewCallId(),
+                remoteTag: null,
+                clientTag: CallProperties.CreateNewTag());
+
+            ServerSideTransactionParams peerRegistrationParams = new ServerSideTransactionParams(
+                client,
+                remote,
+                callId: CallProperties.CreateNewCallId(),
+                remoteTag: null,
+                clientTag: CallProperties.CreateNewTag());
+
+            SIPMemoryRegistry sipRegistry = new SIPMemoryRegistry(NullLoggerFactory.Instance);
+
+            // register peer
+            sipRegistry.Register(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
+            sipRegistry.Confirm(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
+
+            SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
+
+            MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
+            initialRequest.Header = new SIPHeader(
+                new SIPFromHeader(registrationParams.ClientParticipant.Name, new SIPURI(SIPSchemesEnum.sip, sipEndPoint), registrationParams.ClientTag),
+                new SIPToHeader(registrationParams.RemoteParticipant.Name, new SIPURI(SIPSchemesEnum.sip, sipEndPoint), null),
+                1,
+                registrationParams.CallId);
+            initialRequest.SetRemoteEndPoint(sipEndPoint);
+
+            SIPTransport_5Ack_After_Timeout mockSIPTransport = new SIPTransport_5Ack_After_Timeout(connectionTimeout, delay);
+
+            SIPDialog sipDialog = new SIPDialog(
+                SIPSchemesEnum.sip,
+                mockSIPTransport,
+                initialRequest,
+                sipEndPoint,
+                sipRegistry,
+                connectionPool,
+                NullLoggerFactory.Instance);
+
+            sipDialog.RegistrationTimeout = 1000;
+            sipDialog.ConnectionTimeout = connectionTimeout;
+            sipDialog.SendTimeout = 1000;
+            sipDialog.ReceiveTimeout = 1000;
+
+            _ = Task.Run(async () => await sipDialog.Start());
+            await Task.Delay(connectionTimeout + delay + 1500);
 
             Assert.False(sipDialog.IsConnected());
 
