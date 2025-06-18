@@ -46,17 +46,22 @@
 	<!-- }); -->
 	var pc =new RTCPeerConnection();
 
+	  async function writeMessage(event)
+	  {
+          text = await event.data.text();
+
+          console.log("📨 DataChannel message:", text);
+          log(text)
+	  }
+
 	  pc.ondatachannel = (ev) => {
 		  console.log("datachannel found");
 
           ev.channel.onopen = () => {
               console.log("🟢 DataChannel opened: ", ev.channel.label);
-              ev.channel.send("Hello via DataChannel - OFFER!");
           };
 
-          ev.channel.onmessage = event => {
-              console.log("📨 DataChannel message:", event.data.text());
-          };
+		  ev.channel.onmessage = writeMessage
 
           ev.channel.onclose = () => {
               console.log("🔴 DataChannel closed");
@@ -69,13 +74,7 @@
 
 		var dataChannelAnswer = pc.createDataChannel("answer");
 			dataChannelAnswer.onopen = () => {
-				debugger;
                 console.log("🟢 DataChannel opened: answer");
-				dataChannelAnswer.send("Hello via DataChannel ANSWER!");
-			  };
-
-			  dataChannelAnswer.onmessage = event => {
-				  console.log("📨 DataChannel message:", event.data);
 			  };
 
 			  dataChannelAnswer.onclose = () => {
@@ -85,9 +84,6 @@
 			  dataChannelAnswer.onerror = err => {
 				console.error("❌ DataChannel error:", err);
 			  };
-			 
-	 
-			 
 			 
 	var sdpAnswer;
 	 
@@ -441,18 +437,12 @@ let activeDataChannel2 = dataChannelAnswer; // Możesz tu przypisać offer/answe
 sendDcBtn.addEventListener('click', () => {
   const msg = dcInput.value.trim();
   if (msg && activeDataChannel && activeDataChannel.readyState === "open") {
-    activeDataChannel.send("ANSWER: "+msg);
+    activeDataChannel.send(msg);
     log(`📤 Wysłano ANSWER: ${msg}`);
   } else {
     log("⚠️ Nie można wysłać – kanał nieaktywny.");
   }
-  
-   if (msg && activeDataChannel2 && activeDataChannel2.readyState === "open") {
-    activeDataChannel2.send("Offer: "+msg);
-    log(`📤 Wysłano OFFER: ${msg}`);
-  } else {
-    log("⚠️ Nie można wysłać – kanał nieaktywny.");
-  }
+ 
      dcInput.value = "";
 });
  </script>
