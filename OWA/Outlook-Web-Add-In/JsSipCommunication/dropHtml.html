@@ -33,28 +33,358 @@
   <div id="log"></div>
 
   <script>
-    const logEl = document.getElementById('log');
-    const startBtn = document.getElementById('startBtn');
-	let fromUri = "";
-	let fromTag = "";
-	let fromDisplayName = "macc";
+  
+  	let fromDisplayName = "macc";
 	let toDisplayName ="macs";
-	<!-- const certificate = await RTCPeerConnection.generateCertificate({ -->
-	  <!-- name: "ECDSA", -->
-	  <!-- namedCurve: "P-256", -->
-	  <!-- hash: "SHA-256" -->
-	<!-- }); -->
-	var pc =new RTCPeerConnection();
-
-	  async function writeMessage(event)
-	  {
-          text = await event.data.text();
-
-          console.log("📨 DataChannel message:", text);
-          log(text)
+  
+  class Helper {
+	  log(msg) {
+		const ts = new Date().toLocaleTimeString();
+		const logEl = document.getElementById('log');
+		logEl.textContent += `[${ts}] ${msg}\n`;
+		logEl.scrollTop = logEl.scrollHeight;
+		console.log(msg);
 	  }
+	  
+	  blobToString(b) {
+			var u, x;
+			u = URL.createObjectURL(b);
+			x = new XMLHttpRequest();
+			x.open('GET', u, false); // although sync, you're not fetching over internet
+			x.send();
+			URL.revokeObjectURL(u);
+			return x.responseText;
+		}
 
-	  pc.ondatachannel = (ev) => {
+	}
+const logger = new Helper();
+  
+  	  async function writeMessage(event)
+	  {
+		const data = event.data;
+		var text;
+		if (data instanceof ArrayBuffer) {
+			text = new TextDecoder("utf-8").decode(data);
+			console.log("📨 ArrayBuffer:", text);
+		} else if (data instanceof Blob) {
+			const reader = new FileReader();
+			reader.onload = () => {
+				console.log("📨 Blob:", reader.result);
+				text = reader.result;
+			};
+			reader.readAsText(data);
+		} else if (typeof data === "string") {
+			console.log("📨 Tekst:", data);
+			text = data;
+		} else {
+			console.warn("❓ Nieznany typ wiadomości:", typeof data, data);
+		}
+
+		console.log("📨 DataChannel message:", text);
+		logger.log(text)
+	  }
+	  
+	  
+	  
+class Registration 
+{
+	constructor() 
+	{ 
+		logger.log("konstruktor");
+		this.sipUri = document.getElementById('sipUri').value.trim();
+		this.wsUri  = document.getElementById('wsUri').value.trim();
+		this.tag    = Math.random().toString(36).substr(2, 10);
+		this.callId = Math.random().toString(36).substr(2, 10);
+		this.cseq     = 1; 
+		this.IsRegistrationProcessFinished = false;
+		
+        this.branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+		this.fromDisplayName = "macc";
+		this.toDisplayName ="macs";
+	}
+	
+	getInitialRegistration()
+	{
+		logger.log('🔗 Połączono WebSocket');
+        // Budowa i wysłanie REGISTER
+		const register = 
+          'REGISTER ' + this.sipUri + ' SIP/2.0\r\n' +
+          'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n'  +
+          'Max-Forwards: 70\r\n' +
+          'To: "' + this.toDisplayName + '" <sip:macs@127.0.0.1:443>\r\n' +
+          'From: "' + this.fromDisplayName + '" <' + this.sipUri + ';transport=wss>;tag=' + this.tag + '\r\n' +
+          'Call-ID: ' + this.callId + '\r\n' +
+          'CSeq: ' + this.cseq + ' REGISTER\r\n' +
+          'Expires: 300\r\n' +
+          'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
+          'Supported: path,gruu,outbound\r\n' +
+          'User-Agent: JsSIP 3.10.0\r\n' +
+		  'Contact: <' + this.sipUri + '>\r\n' + 
+          'Content-Length: 0\r\n\r\n';
+		return register;
+	}
+	
+	createACK(data)
+	{
+		 this.getFROMParts(data);
+			const ack =
+				'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
+				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' +  this.branch  + '\r\n' +
+				'Max-Forwards: 70\r\n' +
+				'To: "' + this.toDisplayName + '" <' + this.fromUri + '>;tag=' + this.fromTag + '\r\n' +
+				'From: "' + this.fromDisplayName + '" <' + this.sipUri + ';transport=wss>;tag=' + this.tag + '\r\n' +
+				'Call-ID: ' + this.callId + '\r\n' +
+				'CSeq: 3 ACK\r\n' +  
+				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
+				'Content-Length: 0\r\n\r\n';
+			return ack;
+	
+	}
+	
+	parseMessage(data)
+	{
+		if (/SIP\/2\.0 202/.test(data)) 
+		{
+			logger.log('✔️ Wysłano ACK ');
+			return this.createACK(data);
+		}
+		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) &&  /CSeq: 4 NOTIFY/.test(data)) //after register
+		{
+			return this.createACKAfterNotification(data);
+		}		
+		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) &&  /CSeq:\s*1 ACK/.test(data)) 
+		{
+			return this.createConfimation(data);
+		}
+		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) &&  /CSeq: 6 NOTIFY/.test(data)) 
+		{
+			this.IsRegistrationProcessFinished = true;//(data);
+		}
+		
+		return "";
+	}
+
+	
+	
+	
+	
+	
+	
+	createACKAfterNotification(data) 
+	{
+			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
+			const m = data.match(reCallId);
+	 
+			const fromLineMatch = data.match(/^From:.*$/m);
+			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+			const toLine = fromLine.replace(/^From:/i, 'To:');
+			logger.log('📥 Linia From: ' + fromLine);
+ 
+			const ack2 =
+				'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
+				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branchAck + '\r\n' +
+				'Max-Forwards: 70\r\n' +
+				toLine + '\r\n' +
+				'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
+				'Call-ID: ' + m[1] + '\r\n' +
+				'CSeq: ' + 5 + ' ACK\r\n' +  
+				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
+				'Content-Length: 0\r\n\r\n';
+			return ack2;
+	}
+
+	 
+	createConfimation(data)	 
+	{
+		const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+
+		const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
+		const m = data.match(reCallId);
+ 
+		const fromLineMatch = data.match(/^From:.*$/m);
+		const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+		const toLine = fromLine.replace(/^From:/i, 'To:');
+		logger.log('📥 Linia From: ' + fromLine);
+		 
+ 
+		const ack2 =
+			'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
+			'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branchAck + '\r\n' +
+			'Max-Forwards: 70\r\n' +
+			toLine + '\r\n' +
+			'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
+			'Call-ID: ' + m[1] + '\r\n' +
+			'CSeq: ' + 5 + ' ACK\r\n' +  
+			'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
+			'Content-Length: 0\r\n\r\n';
+ 
+		return ack2;
+	}
+		
+			
+	getFROMParts(data)
+	{
+		if (fromTag != "" && fromUri != "") return;
+		const line = data;//`From: "macs" <sip:macs@127.0.0.1:443;transport=wss>;tag=OVMXIDKBSG`;
+
+		const re = /^From:\s*(?:"([^"]+)"\s*)?<([^>]+)>;tag=(\S+)/m;
+		const m  = re.exec(line);
+
+		if (m) {
+		  //fromDisplayName = m[1] || null;           // "macs"
+		  this.fromUri        = m[2];                   // sip:macs@127.0.0.1:443;transport=wss
+		   this.fromTag        = m[3];                   // OVMXIDKBSG
+
+		  logger.log({ fromDisplayName, fromUri, fromTag });
+		} else {
+		  console.error("Nie udało się sparsować From");
+		}
+	}
+}
+const registrationObj = new Registration();
+ 
+class EstablishingConnection 
+{
+	constructor() 
+	{ 
+		logger.log("konstruktor EstablishingConnection");
+		this.sipUri = document.getElementById('sipUri').value.trim();
+		this.wsUri  = document.getElementById('wsUri').value.trim();
+		this.tag    = Math.random().toString(36).substr(2, 10);
+		this.callId = Math.random().toString(36).substr(2, 10);
+		this.cseq     = 1; 
+		this.IsEstablishingConnectionProcessFinished = false;
+		
+        this.branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+		this.fromDisplayName = "macc";
+		this.toDisplayName ="macs";
+		
+		this.pc =new RTCPeerConnection();
+		 this.dataChannelAnswer = this.pc.createDataChannel("answer");  
+	}
+	updateData(tag, callId, branch, fromDisplay, toDisplay){
+		this.tag    =tag;  
+		this.callId = callId; 		
+        this.branch = branch;
+		this.fromDisplayName = fromDisplay;
+		this.toDisplayName =toDisplay;
+	}
+ 
+	parseMessage(data)
+	{		
+		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) ) 
+		{ 
+			return this.createACKForIsOffer(data);
+		}
+		if (/^ACK\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) ) {
+			return 	this.craateOffer(data) ;		
+		}
+
+		 if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) ) {
+			this.IsEstablishingConnectionProcessFinished = true;
+		}
+		
+		return undefined;
+	} 
+  
+	createACKForIsOffer(data)
+	{ 
+		var isOffering = this.getIsOFeer(data);
+		if (isOffering)
+		{
+	this.IsEstablishingConnectionProcessFinished = true;
+			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
+			const m = data.match(reCallId);
+			const fromLineMatch = data.match(/^From:.*$/m);
+			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+			const toLine = fromLine.replace(/^From:/i, 'To:');
+			logger.log('📥 createACKForIsOffer Linia From: ' + fromLine);
+		 
+			const ackOffering =
+				'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
+				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch  + '\r\n' +
+				'Max-Forwards: 70\r\n' +
+				toLine + '\r\n' +
+				'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
+				'Call-ID: ' + m[1] + '\r\n' +
+				'CSeq: 2 ACK\r\n' +  
+				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +	
+				'Content-Type: application/json\r\n' +		   
+				'Content-Length: 0\r\n\r\n'+			
+				'{"IsOffering":true}'
+			return ackOffering; 
+		}
+	 
+	}
+	
+	craateOffer(data)  
+	{
+		var isOffering = this.getIsOFeer(data);
+		if (isOffering)
+		{ 
+			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
+			const m = data.match(reCallId); 
+			const fromLineMatch = data.match(/^From:.*$/m);
+			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+			const toLine = fromLine.replace(/^From:/i, 'To:');
+			logger.log('📥 craateOffer Linia From: ' + fromLine);
+		
+			const ackOffering =
+			'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
+			'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch  + '\r\n' +
+			'Max-Forwards: 70\r\n' +
+			toLine + '\r\n' +
+			'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
+			'Call-ID: ' + m[1] + '\r\n' +
+			'CSeq: ' + 3 + ' ACK\r\n' +  
+			'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +	
+			'Content-Type: application/json\r\n' +		   	   
+			'Content-Length: 0\r\n\r\n'+				
+			'{"IsOffering":false}'
+			return ackOffering; 
+		}		 
+	} 
+    getIsOFeer(data)
+	{
+		  const offeringMatch = /\"IsOffering\"\s*:\s*(true|false)/i.exec(data);
+		  if (offeringMatch) {
+			const isOffering = offeringMatch[1] === 'true';
+			logger.log(`📡 IsOffering: ${isOffering}`);
+			return isOffering;
+		  }		
+	}
+		 
+/*	async parseServiceIncomming(data, socket) {
+		const fromlinematch = data.match(/^from:.*$/mi);
+		const fromline = fromlinematch ? fromlinematch[0] : '';
+		const toline = fromline.replace(/^from:/i, 'to:');
+
+		const recallid = /^call-id:\s*([^\r\n]+)/mi;
+		const m = data.match(recallid);
+		const callId = m ? m[1] : "";
+
+		this.pc.onicecandidate = evt => {
+			if (evt.candidate) {
+				console.log("ICE candidate:", JSON.stringify(evt.candidate));
+			}
+		};
+
+		this.pc.onicegatheringstatechange = () => {
+			if (this.pc.iceGatheringState === 'complete') {
+				console.log("ICE gathering complete.");
+				console.log("Final SDP:", JSON.stringify(this.pc.localDescription));
+				const answerMsg = this.sendSDPAnswer(JSON.stringify(this.pc.localDescription), callId, this.sipUri, this.tag, toline);
+				// Wyślij przez socket (upewnij się, że socket jest dostępny w tym kontekście)
+				if (typeof socket !== 'undefined') {
+					socket.send(answerMsg);
+				} else {
+					console.warn("⚠️ socket nie jest dostępny w tej klasie");
+				}
+			}
+		};
+
+		// DataChannel zdarzenia
+	 this.pc.ondatachannel = (ev) => {
 		  console.log("datachannel found");
 
           ev.channel.onopen = () => {
@@ -72,32 +402,167 @@
           };		 
 	  };
 
-		var dataChannelAnswer = pc.createDataChannel("answer");
-			dataChannelAnswer.onopen = () => {
+		var dataChannelAnswer = this.pc.createDataChannel("answer");
+			this.dataChannelAnswer.onopen = () => {
                 console.log("🟢 DataChannel opened: answer");
 			  };
 
-			  dataChannelAnswer.onclose = () => {
+			  this.dataChannelAnswer.onclose = () => {
 				console.log("🔴 DataChannel closed");
 			  };
 
-			  dataChannelAnswer.onerror = err => {
+			  this.dataChannelAnswer.onerror = err => {
 				console.error("❌ DataChannel error:", err);
 			  };
 			 
-	var sdpAnswer;
-	 
-	function getIsOFeer(data)
+		// Przetwarzanie SDP
+		const sdpblockmatch = data.match(/(\{[\s\S]*?"sdp"[\s\S]*?\})/m);
+		if (sdpblockmatch) {
+			try {
+				const sdpblock = sdpblockmatch[1];
+				console.log('SDP JSON block:', sdpblock);
+
+				const sdpinit = JSON.parse(sdpblock);
+				const desc = new RTCSessionDescription(sdpinit);
+
+				// Ustawienie remoteDescription
+				await this.pc.setRemoteDescription(desc);
+
+				// Teraz bezpiecznie tworzysz odpowiedź
+				const answer = await this.pc.createAnswer();
+				await this.pc.setLocalDescription(answer);
+
+				console.log("✔️ Local SDP Answer set:", JSON.stringify(this.pc.localDescription));
+			} catch (err) {
+				console.error("❌ Błąd SDP lub WebRTC:", err);
+			}
+		} else {
+			console.warn("⚠️ Nie znaleziono bloku SDP");
+		}
+	}
+
+	
+ 
+	sendSDPAnswer(answer, callId, sipUri, tag, toLine)
 	{
-		  const offeringMatch = /\"IsOffering\"\s*:\s*(true|false)/i.exec(data);
-		  if (offeringMatch) {
-			const isOffering = offeringMatch[1] === 'true';
-			log(`📡 IsOffering: ${isOffering}`);
-			return isOffering;
-		  }		
+		const branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+		const sdpAnswer = 
+          'SERVICE ' + sipUri + ' SIP/2.0\r\n' +
+          'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branch + '\r\n'  +
+          'Max-Forwards: 70\r\n' +
+		  toLine+ '\r\n' + 
+          'From: "' + fromDisplayName + '" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
+          'Call-ID: ' + callId + '\r\n' +
+          'CSeq: ' + 5 + ' SERVICE\r\n' +
+          'Expires: 300\r\n' +
+          'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
+          'Supported: path,gruu,outbound\r\n' +
+          'User-Agent: JsSIP 3.10.0\r\n' +
+		  'Content-Type: application/sdp\r\n' +		   
+		  'Contact: <' + sipUri + '>\r\n' + 
+          'Content-Length: 0\r\n\r\n'+
+		  ''+answer+'';
+		 return sdpAnswer;	
+	}*/
+ 
+} 
+ const establishingConnectionObject = new EstablishingConnection();
+  
+ class Peer2PeerConnection{
+	constructor(){
+		this.pc =new RTCPeerConnection();
+		this.dataChannelAnswer = this.pc.createDataChannel("answer"); 
 	}
 	
-	function sendSDPAnswer(answer, callId, sipUri, tag, toLine)
+	async parseServiceIncomming(data, socket, sipUri, tag) {
+		const fromlinematch = data.match(/^from:.*$/mi);
+		const fromline = fromlinematch ? fromlinematch[0] : '';
+		const toline = fromline.replace(/^from:/i, 'to:');
+
+		const recallid = /^call-id:\s*([^\r\n]+)/mi;
+		const m = data.match(recallid);
+		const callId = m ? m[1] : "";
+
+		this.pc.onicecandidate = evt => {
+			if (evt.candidate) {
+				console.log("ICE candidate:", JSON.stringify(evt.candidate));
+			}
+		};
+
+		this.pc.onicegatheringstatechange = () => {
+			if (this.pc.iceGatheringState === 'complete') {
+				console.log("ICE gathering complete.");
+				console.log("Final SDP:", JSON.stringify(this.pc.localDescription));
+				const answerMsg = this.sendSDPAnswer(JSON.stringify(this.pc.localDescription), callId, sipUri, tag, toline);
+				// Wyślij przez socket (upewnij się, że socket jest dostępny w tym kontekście)
+				if (typeof socket !== 'undefined') {
+					socket.send(answerMsg);
+				} else {
+					console.warn("⚠️ socket nie jest dostępny w tej klasie");
+				}
+			}
+		};
+
+	// DataChannel zdarzenia
+	 this.pc.ondatachannel = (ev) => {
+		  console.log("datachannel found");
+
+          ev.channel.onopen = () => {
+              console.log("🟢 DataChannel opened: ", ev.channel.label);
+          };
+
+		  ev.channel.onmessage = writeMessage
+
+          ev.channel.onclose = () => {
+              console.log("🔴 DataChannel closed");
+          };
+
+          ev.channel.onerror = err => {
+              console.error("❌ DataChannel error:", err);
+          };		 
+	  };
+
+		var dataChannelAnswer = this.pc.createDataChannel("answer");
+			this.dataChannelAnswer.onopen = () => {
+                console.log("🟢 DataChannel opened: answer");
+			  };
+
+			  this.dataChannelAnswer.onclose = () => {
+				console.log("🔴 DataChannel closed");
+			  };
+
+			  this.dataChannelAnswer.onerror = err => {
+				console.error("❌ DataChannel error:", err);
+			  };
+			 
+		// Przetwarzanie SDP
+		const sdpblockmatch = data.match(/(\{[\s\S]*?"sdp"[\s\S]*?\})/m);
+		if (sdpblockmatch) {
+			try {
+				const sdpblock = sdpblockmatch[1];
+				console.log('SDP JSON block:', sdpblock);
+
+				const sdpinit = JSON.parse(sdpblock);
+				const desc = new RTCSessionDescription(sdpinit);
+
+				// Ustawienie remoteDescription
+				await this.pc.setRemoteDescription(desc);
+
+				// Teraz bezpiecznie tworzysz odpowiedź
+				const answer = await this.pc.createAnswer();
+				await this.pc.setLocalDescription(answer);
+
+				console.log("✔️ Local SDP Answer set:", JSON.stringify(this.pc.localDescription));
+			} catch (err) {
+				console.error("❌ Błąd SDP lub WebRTC:", err);
+			}
+		} else {
+			console.warn("⚠️ Nie znaleziono bloku SDP");
+		}
+	}
+
+	
+	sendSDPAnswer(answer, callId, sipUri, tag, toLine)
 	{
 		const branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
 		const sdpAnswer = 
@@ -118,64 +583,17 @@
 		  ''+answer+'';
 		 return sdpAnswer;	
 	}
-	
-		
-	function sendIceCandidate(answer, callId, sipUri, tag)
-	{
-		const sdpAnswer = 
-          'SERVICE ' + sipUri + ' SIP/2.0\r\n' +
-          'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branch + '\r\n'  +
-          'Max-Forwards: 70\r\n' +
-          'To: "' + toDisplayName + '" <sip:macs@127.0.0.1:443>\r\n' +
-          'From: "' + fromDisplayName + '" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
-          'Call-ID: ' + callId + '\r\n' +
-          'CSeq: ' + 5 + ' SERVICE\r\n' +
-          'Expires: 300\r\n' +
-          'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
-          'Supported: path,gruu,outbound\r\n' +
-          'User-Agent: JsSIP 3.10.0\r\n' +
-		  'Content-Type: application/sdp\r\n' +		   
-		  'Contact: <' + sipUri + '>\r\n' + 
-          'Content-Length: 0\r\n\r\n';
-		 return sdpAnswer;	
-	}
-	
-	function blobToString(b) {
-		var u, x;
-		u = URL.createObjectURL(b);
-		x = new XMLHttpRequest();
-		x.open('GET', u, false); // although sync, you're not fetching over internet
-		x.send();
-		URL.revokeObjectURL(u);
-		return x.responseText;
-	}
 
-	function getFROMParts(data)
-	{
-		if (fromTag != "" && fromUri != "") return;
-		const line = data;//`From: "macs" <sip:macs@127.0.0.1:443;transport=wss>;tag=OVMXIDKBSG`;
+} 
+ const peer2PeerConnectionObject = new Peer2PeerConnection();
+  
+    const startBtn = document.getElementById('startBtn');
+	let fromUri = "";
+	let fromTag = "";
+			 
+	var sdpAnswer;
 
-		const re = /^From:\s*(?:"([^"]+)"\s*)?<([^>]+)>;tag=(\S+)/m;
-		const m  = re.exec(line);
-
-		if (m) {
-		  //fromDisplayName = m[1] || null;           // "macs"
-		  fromUri        = m[2];                   // sip:macs@127.0.0.1:443;transport=wss
-		  fromTag        = m[3];                   // OVMXIDKBSG
-
-		  console.log({ fromDisplayName, fromUri, fromTag });
-		} else {
-		  console.error("Nie udało się sparsować From");
-		}
-	}
-
-    function log(msg) {
-      const ts = new Date().toLocaleTimeString();
-      logEl.textContent += `[${ts}] ${msg}\n`;
-      logEl.scrollTop = logEl.scrollHeight;
-      console.log(msg);
-    }
-
+ 
     startBtn.addEventListener('click', () => {
       const sipUri = document.getElementById('sipUri').value.trim();
       const wsUri  = document.getElementById('wsUri').value.trim();
@@ -187,264 +605,81 @@
 
       const socket = new WebSocket(wsUri, 'sip');
 
-      socket.onopen = () => {
-        log('🔗 Połączono WebSocket');
-        // Budowa i wysłanie REGISTER
-        const branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
-		const register = 
-          'REGISTER ' + sipUri + ' SIP/2.0\r\n' +
-          'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branch + '\r\n'  +
-          'Max-Forwards: 70\r\n' +
-          'To: "' + toDisplayName + '" <sip:macs@127.0.0.1:443>\r\n' +
-          'From: "' + fromDisplayName + '" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
-          'Call-ID: ' + callId + '\r\n' +
-          'CSeq: ' + cseq + ' REGISTER\r\n' +
-          'Expires: 300\r\n' +
-          'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
-          'Supported: path,gruu,outbound\r\n' +
-          'User-Agent: JsSIP 3.10.0\r\n' +
-		  'Contact: <' + sipUri + '>\r\n' + 
-          'Content-Length: 0\r\n\r\n';
-        socket.send(register);
-		
-        log('🔄 Wysłano REGISTER (CSeq=' + cseq + ')');
+      socket.onopen = () => 
+	  {
+		var registrationEvent = registrationObj.getInitialRegistration();
+		socket.send(registrationEvent);
+		logger.log('🔄 wysłano register');
       };
 
 
 
       socket.onmessage = async event => {
-		const data =   blobToString(event.data);
-        log('📥 Otrzymano:\n' + data); 
+		const data =  logger.blobToString(event.data);
+        logger.log('📥 Otrzymano:\n' + data); 
 		
-		
-        // Sprawdź 202 ACCEPTED DLA REGISTER
-        if (/SIP\/2\.0 202/.test(data)) {
-          // Wyślij ACK
-          cseq++;
-			getFROMParts(data);
 
-          const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
-
-			
-			const ack =
-				'ACK ' + sipUri + ' SIP/2.0\r\n' +
-				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
-				'Max-Forwards: 70\r\n' +
-				'To: "' + toDisplayName + '" <' + fromUri + '>;tag=' + fromTag + '\r\n' +
-				'From: "' + fromDisplayName + '" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
-				'Call-ID: ' + callId + '\r\n' +
-				'CSeq: ' + 3 + ' ACK\r\n' +  
-				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
-				'Content-Length: 0\r\n\r\n';
-			
-          socket.send(ack);
-          log('✔️ Wysłano ACK (CSeq=' + cseq + ')');
-
-        //  socket.close();
-          log('🔌 Zamknięto WebSocket');
-        }
+		console.log( registrationObj.IsRegistrationProcessFinished);
 		
-		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) &&  /CSeq: 4 NOTIFY/.test(data)) //after register
+		if (!registrationObj.IsRegistrationProcessFinished)
 		{
-			const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
-	
-			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
-			const m = data.match(reCallId);
-	 
-			const fromLineMatch = data.match(/^From:.*$/m);
-			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
-			const toLine = fromLine.replace(/^From:/i, 'To:');
-			log('📥 Linia From: ' + fromLine);
-			 
- 
-			const ack2 =
-				'ACK ' + sipUri + ' SIP/2.0\r\n' +
-				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
-				'Max-Forwards: 70\r\n' +
-				toLine + '\r\n' +
-				'From: "' + fromDisplayName + '" <' + sipUri + '>;tag=' + tag + '\r\n' +
-				'Call-ID: ' + m[1] + '\r\n' +
-				'CSeq: ' + 5 + ' ACK\r\n' +  
-				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
-				'Content-Length: 0\r\n\r\n';
-          socket.send(ack2);
-		}
-		
-		
-		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) &&  /CSeq:\s*1 ACK/.test(data)) 
-		{
-			const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
-	
-			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
-			const m = data.match(reCallId);
-	 
-			const fromLineMatch = data.match(/^From:.*$/m);
-			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
-			const toLine = fromLine.replace(/^From:/i, 'To:');
-			log('📥 Linia From: ' + fromLine);
-			 
- 
-			const ack2 =
-				'ACK ' + sipUri + ' SIP/2.0\r\n' +
-				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
-				'Max-Forwards: 70\r\n' +
-				toLine + '\r\n' +
-				'From: "' + fromDisplayName + '" <' + sipUri + '>;tag=' + tag + '\r\n' +
-				'Call-ID: ' + m[1] + '\r\n' +
-				'CSeq: ' + 5 + ' ACK\r\n' +  
-				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +		   
-				'Content-Length: 0\r\n\r\n';
- 
-				socket.send(ack2);
-		}
-		
-		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) ) 
-		{
-		
-			const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
-			var isOffering = getIsOFeer(data);
-			if (isOffering)
+			var request = registrationObj.parseMessage(data);
+			if (request!=undefined && request!="") 
 			{
-				const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
-				const m = data.match(reCallId);
-				const fromLineMatch = data.match(/^From:.*$/m);
-				const fromLine = fromLineMatch ? fromLineMatch[0] : '';
-				const toLine = fromLine.replace(/^From:/i, 'To:');
-				log('📥 Linia From: ' + fromLine);
-			 
-				const ackOffering =
-				'ACK ' + sipUri + ' SIP/2.0\r\n' +
-				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
-				'Max-Forwards: 70\r\n' +
-				toLine + '\r\n' +
-				'From: "' + fromDisplayName + '" <' + sipUri + '>;tag=' + tag + '\r\n' +
-				'Call-ID: ' + m[1] + '\r\n' +
-				'CSeq: ' + 2 + ' ACK\r\n' +  
-				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +	
-'Content-Type: application/json\r\n' +		   
-				'Content-Length: 0\r\n\r\n'+			
-				'{"IsOffering":true}'
- 
-				socket.send(ackOffering);
+				socket.send(request);
 			}
-		 
-		}
-	
-	
-		if (/^ACK\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) ) 
-		{
-			var isOffering = getIsOFeer(data);
-			if (isOffering)
-			{ 
-				const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
-				const m = data.match(reCallId);
-				const branchAck = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
-				const fromLineMatch = data.match(/^From:.*$/m);
-				const fromLine = fromLineMatch ? fromLineMatch[0] : '';
-				const toLine = fromLine.replace(/^From:/i, 'To:');
-				log('📥 Linia From: ' + fromLine);
-			 
-				const ackOffering =
-				'ACK ' + sipUri + ' SIP/2.0\r\n' +
-				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
-				'Max-Forwards: 70\r\n' +
-				toLine + '\r\n' +
-				'From: "' + fromDisplayName + '" <' + sipUri + '>;tag=' + tag + '\r\n' +
-				'Call-ID: ' + m[1] + '\r\n' +
-				'CSeq: ' + 3 + ' ACK\r\n' +  
-				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +	
-'Content-Type: application/json\r\n' +		   	   
-				'Content-Length: 0\r\n\r\n'+				
-				'{"IsOffering":false}'
- 
-				socket.send(ackOffering);
-			}
-		 
-		}
-	
-	
-		
-		if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) ) 
-		{
-			const fromLineMatch = data.match(/^From:.*$/m);
-			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
-			const toLine = fromLine.replace(/^From:/i, 'To:');
-	 
-			 <!-- pc.onicecandidate = evt => evt.candidate; -->
-			 
-
-	
-			 
-            pc.onicecandidate = evt => evt.candidate && console.log(JSON.stringify(evt.candidate));
-			pc.onclose= () => {
-			   console.log("pc close");
-			};
-			const sdpBlockMatch = data.match(/(\{[\s\S]*?"sdp"[\s\S]*?\})/m);
-			if (sdpBlockMatch) 
+			
+			if (registrationObj.IsRegistrationProcessFinished)
 			{
-				const sdpBlock = sdpBlockMatch[1];
-				console.log('SDP JSON block:', sdpBlock);
-				
-				const sdpInit = JSON.parse(sdpBlock);
-				const desc = new RTCSessionDescription(sdpInit);
-				await pc.setRemoteDescription(desc);
-			}
-			 
-			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
-			const m = data.match(reCallId);
-			pc.createAnswer()
-				.then((answer) => pc.setLocalDescription(answer))
-				.then(() => 
-				{ 
-				console.log(JSON.stringify(pc.localDescription));
-					//socket.send(sendSDPAnswer(JSON.stringify(pc.localDescription), m[1] , sipUri, tag, toLine))
-				});
-			 pc.onicegatheringstatechange = () => {
-			  if (pc.iceGatheringState === 'complete') {
-				console.log("ICE gathering complete.");
-				// Teraz localDescription zawiera pełne SDP z ICE candidates
-				console.log("Final SDP:", JSON.stringify(pc.localDescription));
-				socket.send(sendSDPAnswer(JSON.stringify(pc.localDescription), m[1], sipUri, tag, toLine));
-			  }
-			  
-			  pc.getSenders().forEach(sender => {
-				const transport = sender.transport;
-				if (transport) {
-					transport.ondtlsstatechange = () => {
-						console.log("DTLS state:", transport.dtlsTransport.state);
-					};
-				}
-			});
-			};
+				establishingConnectionObject.updateData(registrationObj.tag, 
+				registrationObj.callId,
+				registrationObj.branch,
+				registrationObj.fromDisplayName,//fromUri, sipUri
+				registrationObj.toDisplayName);				
+			} 
 		}
-	
-		
-		
+		if (registrationObj.IsRegistrationProcessFinished)
+		{			 
+			var request = establishingConnectionObject.parseMessage(data);
+			if (request!=undefined && request!="") 
+				socket.send(request);
+			if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) && establishingConnectionObject.IsEstablishingConnectionProcessFinished) 
+			{
+				await	peer2PeerConnectionObject.parseServiceIncomming(data, socket, establishingConnectionObject.sipUri, establishingConnectionObject.tag );
+			}
+		}
 		
       };
 
-      socket.onerror = err => log('❌ Błąd WebSocket: ' + err.message);
-      socket.onclose = () => log('🔌 Połączenie WebSocket zamknięte');
+      socket.onerror = err => logger.log('❌ Błąd WebSocket: ' + err.message);
+      socket.onclose = () => logger.log('🔌 Połączenie WebSocket zamknięte');
     });
+ 
+ 
+ 
  
 const dcInput = document.getElementById('dcInput');
 const sendDcBtn = document.getElementById('sendDcBtn');
 
-// Domyślny kanał do wysyłania – ustawiony po stronie offerera
-let activeDataChannel = dataChannelAnswer; // Możesz tu przypisać offer/answer zależnie od roli
-let activeDataChannel2 = dataChannelAnswer; // Możesz tu przypisać offer/answer zależnie od roli
 
 sendDcBtn.addEventListener('click', () => {
   const msg = dcInput.value.trim();
+  let activeDataChannel = peer2PeerConnectionObject.dataChannelAnswer; 
   if (msg && activeDataChannel && activeDataChannel.readyState === "open") {
-    activeDataChannel.send(msg);
-    log(`📤 Wysłano ANSWER: ${msg}`);
+    activeDataChannel.send("ANSWER: "+msg);
+    logger.log(`📤 Wysłano ANSWER: ${msg}`);
   } else {
-    log("⚠️ Nie można wysłać – kanał nieaktywny.");
+    logger.log("⚠️ Nie można wysłać – kanał nieaktywny.");
   }
- 
+
      dcInput.value = "";
 });
+ 
+
+// Declaration
+
+ 
+
  </script>
 </body>
 </html>
