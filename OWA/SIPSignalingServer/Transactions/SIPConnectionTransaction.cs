@@ -28,10 +28,10 @@ namespace SIPSignalingServer.Transactions
 
         private bool ConnectionAcknowledged { get; set; }
 
-        protected override bool Running
+        public override bool Running
         {
             get => this.Connecting || this.Connected;
-            set => this.Connecting = value;
+            protected set => this.Connecting = value;
         }
 
         private bool NewCallParametersSent { get; set; }
@@ -87,7 +87,7 @@ namespace SIPSignalingServer.Transactions
         {
             if (!this.Registry.IsRegistered(this.Registration))
             {
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Cannot connect. Not registered.");
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Cannot connect. Not registered.", connectionLost: true);
                 return;
             }
 
@@ -104,7 +104,8 @@ namespace SIPSignalingServer.Transactions
         {
             if (this.Ct.IsCancellationRequested)
             {
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Connection cancelled.");
+                // TODO: should be a connectionLost?
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Connection cancelled.", connectionLost: true);
                 return;
             }
 
@@ -128,9 +129,14 @@ namespace SIPSignalingServer.Transactions
                 timeoutCallback: async () => 
                     await this.ConnectionFailed(
                         SIPResponseStatusCodesEnum.RequestTimeout,
-                        "Client took to long to send acknowledge to connection notify. Timeout."),
-                cancellationCallback: async () => 
-                    await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled."));
+
+                        // TODO: I think this should not be a connectionLost
+                        "Client took to long to send acknowledge to connection notify. Timeout.", connectionLost: true),
+                cancellationCallback: async () =>
+
+                    // TODO: should be a connectionLost?
+                    await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled.",
+                    connectionLost: true));
 
             this.Connection.SIPRequestReceived -= this.ListenForAck;
         }
@@ -155,7 +161,9 @@ namespace SIPSignalingServer.Transactions
             {
                 // request not sent
                 this.CurrentCseq--;
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled.");
+
+                // TODO: should be a connectionLost?
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled.", connectionLost: true);
                 return false;
             }
 
@@ -165,7 +173,7 @@ namespace SIPSignalingServer.Transactions
 
                 // TODO: map socketerror to SIPResponseStatusCodesEnum
                 this.CurrentCseq--;
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Sending connection Notify failed.");
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Sending connection Notify failed.", connectionLost: true);
                 return false;
             }
 
@@ -189,7 +197,8 @@ namespace SIPSignalingServer.Transactions
 
             if (this.Ct.IsCancellationRequested)
             {
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled");
+                // TODO: should be a connectionLost?
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled", connectionLost: true);
                 return;
             }
 
@@ -201,10 +210,11 @@ namespace SIPSignalingServer.Transactions
 
             await WaitForAsync(
                 () => this.Connected,
-                this.Ct, // TODO: differentiate between timeout and cancellation
-                CancellationToken.None,
+                this.Ct, // TODO: differentiate between timeout and cancellation?
+                this.Ct,
                 successCallback: this.SendConnectionNotify,
-                timeoutCallback: this.AckTimeout
+                timeoutCallback: this.AckTimeout,
+                cancellationCallback: this.AckTimeout // TODO: Other method. connectionLost = false?
                 // TODO: interval?
                 );
 
@@ -233,7 +243,8 @@ namespace SIPSignalingServer.Transactions
 
         private async Task AckTimeout()
         {
-            await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.");
+            // TODO: I think this should not be a connectionLost?
+            await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.", connectionLost: true);
         }
 
         private async Task CreateConnection()
@@ -351,7 +362,7 @@ namespace SIPSignalingServer.Transactions
             }
         }
 
-        private async Task ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
+        private async Task ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null, bool connectionLost = false)
         {
             // TODO: add some identifier for request that failed. (caller ip/name/tag, remote name/tag)
             this.logger.LogInformation("Connection failed {statusCode}. {message}", statusCode, message);
@@ -361,6 +372,11 @@ namespace SIPSignalingServer.Transactions
             FailureEventArgs eventArgs = new FailureEventArgs();
             eventArgs.StatusCode = statusCode;
             eventArgs.Message = message;
+
+            if (connectionLost)
+            {
+                await this.InvokeConnectionLost();
+            }
 
             await (this.OnConnectionFailed?.Invoke(this, eventArgs) ?? Task.CompletedTask);
         }

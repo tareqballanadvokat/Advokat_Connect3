@@ -78,7 +78,7 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
             //AcceptedResponse.Header = new SIPHeader();
             //AcceptedResponse.Header.CSeq = 3;
 
-            this.SIPResponseReceived?.Invoke(sipEndPoint, sipEndPoint, AcceptedResponse);
+            this.SIPRequestReceived?.Invoke(sipEndPoint, sipEndPoint, ackRequest);
         }
     }
 }

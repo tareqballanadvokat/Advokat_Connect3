@@ -1,7 +1,5 @@
-﻿using SIPSignalingServer.Interfaces;
-using SIPSignalingServer.Models;
+﻿using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions.Interfaces;
-using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
@@ -24,6 +22,10 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
 
         TransactionParams ISIPTransaction.Params => Params;
 
+        public bool Running => throw new NotImplementedException();
+
+        public int CurrentCseq => 4;
+
         public SIPRegistrationTransaction_Can_Unregister(
             SIPRequest initialRequest,
             SIPEndPoint signalingServer)
@@ -38,6 +40,11 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
         }
 
         public async Task Unregister()
+        {
+            this.Registered = false;
+        }
+
+        public async Task Stop()
         {
             this.Registered = false;
         }
@@ -62,11 +69,6 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
                 remoteTag: CallProperties.CreateNewTag(),
                 clientTag: request.Header.From.FromTag, // TODO: What if request does not contain a tag?
                 callId: request.Header.CallId);
-        }
-
-        public Task Stop()
-        {
-            throw new NotImplementedException();
         }
     }
 }

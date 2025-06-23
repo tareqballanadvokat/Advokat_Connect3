@@ -11,7 +11,7 @@ namespace WebRTCLibrary.SIP
 
         protected object isRunningLock = new object();
 
-        protected virtual bool Running { get; set; }
+        public virtual bool Running { get; protected set; }
 
         //private static readonly int DefaultTimeOut = 2000;
         private static readonly int DefaultTimeOut = 20000; // DEBUG
@@ -31,6 +31,8 @@ namespace WebRTCLibrary.SIP
         public int ReceiveTimeout { get; set; } = DefaultTimeOut;
 
         public SIPSchemesEnum SIPScheme { get => this.Connection.SIPScheme; }
+
+        private bool transportPassed = false;
 
         public TransactionParams Params { get; protected set; }
 
@@ -58,12 +60,15 @@ namespace WebRTCLibrary.SIP
 
         protected CancellationToken Ct { get => this.Cts.Token; }
 
+        public delegate Task ConnectionLostDelegate(SIPTransaction sender);
+
+        public event ConnectionLostDelegate? ConnectionLost;
+
         // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
         public SIPTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : this(new SIPConnection(sipScheme, transport, loggerFactory), dialogParams, loggerFactory)
         {
-            this.Connection.MessagePredicate = this.AcceptMessage;
-            this.Connection.MessageTimeout = this.SendTimeout;
+            this.transportPassed = true;
         }
 
         public SIPTransaction(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
@@ -142,6 +147,12 @@ namespace WebRTCLibrary.SIP
         {
             this.CurrentCseq = this.StartCseq;
             this.Cts = newCt == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)newCt);
+
+            if (transportPassed)
+            {
+                this.Connection.MessagePredicate = this.AcceptMessage;
+                this.Connection.MessageTimeout = this.SendTimeout;
+            }
         }
 
         protected virtual bool CanStart()
@@ -154,7 +165,10 @@ namespace WebRTCLibrary.SIP
             return this.Running;
         }
 
-        protected virtual 
+        protected virtual async Task InvokeConnectionLost()
+        {
+            await (this.ConnectionLost?.Invoke(this) ?? Task.CompletedTask);
+        }
 
         /// <summary>Checks if an incoming message is part of this dialog.</summary>
         /// <param name="message">Incoming SIPMessage. SIPRequest or SIPResponse.</param>

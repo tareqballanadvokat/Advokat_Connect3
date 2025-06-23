@@ -18,6 +18,10 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public SIPSchemesEnum SIPScheme => throw new NotImplementedException();
 
+        public bool Running => throw new NotImplementedException();
+
+        public int CurrentCseq => throw new NotImplementedException();
+
         public async Task Start(CancellationToken? ct = null)
         {
         }

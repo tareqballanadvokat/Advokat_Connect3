@@ -12,11 +12,13 @@ namespace WebRTCLibrary.SIP.Interfaces
         public int ReceiveTimeout { get; set; }
         
         public int SendTimeout { get; set; }
-        
+
+        public bool Running { get; }
+
+        public int CurrentCseq { get; }
+
         public SIPSchemesEnum SIPScheme { get; }
 
-        //public Task Start();
-        
         public Task Start(CancellationToken? ct = null);
          
         public Task Stop();

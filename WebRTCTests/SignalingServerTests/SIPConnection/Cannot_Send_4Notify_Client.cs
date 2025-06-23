@@ -77,9 +77,6 @@ namespace SignalingServerTests.SIPConnection
                 clientTag: CallProperties.CreateNewTag());
 
             SIPMemoryRegistry sipRegistry = new SIPMemoryRegistry(NullLoggerFactory.Instance);
-            sipRegistry.Register(new SIPSignalingServer.Models.SIPRegistration(registrationParams));
-            sipRegistry.Confirm(new SIPSignalingServer.Models.SIPRegistration(registrationParams));
-
             sipRegistry.Register(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
             sipRegistry.Confirm(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
 
@@ -99,9 +96,11 @@ namespace SignalingServerTests.SIPConnection
                 1,
                 registrationParams.CallId);
 
+            SIPTransport_4Notify_Fails sipTransport = new SIPTransport_4Notify_Fails();
+
             SIPDialog sipDialog = new SIPDialog(
                 SIPSchemesEnum.sip,
-                new SIPTransport_Sending_Fails(),
+                sipTransport,
                 initialRequest,
                 sipEndPoint,
                 sipRegistry,
@@ -115,11 +114,12 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.ConnectionTimeout = 100;
             sipDialog.SendTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
+            sipDialog.PeerRegistrationTimeout = 200;
 
             Assert.True(sipRegistrationTransaction.Registered);
 
             _ = Task.Run(async () => await sipDialog.Start());
-            await Task.Delay(150);
+            await Task.Delay(300);
 
             Assert.False(sipRegistrationTransaction.Registered);
         }

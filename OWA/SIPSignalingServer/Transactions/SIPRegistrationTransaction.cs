@@ -21,10 +21,10 @@ namespace SIPSignalingServer.Transactions
 
         private readonly ILogger<SIPRegistrationTransaction> logger;
 
-        protected override bool Running
+        public override bool Running
         {
             get => this.Registering || this.Registered;
-            set => this.Registering = value;
+            protected set => this.Registering = value;
         }
 
         public bool Registered { get; private set; }
