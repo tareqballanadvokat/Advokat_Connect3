@@ -54,6 +54,8 @@
 			x.send();
 			URL.revokeObjectURL(u);
 			return x.responseText;
+			
+			//  return await blob.text();
 		}
 		
 	contentLength(data){
@@ -269,7 +271,8 @@ class EstablishingConnection
 		this.toDisplayName ="macs";
 		
 		this.pc =new RTCPeerConnection();
-		 this.dataChannelAnswer = this.pc.createDataChannel("answer");  
+		 this.dataChannel = undefined;//this.pc.createDataChannel("answer");  
+		 
 	}
 	updateData(tag, callId, branch, fromDisplay, toDisplay){
 		this.tag    =tag;  
@@ -354,7 +357,30 @@ class EstablishingConnection
 			'Content-Length: 20\r\n\r\n'+				
 			'{"IsOffering":false}'
 			return ackOffering; 
-		}		 
+		}	
+		<!-- else{ -->
+			<!-- this.ConnectionType = "ANSWER"; -->
+			<!-- const reCallId = /^Call-ID:\s*([^\r\n]+)/m; -->
+			<!-- const m = data.match(reCallId);  -->
+			<!-- const fromLineMatch = data.match(/^From:.*$/m); -->
+			<!-- const fromLine = fromLineMatch ? fromLineMatch[0] : ''; -->
+			<!-- const toLine = fromLine.replace(/^From:/i, 'To:'); -->
+			<!-- logger.log('📥 craateOffer Linia From: ' + fromLine); -->
+		
+			<!-- const ackOffering = -->
+			<!-- 'ACK ' + this.sipUri + ' SIP/2.0\r\n' + -->
+			<!-- 'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch  + '\r\n' + -->
+			<!-- 'Max-Forwards: 70\r\n' + -->
+			<!-- toLine + '\r\n' + -->
+			<!-- 'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' + -->
+			<!-- 'Call-ID: ' + m[1] + '\r\n' + -->
+			<!-- 'CSeq: ' + 3 + ' ACK\r\n' +   -->
+			<!-- 'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +	 -->
+			<!-- 'Content-Type: application/json\r\n' +		   	    -->
+			<!-- 'Content-Length: 20\r\n\r\n'+				 -->
+			<!-- '{"IsOffering":true}' -->
+			<!-- return ackOffering;  -->
+		<!-- }		 -->
 	} 
     getIsOFeer(data)
 	{
@@ -372,14 +398,13 @@ class EstablishingConnection
  class Peer2PeerConnection{
 	constructor(){
 		this.pc =new RTCPeerConnection();
-		this.dataChannelAnswer = undefined; 
-		this.dataChannelOffer = undefined; 
+		this.dataChannelPeer = undefined; 
 		this.isOfferSent =false;
 	}
-	
-	async parseServiceIncomming(data, socket, sipUri, tag) //FOR ANSWER
+	//We Create ANSWER
+	async parseServiceIncomming(data, socket, sipUri, tag) //FOR CREATING ANSWER
 	{
-		this.dataChannelAnswer = this.pc.createDataChannel("answer"); 
+		this.dataChannelPeer = this.pc.createDataChannel("answer"); 
 		const fromlinematch = data.match(/^from:.*$/mi);
 		const fromline = fromlinematch ? fromlinematch[0] : '';
 		const toline = fromline.replace(/^from:/i, 'to:');
@@ -427,16 +452,16 @@ class EstablishingConnection
           };		 
 		};
 
-		var dataChannelAnswer = this.pc.createDataChannel("answer");
-			this.dataChannelAnswer.onopen = () => {
+		this.dataChannelPeer = this.pc.createDataChannel("answer");
+		this.dataChannelPeer.onopen = () => {
                 console.log("🟢 DataChannel opened: answer");
 			  };
 
-			  this.dataChannelAnswer.onclose = () => {
+			  this.dataChannelPeer.onclose = () => {
 				console.log("🔴 DataChannel closed");
 			  };
 
-			  this.dataChannelAnswer.onerror = err => {
+			  this.dataChannelPeer.onerror = err => {
 				console.error("❌ DataChannel error:", err);
 			  };
 			 
@@ -467,6 +492,7 @@ class EstablishingConnection
 	}
 
 	
+	
 	sendSDPAnswer(answer, callId, sipUri, tag, toLine)
 	{
 		const branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
@@ -492,26 +518,45 @@ class EstablishingConnection
 	}
 	
  
-	
+	//WE CREATE OFFER
 	async createAndSendOffer(socket, callId, sipUri, tag, toLine ) //FOR OFFER
 	{
-		this.isOfferSent =true;
-		console.error("PeerToPeerConnection: createAndSendOffer");
+		this.isOfferSent =true; 
 		const branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
 		//this.pc = new RTCPeerConnection();
 
 		// Stworzenie DataChannel
-		this.dataChannelOffer = this.pc.createDataChannel("offer");
-		this.dataChannelOffer.onopen = () => {
+		this.dataChannelPeer = this.pc.createDataChannel("offer");
+		this.dataChannelPeer.onopen = () => {
 			console.log("🟢 DataChannel OFFER opened");
-			this.dataChannelOffer.send("Hello from OFFER side");
+			this.dataChannelPeer.send("Hello from OFFER side");
 		};
-		this.dataChannelOffer.onmessage = event => {
+		this.dataChannelPeer.onmessage = event => {
 			const text = new TextDecoder("utf-8").decode(event.data);
 			console.log("📨 Received on offer channel:", text);
 		};
-		this.dataChannelOffer.onerror = err => {
+		this.dataChannelPeer.onerror = err => {
 			console.error("❌ Offer DataChannel error:", err);
+		};
+
+			// DataChannel zdarzenia
+		this.pc.ondatachannel = (ev) => 
+		{
+		  console.log("datachannel found");
+
+          ev.channel.onopen = () => {
+              console.log("🟢 DataChannel opened: ", ev.channel.label);
+          };
+
+		  ev.channel.onmessage = writeMessage
+
+          ev.channel.onclose = () => {
+              console.log("🔴 DataChannel closed");
+          };
+
+          ev.channel.onerror = err => {
+              console.error("❌ DataChannel error:", err);
+          };		 
 		};
 
 		// Obsługa ICE candidates
@@ -537,6 +582,26 @@ class EstablishingConnection
 		//const offerMsg = this.sendSDPOffer( JSON.stringify(offer.sdp), callId, sipUri, tag, toLine, branch);
 		//socket.send(offerMsg);
 		console.log("📤 SDP Offer created:", JSON.stringify(offer));
+		
+		
+		
+		
+		
+	
+
+		<!-- var dataChannelAnswer = this.pc.createDataChannel("answer"); -->
+			<!-- this.dataChannelAnswer.onopen = () => { -->
+                <!-- console.log("🟢 DataChannel opened: answer"); -->
+			  <!-- }; -->
+
+			  <!-- this.dataChannelAnswer.onclose = () => { -->
+				<!-- console.log("🔴 DataChannel closed"); -->
+			  <!-- }; -->
+
+			  <!-- this.dataChannelAnswer.onerror = err => { -->
+				<!-- console.error("❌ DataChannel error:", err); -->
+			  <!-- }; -->
+		
 
 	}
 
@@ -561,7 +626,31 @@ class EstablishingConnection
 		);
 	}
 
-
+	async parseIncommingAnswer(data){
+		if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)  &&  /CSeq:\s*5 SERVICE/.test(data)) {
+			const sdpblockmatch = data.match(/(\{[\s\S]*?"sdp"[\s\S]*?\})/m);
+			if (sdpblockmatch) {
+				try 
+				{
+					const sdpblock = sdpblockmatch[1];
+					const sdpObj = JSON.parse(sdpblock);
+					await this.pc.setRemoteDescription(new RTCSessionDescription(sdpObj));
+					 
+							
+				}
+				catch (err) 
+				{
+					console.error("❌ Błąd SDP lub WebRTC:", err);
+				}
+			} else {
+				console.warn("⚠️ Nie znaleziono bloku SDP");
+			}
+		}
+	}
+	
+	getActiveDataChannel(){
+		if (this.dataChannelPeer != undefined) return this.dataChannelPeer;
+	}
 } 
  const peer2PeerConnectionObject = new Peer2PeerConnection();
   
@@ -640,7 +729,8 @@ class EstablishingConnection
 		}
 		if (peer2PeerConnectionObject.isOfferSent)
 		{
-			console.log(data)
+			console.log(data);
+			await peer2PeerConnectionObject.parseIncommingAnswer(data);
 		}
       };
 
@@ -657,7 +747,7 @@ const sendDcBtn = document.getElementById('sendDcBtn');
 
 sendDcBtn.addEventListener('click', () => {
   const msg = dcInput.value.trim();
-  let activeDataChannel = peer2PeerConnectionObject.dataChannelAnswer; 
+  let activeDataChannel = peer2PeerConnectionObject.getActiveDataChannel(); 
   if (msg && activeDataChannel && activeDataChannel.readyState === "open") {
     activeDataChannel.send("ANSWER: "+msg);
     logger.log(`📤 Wysłano ANSWER: ${msg}`);
