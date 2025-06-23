@@ -60,9 +60,7 @@ namespace WebRTCLibrary.SIP
 
         protected CancellationToken Ct { get => this.Cts.Token; }
 
-        public delegate Task ConnectionLostDelegate(SIPTransaction sender);
-
-        public event ConnectionLostDelegate? ConnectionLost;
+        public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
 
         // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
         public SIPTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)

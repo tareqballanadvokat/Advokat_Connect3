@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
+using SIPSignalingServer.Transactions.Interfaces;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
@@ -12,7 +13,7 @@ using static WebRTCLibrary.Utils.TaskHelpers;
 
 namespace SIPSignalingServer.Transactions
 {
-    internal class SIPConnectionTransaction : ServerSideSIPTransaction
+    internal class SIPConnectionTransaction : ServerSideSIPTransaction, ISIPConnectionTransaction
     {
         private readonly ILoggerFactory loggerFactory;
 
@@ -48,9 +49,7 @@ namespace SIPSignalingServer.Transactions
 
         private SIPTunnel? SIPTunnel { get; set; }
 
-        public delegate Task ConnectionFailedDelegate(SIPConnectionTransaction sender, FailureEventArgs e);
-
-        public event ConnectionFailedDelegate? OnConnectionFailed;
+        public event ISIPConnectionTransaction.ConnectionFailedDelegate? OnConnectionFailed;
 
         public SIPConnectionTransaction(
             SIPSchemesEnum sipScheme,

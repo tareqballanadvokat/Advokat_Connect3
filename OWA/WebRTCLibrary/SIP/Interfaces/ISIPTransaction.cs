@@ -15,9 +15,15 @@ namespace WebRTCLibrary.SIP.Interfaces
 
         public bool Running { get; }
 
+        public int StartCseq { get; set; }
+
         public int CurrentCseq { get; }
 
         public SIPSchemesEnum SIPScheme { get; }
+
+        public delegate Task ConnectionLostDelegate(SIPTransaction sender);
+
+        public event ConnectionLostDelegate? ConnectionLost;
 
         public Task Start(CancellationToken? ct = null);
          

@@ -26,6 +26,8 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
 
         public int CurrentCseq => 4;
 
+        public int StartCseq { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
         public SIPRegistrationTransaction_Can_Unregister(
             SIPRequest initialRequest,
             SIPEndPoint signalingServer)
@@ -34,6 +36,7 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
         }
 
         public event ISIPRegistrationTransaction.RegistrationFailedDelegate? OnRegistrationFailed;
+        public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
 
         public async Task Start(CancellationToken? ct = null)
         {

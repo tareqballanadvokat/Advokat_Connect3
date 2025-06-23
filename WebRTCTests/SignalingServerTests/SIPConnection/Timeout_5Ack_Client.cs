@@ -116,8 +116,8 @@ namespace SignalingServerTests.SIPConnection
 
             Assert.True(sipRegistrationTransaction.Registered);
 
-            _ = Task.Run(async () => await sipDialog.Start());
-            await Task.Delay(150);
+            await sipDialog.Start();
+            await Task.Delay(100); // TODO: get it to the point so we can remove this (using events instead of waitForAsync)
 
             // Unregister of registrationTransaction gets called.
             Assert.False(sipRegistrationTransaction.Registered);

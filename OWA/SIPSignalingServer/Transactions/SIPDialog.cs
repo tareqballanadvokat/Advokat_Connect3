@@ -61,11 +61,11 @@ namespace SIPSignalingServer.Transactions
 
         private ISIPRegistrationTransaction? SIPRegistrationTransaction { get; set; }
 
-        private SIPConnectionTransaction? SIPConnectionTransaction { get; set; }
+        public ISIPConnectionTransactionFactory SIPConnectionTransactionFactory { get; set; }
+
+        private ISIPConnectionTransaction? SIPConnectionTransaction { get; set; }
 
         private ISIPTransport Transport { get; set; }
-
-        //private bool WaitingForPeer { get; set; }
 
         [MemberNotNullWhen(true, nameof(this.SIPConnectionTransaction))]
         public bool Connected { get => this.SIPConnectionTransaction?.Connected ?? false; }
@@ -104,6 +104,7 @@ namespace SIPSignalingServer.Transactions
             this.ConnectionPool = connectionPool;
 
             this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory();
+            this.SIPConnectionTransactionFactory = new SIPConnectionTransactionFactory();
         }
 
         protected async override Task StartRunning()
@@ -119,20 +120,6 @@ namespace SIPSignalingServer.Transactions
             await base.StartRunning();
             await this.Register();
         }
-
-        //// TODO: Use passed token
-        //public async override Task Start(CancellationToken? ct = null)
-        //{
-        //    // TODO: let it pass through to the registrationTransaction?
-        //    if (this.InitialRequest.Method != SIPMethodsEnum.REGISTER)
-        //    {
-        //        // request was not a register request.
-        //        // TODO: dispose this dialog / send event that it should be disposed
-        //        return;
-        //    }
-
-        //    await this.Register();
-        //}
 
         private async Task Register()
         {
@@ -238,7 +225,7 @@ namespace SIPSignalingServer.Transactions
         [MemberNotNull(nameof(this.SIPConnectionTransaction))]
         private void SetSIPConnectonTransaction()
         {
-            this.SIPConnectionTransaction = new SIPConnectionTransaction(
+            this.SIPConnectionTransaction = SIPConnectionTransactionFactory.Create(
                 this.SIPScheme,
                 this.Transport,
                 this.Params,
@@ -295,7 +282,7 @@ namespace SIPSignalingServer.Transactions
             await this.Stop();
         }
 
-        private async Task ConnectionFailedListener(SIPConnectionTransaction sender, FailureEventArgs e)
+        private async Task ConnectionFailedListener(ISIPConnectionTransaction sender, FailureEventArgs e)
         {
             await this.WaitForPeer();
         }

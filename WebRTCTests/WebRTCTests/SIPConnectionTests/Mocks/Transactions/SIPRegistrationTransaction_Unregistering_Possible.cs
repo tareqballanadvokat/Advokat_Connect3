@@ -22,6 +22,10 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public int CurrentCseq => throw new NotImplementedException();
 
+        public int StartCseq { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+        public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
+
         public async Task Start(CancellationToken? ct = null)
         {
         }

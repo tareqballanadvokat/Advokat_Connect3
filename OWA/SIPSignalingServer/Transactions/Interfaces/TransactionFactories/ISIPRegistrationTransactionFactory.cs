@@ -5,7 +5,7 @@ using WebRTCLibrary.SIP.Interfaces;
 
 namespace SIPSignalingServer.Transactions.Interfaces.TransactionFactories
 {
-    internal interface ISIPRegistrationTransactionFactory
+    public interface ISIPRegistrationTransactionFactory
     {
         public ISIPRegistrationTransaction Create(ISIPConnection connection, SIPRequest initialRequest, SIPEndPoint signalingServer, ISIPRegistry registry, ILoggerFactory loggerFactory);
     }
