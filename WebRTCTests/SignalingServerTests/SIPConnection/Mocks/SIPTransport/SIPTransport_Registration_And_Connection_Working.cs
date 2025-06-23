@@ -56,12 +56,11 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
             SIPHeaderParams reverseHeaderParams = new SIPHeaderParams(
                 new SIPParticipant(AcceptedResponse.Header.From.FromName, sipEndPoint),
                 new SIPParticipant(AcceptedResponse.Header.To.ToName, sipEndPoint),
-                AcceptedResponse.Header.From.FromTag,
                 AcceptedResponse.Header.To.ToTag,
+                AcceptedResponse.Header.From.FromTag,
                 3,
                 AcceptedResponse.Header.CallId
                );
-
 
             SIPRequest ackRequest = SIPHelper.GetRequest(SIPSchemesEnum.sip, SIPMethodsEnum.ACK, reverseHeaderParams);
             this.SIPTransportRequestReceived?.Invoke(sipEndPoint, sipEndPoint, ackRequest);
@@ -74,8 +73,8 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
             SIPHeaderParams reverseHeaderParams = new SIPHeaderParams(
                 new SIPParticipant(request.Header.From.FromName, sipEndPoint),
                 new SIPParticipant(request.Header.To.ToName, sipEndPoint),
-                request.Header.From.FromTag,
                 request.Header.To.ToTag,
+                request.Header.From.FromTag,
                 5,
                 request.Header.CallId
                );
