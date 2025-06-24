@@ -284,6 +284,10 @@ namespace SIPSignalingServer.Transactions
 
         private async Task ConnectionFailedListener(ISIPConnectionTransaction sender, FailureEventArgs e)
         {
+            // TODO: peer is not done unregistering. Starts ConnectionProcess again, shouldn't.
+            //       Remove delay
+            await Task.Delay(10);
+
             await this.WaitForPeer();
         }
     }

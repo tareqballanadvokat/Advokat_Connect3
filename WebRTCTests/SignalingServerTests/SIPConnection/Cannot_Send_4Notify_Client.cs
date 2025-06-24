@@ -13,6 +13,7 @@ using WebRTCLibrary.SIP.Models;
 
 namespace SignalingServerTests.SIPConnection
 {
+    [Collection("Sequential")]
     public class Cannot_Send_4Notify_Client
     {
         [Fact]

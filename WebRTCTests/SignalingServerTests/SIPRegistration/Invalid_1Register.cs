@@ -11,6 +11,7 @@ using WebRTCLibrary.SIP.Utils;
 
 namespace SignalingServerTests.SIPRegistration
 {
+    [Collection("Sequential")]
     public class Invalid_1Register
     {
         [Theory]

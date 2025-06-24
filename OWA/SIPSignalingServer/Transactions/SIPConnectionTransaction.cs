@@ -242,8 +242,7 @@ namespace SIPSignalingServer.Transactions
 
         private async Task AckTimeout()
         {
-            // TODO: I think this should not be a connectionLost?
-            await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.", connectionLost: true);
+            await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.");
         }
 
         private async Task CreateConnection()

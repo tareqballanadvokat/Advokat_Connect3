@@ -9,6 +9,7 @@ using System.Net;
 
 namespace SignalingServerTests.SIPRegistration
 {
+    [Collection("Sequential")]
     public class Timeout_2Accept
     {
         [Fact]

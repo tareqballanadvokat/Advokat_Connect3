@@ -12,6 +12,7 @@ using WebRTCLibrary.SIP.Models;
 
 namespace SignalingServerTests.SIPConnection
 {
+    [Collection("Sequential")]
     public class Timeout_5Ack_Client
     {
         [Fact]
@@ -756,8 +757,6 @@ namespace SignalingServerTests.SIPConnection
         [InlineData(1000, 200)]
         [InlineData(1000, 500)]
         public async Task Does_Not_Accept_Ack_After_ReceiveTimeout(int receiveTimeout, int delay)
-        // TODO: this test does not test anything concrete.
-        //       The test should test if the ACK is accepted
         {
             SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
             SIPParticipant client = new SIPParticipant("caller-12345ab", sipEndPoint);

@@ -66,6 +66,7 @@ namespace SIPSignalingServer
 
         public bool IsRegistered(SIPRegistration registration)
         {
+             // TODO: && Confirmed?
             return this.RegisteredConnections.Contains(registration);
         }
 

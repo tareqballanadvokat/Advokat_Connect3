@@ -11,6 +11,7 @@ using SignalingServerTests.Mocks.SIPRequests;
 
 namespace SignalingServerTests.SIPRegistration
 {
+    [Collection("Sequential")]
     public class Timeout_3ACK
     {
         [Fact]
