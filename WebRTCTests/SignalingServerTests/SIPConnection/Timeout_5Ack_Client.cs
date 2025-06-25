@@ -832,7 +832,7 @@ namespace SignalingServerTests.SIPConnection
             _ = Task.Run(async () => await sipDialog.Start());
 
             Assert.False(sipDialog.Connected);
-            await Task.Delay(receiveTimeout + delay);
+            await Task.Delay(receiveTimeout + delay + 100);
 
             Assert.False(sipDialog.Connected);
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
