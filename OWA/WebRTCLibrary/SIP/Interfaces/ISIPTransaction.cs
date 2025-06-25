@@ -1,0 +1,32 @@
+﻿using SIPSorcery.SIP;
+using WebRTCLibrary.SIP.Models;
+
+namespace WebRTCLibrary.SIP.Interfaces
+{
+    public interface ISIPTransaction
+    {
+        public ISIPConnection Connection { get; }
+
+        public TransactionParams Params { get; }
+        
+        public int ReceiveTimeout { get; set; }
+        
+        public int SendTimeout { get; set; }
+
+        public bool Running { get; }
+
+        public int StartCseq { get; set; }
+
+        public int CurrentCseq { get; }
+
+        public SIPSchemesEnum SIPScheme { get; }
+
+        public delegate Task ConnectionLostDelegate(SIPTransaction sender);
+
+        public event ConnectionLostDelegate? ConnectionLost;
+
+        public Task Start(CancellationToken? ct = null);
+         
+        public Task Stop();
+    }
+}

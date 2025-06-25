@@ -1,0 +1,202 @@
+/* 
+ * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
+ * See LICENSE in the project root for license information.
+ */
+ body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+h3{
+  font-size: 16px;
+}
+.tab-menu {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 10px;
+}
+.tab-menu a {
+    text-decoration: none;
+    padding: 8px 12px;
+    color: black;
+    font-weight: bold;
+    border-radius: 4px;
+}
+.tab-menu a.active {
+    background: #0078D4;
+    color: white;
+}
+.search-panel {
+    margin-bottom: 15px;
+}
+#search-case-id{
+    background-image: "../assets/item-16.png";
+}
+/* input[type="text"] {
+    padding: 8px;
+    width: 200px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+} */
+.cases-container {
+    border-top: 2px solid #ddd;
+    padding-top: 10px;
+    overflow: auto;
+}
+.folder {
+    margin-left: 5px;
+}
+.file {
+    margin-left: 40px;
+}
+
+
+
+.toggle {
+    cursor: pointer;
+    font-weight: bold;
+}
+.hidden {
+    display: none;
+}
+.favorite {
+    color: #0078D4;
+    cursor: pointer;
+}
+.delete {
+    color: red;
+    cursor: pointer;
+}
+
+
+
+.folder .toggle {
+    cursor: pointer;
+    font-weight: bold;
+    display: block;
+    padding: 4px;
+}
+.children {
+    margin-left: 15px;
+}
+
+
+.results-container {
+  font-size: small;
+}
+
+.file-tag { 
+    border-radius: 8px;        /* Zaokrąglenie */
+    padding: 6px 12px;
+    font-size: 14px;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    margin: 4px;
+    cursor: default;
+    transition: background-color 0.2s ease-in-out;
+  }
+
+  .folder-row {
+ 
+    margin: 5px 0;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  
+  .toggle-icon {
+    font-size: 16px;
+    font-weight: bold;
+    color: #666;
+    width: 16px;
+    margin-right: 8px;
+    cursor: pointer;
+    -webkit-user-select: none;
+  }
+  
+  .folder-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+  }
+  
+  .folder-name {
+    color: #4b5563; /* Neutral dark gray */
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .result-row{
+    display: flex;
+  }
+
+
+  div.button {
+    width: 150px; /* TODO: this to remove and fix causa- header  */
+    line-height: 1.5;
+  }
+  
+
+  button {
+    background: none!important;
+    border: none;
+    padding: 0!important;
+    /*optional*/
+    font-family: arial, sans-serif;
+    /*input has OS specific font-family*/
+    color: #069;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+div.result-row div.name{
+    width: 250px;
+}
+div.result-row div.causa{
+    width: 100px;
+    
+}
+
+
+
+.w3-bar .w3-bar-item {
+  padding: 8px 8px;
+  float: left;
+  width: auto;
+  border: none;
+  display: block;
+  outline: 0;
+}
+
+ .active{
+  color: #000 !important;
+  background-color: #ccc !important;
+}
+
+
+
+.result-row-registered{
+  display: flex;
+}
+div.result-row-registered div.name{
+  width: 250px;
+}
+div.result-row-registered div.causa{
+  width: auto;
+ }
+ div.result-row-registered div.date{
+  width: 160px;
+  padding-left: 5px;
+ } 
+
+ div.result-row-registered div.sb{
+  width: 50px;
+  padding-left: 5px;
+ } 
+ div.result-row-registered div.abbreviation{
+  width: 100px;
+  padding-left: 5px;
+ } 
+ div.result-row-registered div.serviceTime{
+  width: 50px;
+  padding-left: 5px;
+ } 
+ div.padding {
+  padding-bottom: 5px;;
+ }

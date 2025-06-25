@@ -1,0 +1,140 @@
+/* 
+ * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
+ * See LICENSE in the project root for license information.
+ */
+ body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+.tab-menu {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 10px;
+}
+.tab-menu a {
+    text-decoration: none;
+    padding: 8px 12px;
+    color: black;
+    font-weight: bold;
+    border-radius: 4px;
+}
+.tab-menu a.active {
+    background: #0078D4;
+    color: white;
+}
+.search-panel {
+    margin-bottom: 15px;
+}
+#search-case-id{
+    background-image: "../assets/item-16.png";
+}
+ 
+.cases-container {
+    border-top: 2px solid #ddd;
+    padding-top: 10px;
+    overflow: auto;
+}
+.folder {
+    margin-left: 5px;
+}
+.file {
+    margin-left: 40px;
+}
+
+
+
+.toggle {
+    cursor: pointer;
+    font-weight: bold;
+}
+.hidden {
+    display: none;
+}
+.favorite {
+    color: #0078D4;
+    cursor: pointer;
+}
+.delete {
+    color: red;
+    cursor: pointer;
+}
+.folder .toggle {
+    cursor: pointer;
+    font-weight: bold;
+    display: block;
+    padding: 4px;
+}
+.children {
+    margin-left: 15px;
+}
+
+
+
+
+.file-tag { 
+    border-radius: 8px;        /* Zaokrąglenie */
+    padding: 6px 12px;
+    font-size: 14px;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    margin: 4px;
+    cursor: default;
+    transition: background-color 0.2s ease-in-out;
+  }
+
+  .folder-row {
+ 
+    margin: 5px 0;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  
+  .toggle-icon {
+    font-size: 16px;
+    font-weight: bold;
+    color: #666;
+    width: 16px;
+    margin-right: 8px;
+    cursor: pointer;
+    -webkit-user-select: none;
+  }
+  
+  .folder-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+  }
+  
+  .folder-name {
+    color: #4b5563; /* Neutral dark gray */
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .result-row{
+    display: flex;
+  }
+
+
+  div.button {
+    width: 150px;
+    line-height: 1.5;
+  }
+  
+ 
+  button {
+    background: none!important;
+    border: none;
+    padding: 0!important;
+    /*optional*/
+    font-family: arial, sans-serif; 
+    color: #069;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+div.result-row div.name{
+    width: 350px;
+}
+div.result-row div.causa{
+    width: 100px;
+    
+}
