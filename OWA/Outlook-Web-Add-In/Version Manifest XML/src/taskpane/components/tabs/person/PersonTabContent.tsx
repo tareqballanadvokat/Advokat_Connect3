@@ -7,14 +7,31 @@ import CustomTitle from './CustomTitle';
 import CustomItem  from './CustomItem';
 import { getPersonApi, addPerson,removePerson } from '../../../utils/api';
 import { Person } from '../../interfaces/IPerson';
+// import SipRegister from '../SipClient';
+// import JsSIP from 'jssip'; 
+
 interface Props {
   loading?: boolean;
+  sip? : any;
 }
 
-const PersonsTabContent: React.FC<Props> = ({ loading = false }) => {
+const PersonsTabContent: React.FC<Props> = ({ sip,  loading = false }) => {
   const [persons, setPersons] = useState<Person[]>([]);
   const [expandedItems, setExpandedItems] = useState<Person[]>([]);
 
+
+useEffect(() => {
+    if (sip?.registration?.IsRegistrationProcessFinished) 
+    {
+      console.log("SIP registered");
+    }
+
+    if (sip?.peer2peer?.dataChannelPeer!=undefined) {
+      console.log("P2P dataChannel opened");
+    } 
+}, []);
+
+ 
  //On startup loads saved data by user
   useEffect(() => {
     (async () => 
@@ -28,12 +45,14 @@ const PersonsTabContent: React.FC<Props> = ({ loading = false }) => {
 const handlePersonAdd = useCallback(async (id: string) => {
   try {
     await addPerson(id);
+    if (sip?.peer2peer?.dataChannelPeer!=undefined) 
+    {
+       sip?.peer2peer?.dataChannelPeer.send(id);
+    } 
 
-    // Pobierz zaktualizowaną listę osób
     const updatedList = await getPersonApi();
     setPersons(updatedList);
 
-    // Znajdź właśnie dodaną osobę
     const added = updatedList.find(p => p.id === id);
     if (added) {
       // Rozwiń ją automatycznie
@@ -59,6 +78,8 @@ const handlePersonAdd = useCallback(async (id: string) => {
     setExpandedItems(prev => prev.filter(p => p.id !== id));
   }, []);
 
+
+
   return (
     <div id="accordion" style={{
       maxWidth: 400,
@@ -68,6 +89,24 @@ const handlePersonAdd = useCallback(async (id: string) => {
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
       overflow: 'hidden'
     }}>
+
+    <div>
+      {/* <WebRTCDataChannel isOfferer={false} sendSignal={sendSignal} incomingSignal={false} />  */}
+      {/* <SipRegister
+        uri="sip:1001@192.168.0.107:8081"
+        wsServer="ws://192.168.0.107:8081"
+        authorizationUsername="1001"
+        authorizationPassword="TwojeHaslo"
+      /> */}
+
+            {/* <SipRegister
+        uri="sip:1001@127.0.0.1:8081"
+        wsServer="ws://127.0.0.1:8081"
+        authorizationUsername="1001"
+        authorizationPassword="TwojeHaslo"
+      /> */}
+    </div>
+
       <SearchPersonList 
       onCaseSelect={handlePersonAdd} />
 
