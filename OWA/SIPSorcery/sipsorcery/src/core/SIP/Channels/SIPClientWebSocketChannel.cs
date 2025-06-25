@@ -230,6 +230,16 @@ namespace SIPSorcery.SIP
             {
                 return sockExcp.SocketErrorCode;
             }
+
+            // DEBUG - CREATED MAC
+            catch (WebSocketException ex)
+            {
+                // Occurs when we try to connect to a wss websocket with ws
+
+                // MAC TODO: Map WebSocketError to SocketError
+                WebSocketError code = ex.WebSocketErrorCode;
+                return SocketError.Fault;
+            }
         }
 
         /// <summary>

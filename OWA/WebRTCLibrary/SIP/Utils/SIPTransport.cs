@@ -31,10 +31,12 @@ namespace WebRTCLibrary.SIP.Utils
         public SIPTransport(IPEndPoint sourceEndpoint, IEnumerable<ISIPChannelFactory> sipChannels, X509Certificate2? sslCertificate = null)
             : this()
         {
-            foreach (ISIPChannelFactory channel in sipChannels)
+            foreach (ISIPChannelFactory channelFactory in sipChannels)
             {
                 // set listening channels
-                this.AddSIPChannel(channel.GetChannelInstance(new SIPEndPoint(channel.Protocol, sourceEndpoint), sslCertificate));
+
+                SIPChannel channel = channelFactory.GetChannelInstance(new SIPEndPoint(channelFactory.Protocol, sourceEndpoint), sslCertificate);
+                this.AddSIPChannel(channel);
             }
         }
     }

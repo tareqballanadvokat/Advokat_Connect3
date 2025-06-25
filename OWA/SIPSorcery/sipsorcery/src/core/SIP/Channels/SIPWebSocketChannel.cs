@@ -111,6 +111,9 @@ namespace SIPSorcery.SIP
 
             protected override void OnClose(CloseEventArgs e)
             {
+                // MAC TODO: This event gets triggered when a connection is interrupted.
+                //           Is private...
+                
                 Logger.LogDebug("SIPMessagWebSocketBehavior.OnClose: reason {Reason}, was clean {WasClean}.", e.Reason, e.WasClean);
                 OnClientClose?.Invoke(this.ID);
             }
