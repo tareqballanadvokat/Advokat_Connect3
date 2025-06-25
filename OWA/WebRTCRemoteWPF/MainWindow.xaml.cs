@@ -6,7 +6,6 @@ using System.Net;
 using System.Text;
 using System.Windows;
 using WebRTCClient;
-using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 using Serilog.Sinks.LogList;
 using System.Collections.ObjectModel;
@@ -20,7 +19,8 @@ namespace WebRTCRemoteWPF
     public partial class MainWindow : Window
     {
         //private static readonly string testingSignalingServer = "92.205.233.81:8081";
-        private static readonly string testingSignalingServer = "192.168.1.58:8081";
+        //private static readonly string testingSignalingServer = "192.168.1.58:8081";
+        private static readonly string testingSignalingServer = new IPEndPoint(IPAddress.Loopback, 443).ToString();
 
         private static readonly string testingCallerName = "macs";
         private static readonly string testingRemoteName = "macc";
@@ -172,15 +172,15 @@ namespace WebRTCRemoteWPF
             this.AddLineToTextBox(Encoding.UTF8.GetString(message));
         }
 
-        private async Task OnRequestRecived(ISIPMessager sender, SIPRequest request)
-        {
-            this.AddLineToTextBox($"{request.Method} - {request.Body}");
-        }
+        //private async Task OnRequestRecived(ISIPMessager sender, SIPRequest request)
+        //{
+        //    this.AddLineToTextBox($"{request.Method} - {request.Body}");
+        //}
 
-        private async Task OnResponseRecived(ISIPMessager sender, SIPResponse response)
-        {
-            this.AddLineToTextBox($"{response.StatusCode} - {response.Body}");
-        }
+        //private async Task OnResponseRecived(ISIPMessager sender, SIPResponse response)
+        //{
+        //    this.AddLineToTextBox($"{response.StatusCode} - {response.Body}");
+        //}
 
         private void AddLineToTextBox(string message, bool sentMessage = false)
         {
@@ -208,11 +208,7 @@ namespace WebRTCRemoteWPF
 
         private async void P2PDisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
-            //Task? task = this.UserAgent?.StopDialog();
-            //if (task != null)
-            //{
-            //    await task;
-            //}
+            await (this.UserAgent?.Disconnect() ?? Task.CompletedTask);
         }
 
         private async void SendMessageBtn_Click(object sender, RoutedEventArgs e)

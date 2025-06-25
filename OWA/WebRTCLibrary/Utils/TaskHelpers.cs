@@ -2,70 +2,214 @@
 {
     public static class TaskHelpers
     {
-        public static async Task WaitFor(Func<bool> predicate, int timeOut, Action? successCallback = null, Action? failureCallback = null, int interval = 100)
-        {
-            CancellationTokenSource cts = new CancellationTokenSource(timeOut);
-            CancellationToken ct = cts.Token;
 
-            await WaitFor(predicate, ct, successCallback, failureCallback, interval);
+        public static async Task WaitFor(
+           Func<bool> predicate,
+           int timeOut,
+           CancellationToken ct,
+           Action? successCallback = null,
+           Action? timeoutCallback = null,
+           Action? cancellationCallback = null)
+        {
+            CancellationTokenSource timeoutCts = new CancellationTokenSource(timeOut);
+            CancellationToken timeoutCt = timeoutCts.Token;
+
+            await WaitFor(predicate, timeoutCt, ct, successCallback, timeoutCallback, cancellationCallback);
         }
 
-        /// <summary>Same as WaitFor but with async callback methods.</summary>
-        /// <version date="02.04.2025" sb="MAC"></version>
-        public static async Task WaitFor(Func<bool> predicate, CancellationToken ct, Action? successCallback = null, Action? failureCallback = null, int interval = 100)
+        public static async Task WaitFor(
+            Func<bool> predicate,
+            CancellationToken timeoutCt,
+            CancellationToken ct,
+            Action? successCallback = null,
+            Action? timeoutCallback = null,
+            Action? cancellationCallback = null)
         {
             await Task.Factory.StartNew(() =>
             {
-                while (!ct.IsCancellationRequested)
+                while (!timeoutCt.IsCancellationRequested)
                 {
-                    if (predicate.Invoke())
+                    if (ct.IsCancellationRequested)
+                    {
+                        cancellationCallback?.Invoke();
+                        return;
+                    }
+
+                    if (predicate())
+                    {
+                        // success
+                        successCallback?.Invoke();
+                        return;
+                    }
+                }
+
+                // timout/failure
+                timeoutCallback?.Invoke();
+            });
+        }
+
+        public static async Task WaitFor(
+            Func<bool> predicate,
+            int timeOut,
+            CancellationToken ct,
+            int interval,
+            Action? successCallback = null,
+            Action? timeoutCallback = null,
+            Action? cancellationCallback = null)
+        {
+            CancellationTokenSource timeoutCts = new CancellationTokenSource(timeOut);
+            CancellationToken timeoutCt = timeoutCts.Token;
+
+            await WaitFor(predicate, timeoutCt, ct, interval, successCallback, timeoutCallback, cancellationCallback);
+        }
+
+        public static async Task WaitFor(
+            Func<bool> predicate,
+            CancellationToken timeoutCt,
+            CancellationToken ct,
+            int interval,
+            Action? successCallback = null,
+            Action? timeoutCallback = null,
+            Action? cancellationCallback = null)
+        {
+            await Task.Factory.StartNew(() =>
+            {
+                while (!timeoutCt.IsCancellationRequested)
+                {
+                    if (ct.IsCancellationRequested)
+                    {
+                        cancellationCallback?.Invoke();
+                        return;
+                    }
+
+                    if (predicate())
                     {
                         // success
                         successCallback?.Invoke();
                         return;
                     }
 
-                    Task.Delay(interval);
+                    // This might be blocking. TODO: Check if this is right
+                    Task.Delay(interval).Wait();
                 }
 
                 // timout/failure
-                failureCallback?.Invoke();
+                timeoutCallback?.Invoke();
             });
         }
 
         /// <summary>Same as WaitFor but with async callback methods.</summary>
         /// <version date="02.04.2025" sb="MAC"></version>
-        public static async Task WaitForAsync(Func<bool> predicate, int timeOut, Func<Task>? successCallback = null, Func<Task>? failureCallback = null, int interval = 100)
+        public static async Task WaitForAsync(
+            Func<bool> predicate,
+            int timeOut,
+            CancellationToken ct,
+            int interval,
+            Func<Task>? successCallback = null,
+            Func<Task>? timeoutCallback = null,
+            Func<Task>? cancellationCallback = null)
         {
-            CancellationTokenSource cts = new CancellationTokenSource(timeOut);
-            CancellationToken ct = cts.Token;
+            CancellationTokenSource timeoutCts = new CancellationTokenSource(timeOut);
+            CancellationToken timeoutCt = timeoutCts.Token;
 
-            await WaitForAsync(predicate, ct, successCallback, failureCallback, interval);
+            await WaitForAsync(predicate, timeoutCt, ct, interval, successCallback, timeoutCallback, cancellationCallback);
         }
 
-        public static async Task WaitForAsync(Func<bool> predicate, CancellationToken ct, Func<Task>? successCallback = null, Func<Task>? failureCallback = null, int interval = 100)
+        public static async Task WaitForAsync(
+            Func<bool> predicate,
+            CancellationToken timeoutToken,
+            CancellationToken ct,
+            int interval,
+            Func<Task>? successCallback = null,
+            Func<Task>? timeoutCallback = null,
+            Func<Task>? cancellationCallback = null)
         {
             await Task.Factory.StartNew(async () =>
             {
-                while (!ct.IsCancellationRequested)
+                while (!timeoutToken.IsCancellationRequested)
                 {
-                    if (predicate.Invoke())
+                    if (ct.IsCancellationRequested)
+                    {
+                        if (cancellationCallback != null)
+                        {
+                            await cancellationCallback();
+                        }
+
+                        return;
+                    }
+
+                    if (predicate())
                     {
                         // success
                         if (successCallback != null)
                         {
-                            await successCallback.Invoke();
+                            await successCallback();
                         }
                         return;
                     }
 
-                    await Task.Delay(interval);
+                    // This might be blocking. TODO: Check if this is right
+                    Task.Delay(interval).Wait();
                 }
 
                 // timout/failure
-                if (failureCallback != null)
+                if (timeoutCallback != null)
                 {
-                    await failureCallback.Invoke();
+                    await timeoutCallback();
+                }
+            });
+        }
+
+        public static async Task WaitForAsync(
+            Func<bool> predicate,
+            int timeOut,
+            CancellationToken ct,
+            Func<Task>? successCallback = null,
+            Func<Task>? timeoutCallback = null,
+            Func<Task>? cancellationCallback = null)
+        {
+            CancellationTokenSource timeoutCts = new CancellationTokenSource(timeOut);
+            CancellationToken timeoutCt = timeoutCts.Token;
+
+            await WaitForAsync(predicate, timeoutCt, ct, successCallback, timeoutCallback, cancellationCallback);
+        }
+
+        public static async Task WaitForAsync(
+            Func<bool> predicate,
+            CancellationToken timeoutToken,
+            CancellationToken ct,
+            Func<Task>? successCallback = null,
+            Func<Task>? timeoutCallback = null,
+            Func<Task>? cancellationCallback = null)
+        {
+            await Task.Factory.StartNew(async () =>
+            {
+                while (!timeoutToken.IsCancellationRequested)
+                {
+                    if (ct.IsCancellationRequested)
+                    {
+                        if (cancellationCallback != null)
+                        {
+                            await cancellationCallback();
+                        }
+                        return;
+                    }
+
+                    if (predicate())
+                    {
+                        // success
+                        if (successCallback != null)
+                        {
+                            await successCallback();
+                        }
+                        return;
+                    }
+                }
+
+                // timout/failure
+                if (timeoutCallback != null)
+                {
+                    await timeoutCallback();
                 }
             });
         }

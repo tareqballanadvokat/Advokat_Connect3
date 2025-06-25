@@ -1,0 +1,639 @@
+<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
+<!-- This file shows how to design a first-run page that provides a welcome screen to the user about the features of the add-in. -->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Service Task Pane Add-in</title>
+
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+
+    <!-- For more information on Fluent UI, visit https://developer.microsoft.com/fluentui#/. -->
+    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <!-- Template styles --> 
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
+    <!-- Toastr CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+    
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="service.css" rel="stylesheet" type="text/css" />
+
+
+    <!-- DevExtreme theme -->
+    <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/24.2.7/css/dx.light.css">
+ 
+    <!-- DevExtreme libraries (reference only one of them) -->
+    <script type="text/javascript" src="https://cdn3.devexpress.com/jslib/24.2.7/js/dx.all.js"></script>
+    <!-- <script type="text/javascript" src="https://cdn3.devexpress.com/jslib/24.2.7/js/dx.web.js"></script> -->
+    <!-- <script type="text/javascript" src="https://cdn3.devexpress.com/jslib/24.2.7/js/dx.viz.js"></script> -->
+
+
+ <style>
+/* Dropdown Button */
+
+.search-class{
+  height: 25px;
+}
+.dropbtn {
+  background-color: #3498DB;
+  color: white;
+  padding: 16px;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+}
+
+/* Dropdown button on hover & focus */
+.dropbtn:hover, .dropbtn:focus {
+  background-color: #2980B9;
+}
+
+/* The container <div> - needed to position the dropdown content */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+/* Dropdown Content (Hidden by Default) */
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #f1f1f1;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  z-index: 1;
+}
+
+/* Links inside the dropdown */
+.dropdown-content a {
+  color: black;
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+}
+
+/* Change color of dropdown links on hover */
+.dropdown-content a:hover {background-color: #ddd;}
+
+/* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
+.show {display:block;}
+</style>
+
+<style>
+/*
+NEW for email:
+*/
+ 
+    select{
+      height: 24px;
+    }
+    input{
+      height: 25px;/*32pc*/
+    }
+    input[type="checkbox"]{
+      height: 15px;
+    }
+    input[type="text"], select {
+    /*   width: 100%;
+     padding: 4px;*/
+    }
+    .green-button {
+      background-color: #0a0;
+      color: white;
+      padding: 10px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+    }
+    hr.solid {
+      border-top: 2px solid #bbb;
+      margin: 10px 0;
+    }
+  </style>
+ <style>
+  :root {
+    --color-bg: #fff;
+    --color-border: #e1e3e8;
+    --color-header: #677294;
+    --color-text: #32425c;
+    --color-subtext: #9aabbf;
+    --color-link: #1a73e8;
+    --radius: 8px;
+    --gap: 12px;
+  }
+
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+  }
+
+  .card {
+    max-width: 400px;
+    margin: auto;
+    /* background: var(--color-bg); */
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    padding: var(--gap) 16px;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--color-header);
+  }
+  .card-header .material-icons {
+    font-size: 20px;
+    margin-left: 8px;
+  }
+  details.person-panel {
+    border-top: 1px solid var(--color-border);
+  }
+  /* pierwsza karta nie potrzebuje górnej linii */
+  details.person-panel:first-of-type {
+    border-top: none;
+  }
+  summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--gap) 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  .summary-left {
+    display: flex;
+    align-items: center;
+  }
+  .toggle-icon {
+    width: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: var(--color-subtext);
+    margin-right: 8px;
+  }
+  details[open] > summary .toggle-icon::before {
+    content: "−";
+  }
+  details:not([open]) > summary .toggle-icon::before {
+    content: "+";
+  }
+  .person-icon {
+    font-size: 18px;
+    color: var(--color-subtext);
+    margin-right: 6px;
+  }
+  .person-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+  .delete {
+    font-size: 13px;
+    color: var(--color-subtext);
+    white-space: nowrap;
+  }
+  .details-content {
+    padding: 0 16px var(--gap) 20px; /* 44 = toggle(20) + margin-right(8) + icon(18) - trochę poluzowane */
+    font-size: 14px;
+    color: var(--color-header);
+    line-height: 1.4;
+  }
+  .details-content .row {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .details-content .row:last-child {
+    margin-bottom: 0;
+  }
+  .details-content .row .material-icons {
+    font-size: 16px;
+    color: var(--color-subtext);
+    margin-right: 8px;
+    margin-top: 2px;
+  }
+  .details-content .label {
+    font-weight: 500;
+    margin-right: 4px;
+  }
+  .details-content .value a {
+    color: var(--color-link);
+    text-decoration: none;
+  }
+ 
+  select.email_style{
+    width:65px;
+  }
+</style>
+
+    <script>
+        function openCity(tabName) {
+          
+          $("#Email-tab-link").removeClass('active');
+          $("#Service-tab-link").removeClass('active');
+          $("#Person-tab-link").removeClass('active');
+          $("#Case-tab-link").removeClass('active');
+          var i;
+          var x = document.getElementsByClassName("city");
+          for (i = 0; i < x.length; i++) { 
+            x[i].style.display = "none";  
+          }
+          document.getElementById(tabName).style.display = "block";   
+            $("#"+tabName +"-tab-link").addClass('active');
+        }
+
+/* When the user clicks on the button,
+toggle between hiding and showing the dropdown content */
+function myFunction() {
+  document.getElementById("item1dropdown").classList.toggle("show");
+}
+
+// Close the dropdown menu if the user clicks outside of it
+window.onclick = function(event) {
+  if (!event.target.matches('.dropbtn')) {
+    var dropdowns = document.getElementsByClassName("dropdown-content");
+    var i;
+    for (i = 0; i < dropdowns.length; i++) {
+      var openDropdown = dropdowns[i];
+      if (openDropdown.classList.contains('show')) {
+        openDropdown.classList.remove('show');
+      }
+    }
+  }
+} 
+    </script>
+
+</head>
+
+
+<body>     
+<div id="tab-content" class="city"></div>
+<!-- tutaj pojawi się komponent Tabs -->
+<div id="tabs"></div>
+
+<!-- treść każdej zakładki -->
+<div id="contents">
+  <div data-content="0" class="tab-content">
+    <h4>E-Mail</h4>
+    <p>Tu wstawisz formularz lub listę e-maili.</p>
+  </div>
+  <div data-content="1" class="tab-content">
+    <h4>Services</h4>
+    <p>Tu wrzuć swoją zawartość zakładki Services.</p>
+  </div>
+  <div data-content="2" class="tab-content">
+    <h4>Cases</h4>
+    <p>Tu wrzuć swoją zawartość zakładki Cases.</p>
+  </div>
+  <div data-content="3" class="tab-content">
+    <h4>Persons</h4>
+    <p>Tu wrzuć swoją zawartość zakładki Persons.</p>
+  </div>
+</div>
+
+<script>
+  $(function() {
+    // definicja pozycji zakładek
+    const tabs = [
+      { text: "E-Mail" },
+      { text: "Services" },
+      { text: "Cases" },
+      { text: "Persons" }
+    ];
+
+    $("#tabs").dxTabs({
+      items: tabs,
+      selectedIndex: 1,             // domyślnie otwarta zakładka Services
+      stylingMode: "outlined",      // ramka wokół każdej zakładki
+      showNavButtons: false,        // ukrywamy przyciski nawigacji
+      onItemClick(e) {
+        // przy każdej zmianie zakładki chowamy i pokazujemy odpowiedni div
+        const idx = e.itemIndex;
+        $("#contents .tab-content")
+          .hide()
+          .filter(`[data-content="${idx}"]`)
+          .show();
+      }
+    });
+
+    // Początkowo pokazujemy tylko treść wybranej zakładki
+    $("#contents .tab-content").hide();
+    $(`#contents .tab-content[data-content="1"]`).show();
+  });
+</script>
+<div class="w3-bar"> 
+    <div id="Email-tab-link" class="w3-bar-item w3-button active" onclick="openCity('Email')">Email</div>
+    <div id="Service-tab-link" class="w3-bar-item w3-button" onclick="openCity('Service')">Service</div>
+    <div id="Case-tab-link"  class="w3-bar-item w3-button" onclick="openCity('Case')">Case</div>
+    <div id="Person-tab-link"  class="w3-bar-item w3-button" onclick="openCity('Person')">Person</div>
+  </div>
+  <div id="Email" class="w3-container city ">
+    <div id="buttonContainer"></div>
+
+      <div class="search-panel">
+        <h3>- Search panel</h3>
+        <div class="search-box">
+          <input type="text" class="email_style"  id="email-search-structure-input"  placeholder="Search...">
+          <img    id="email-search-button"  height="32" src="/assets/search-icon.png" class="search-class" alt="Search" title="Search"/>
+        </div>
+        <div  class="results-container">        
+          <div class="result-row">
+              <div class="name">Name</div>
+              <div class="causa">Causa</div>
+              <div data-node-id="1" class="button">&nbsp;</div>
+            </div>
+        </div>
+        <div id="email-search-results-container" class="results-container">
+        </div>  
+ 
+      </div>
+
+      <div class="search-panel">
+        <h3>Case</h3>
+        <div class="search-box">
+          <input id="email-case-id-input" type="text" placeholder="Case ID" style="width:170px;"   class="email_style" >
+        
+            <img   id="email-transfer-btn"  height="32" src="/assets/transfer.png"    alt="Search" title="Transfer to ADVOKAT"/>
+         
+        </div>
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Services</h3> 
+        <select class="email_style" id="email-abbreviation-select" style="width:110px;" >
+        </select>
+        <input  id="email-sb-input" class="email_style"  type="text" placeholder="SB"  style="width:40px; padding: 5px;">
+        <input  id="email-time-input" class="email_style"  type="text" placeholder="Time"  style="width:70px;">     
+      </div>
+      <div class="search-panel">
+        <input  id="email-text-input"  class="email_style"  type="text" placeholder="Text"  style="width:230px; padding: 5px;">
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Transfer e-mail and attachments</h3>
+        <div class="search-box" style="padding-bottom: 5px">
+          <input id="email-transfer-btn-checkbox" type="checkbox" style="width:15px" >
+          <input id="email-transfer-btn-text" class="email_style"  type="text"  style="width:140px"  value="Dietmar.harb@advokat.at">
+          <select style="width:65px"  id="email-transfer-btn-select" class="email_style">
+          </select>       
+        </div>       
+        <div id="email-attachment-container-id" class="search-box" style="padding-bottom: 5px">
+          <div style="    margin-bottom: 5px;">
+            <input  id="email-transfer-attachement-btn-checkbox"  type="checkbox"  style="width:15px" >
+            <input  class="email_style"  type="text"  style="width:140px;height:30px"  value="Zusatzvereinbarung">
+            <select style="width:65px"  class="email_style" >
+              <option>Aktenordner</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Registered E-Mails (last 7 days)</h3>
+        <div class="result-row-registered">
+          <div class="date">Date</div>
+          <div class="name">Name</div>
+        </div>
+        <div id="email-tab-last-7-days-registered"></div>
+      </div>
+
+ </div>
+  <div id="ASD" class="w3-container city"  style="display:none">
+ 
+    <header class="ms-welcome__header ms-bgColor-neutralLighter">
+        <img width="10" height="10" src="../../assets/logo-filled.png" alt="Advokat" title="Advokat" />
+        <h1 class="ms-font-su">Service</h1>
+    </header>
+  
+    <main id="app-body"  style="display: none;">        
+        <p class="ms-font-l">Modify the source files, then click <b>Run</b>.</p>
+        <div role="button" id="uniqueId" class="ms-welcome__action ms-Button ms-Button--hero ms-font-xl">
+            <span class="ms-Button-label">Get Unique Id</span>
+        </div>
+        <div role="button" id="uniqueId2" class="ms-welcome__action ms-Button ms-Button--hero ms-font-xl">
+            <span class="ms-Button-label">Get Unique Id - InternetHeader</span>
+        </div>
+        <div role="button" id="downloadId" class="ms-welcome__action ms-Button ms-Button--hero ms-font-xl">
+            <span class="ms-Button-label">Download File</span>
+        </div>
+        <p><label id="item-subject"></label></p>
+    </main>
+  </div>
+  
+  <div id="Service" class="w3-container city" style="display:none">
+
+      <div class="search-panel">
+        <h3>- Search panel</h3>
+        <div class="search-box">
+          <input type="text" class="search-input"  id="service-search-structure-input"  placeholder="Search...">
+          <img    id="service-search-button"  height="32" src="/assets/search-icon.png"  class="search-class" alt="Search" title="Search"/>
+        </div>
+        <div  class="results-container">        
+          <div class="result-row">
+              <div class="name">Name</div>
+              <div class="causa">Causa</div>
+              <div data-node-id="1" class="button">&nbsp;</div>
+            </div>
+        </div>
+        <div id="service-search-results-container" class="results-container">
+        </div>  
+
+      </div>
+
+ 
+      <div class="search-panel">
+        <h3>Case</h3>
+        <div class="search-box">
+          <input id="service-case-id-input" type="text" placeholder="Case ID" style="width:170px;"   class="email_style" >
+        
+            <img   id="service-transfer-btn"  height="32" src="/assets/transfer.png"  alt="Search" title="Transfer to Service"/>
+         
+        </div>
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Services</h3> 
+        <select class="email_style" id="service-abbreviation-select" style="width:110px;" >
+        </select>
+        <input  id="service-sb-input" class="email_style"  type="text" placeholder="SB"  style="width:40px; padding: 5px;">
+        <input  id="service-time-input" class="email_style"  type="text" placeholder="Time"  style="width:70px;">     
+      </div>
+      <div class="search-panel">
+        <input  id="service-text-input"  class="email_style"  type="text" placeholder="Text"  style="width:230px; padding: 5px;">
+      </div>
+
+      <hr class="solid">
+
+      <div class="search-panel">
+        <h3>Registered Service <span style="font-weight:normal;">(last 7 days)</span></h3>
+        <div class="result-row-registered">
+          <div class="date">Date</div>
+          <div class="sb">Time</div> 
+          <div class="abbreviation">Abbreviation</div>
+          <div class="sb">Text</div>
+        </div>
+        <div id="service-tab-last-7-days-registered"></div>
+      </div>
+
+
+  </div>
+  
+  <div id="Case" class="w3-container city" style="display:none">     
+        <div class="search-panel">
+          <h3>- Search panel</h3>
+            <div class="search-box">
+              <input id="text-search-input" class="search-input" type="text" placeholder="Search..." /> 
+              <img id="search-case-id" height="32" src="/assets/search-icon.png" class="search-class" alt="Search" title="Search">
+        </div>
+        <div  class="results-container">        
+          <div class="result-row">
+              <div class="name">Name</div>
+              <div class="causa">Causa</div>
+              <div data-node-id="1" class="button">&nbsp;</div>
+            </div>
+        </div>
+        <div id="results-container" class="results-container">
+        </div>
+
+        <div class="cases-container" id="caseStructure">
+                <h3>Cases ★</h3>
+        </div>
+
+      </div>       
+  </div>       
+
+
+  <div id="Person" class="w3-container city" style="display:none">    
+
+      <div class="search-panel">
+        <h3>- Search panel</h3>
+        <div class="search-box">
+            <input id="person-search-input" class="search-input"  type="text" placeholder="Search..." /> 
+            <img id="person-search-button" height="32" src="/assets/search-icon.png" class="search-class" alt="Search" title="Search">
+        </div> 
+        <div  class="results-container">        
+          <div class="result-row">
+              <div class="name">Name</div>
+              <div class="causa">City</div>
+              <div data-node-id="1" class="button">&nbsp;</div>
+            </div>
+        </div>
+        <div id="person-results-container" class="results-container">
+            
+        </div>
+      </div>
+
+      <!-- <div class="search-panel">
+        <label class="search-panel-label">- Search panel</label>
+        <form class="search-form">
+          <input type="text" class="search-input" placeholder="Search...">
+          <button type="submit" class="search-button">
+            <span class="material-icons">search</span>
+          </button>
+        </form>
+      </div> -->
+
+      
+      <div class="card" id="person-card-container">
+        <div class="card-header">
+          Persons
+          <span class="material-icons">star</span>
+        </div>
+    
+        <details class="person-panel" open>
+          <summary>
+            <div class="summary-left">
+              <span class="toggle-icon"></span>
+              <span class="material-icons person-icon">person</span>
+              <span class="person-name">ADVOKAT</span>
+            </div>
+            <button class="delete">Delete</button>
+          </summary>
+          <div class="details-content">
+            <div class="row">
+              <span class="material-icons">home</span><span class="label">Address:</span>
+              </div>
+            <div class="row"> 
+              <div><span class="value">Andreas-Hofer-Straße 39b, 6020 Innsbruck, Österreich</span></div>
+            </div>
+
+            <div class="row">
+              <span class="material-icons">call</span> 
+               <span class="label">Telefon:</span> 
+            </div>
+            <div class="row"> 
+              <div><span class="value">XXX XXXXXXXXXX</span></div>
+            </div>
+
+            <div class="row">
+              <span class="material-icons">email</span><span class="label">Email:</span> 
+            </div>
+            <div class="row"> 
+              <div><span class="value">XXX XXXXXXXXXX</span></div>
+            </div>
+
+            <div class="row">
+              <span class="material-icons">language</span><span class="label">Website:</span>
+            </div>     
+            <div class="row"> 
+              <div><span class="value"><a href="https://websitenameneingeben.com" target="_blank">websitenameneingeben.com</a></span></div>
+            </div>
+          </div>
+        </details>
+    
+        <details class="person-panel">
+          <summary>
+            <div class="summary-left">
+              <span class="toggle-icon"></span>
+              <span class="material-icons person-icon">person</span>
+              <span class="person-name">HarbDI</span>
+            </div>
+            <button class="delete">Delete</button>
+          </summary>
+          <div class="details-content">
+            <p><em>Brak dodatkowych danych.</em></p>
+          </div>
+        </details>
+    
+        <details class="person-panel">
+          <summary>
+            <div class="summary-left">
+              <span class="toggle-icon"></span>
+              <span class="material-icons person-icon">person</span>
+              <span class="person-name">MayeEr</span>
+            </div>
+            <button class="delete">Delete</button>
+          </summary>
+          <div class="details-content">
+            <p><em>Brak dodatkowych danych.</em></p>
+          </div>
+        </details>
+      </div>   
+  </div>     
+</body>
+
+</html>

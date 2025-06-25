@@ -1,12 +1,17 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCLibrary.SIP
 {
-    public abstract class SIPTransaction
+    public abstract class SIPTransaction : ISIPTransaction
     {
         private readonly ILogger<SIPTransaction> logger;
+
+        protected object isRunningLock = new object();
+
+        public virtual bool Running { get; protected set; }
 
         //private static readonly int DefaultTimeOut = 2000;
         private static readonly int DefaultTimeOut = 20000; // DEBUG
@@ -27,19 +32,44 @@ namespace WebRTCLibrary.SIP
 
         public SIPSchemesEnum SIPScheme { get => this.Connection.SIPScheme; }
 
+        private bool transportPassed = false;
+
         public TransactionParams Params { get; protected set; }
 
-        public SIPConnection Connection { get; private set; }
+        public ISIPConnection Connection { get; private set; }
+        
+        public int CurrentCseq { get; protected set; }
 
-        // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
-        public SIPTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
-            : this(new SIPConnection(sipScheme, transport, loggerFactory), dialogParams, loggerFactory)
+        private int startCseq = 1;
+
+        public virtual int StartCseq
         {
-            this.Connection.MessagePredicate = this.AcceptMessage;
-            this.Connection.MessageTimeout = this.SendTimeout;
+            get => this.startCseq;
+            set
+            {
+                if (this.Running)
+                {
+                    throw new InvalidOperationException("StartCseq cannot be changed when the SIPTransaction is running.");
+                }
+
+                this.startCseq = value;
+            }
         }
 
-        public SIPTransaction(SIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+        protected CancellationTokenSource Cts { get; set; }
+
+        protected CancellationToken Ct { get => this.Cts.Token; }
+
+        public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
+
+        // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
+        public SIPTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : this(new SIPConnection(sipScheme, transport, loggerFactory), dialogParams, loggerFactory)
+        {
+            this.transportPassed = true;
+        }
+
+        public SIPTransaction(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPTransaction>();
 
@@ -47,11 +77,55 @@ namespace WebRTCLibrary.SIP
             this.Connection = connection;
         }
 
-        public abstract Task Start();
+        protected async virtual Task StartRunning()
+        {
+        }
 
-        public abstract Task Stop(); // ??
+        public async virtual Task Start(CancellationToken? ct = null)
+        {
+            lock (this.isRunningLock)
+            {
+                if (!this.CanStart())
+                {
+                    return;
+                }
 
-        protected virtual SIPHeaderParams GetHeaderParams(int cSeq = 1)
+                this.SetInitalParametes(ct);
+                this.Running = true;
+            }
+
+            await StartRunning();
+        }
+
+        public async virtual Task Stop()
+        {
+            lock (this.isRunningLock)
+            {
+                if (!this.CanStop())
+                {
+                    return;
+                }
+
+                this.StopRunning();
+            }
+
+            await this.Finish();
+        }
+
+        protected async virtual Task Finish()
+        {
+        }
+
+        protected virtual void StopRunning()
+        {
+            if (this.Running)
+            {
+                this.Cts.Cancel();
+                this.Running = false;
+            }
+        }
+
+        protected virtual SIPHeaderParams GetHeaderParams(int cSeq = 1) // TODO: make cseq nullable - default = current Cseq
         {
             return new SIPHeaderParams(
                 this.Params.SourceParticipant,
@@ -65,6 +139,33 @@ namespace WebRTCLibrary.SIP
         protected virtual bool AcceptMessage(SIPMessageBase message)
         {
             return this.IsPartOfTransaction(message);
+        }
+
+        protected virtual void SetInitalParametes(CancellationToken? newCt)
+        {
+            this.CurrentCseq = this.StartCseq;
+            this.Cts = newCt == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)newCt);
+
+            if (transportPassed)
+            {
+                this.Connection.MessagePredicate = this.AcceptMessage;
+                this.Connection.MessageTimeout = this.SendTimeout;
+            }
+        }
+
+        protected virtual bool CanStart()
+        {
+            return !this.Running;
+        }
+
+        protected virtual bool CanStop()
+        {
+            return this.Running;
+        }
+
+        protected virtual async Task InvokeConnectionLost()
+        {
+            await (this.ConnectionLost?.Invoke(this) ?? Task.CompletedTask);
         }
 
         /// <summary>Checks if an incoming message is part of this dialog.</summary>

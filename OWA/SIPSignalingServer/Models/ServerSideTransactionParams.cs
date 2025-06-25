@@ -2,7 +2,7 @@
 
 namespace SIPSignalingServer.Models
 {
-    internal class ServerSideTransactionParams : TransactionParams
+    public class ServerSideTransactionParams : TransactionParams
     {
         // Signaling server acts as the remote participant
         public new SIPParticipant RemoteParticipant { get => this.SourceParticipant; }
@@ -34,6 +34,25 @@ namespace SIPSignalingServer.Models
                   clientTag,
                   callId)
         {
+        }
+
+        public bool IsPeer(ServerSideTransactionParams peerParams)
+        {
+            string peerClientTag = peerParams.RemoteTag; // TODO: could not be set
+            string peerRemoteTag = peerParams.ClientTag;
+
+            string peerUsername = peerParams.RemoteParticipant.Name;
+            string peerRemoteUser = peerParams.ClientParticipant.Name;
+
+            return
+                //r.Params.CallId == callId
+                //&& 
+                this.ClientTag == peerClientTag
+                && this.RemoteTag == peerRemoteTag // could not be set?
+
+                // TODO: names could be null?
+                && this.ClientParticipant.Name == peerUsername
+                && this.RemoteParticipant.Name == peerRemoteUser;
         }
 
         public static ServerSideTransactionParams Empty()

@@ -1,0 +1,7 @@
+.dx-accordion-item-title .dx-icon {
+    float: left;
+}
+
+.dx-accordion-item-title::before{
+    position: left;
+}

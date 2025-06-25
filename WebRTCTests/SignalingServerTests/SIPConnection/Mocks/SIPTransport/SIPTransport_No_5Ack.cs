@@ -1,0 +1,63 @@
+﻿using SIPSorcery.SIP;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
+using WebRTCLibrary.SIP.Interfaces;
+
+namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
+{
+    internal class SIPTransport_No_5Ack : ISIPTransport
+    {
+        public List<SIPRequest> SentRequests { get; set; } = [];
+
+        public List<SIPResponse> SentResponses { get; set; } = [];
+
+        public event SIPTransportRequestAsyncDelegate SIPTransportRequestReceived;
+
+        public event SIPTransportResponseAsyncDelegate SIPTransportResponseReceived;
+
+        public void AddSIPChannel(SIPChannel sIPChannel)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<SocketError> SendRequestAsync(SIPRequest request, bool waitForDns = false)
+        {
+            this.SentRequests.Add(request);
+            return SocketError.Success;
+        }
+
+        public async Task<SocketError> SendResponseAsync(SIPResponse response, bool waitForDns = false)
+        {
+            this.SentResponses.Add(response);
+
+            if (response.Status == SIPResponseStatusCodesEnum.Accepted)
+            {
+                await this.Send3Ack(response);
+            }
+
+            return SocketError.Success;
+        }
+
+        private async Task Send3Ack(SIPResponse response)
+        {
+            SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
+            SIPURI uri = new SIPURI(SIPSchemesEnum.sip, sipEndPoint);
+
+            SIPRequest AckRequest = new SIPRequest(SIPMethodsEnum.ACK, uri)
+            {
+                Header = new SIPHeader(
+                    new SIPFromHeader(response.Header.To.ToName, uri, response.Header.To.ToTag),
+                    new SIPToHeader(response.Header.From.FromName, uri, response.Header.From.FromTag),
+                    callId: response.Header.CallId,
+                    cseq: 3)
+            };
+
+            await (this.SIPTransportRequestReceived?.Invoke(sipEndPoint, sipEndPoint, AckRequest) ?? Task.CompletedTask);
+        }
+    }
+}

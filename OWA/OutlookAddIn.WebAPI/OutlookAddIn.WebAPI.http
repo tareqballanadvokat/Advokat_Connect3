@@ -1,0 +1,6 @@
+@OutlookAddIn.WebAPI_HostAddress = http://localhost:5111
+
+GET {{OutlookAddIn.WebAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

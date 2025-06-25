@@ -31,7 +31,12 @@ namespace SIPSignalingServer.Transactions
 
         private bool Running { get; set; }
 
-        public async override Task Start()
+        protected async override Task StartRunning()
+        {
+        }
+
+        // TODO: use ct
+        public async override Task Start(CancellationToken? ct = null)
         {
             if (this.Running)
             {
@@ -42,16 +47,16 @@ namespace SIPSignalingServer.Transactions
             this.Running = true;
 
             // TODO: should there be a timeout on this?
-            CancellationTokenSource cts = new CancellationTokenSource();
-            CancellationToken ct = cts.Token;
+            CancellationTokenSource testCts = new CancellationTokenSource();
+            CancellationToken testCt = testCts.Token;
 
-            await Task.Run(() => this.PingClient(cts), ct).ConfigureAwait(false);
+            await Task.Run(() => this.PingClient(testCts), testCt).ConfigureAwait(false);
         }
 
-        public async override Task Stop()
-        {
-            this.Running = false;
-        }
+        //public async override Task Stop()
+        //{
+        //    this.Running = false;
+        //}
 
         private async Task PingClient(CancellationTokenSource cts)
         {

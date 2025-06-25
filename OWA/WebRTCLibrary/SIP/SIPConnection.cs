@@ -1,12 +1,14 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
+using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using WebRTCLibrary.SIP.Utils;
+using static WebRTCLibrary.SIP.Interfaces.ISIPConnection;
 
 namespace WebRTCLibrary.SIP
 {
-    public class SIPConnection
+    public class SIPConnection : ISIPConnection
     {
         private readonly ILogger<SIPConnection> logger;
 
@@ -14,25 +16,25 @@ namespace WebRTCLibrary.SIP
 
         public int MessageTimeout { get; set; } = defaultMessageTimeout;
 
-        public delegate bool AcceptMessage(SIPMessageBase message);
+        //public delegate bool AcceptMessage(SIPMessageBase message);
 
         public AcceptMessage? MessagePredicate { get; set; }
 
         public SIPSchemesEnum SIPScheme { get; private set; }
 
-        public SIPTransport Transport { get; private set; }
+        public ISIPTransport Transport { get; private set; }
 
         public event SIPTransportResponseAsyncDelegate? SIPResponseReceived;
 
         public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 
-        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, ILoggerFactory loggerFactory, AcceptMessage messagePredicate)
+        public SIPConnection(SIPSchemesEnum scheme, ISIPTransport transport, ILoggerFactory loggerFactory, AcceptMessage messagePredicate)
             :this(scheme, transport, loggerFactory)
         {
             this.MessagePredicate = messagePredicate;
         }
 
-        public SIPConnection(SIPSchemesEnum scheme, SIPTransport transport, ILoggerFactory loggerFactory)
+        public SIPConnection(SIPSchemesEnum scheme, ISIPTransport transport, ILoggerFactory loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPConnection>();
 
@@ -73,7 +75,6 @@ namespace WebRTCLibrary.SIP
                 request.Header.From.FromTag,
                 request.Header.CallId);
             this.logger.LogTrace("payload: {payload}", request.Body);
-            //this.logger.LogTrace("Sending {method} request. to:'{to}', from: '{from}', payload: '{payload}'.", request.Method, request.Header.To, request.Header.From, request.Body);
 
             Task<SocketError> requestTask = this.Transport.SendRequestAsync(request);
             return await this.WaitForSendConfirmation(requestTask, timeOut);
@@ -111,8 +112,6 @@ namespace WebRTCLibrary.SIP
                 response.Header.CallId);
             this.logger.LogTrace("payload: {payload}", response.Body);
 
-            //this.logger.LogTrace("Sending {statuscode} response. to:'{to}', from: '{from}', payload: '{payload}'.", response.StatusCode, response.Header.To, response.Header.From, response.Body);
-
             Task<SocketError> responseTask = this.Transport.SendResponseAsync(response); // TODO: Should we specify the endpoint? 
             return await this.WaitForSendConfirmation(responseTask, timeOut);
         }
@@ -121,9 +120,6 @@ namespace WebRTCLibrary.SIP
         {
             if (this.MessagePredicate?.Invoke(sipResponse) ?? true)
             {
-                // we can filter for current connection, but it should only recieve current connections anyway.
-
-
                 this.logger.LogDebug(
                     "<< Receiving {statusCode} {cSeq} - from:'{from}'; to:\"{toName}\" tag:\"{toTag}\"; callId:\"{callId}\"",
                     sipResponse.StatusCode,
@@ -133,9 +129,6 @@ namespace WebRTCLibrary.SIP
                     sipResponse.Header.To.ToTag,
                     sipResponse.Header.CallId);
                 this.logger.LogTrace("payload: {payload}", sipResponse.Body);
-
-
-                //this.logger.LogTrace("Response received {statuscode}. to:'{to}', from: '{from}', payload: '{payload}'.", sipResponse.StatusCode, sipResponse.Header.To, sipResponse.Header.From, sipResponse.Body);
 
                 await (this.SIPResponseReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipResponse) ?? Task.CompletedTask);
             }
@@ -155,26 +148,43 @@ namespace WebRTCLibrary.SIP
                     sipRequest.Header.CallId);
                 this.logger.LogTrace("payload: {payload}", sipRequest.Body);
 
-                //this.logger.LogTrace("Request received {method}. to:'{to}', from: '{from}', payload: '{payload}'.", sipRequest.Method, sipRequest.Header.To, sipRequest.Header.From, sipRequest.Body);
                 await (this.SIPRequestReceived?.Invoke(localSIPEndPoint, remoteEndPoint, sipRequest) ?? Task.CompletedTask);
             }
         }
 
-        private async Task<SocketError> WaitForSendConfirmation(Task<SocketError> request, int? timeOut = null)
+        private async Task<SocketError> WaitForSendConfirmation(Task<SocketError> request, int? timeOut = null, uint retries = 0)
         {
-            timeOut ??= this.MessageTimeout;
-            if (await Task.WhenAny(request, Task.Delay((int)timeOut)) == request) // TODO: pass ct: Task.Delay(timeOut ?? this.MessageTimeout, ct)
-            {
-                // Task completed within timeout.
-                // TODO: Consider that the task may have faulted or been canceled.
-                // We re-await the task so that any exceptions/cancellation is rethrown.
+            SocketError result = SocketError.SocketError; // always gets reassigned
 
-                return await request;
-            }
-            else
+            for(uint i = 0; i <= retries; i++)
             {
-                return SocketError.TimedOut;
+                timeOut ??= this.MessageTimeout;
+                Task timeoutTask = Task.Delay((int)timeOut);
+
+                if (await Task.WhenAny(request, timeoutTask) == request) 
+                {
+                    // Task completed within timeout.
+                    // TODO: Consider that the task may have faulted or been canceled.
+                    // We re-await the task so that any exceptions/cancellation is rethrown.
+
+                    result = await request;
+                    if (result == SocketError.Success)
+                    {
+                        //break;
+                        return SocketError.Success;
+                    }
+
+                    this.logger.LogDebug("Sending failed. Error: {error}, try: {tryCount}", result, i+1);
+                }
+                else
+                {
+                    this.logger.LogDebug("Send timeout. try: {tryCount}", i + 1);
+                    result = SocketError.TimedOut;
+                }
             }
+
+            this.logger.LogDebug("Sending failed no more retries. Error: {error}", result);
+            return result;
         }
     }
 }

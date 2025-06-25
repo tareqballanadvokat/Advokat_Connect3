@@ -2,7 +2,7 @@
 
 namespace SIPSignalingServer.Utils.CustomEventArgs
 {
-    internal class FailedRegistrationEventArgs : FailureEventArgs
+    public class FailedRegistrationEventArgs : FailureEventArgs
     {
         public SIPRegistration? Registration { get; set; }
     }

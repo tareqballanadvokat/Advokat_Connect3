@@ -2,10 +2,11 @@
 using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using WebRTCLibrary.SIP;
+using WebRTCLibrary.SIP.Interfaces;
 
 namespace SIPSignalingServer.Transactions
 {
-    internal abstract class ServerSideSIPTransaction : WebRTCLibrary.SIP.SIPTransaction
+    public abstract class ServerSideSIPTransaction : WebRTCLibrary.SIP.SIPTransaction, ISIPTransaction
     {
         public new ServerSideTransactionParams Params
         { 
@@ -13,12 +14,12 @@ namespace SIPSignalingServer.Transactions
             set => base.Params = value;
         }
 
-        public ServerSideSIPTransaction(SIPSchemesEnum sipScheme, SIPTransport transport, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
+        public ServerSideSIPTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
             : base(sipScheme, transport, transactionParams, loggerFactory)
         {
         }
 
-        public ServerSideSIPTransaction(SIPConnection connection, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
+        public ServerSideSIPTransaction(ISIPConnection connection, ServerSideTransactionParams transactionParams, ILoggerFactory loggerFactory)
             : base(connection, transactionParams, loggerFactory)
         {
         }
