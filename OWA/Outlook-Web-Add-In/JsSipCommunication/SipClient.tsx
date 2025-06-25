@@ -1,41 +1,13 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="UTF-8" />
-  <title>Prosty SIP z JsSIP</title>
-  <!-- Import biblioteki JsSIP z CDN -->
- 
-<script src="jssip-3.10.0.min.js"></script>
-   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    #log { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; background: #fafafa; white-space: pre-wrap; font-size: 14px; }
-    button { margin-top: 10px; padding: 8px 12px; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <h2>Prosty klient SIP w czystym HTML/JS (JsSIP)</h2>
-  <div>
-    <label>SIP URI:
-      <input type="text" id="sipUri" value="sip:macc@127.0.0.1:443" style="width: 200px;" />
-    </label>
-  </div>
-  <div>
-    <label>WebSocket URI:
-      <input type="text" id="wsUri" value="wss://localhost:443" style="width: 200px;" />
-    </label>
-  </div>
-  <button id="startBtn">Start SIP REGISTER</button>
-  <button id="stopBtn" disabled>Stop UA</button>
-<h3>DataChannel komunikacja:</h3>
-<input type="text" id="dcInput" placeholder="Wpisz wiadomość" style="width: 300px;" />
-<button id="sendDcBtn">Wyślij przez DataChannel</button>
-  <h3>Logi:</h3>
-  <div id="log"></div>
 
-  <script>
-  
-  	let fromDisplayName = "macc";
-	let toDisplayName ="macs";
+import { useEffect } from 'react';
+export function SipClient() {
+ 
+
+
+
+
+let fromDisplayName = "macc";
+let toDisplayName ="macs";
   
   class Helper {
 	  log(msg) {
@@ -95,22 +67,22 @@ const logger = new Helper();
 	  
 class Registration 
 {
-	constructor() 
-	{ 
-		logger.log("konstruktor");
-		this.sipUri = document.getElementById('sipUri').value.trim();
-		this.wsUri  = document.getElementById('wsUri').value.trim();
-		this.tag    = Math.random().toString(36).substr(2, 10);
-		this.callId = Math.random().toString(36).substr(2, 10);
-		this.cseq     = 1; 
-		this.IsRegistrationProcessFinished = false;
-		
-        this.branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
-		this.fromDisplayName = "macc";
-		this.toDisplayName ="macs";
-		this.toLineReplaced ="";
-	}
-	
+ 
+	private sipUri ="sip:macc@127.0.0.1:443";// document.getElementById('sipUri').value.trim();
+	private wsUri  ="wss://localhost:443";// document.getElementById('wsUri').value.trim();
+	public tag    = Math.random().toString(36).substr(2, 10);
+	public callId = Math.random().toString(36).substr(2, 10);
+	private cseq     = 1; 
+	public IsRegistrationProcessFinished = false;
+	 
+  public branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+	public fromDisplayName = "macc";
+	public toDisplayName ="macs";
+	public toLineReplaced ="";
+public fromUri ="";
+public fromTag ="";
+
+
 	getInitialRegistration()
 	{
 		logger.log('🔗 Połączono WebSocket');
@@ -139,7 +111,7 @@ class Registration
 				'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
 				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' +  this.branch  + '\r\n' +
 				'Max-Forwards: 70\r\n' +
-				'To: "' + this.toDisplayName + '" <' + this.fromUri + '>;tag=' + this.fromTag + '\r\n' +
+				'To: "' + this.toDisplayName + '" <' + fromUri + '>;tag=' + fromTag + '\r\n' +
 				'From: "' + this.fromDisplayName + '" <' + this.sipUri + ';transport=wss>;tag=' + this.tag + '\r\n' +
 				'Call-ID: ' + this.callId + '\r\n' +
 				'CSeq: 3 ACK\r\n' +  
@@ -191,7 +163,7 @@ class Registration
  
 			const ack2 =
 				'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
-				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branchAck + '\r\n' +
+				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n' +
 				'Max-Forwards: 70\r\n' +
 				toLine + '\r\n' +
 				'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
@@ -213,13 +185,13 @@ class Registration
 		const fromLineMatch = data.match(/^From:.*$/m);
 		const fromLine = fromLineMatch ? fromLineMatch[0] : '';
 		const toLine = fromLine.replace(/^From:/i, 'To:');
-this.toLineReplaced = toline;
+this.toLineReplaced = toLine.tostring();
 		logger.log('📥 Linia From: ' + fromLine);
 		 
  
 		const ack2 =
 			'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
-			'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branchAck + '\r\n' +
+			'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branchAck + '\r\n' +
 			'Max-Forwards: 70\r\n' +
 			toLine + '\r\n' +
 			'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
@@ -242,8 +214,8 @@ this.toLineReplaced = toline;
 
 		if (m) {
 		  //fromDisplayName = m[1] || null;           // "macs"
-		  this.fromUri        = m[2];                   // sip:macs@127.0.0.1:443;transport=wss
-		   this.fromTag        = m[3];                   // OVMXIDKBSG
+		   fromUri        = m[2];                   // sip:macs@127.0.0.1:443;transport=wss
+		   fromTag        = m[3];                   // OVMXIDKBSG
 
 		  logger.log({ fromDisplayName, fromUri, fromTag });
 		} else {
@@ -254,30 +226,27 @@ this.toLineReplaced = toline;
 const registrationObj = new Registration();
  
 class EstablishingConnection 
-{
-	constructor() 
-	{ 
-		logger.log("konstruktor EstablishingConnection");
-		this.sipUri = document.getElementById('sipUri').value.trim();
-		this.wsUri  = document.getElementById('wsUri').value.trim();
-		this.tag    = Math.random().toString(36).substr(2, 10);
-		this.callId = Math.random().toString(36).substr(2, 10);
-		this.cseq     = 1; 
-		this.IsEstablishingConnectionProcessFinished = false;
-		this.ConnectionType = "";
-		
-        this.branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
-		this.fromDisplayName = "macc";
-		this.toDisplayName ="macs";
-		
-		this.pc =new RTCPeerConnection();
-		 this.dataChannel = undefined;//this.pc.createDataChannel("answer");  
-		 
-	}
+{ 
+  
+ 	public sipUri ="sip:macc@127.0.0.1:443";// document.getElementById('sipUri').value.trim(); 
+  private wsUri  ="";// document.getElementById('wsUri').value.trim();
+  public tag    = Math.random().toString(36).substr(2, 10);
+	private callId = Math.random().toString(36).substr(2, 10);
+	private cseq     = 1; 
+	public  IsEstablishingConnectionProcessFinished = false;
+	public  ConnectionType = "";
+	private branch = 'z9hG4bK' + Math.random().toString(36).substr(2, 9);
+	private fromDisplayName = "macc";
+	private toDisplayName ="macs";
+ 
+	private pc = new RTCPeerConnection();
+	private dataChannel = undefined;//this.pc.createDataChannel("answer");  
+ 
 	updateData(tag, callId, branch, fromDisplay, toDisplay){
 		this.tag    =tag;  
 		this.callId = callId; 		
-        this.branch = branch;
+    this.branch = branch;
+    
 		this.fromDisplayName = fromDisplay;
 		this.toDisplayName =toDisplay;
 	}
@@ -289,6 +258,7 @@ class EstablishingConnection
 			return this.createACKForIsOffer(data);
 		}
 		if (/^ACK\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) ) {
+
 			return 	this.craateOffer(data) ;		
 		}
 
@@ -309,6 +279,11 @@ class EstablishingConnection
 	this.IsEstablishingConnectionProcessFinished = true;
 			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
 			const m = data.match(reCallId);
+
+			const toLineMatchOrigin = data.match(/^To:.*$/m);
+			const toLineOrigin = toLineMatchOrigin ? toLineMatchOrigin[0] : '';      
+			const fromLineOrigin = toLineOrigin.replace(/^To:/i, 'From:');
+
 			const fromLineMatch = data.match(/^From:.*$/m);
 			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
 			const toLine = fromLine.replace(/^From:/i, 'To:');
@@ -319,7 +294,8 @@ class EstablishingConnection
 				'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch  + '\r\n' +
 				'Max-Forwards: 70\r\n' +
 				toLine + '\r\n' +
-				'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
+        fromLineOrigin  + '\r\n' +
+			//	'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
 				'Call-ID: ' + m[1] + '\r\n' +
 				'CSeq: 2 ACK\r\n' +  
 				'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +	
@@ -327,7 +303,8 @@ class EstablishingConnection
 				'Content-Length: 19\r\n\r\n'+			
 				'{"IsOffering":true}'
 			return ackOffering; 
-		}
+		} 
+    return undefined;
 	 
 	}
 	
@@ -339,6 +316,12 @@ class EstablishingConnection
 			this.ConnectionType = "ANSWER";
 			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
 			const m = data.match(reCallId); 
+
+			const toLineMatchOrigin = data.match(/^To:.*$/m);
+			const toLineOrigin = toLineMatchOrigin ? toLineMatchOrigin[0] : '';      
+			const fromLineOrigin = toLineOrigin.replace(/^To:/i, 'From:');
+
+
 			const fromLineMatch = data.match(/^From:.*$/m);
 			const fromLine = fromLineMatch ? fromLineMatch[0] : '';
 			const toLine = fromLine.replace(/^From:/i, 'To:');
@@ -349,40 +332,21 @@ class EstablishingConnection
 			'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch  + '\r\n' +
 			'Max-Forwards: 70\r\n' +
 			toLine + '\r\n' +
-			'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
+      fromLineOrigin + '\r\n' +
+			//'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' +
 			'Call-ID: ' + m[1] + '\r\n' +
 			'CSeq: ' + 3 + ' ACK\r\n' +  
 			'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +	
 			'Content-Type: application/json\r\n' +		   	   
 			'Content-Length: 20\r\n\r\n'+				
 			'{"IsOffering":false}'
+      debugger;
 			return ackOffering; 
 		}	
-		<!-- else{ -->
-			<!-- this.ConnectionType = "ANSWER"; -->
-			<!-- const reCallId = /^Call-ID:\s*([^\r\n]+)/m; -->
-			<!-- const m = data.match(reCallId);  -->
-			<!-- const fromLineMatch = data.match(/^From:.*$/m); -->
-			<!-- const fromLine = fromLineMatch ? fromLineMatch[0] : ''; -->
-			<!-- const toLine = fromLine.replace(/^From:/i, 'To:'); -->
-			<!-- logger.log('📥 craateOffer Linia From: ' + fromLine); -->
-		
-			<!-- const ackOffering = -->
-			<!-- 'ACK ' + this.sipUri + ' SIP/2.0\r\n' + -->
-			<!-- 'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch  + '\r\n' + -->
-			<!-- 'Max-Forwards: 70\r\n' + -->
-			<!-- toLine + '\r\n' + -->
-			<!-- 'From: "' + this.fromDisplayName + '" <' + this.sipUri + '>;tag=' + this.tag + '\r\n' + -->
-			<!-- 'Call-ID: ' + m[1] + '\r\n' + -->
-			<!-- 'CSeq: ' + 3 + ' ACK\r\n' +   -->
-			<!-- 'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +	 -->
-			<!-- 'Content-Type: application/json\r\n' +		   	    -->
-			<!-- 'Content-Length: 20\r\n\r\n'+				 -->
-			<!-- '{"IsOffering":true}' -->
-			<!-- return ackOffering;  -->
-		<!-- }		 -->
+    return undefined;
+ 
 	} 
-    getIsOFeer(data)
+  getIsOFeer(data)
 	{
 		  const offeringMatch = /\"IsOffering\"\s*:\s*(true|false)/i.exec(data);
 		  if (offeringMatch) {
@@ -390,17 +354,22 @@ class EstablishingConnection
 			logger.log(`📡 IsOffering: ${isOffering}`);
 			return isOffering;
 		  }		
+      return undefined;
 	}
  
 } 
  const establishingConnectionObject = new EstablishingConnection();
   
- class Peer2PeerConnection{
-	constructor(){
-		this.pc =new RTCPeerConnection();
-		this.dataChannelPeer = undefined; 
-		this.isOfferSent =false;
-	}
+ class Peer2PeerConnection
+ {
+  private pc = new RTCPeerConnection();
+	private dataChannelPeer = undefined; 
+	public isOfferSent =false;
+	// constructor(){
+	// 	this.pc =new RTCPeerConnection();
+	// 	this.dataChannelPeer = undefined; 
+	// 	this.isOfferSent =false;
+	// }
 	//We Create ANSWER
 	async parseServiceIncomming(data, socket, sipUri, tag) //FOR CREATING ANSWER
 	{
@@ -426,6 +395,8 @@ class EstablishingConnection
 				const answerMsg = this.sendSDPAnswer(JSON.stringify(this.pc.localDescription), callId, sipUri, tag, toline);
 				// Wyślij przez socket (upewnij się, że socket jest dostępny w tym kontekście)
 				if (typeof socket !== 'undefined') {
+          
+        logger.log('Wysyłanie  class Peer2PeerConnection :\n' + answerMsg); 
 					socket.send(answerMsg);
 				} else {
 					console.warn("⚠️ socket nie jest dostępny w tej klasie");
@@ -582,27 +553,7 @@ class EstablishingConnection
 		//const offerMsg = this.sendSDPOffer( JSON.stringify(offer.sdp), callId, sipUri, tag, toLine, branch);
 		//socket.send(offerMsg);
 		console.log("📤 SDP Offer created:", JSON.stringify(offer));
-		
-		
-		
-		
-		
-	
-
-		<!-- var dataChannelAnswer = this.pc.createDataChannel("answer"); -->
-			<!-- this.dataChannelAnswer.onopen = () => { -->
-                <!-- console.log("🟢 DataChannel opened: answer"); -->
-			  <!-- }; -->
-
-			  <!-- this.dataChannelAnswer.onclose = () => { -->
-				<!-- console.log("🔴 DataChannel closed"); -->
-			  <!-- }; -->
-
-			  <!-- this.dataChannelAnswer.onerror = err => { -->
-				<!-- console.error("❌ DataChannel error:", err); -->
-			  <!-- }; -->
-		
-
+ 
 	}
 
 	sendSDPOffer(offerSDP, callId, sipUri, tag, toLine, branch) {
@@ -653,17 +604,16 @@ class EstablishingConnection
 	}
 } 
  const peer2PeerConnectionObject = new Peer2PeerConnection();
-  
-    const startBtn = document.getElementById('startBtn');
+   
 	let fromUri = "";
 	let fromTag = "";
 			 
  
 
- 
-    startBtn.addEventListener('click', () => {
-      const sipUri = document.getElementById('sipUri').value.trim();
-      const wsUri  = document.getElementById('wsUri').value.trim();
+ 	const sipUri ="sip:macc@127.0.0.1:443";// document.getElementById('sipUri').value.trim();
+	const wsUri  ="wss://localhost:443";// document.getElementById('wsUri').value.trim();
+    //  const sipUri ="";// document.getElementById('sipUri').value.trim();
+    //  const wsUri  ="";// document.getElementById('wsUri').value.trim();
       const tag    = Math.random().toString(36).substr(2, 10);
       const callId = Math.random().toString(36).substr(2, 10);
       let cseq     = 1;
@@ -672,18 +622,18 @@ class EstablishingConnection
 
       const socket = new WebSocket(wsUri, 'sip');
 
-      socket.onopen = () => 
+    socket.onopen = () => 
 	  {
-		var registrationEvent = registrationObj.getInitialRegistration();
-		socket.send(registrationEvent);
-		logger.log('🔄 wysłano register');
-      };
+		  var registrationEvent = registrationObj.getInitialRegistration();
+		  socket.send(registrationEvent);
+		  logger.log('🔄 wysłano register');
+    };
 
 
 
-      socket.onmessage = async event => {
+  socket.onmessage = async event => {
 		const data =  logger.blobToString(event.data);
-        logger.log('📥 Otrzymano:\n' + data); 
+    logger.log('📥 Otrzymano:\n' + data); 
 		
 
 		console.log( registrationObj.IsRegistrationProcessFinished);
@@ -693,6 +643,7 @@ class EstablishingConnection
 			var request = registrationObj.parseMessage(data);
 			if (request!=undefined && request!="") 
 			{
+        logger.log('Wysyłanie :\n' + request); 
 				socket.send(request);
 			}
 			
@@ -709,8 +660,12 @@ class EstablishingConnection
 			&& !establishingConnectionObject.IsEstablishingConnectionProcessFinished)
 		{			 
 			var request = establishingConnectionObject.parseMessage(data);
-			if (request!=undefined && request!="") 
+			if (request!=undefined && request!="") {
+        
+        logger.log('Wysyłanie establishingConnectionObject :\n' + request); 
 				socket.send(request);
+      
+      }
 			if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) && establishingConnectionObject.IsEstablishingConnectionProcessFinished) 
 			{
 				await	peer2PeerConnectionObject.parseServiceIncomming(data, socket, establishingConnectionObject.sipUri, establishingConnectionObject.tag );
@@ -718,9 +673,6 @@ class EstablishingConnection
 		}
 		if (establishingConnectionObject.ConnectionType=="OFFER" && peer2PeerConnectionObject.isOfferSent==false)
 		{
-		//debugger;
-		//setLocalDescription
-		
 			console.log("OFFER");
 			console.log(data);
 			const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
@@ -732,55 +684,17 @@ class EstablishingConnection
 			console.log(data);
 			await peer2PeerConnectionObject.parseIncommingAnswer(data);
 		}
-      };
+ 
 
-      socket.onerror = err => logger.log('❌ Błąd WebSocket: ' + err.message);
+      socket.onerror = err => logger.log('❌ Błąd WebSocket: ' + err);
       socket.onclose = () => logger.log('🔌 Połączenie WebSocket zamknięte');
-    });
- 
- 
- 
- 
-const dcInput = document.getElementById('dcInput');
-const sendDcBtn = document.getElementById('sendDcBtn');
-
-
-sendDcBtn.addEventListener('click', () => {
-  const msg = dcInput.value.trim();
-  let activeDataChannel = peer2PeerConnectionObject.getActiveDataChannel(); 
-  if (msg && activeDataChannel && activeDataChannel.readyState === "open") {
-    activeDataChannel.send("ANSWER: "+msg);
-    logger.log(`📤 Wysłano ANSWER: ${msg}`);
-  } else {
-    logger.log("⚠️ Nie można wysłać – kanał nieaktywny.");
-  }
-
-     dcInput.value = "";
-});
- 
-
-// Declaration
-
- 
-
- </script>
-</body>
-</html>
-
- 
- 
- 
-           <!-- const ack = -->
-            <!-- 'ACK ' + sipUri + ' SIP/2.0\r\n' + -->
-            <!-- 'Via: SIP/2.0/WSS ' + window.location.hostname + ';branch=' + branchAck + '\r\n' + -->
-            <!-- 'Max-Forwards: 70\r\n' + -->
-            <!-- 'To: <' + sipUri + '>;tag=' + /To:.*;tag=([^\r\n]+)/.exec(data)[1] + '\r\n' + -->
-            <!-- 'From: <' + sipUri + '>;tag=' + tag + '\r\n' + -->
-            <!-- 'Call-ID: ' + callId + '\r\n' + -->
-            <!-- 'CSeq: ' + cseq + ' ACK\r\n' + -->
-            <!-- 'Content-Length: 0\r\n\r\n'; -->
-			
+    };
  
 
 
  
+
+ 
+}
+
+export default SipClient;
