@@ -1,8 +1,9 @@
-import React, { useState, Suspense, lazy, useEffect } from 'react';
+import React, { useState, Suspense, lazy, useEffect, useRef } from 'react';
 import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
 // import  { Person } from './tabs/person/PersonTabContent'; 
- 
+//  import {SipClient} from "./tabs/SipClient"; 
+ import { initializeSipClient } from './tabs/SipClient';
 // lazy-import
 const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));
 const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
@@ -12,6 +13,16 @@ const CaseTabContent = lazy(() => import('./tabs/case/CaseTabContent'));
 const DevTabs: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const sipRef = useRef(null);
+// useEffect(() => {
+//     SipClient(); // uruchomienie kodu SIP
+//   }, []);
+
+
+  useEffect(() => {
+    sipRef.current = initializeSipClient();
+  }, []);
+
 
   const handleDelete = (id: string) => {
     console.log(id);
@@ -26,7 +37,7 @@ const DevTabs: React.FC = () => {
       case 0: return <EmailTab />;
       case 1: return <ServiceTab />;
       case 2: return <CaseTabContent />;
-      case 3: return <PersonTab  
+      case 3: return <PersonTab   sip={sipRef.current}
       // onDeleteFavorite={handleDelete}
       // onAddFavorite={handleAdd} 
       />;
@@ -35,7 +46,7 @@ const DevTabs: React.FC = () => {
   };
 
   return (
-    <div  className="dx-compact">
+    <div  className="dx-compact"> 
       <Tabs
         width={280}
         selectedIndex={selectedIndex}

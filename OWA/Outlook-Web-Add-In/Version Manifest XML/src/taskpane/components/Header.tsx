@@ -28,7 +28,9 @@ const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
   const styles = useStyles();
 
   return (
+
     <section className={styles.welcome__header}>
+      SipClient();
       <Image width="20" height="20" src={logo} alt={title} />
       <h1 className={styles.message}>{message}</h1>
       <button type="button">Click Me!</button>
