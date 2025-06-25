@@ -17,7 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Serilog.Sinks.LogList\Serilog.Sinks.LogList.csproj" />
-    <ProjectReference Include="..\SIPClient\WebRTCClient.csproj" />
+    <ProjectReference Include="..\WebRTCClient\WebRTCClient.csproj" />
   </ItemGroup>
 
 </Project>

@@ -17,8 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\OWA\SIPClient\WebRTCClient.csproj" />
     <ProjectReference Include="..\..\OWA\SIPSignalingServer\SIPSignalingServer.csproj" />
+    <ProjectReference Include="..\..\OWA\WebRTCClient\WebRTCClient.csproj" />
   </ItemGroup>
 
   <ItemGroup>
