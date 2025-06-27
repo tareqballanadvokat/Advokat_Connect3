@@ -16,12 +16,12 @@
   <h2>Prosty klient SIP w czystym HTML/JS (JsSIP)</h2>
   <div>
     <label>SIP URI:
-      <input type="text" id="sipUri" value="sip:macc@127.0.0.1:443" style="width: 200px;" />
+      <input type="text" id="sipUri" value="sip:macc@127.0.0.1:8009" style="width: 200px;" />
     </label>
   </div>
   <div>
     <label>WebSocket URI:
-      <input type="text" id="wsUri" value="wss://localhost:443" style="width: 200px;" />
+      <input type="text" id="wsUri" value="wss://localhost:8009" style="width: 200px;" />
     </label>
   </div>
   <button id="startBtn">Start SIP REGISTER</button>
@@ -119,7 +119,7 @@ class Registration
           'REGISTER ' + this.sipUri + ' SIP/2.0\r\n' +
           'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n'  +
           'Max-Forwards: 70\r\n' +
-          'To: "' + this.toDisplayName + '" <sip:macs@127.0.0.1:443>\r\n' +
+          'To: "' + this.toDisplayName + '" <sip:macs@127.0.0.1:8009>\r\n' +
           'From: "' + this.fromDisplayName + '" <' + this.sipUri + ';transport=wss>;tag=' + this.tag + '\r\n' +
           'Call-ID: ' + this.callId + '\r\n' +
           'CSeq: ' + this.cseq + ' REGISTER\r\n' +
@@ -235,14 +235,14 @@ this.toLineReplaced = toline;
 	getFROMParts(data)
 	{
 		if (fromTag != "" && fromUri != "") return;
-		const line = data;//`From: "macs" <sip:macs@127.0.0.1:443;transport=wss>;tag=OVMXIDKBSG`;
+		const line = data;//`From: "macs" <sip:macs@127.0.0.1:8009;transport=wss>;tag=OVMXIDKBSG`;
 
 		const re = /^From:\s*(?:"([^"]+)"\s*)?<([^>]+)>;tag=(\S+)/m;
 		const m  = re.exec(line);
 
 		if (m) {
 		  //fromDisplayName = m[1] || null;           // "macs"
-		  this.fromUri        = m[2];                   // sip:macs@127.0.0.1:443;transport=wss
+		  this.fromUri        = m[2];                   // sip:macs@127.0.0.1:8009;transport=wss
 		   this.fromTag        = m[3];                   // OVMXIDKBSG
 
 		  logger.log({ fromDisplayName, fromUri, fromTag });

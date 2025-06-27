@@ -1,6 +1,5 @@
 import * as React from "react";
-import Header from "./Header";
-import HeroList, { HeroListItem } from "./HeroList";
+import Header from "./Header"; 
 // import TextInsertion from "./original/TextInsertion";
 // import { insertText } from "../taskpane";
 import { makeStyles } from "@fluentui/react-components";

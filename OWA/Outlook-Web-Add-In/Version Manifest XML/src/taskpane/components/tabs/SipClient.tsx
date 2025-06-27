@@ -63,8 +63,8 @@ const logger = new Helper();
 class Registration 
 {
  
-	private sipUri ="sip:macc@127.0.0.1:443";// document.getElementById('sipUri').value.trim();
-	private wsUri  ="wss://localhost:443";// document.getElementById('wsUri').value.trim();
+	private sipUri ="sip:macc@127.0.0.1:8009";// document.getElementById('sipUri').value.trim();
+	private wsUri  ="wss://localhost:8009";// document.getElementById('wsUri').value.trim();
 	public tag    = Math.random().toString(36).substr(2, 10);
 	public callId = Math.random().toString(36).substr(2, 10);
 	private cseq     = 1; 
@@ -86,7 +86,7 @@ public fromTag ="";
           'REGISTER ' + this.sipUri + ' SIP/2.0\r\n' +
           'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n'  +
           'Max-Forwards: 70\r\n' +
-          'To: "' + this.toDisplayName + '" <sip:macs@127.0.0.1:443>\r\n' +
+          'To: "' + this.toDisplayName + '" <sip:macs@127.0.0.1:8009>\r\n' +
           'From: "' + this.fromDisplayName + '" <' + this.sipUri + ';transport=wss>;tag=' + this.tag + '\r\n' +
           'Call-ID: ' + this.callId + '\r\n' +
           'CSeq: ' + this.cseq + ' REGISTER\r\n' +
@@ -222,7 +222,7 @@ this.toLineReplaced = toLine.tostring();
 class EstablishingConnection 
 { 
   
- 	public sipUri ="sip:macc@127.0.0.1:443";// document.getElementById('sipUri').value.trim(); 
+ 	public sipUri ="sip:macc@127.0.0.1:8009";// document.getElementById('sipUri').value.trim(); 
   private wsUri  ="";// document.getElementById('wsUri').value.trim();
   public tag    = Math.random().toString(36).substr(2, 10);
 	private callId = Math.random().toString(36).substr(2, 10);
@@ -606,8 +606,8 @@ const peer2PeerConnectionObject = new Peer2PeerConnection();
  * @returns obiekty z których możesz korzystać w innych komponentach
  */
 export function initializeSipClient() {
-  const sipUri = "sip:macc@127.0.0.1:443";
-  const wsUri = "wss://localhost:443";
+  const sipUri = "sip:macc@127.0.0.1:8009";
+  const wsUri = "wss://localhost:8009";
   const tag = Math.random().toString(36).substr(2, 10);
   const callId = Math.random().toString(36).substr(2, 10);
   let cseq = 1;

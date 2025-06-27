@@ -1,2 +1,0 @@
-"use strict";(self.webpackChunkoffice_addin_taskpane_react=self.webpackChunkoffice_addin_taskpane_react||[]).push([[340],{50340:function(e,a,t){t.r(a);var n=t(96540);a.default=function(){return n.createElement("div",{style:{padding:16}},n.createElement("h4",null,"E-Mail"),n.createElement("p",null,"Tu wstaw formularz lub listę e-maili."))}}}]);
-//# sourceMappingURL=340.js.map
