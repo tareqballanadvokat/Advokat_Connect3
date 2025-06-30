@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 	let fromDisplayName = "macc";
 	let toDisplayName ="macs";
+	// Message handler for incoming WebRTC DataChannel messages
    async function writeMessage(event)
 	  {
 		const data = event.data;
@@ -22,7 +23,7 @@ import { useEffect } from 'react';
 			console.log("📨 Tekst:", data);
 			text = data;
 		} else {
-			console.warn("❓ Nieznany typ wiadomości:", typeof data, data);
+			console.warn("❓ Unknown message type:", typeof data, data);
 		}
 
 		console.log("📨 DataChannel message:", text);
@@ -80,8 +81,8 @@ public fromTag ="";
 
 	getInitialRegistration()
 	{
-		logger.log('🔗 Połączono WebSocket');
-        // Budowa i wysłanie REGISTER
+		logger.log('🔗 WebSocket connected');
+        // Building and sending REGISTER
 		const register = 
           'REGISTER ' + this.sipUri + ' SIP/2.0\r\n' +
           'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n'  +
@@ -116,11 +117,12 @@ public fromTag ="";
 	
 	}
 	
+	// Central message router that analyzes incoming SIP messages and determines the appropriate response.
 	parseMessage(data)
 	{
 		if (/SIP\/2\.0 202/.test(data)) 
 		{
-			logger.log('✔️ Wysłano ACK ');
+			logger.log('✔️ ACK sent ');
 			return this.createACK(data);
 		}
 		if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) &&  /CSeq: 4 NOTIFY/.test(data)) //after register
@@ -180,7 +182,7 @@ public fromTag ="";
 		const fromLineMatch = data.match(/^From:.*$/m);
 		const fromLine = fromLineMatch ? fromLineMatch[0] : '';
 		const toLine = fromLine.replace(/^From:/i, 'To:');
-this.toLineReplaced = toLine.tostring();
+this.toLineReplaced = toLine.toString();
 		logger.log('📥 Linia From: ' + fromLine);
 		 
  
@@ -214,7 +216,7 @@ this.toLineReplaced = toLine.tostring();
 
 		//  logger.log({ fromDisplayName, fromUri, fromTag });
 		} else {
-		  console.error("Nie udało się sparsować From");
+		  console.error("Failed to parse From");
 		}
 	}
 }
@@ -263,7 +265,7 @@ class EstablishingConnection
 		return undefined;
 	} 
   
-	createACKForIsOffer(data) //to jest kiedy my inicujemy sdpoffer
+	createACKForIsOffer(data) //This is when we initiate SDP offer
 	{ 
 		var isOffering = this.getIsOFeer(data);
 		if (isOffering)
@@ -334,7 +336,7 @@ class EstablishingConnection
 			'Content-Type: application/json\r\n' +		   	   
 			'Content-Length: 20\r\n\r\n'+				
 			'{"IsOffering":false}'
-      debugger;
+
 			return ackOffering; 
 		}	
     return undefined;
@@ -355,7 +357,9 @@ class EstablishingConnection
   
  class Peer2PeerConnection
  {
+	// peer connection that handles media/data exchange
      private pc = new RTCPeerConnection();
+	 // The DataChannel for sending messages directly between peers
 	private dataChannelPeer = undefined; 
 	public isOfferSent =false;
 	// constructor(){
@@ -378,6 +382,7 @@ class EstablishingConnection
 		this.pc.onicecandidate = evt => {
 			if (evt.candidate) {
 				console.log("ICE candidate:", JSON.stringify(evt.candidate));
+				//console.log("ICE candidate:", JSON.stringify(RTCPeerConnection.localDescription));
 			}
 		};
 
@@ -397,7 +402,7 @@ class EstablishingConnection
 			}
 		};
 
-		// DataChannel zdarzenia
+		// DataChannel events
 		this.pc.ondatachannel = (ev) => {
 		  console.log("datachannel found");
 
@@ -429,7 +434,7 @@ class EstablishingConnection
 				console.error("❌ DataChannel error:", err);
 			  };
 			 
-		// Przetwarzanie SDP
+		// SDP Processing
 		const sdpblockmatch = data.match(/(\{[\s\S]*?"sdp"[\s\S]*?\})/m);
 		if (sdpblockmatch) {
 			try {
@@ -596,7 +601,7 @@ class EstablishingConnection
 		if (this.dataChannelPeer != undefined) return this.dataChannelPeer;
 	}
 } 
-// Główne instancje:
+// Main instances
 const registrationObj = new Registration();
 const establishingConnectionObject = new EstablishingConnection();
 const peer2PeerConnectionObject = new Peer2PeerConnection();
@@ -619,12 +624,12 @@ export function initializeSipClient() {
   socket.onopen = () => {
     const registerMsg = registrationObj.getInitialRegistration();
     socket.send(registerMsg);
-    logger.log('🔄 wysłano register');
+    logger.log('🔄 sent register');
   };
 
   socket.onmessage = async event => {
     const data = logger.blobToString(event.data);
-    logger.log('📥 Otrzymano:\n' + data);
+    logger.log('📥 Received:\n' + data);
 
     if (!registrationObj.IsRegistrationProcessFinished) {
       const request = registrationObj.parseMessage(data);
