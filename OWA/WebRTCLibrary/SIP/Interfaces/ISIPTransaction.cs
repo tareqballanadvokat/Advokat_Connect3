@@ -21,9 +21,13 @@ namespace WebRTCLibrary.SIP.Interfaces
 
         public SIPSchemesEnum SIPScheme { get; }
 
-        public delegate Task ConnectionLostDelegate(SIPTransaction sender);
+        public delegate Task ConnectionLostDelegate(ISIPTransaction sender);
 
         public event ConnectionLostDelegate? ConnectionLost;
+
+        public delegate Task TransactionStoppedDelegate(ISIPTransaction sender);
+
+        public event TransactionStoppedDelegate? TransactionStopped;
 
         public Task Start(CancellationToken? ct = null);
          

@@ -37,6 +37,7 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
 
         public event ISIPRegistrationTransaction.RegistrationFailedDelegate? OnRegistrationFailed;
         public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
+        public event ISIPTransaction.TransactionStoppedDelegate? TransactionStopped;
 
         public async Task Start(CancellationToken? ct = null)
         {

@@ -743,6 +743,8 @@ namespace SignalingServerTests.SIPConnection
         //    Assert.Equal(4, bye4.Header.CSeq);
         //}
 
+
+        // TODO: some tests fail sometimes??
         [Theory]
         [InlineData(100, 1000)]
         [InlineData(100, 500)]
@@ -826,7 +828,8 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.ConnectionTimeout = 1000;
             sipDialog.SendTimeout = 1000;
             sipDialog.ReceiveTimeout = receiveTimeout;
-            sipDialog.PeerRegistrationTimeout = 1000;
+            sipDialog.PeerRegistrationTimeout = 500;
+            //sipDialog.PeerRegistrationTimeout = receiveTimeout - 10; // guarantees that the process only runs once - test could be improved by taking into account multiple connection attempts
 
             _ = Task.Run(async () => await peerDialog.Start());
             _ = Task.Run(async () => await sipDialog.Start());
@@ -836,8 +839,6 @@ namespace SignalingServerTests.SIPConnection
 
             Assert.False(sipDialog.Connected);
             Assert.Equal(3, mockSIPTransport.SentRequests.Count);
-
-            await Task.Delay(1000); // wait for all potential requests
         }
 
         //[Theory]

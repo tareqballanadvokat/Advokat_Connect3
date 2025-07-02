@@ -29,6 +29,7 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPConnectionTransaction
 
         public event ISIPConnectionTransaction.ConnectionFailedDelegate? OnConnectionFailed;
         public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
+        public event ISIPTransaction.TransactionStoppedDelegate? TransactionStopped;
 
         public List<DateTime> Started = [];
 

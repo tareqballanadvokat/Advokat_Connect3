@@ -171,16 +171,17 @@ namespace SIPSignalingServer.Transactions
                 || (this.WaitForPeerCts != null && this.WaitForPeerCts.IsCancellationRequested))
             {
                 await this.Stop();
+                return;
             }
 
-            SIPRegistration registration = new SIPRegistration(this.Params);
-            this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", registration.RemoteUser, registration.SourceParticipant);
-            
             if (this.WaitForPeerCts == null)
             {
                 this.SetWaitingForPeerToken();
             }
 
+            SIPRegistration registration = new SIPRegistration(this.Params);
+            this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", registration.RemoteUser, registration.SourceParticipant);
+            
             await WaitForAsync(
                 () => this.Registry.PeerIsRegistered(registration), // TODO: make PeerIsRegistered an event. If registry is a db we shouldn't hit it this often.
                 this.WaitForPeerCts.Token,
@@ -190,6 +191,12 @@ namespace SIPSignalingServer.Transactions
                 cancellationCallback: this.Stop // dialog cancelled
                 // TODO: interval?
                 );
+        }
+
+        private async Task ConnectionTransactionStopped(ISIPTransaction sender)
+        {
+            sender.TransactionStopped -= this.ConnectionTransactionStopped;
+            await this.WaitForPeer();
         }
 
         [MemberNotNull(nameof(this.WaitForPeerCts))]
@@ -208,7 +215,7 @@ namespace SIPSignalingServer.Transactions
             this.SetSIPConnectonTransaction();
 
             await this.SIPConnectionTransaction.Start(this.Ct);
-
+            
             await WaitForAsync(() => this.Connected,
                 this.ConnectionTimeout,
                 this.Ct,
@@ -216,7 +223,7 @@ namespace SIPSignalingServer.Transactions
                 successCallback: this.StartICENegotiation,
                 timeoutCallback: this.SIPConnectionTransaction.Stop,
                 cancellationCallback: this.Stop
-                ); 
+                );
 
             this.SIPConnectionTransaction.OnConnectionFailed -= this.ConnectionFailedListener;
             this.SIPConnectionTransaction.ConnectionLost -= this.ConnectionLostListener;
@@ -239,6 +246,7 @@ namespace SIPSignalingServer.Transactions
 
             this.SIPConnectionTransaction.OnConnectionFailed += this.ConnectionFailedListener;
             this.SIPConnectionTransaction.ConnectionLost += this.ConnectionLostListener;
+            this.SIPConnectionTransaction.TransactionStopped += this.ConnectionTransactionStopped;
         }
 
 
@@ -277,7 +285,7 @@ namespace SIPSignalingServer.Transactions
             await base.Finish();
         }
 
-        private async Task ConnectionLostListener(WebRTCLibrary.SIP.SIPTransaction sender)
+        private async Task ConnectionLostListener(ISIPTransaction sender)
         {
             await this.Stop();
         }

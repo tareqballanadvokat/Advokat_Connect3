@@ -62,6 +62,8 @@ namespace WebRTCLibrary.SIP
 
         public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
 
+        public event ISIPTransaction.TransactionStoppedDelegate? TransactionStopped;
+
         // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
         public SIPTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : this(new SIPConnection(sipScheme, transport, loggerFactory), dialogParams, loggerFactory)
@@ -110,6 +112,7 @@ namespace WebRTCLibrary.SIP
             }
 
             await this.Finish();
+            await this.InvokeTransactionStopped();
         }
 
         protected async virtual Task Finish()
@@ -166,6 +169,11 @@ namespace WebRTCLibrary.SIP
         protected virtual async Task InvokeConnectionLost()
         {
             await (this.ConnectionLost?.Invoke(this) ?? Task.CompletedTask);
+        }
+
+        private async Task InvokeTransactionStopped()
+        {
+            await (this.TransactionStopped?.Invoke(this) ?? Task.CompletedTask);
         }
 
         /// <summary>Checks if an incoming message is part of this dialog.</summary>
