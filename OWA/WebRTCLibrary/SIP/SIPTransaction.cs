@@ -16,18 +16,6 @@ namespace WebRTCLibrary.SIP
         //private static readonly int DefaultTimeOut = 2000;
         private static readonly int DefaultTimeOut = 20000; // DEBUG
 
-        private int sendTimeout = DefaultTimeOut;
-
-        public int SendTimeout
-        {
-            get => this.sendTimeout;
-            set
-            {
-                this.sendTimeout = value;
-                this.Connection.MessageTimeout = this.SendTimeout;
-            }
-        }
-
         public int ReceiveTimeout { get; set; } = DefaultTimeOut;
 
         public SIPSchemesEnum SIPScheme { get => this.Connection.SIPScheme; }
@@ -152,7 +140,6 @@ namespace WebRTCLibrary.SIP
             if (transportPassed)
             {
                 this.Connection.MessagePredicate = this.AcceptMessage;
-                this.Connection.MessageTimeout = this.SendTimeout;
             }
         }
 

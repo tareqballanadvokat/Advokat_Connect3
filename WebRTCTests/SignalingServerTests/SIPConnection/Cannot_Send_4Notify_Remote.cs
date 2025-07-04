@@ -45,7 +45,6 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            callerConnectionTransaction.SendTimeout = 100;
             callerConnectionTransaction.ReceiveTimeout = 100;
 
             SIPConnectionTransaction remoteConnectionTransaction = new SIPConnectionTransaction(
@@ -56,7 +55,6 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            remoteConnectionTransaction.SendTimeout = 100;
             remoteConnectionTransaction.ReceiveTimeout = 100;
 
             _ = Task.Run(async () => await callerConnectionTransaction.Start());

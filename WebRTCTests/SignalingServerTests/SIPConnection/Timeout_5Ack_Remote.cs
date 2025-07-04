@@ -58,7 +58,6 @@ namespace SignalingServerTests.SIPConnection
 
             peerDialog.RegistrationTimeout = 1000;
             peerDialog.ConnectionTimeout = 1000;
-            peerDialog.SendTimeout = 1000;
             peerDialog.ReceiveTimeout = 1000;
             peerDialog.PeerRegistrationTimeout = 1000;
 
@@ -82,7 +81,6 @@ namespace SignalingServerTests.SIPConnection
 
             sipDialog.RegistrationTimeout = 1000;
             sipDialog.ConnectionTimeout = 1000;
-            sipDialog.SendTimeout = 1000;
             sipDialog.PeerRegistrationTimeout = 1000;
             sipDialog.ReceiveTimeout = 100; // this is the important timeout
 
@@ -249,7 +247,6 @@ namespace SignalingServerTests.SIPConnection
 
             peerDialog.RegistrationTimeout = 100;
             peerDialog.ConnectionTimeout = 200;
-            peerDialog.SendTimeout = 100;
             peerDialog.ReceiveTimeout = 100;
             peerDialog.PeerRegistrationTimeout = 200;
 
@@ -273,7 +270,6 @@ namespace SignalingServerTests.SIPConnection
 
             sipDialog.RegistrationTimeout = 100;
             sipDialog.ConnectionTimeout = 200;
-            sipDialog.SendTimeout = 100;
             sipDialog.PeerRegistrationTimeout = 200;
             sipDialog.ReceiveTimeout = 100;
 
@@ -340,7 +336,6 @@ namespace SignalingServerTests.SIPConnection
 
             peerDialog.RegistrationTimeout = 100;
             peerDialog.ConnectionTimeout = 100;
-            peerDialog.SendTimeout = 100;
             peerDialog.ReceiveTimeout = 100;
             peerDialog.PeerRegistrationTimeout = 100;
 
@@ -364,7 +359,6 @@ namespace SignalingServerTests.SIPConnection
 
             sipDialog.RegistrationTimeout = 100;
             sipDialog.ConnectionTimeout = 100;
-            sipDialog.SendTimeout = 100;
             sipDialog.PeerRegistrationTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
 
@@ -434,7 +428,6 @@ namespace SignalingServerTests.SIPConnection
 
             peerDialog.RegistrationTimeout = 100;
             peerDialog.ConnectionTimeout = 1000;
-            peerDialog.SendTimeout = 1000;
 
             // these are the important timeouts
             peerDialog.ReceiveTimeout = 100;
@@ -460,7 +453,6 @@ namespace SignalingServerTests.SIPConnection
 
             sipDialog.RegistrationTimeout = 100;
             sipDialog.ConnectionTimeout = 100;
-            sipDialog.SendTimeout = 100;
             sipDialog.PeerRegistrationTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
 

@@ -12,10 +12,6 @@ namespace WebRTCLibrary.SIP
     {
         private readonly ILogger<SIPConnection> logger;
 
-        public static readonly int defaultMessageTimeout = 2000;
-
-        public int MessageTimeout { get; set; } = defaultMessageTimeout;
-
         public AcceptMessage? MessagePredicate { get; set; }
 
         public SIPSchemesEnum SIPScheme { get; private set; }
@@ -42,10 +38,10 @@ namespace WebRTCLibrary.SIP
             this.Transport.SIPTransportRequestReceived += this.OnRequestRecieved;
         }
 
-        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct)
         {
             SIPRequest request = SIPHelper.GetRequest(this.SIPScheme, method, headerParams);
-            return await this.SendSIPRequest(request, ct, timeOut);
+            return await this.SendSIPRequest(request, ct);
         }
 
         public async Task<SocketError> SendSIPRequest(
@@ -53,14 +49,13 @@ namespace WebRTCLibrary.SIP
             SIPHeaderParams headerParams,
             string message,
             string contentType,
-            CancellationToken ct,
-            int? timeOut = null)
+            CancellationToken ct)
         {
             SIPRequest request = SIPHelper.GetRequest(this.SIPScheme, method, headerParams, message, contentType);
-            return await this.SendSIPRequest(request, ct, timeOut);
+            return await this.SendSIPRequest(request, ct);
         }
 
-        public async Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct, int ? timeOut = null)
+        public async Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
 
@@ -77,10 +72,10 @@ namespace WebRTCLibrary.SIP
             return await this.Transport.SendRequestAsync(request);
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, CancellationToken ct)
         {
             SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams);
-            return await this.SendSIPResponse(response, ct, timeOut);
+            return await this.SendSIPResponse(response, ct);
         }
 
         public async Task<SocketError> SendSIPResponse(
@@ -88,14 +83,13 @@ namespace WebRTCLibrary.SIP
             SIPHeaderParams headerParams,
             string message,
             string contentType,
-            CancellationToken ct,
-            int? timeOut = null)
+            CancellationToken ct)
         {
             SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams, message, contentType);
-            return await this.SendSIPResponse(response, ct, timeOut);
+            return await this.SendSIPResponse(response, ct);
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
 

@@ -51,7 +51,6 @@ namespace SignalingServerTests.SIPConnection
 
             peerDialog.RegistrationTimeout = 100;
             peerDialog.ConnectionTimeout = 100;
-            peerDialog.SendTimeout = 100;
             peerDialog.ReceiveTimeout = 100;
             peerDialog.PeerRegistrationTimeout = 100;
 
@@ -77,7 +76,6 @@ namespace SignalingServerTests.SIPConnection
 
             sipDialog.RegistrationTimeout = 100;
             sipDialog.ConnectionTimeout = 100;
-            sipDialog.SendTimeout = 100;
             sipDialog.ReceiveTimeout = 100;
             sipDialog.PeerRegistrationTimeout = 100;
 
@@ -135,7 +133,6 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.RegistrationTimeout = 1000;
             sipDialog.ConnectionTimeout = 1000;
             sipDialog.PeerRegistrationTimeout = 1000;
-            sipDialog.SendTimeout = 1000;
             sipDialog.ReceiveTimeout = 100;
 
             Assert.True(sipRegistrationTransaction.Registered);
@@ -198,7 +195,6 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.RegistrationTimeout = 1000;
             sipDialog.ConnectionTimeout = 1000;
             sipDialog.PeerRegistrationTimeout = 1000;
-            sipDialog.SendTimeout = 1000;
             sipDialog.ReceiveTimeout = 100;
 
             _ = Task.Run(async () => await sipDialog.Start());
@@ -261,7 +257,6 @@ namespace SignalingServerTests.SIPConnection
             sipDialog.PeerRegistrationTimeout = 1000;
             sipDialog.RegistrationTimeout = 1000;
             sipDialog.ConnectionTimeout = 1000;
-            sipDialog.SendTimeout = 1000;
             sipDialog.ReceiveTimeout = 100;
 
             _ = Task.Run(async () => await sipDialog.Start());
@@ -346,7 +341,6 @@ namespace SignalingServerTests.SIPConnection
 
             sipDialog.RegistrationTimeout = 1000;
             sipDialog.ConnectionTimeout = 1000;
-            sipDialog.SendTimeout = 1000;
             sipDialog.PeerRegistrationTimeout = 1000;
 
             sipDialog.ReceiveTimeout = 100;
@@ -436,7 +430,6 @@ namespace SignalingServerTests.SIPConnection
 
             sipDialog.RegistrationTimeout = 10000;
             sipDialog.ConnectionTimeout = 10000;
-            sipDialog.SendTimeout = 10000;
             sipDialog.PeerRegistrationTimeout = 10000;
 
             sipDialog.ReceiveTimeout = 100;
@@ -505,7 +498,6 @@ namespace SignalingServerTests.SIPConnection
 
             sipDialog.RegistrationTimeout = 10000;
             sipDialog.ConnectionTimeout = 10000;
-            sipDialog.SendTimeout = 10000;
             sipDialog.PeerRegistrationTimeout = 10000;
 
             sipDialog.ReceiveTimeout = 100;
@@ -800,7 +792,6 @@ namespace SignalingServerTests.SIPConnection
 
             peerDialog.RegistrationTimeout = 1000;
             peerDialog.ConnectionTimeout = 1000;
-            peerDialog.SendTimeout = 1000;
             peerDialog.ReceiveTimeout = 1000;
             peerDialog.PeerRegistrationTimeout = 1000;
 
@@ -826,7 +817,6 @@ namespace SignalingServerTests.SIPConnection
 
             sipDialog.RegistrationTimeout = 1000;
             sipDialog.ConnectionTimeout = 1000;
-            sipDialog.SendTimeout = 1000;
             sipDialog.ReceiveTimeout = receiveTimeout;
             sipDialog.PeerRegistrationTimeout = 500;
             //sipDialog.PeerRegistrationTimeout = receiveTimeout - 10; // guarantees that the process only runs once - test could be improved by taking into account multiple connection attempts

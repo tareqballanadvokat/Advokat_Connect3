@@ -10,8 +10,6 @@ namespace WebRTCLibrary.SIP.Interfaces
         public TransactionParams Params { get; }
         
         public int ReceiveTimeout { get; set; }
-        
-        public int SendTimeout { get; set; }
 
         public bool Running { get; }
 

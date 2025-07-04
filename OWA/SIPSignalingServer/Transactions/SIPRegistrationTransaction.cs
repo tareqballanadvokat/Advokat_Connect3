@@ -212,8 +212,7 @@ namespace SIPSignalingServer.Transactions
             SocketError result = await this.Connection.SendSIPRequest(
                 SIPMethodsEnum.BYE,
                 this.GetHeaderParams(this.CurrentCseq),
-                CancellationToken.None,
-                this.SendTimeout);
+                CancellationToken.None);
 
             if (result != SocketError.Success)
             {

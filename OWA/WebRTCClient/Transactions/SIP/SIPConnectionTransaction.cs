@@ -132,7 +132,7 @@ namespace WebRTCClient.Transactions.SIP
             SocketError result;
             try
             {
-                result = await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5), this.connectionCts.Token, this.SendTimeout);
+                result = await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5), this.connectionCts.Token);
             }
             catch (OperationCanceledException ex)
             {
@@ -198,8 +198,7 @@ namespace WebRTCClient.Transactions.SIP
             SocketError result = await this.Connection.SendSIPRequest(
                 SIPMethodsEnum.BYE,
                 headerParams,
-                ct,
-                this.SendTimeout);
+                ct);
 
             if (result != SocketError.Success)
             {

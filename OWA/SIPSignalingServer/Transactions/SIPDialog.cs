@@ -153,9 +153,7 @@ namespace SIPSignalingServer.Transactions
 
             this.Params = this.SIPRegistrationTransaction.Params;
 
-            this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
             this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
-
             this.SIPRegistrationTransaction.OnRegistrationFailed += this.RegistrationFailedListener;
         }
 
@@ -242,7 +240,6 @@ namespace SIPSignalingServer.Transactions
 
             this.SIPConnectionTransaction.StartCseq = this.SIPRegistrationTransaction.CurrentCseq;
             this.SIPConnectionTransaction.ReceiveTimeout = this.ReceiveTimeout;
-            this.SIPConnectionTransaction.SendTimeout = this.SendTimeout;
 
             this.SIPConnectionTransaction.OnConnectionFailed += this.ConnectionFailedListener;
             this.SIPConnectionTransaction.ConnectionLost += this.ConnectionLostListener;

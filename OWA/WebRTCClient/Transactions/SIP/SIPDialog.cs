@@ -161,7 +161,6 @@ namespace WebRTCClient.Transactions.SIP
         private void SetSIPRegistrationTransaction()
         {
             this.SIPRegistrationTransaction = this.SIPRegistrationTransactionFactory.Create(this.Connection, this.Params);
-            this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
             this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
         }
 
@@ -174,7 +173,6 @@ namespace WebRTCClient.Transactions.SIP
                 sourceTag: this.Params.SourceTag);
 
             this.SIPConnectionTransaction = this.SIPConnectionTransactionFactory.Create(SIPScheme, this.Transport, dialogParams);
-            this.SIPConnectionTransaction.SendTimeout = this.SendTimeout;
             this.SIPConnectionTransaction.ReceiveTimeout = this.ReceiveTimeout;
 
             this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;

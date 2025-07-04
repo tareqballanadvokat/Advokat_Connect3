@@ -14,7 +14,6 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
         public List<(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams)> SentResponses = [];
         public List<(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams)> FailedResponses = [];
 
-        public int MessageTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public ISIPConnection.AcceptMessage? MessagePredicate { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
         public SIPSchemesEnum SIPScheme => SIPSchemesEnum.sip;
@@ -30,24 +29,24 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
             this.SIPRequestReceived?.Invoke(sIPEndPoint, sIPEndPoint, request);
         }
 
-        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct)
         {
             this.SentRequests.Add((method, headerParams));
             
             return SocketError.Success;
         }
 
-        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct, int? timeOut = null)
+        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct)
         {
             throw new NotImplementedException();
         }
 
-        public Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct, int? timeOut = null)
+        public Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct)
         {
             throw new NotImplementedException();
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, CancellationToken ct)
         {
             if (statusCode == SIPResponseStatusCodesEnum.Accepted)
             {
@@ -62,7 +61,7 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
             return SocketError.Success;
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct)
         {
             if (statusCode == SIPResponseStatusCodesEnum.Accepted)
             {
@@ -77,7 +76,7 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
             return SocketError.Success;
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct)
         {
             SIPEndPoint sipEndPoint = new SIPEndPoint(new IPEndPoint(IPAddress.Parse("1.1.1.1"), 1));
 

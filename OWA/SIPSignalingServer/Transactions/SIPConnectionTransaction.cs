@@ -79,7 +79,6 @@ namespace SIPSignalingServer.Transactions
             this.Registration = new SIPRegistration(this.ServerSideTransactionParams);
 
             this.messageRelay = new SIPMessageRelay(this.Connection, this.Params, this.loggerFactory);
-            this.messageRelay.SendTimeout = this.SendTimeout;
         }
 
         protected async override Task StartRunning()
