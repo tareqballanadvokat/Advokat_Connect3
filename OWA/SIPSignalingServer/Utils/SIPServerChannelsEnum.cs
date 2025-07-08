@@ -1,7 +1,9 @@
 ﻿using SIPSorcery.SIP;
 using System.Net;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using WebRTCLibrary.SIP.Interfaces;
+using WebSocketSharp.Net;
 
 namespace SIPSignalingServer.Utils
 {
@@ -26,20 +28,21 @@ namespace SIPSignalingServer.Utils
 
         public SIPChannel GetChannelInstance(SIPEndPoint endpoint, X509Certificate2? sslCertificate = null)
         {
+            IPEndPoint ipEndpoint = endpoint.GetIPEndPoint();
+
             switch (this)
             {
                 case var _ when this == UDP:
-                    return new SIPUDPChannel(endpoint.GetIPEndPoint());
+                    return new SIPUDPChannel(ipEndpoint);
 
                 case var _ when this == TCP:
-                    return new SIPTCPChannel(endpoint.GetIPEndPoint());
+                    return new SIPTCPChannel(ipEndpoint);
 
                 case var _ when this == TLS:
                     // TODO: currently not working.
-                    return new SIPTLSChannel(sslCertificate, endpoint.GetIPEndPoint());
+                    return new SIPTLSChannel(sslCertificate, ipEndpoint);
 
                 case var _ when this == WebSocket:
-                    IPEndPoint ipEndpoint = endpoint.GetIPEndPoint();
                     return new SIPWebSocketChannel(ipEndpoint.Address, ipEndpoint.Port);
 
                 case var _ when this == WebSocketSSL:
@@ -49,7 +52,12 @@ namespace SIPSignalingServer.Utils
                         throw new ArgumentException("You need to supply a certificate in order to create a secure server websocket channel.");
                     }
 
-                    return new SIPWebSocketChannel(endpoint.GetIPEndPoint(), sslCertificate);
+                    ServerSslConfiguration sslConfig = new ServerSslConfiguration();
+                    sslConfig.ServerCertificate = sslCertificate;
+                    sslConfig.CheckCertificateRevocation = true;
+                    sslConfig.EnabledSslProtocols = SslProtocols.Tls12;
+
+                    return new SIPWebSocketChannel(ipEndpoint, SIPConstants.DEFAULT_ENCODING, SIPConstants.DEFAULT_ENCODING, sslConfig);
 
                 default:
                     throw new ArgumentException("Not a valid SIPChannel. Valid SIPChannels are limited to UDP, TCP, TLS, WebSocket and WebSocketSSL.");
