@@ -39,7 +39,6 @@ namespace SIPSignalingServer.Utils
                     return new SIPTCPChannel(ipEndpoint);
 
                 case var _ when this == TLS:
-                    // TODO: currently not working.
                     return new SIPTLSChannel(sslCertificate, ipEndpoint);
 
                 case var _ when this == WebSocket:
@@ -55,7 +54,7 @@ namespace SIPSignalingServer.Utils
                     ServerSslConfiguration sslConfig = new ServerSslConfiguration();
                     sslConfig.ServerCertificate = sslCertificate;
                     sslConfig.CheckCertificateRevocation = true;
-                    sslConfig.EnabledSslProtocols = SslProtocols.Tls12;
+                    sslConfig.EnabledSslProtocols = SslProtocols.None; // lets the OS choose the TLS version
 
                     return new SIPWebSocketChannel(ipEndpoint, SIPConstants.DEFAULT_ENCODING, SIPConstants.DEFAULT_ENCODING, sslConfig);
 
