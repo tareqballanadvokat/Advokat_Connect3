@@ -116,14 +116,14 @@ namespace WebRTCLibrary.SIP
             }
         }
 
-        protected virtual SIPHeaderParams GetHeaderParams(int cSeq = 1) // TODO: make cseq nullable - default = current Cseq
+        protected virtual SIPHeaderParams GetHeaderParams(int? cSeq = null) // TODO: make cseq nullable - default = current Cseq
         {
             return new SIPHeaderParams(
                 this.Params.SourceParticipant,
                 this.Params.RemoteParticipant,
                 fromTag: this.Params.SourceTag,
                 toTag: this.Params.RemoteTag,
-                cSeq: cSeq,
+                cSeq: cSeq ?? this.CurrentCseq,
                 callID: this.Params.CallId);
         }
 

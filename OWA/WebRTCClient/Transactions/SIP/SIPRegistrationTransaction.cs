@@ -17,64 +17,32 @@ namespace WebRTCClient.Transactions.SIP
 
         public bool Registered { get; private set; }
 
-        private bool Registering { get; set; }
-
         private bool UnregisteredByServer { get; set; }
-
-        //public event Action<ClientRegistrationDialog, SIPDialogEventArgs>? OnRegistered;
-
-        //public event Action<SIPRegistrationTransaction, SIPDialogEventArgs>? OnUnRegistered;
-
-        private CancellationTokenSource registrationCts;
-
-        private CancellationToken RegistrationCT { get => this.registrationCts.Token; }
 
         public SIPRegistrationTransaction(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(connection, dialogParams, loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPRegistrationTransaction>();
-            this.registrationCts = new CancellationTokenSource();
         }
 
         public SIPRegistrationTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(sipScheme, transport, dialogParams, loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPRegistrationTransaction>();
-            this.registrationCts = new CancellationTokenSource();
         }
 
         protected override async Task StartRunning()
         {
-        }
-
-        public override async Task Start(CancellationToken? ct = null)
-        {
-            if (this.Registered)
-            {
-                // TODO: log. already registered
-                return;
-            }
-
-            if (this.Registering)
-            {
-                // TODO: log. already registering. Wait for the previous registering to finish. Retry automatically?
-                return;
-            }
-
-            this.registrationCts = ct == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)ct);
             await this.Register();
         }
 
-        //public override async Task Stop()
-        //{
-        //    await this.Unregister();
-        //}
+        protected override async Task Finish()
+        {
+            await this.Unregister();
+        }
 
         private async Task Register()
         {
-            this.UnregisteredByServer = false;
-            this.Registering = true;
-
             this.Params.SourceTag = CallProperties.CreateNewTag();
 
             // set response delegates
@@ -85,62 +53,59 @@ namespace WebRTCClient.Transactions.SIP
             if (!success) return;
 
             await WaitForAsync(
-                () => this.Registered && !this.Registering,
+                () => this.Registered,
                 timeOut: this.ReceiveTimeout,
-                ct: this.RegistrationCT,
-                timeoutCallback: this.RegistrationTimeout,
-                cancellationCallback: async () => this.RegistrationFailed($"Registration was cancelled.")
+                ct: this.Ct,
+                timeoutCallback: async () => await this.RegistrationFailed("Registration Timeout. Signaling server took too long to respond."),
+                cancellationCallback: async () => await this.RegistrationFailed($"Registration was cancelled.")
                 );
         }
 
         private async Task<bool> SendRegisterMessage()
         {
             SocketError result;
-
+            int registerCseq = this.CurrentCseq;
+            
+            // increment before call. A fast response would get rejected before currentCseq is updated.
+            this.CurrentCseq++;
             try
             {
                 result = await this.Connection.SendSIPRequest(
                     SIPMethodsEnum.REGISTER,
-                    this.GetHeaderParams(),
-                    this.RegistrationCT);
+                    this.GetHeaderParams(registerCseq),
+                    this.Ct
+                    );
             }
             catch (OperationCanceledException)
             {
                 // Request did not get sent.
-                this.RegistrationFailed($"Registration was cancelled.");
+                this.CurrentCseq--;
+                await this.RegistrationFailed($"Registration was cancelled.");
                 return false;
             }
 
             if (result != SocketError.Success)
             {
                 // request did not get sent.
-                this.RegistrationFailed($"Failed to send Registration. {result}.");
+                this.CurrentCseq--;
+                await this.RegistrationFailed($"Failed to send Registration. {result}.");
                 return false;
             }
 
             return true;
         }
 
-        private async Task RegistrationTimeout()
-        {
-            // No cancellation. Bye should get sent even if the registration got cancelled.
-            await this.SendBYEMessage(2, CancellationToken.None);
-            this.RegistrationFailed("Registration Timeout. Signaling server took too long to respond.");
-
-            // TODO: Listen for server bye? If accepted had a timeout we shouldn't wait for the server to respond with a bye.
-        }
-
         private async Task ListenForRegistrationAccept(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
         {
             if (sipResponse.Status != SIPResponseStatusCodesEnum.Accepted)
             {
-                this.RegistrationFailed($"Wrong status code. {sipResponse.StatusCode} expected 202.");
+                await this.RegistrationFailed($"Wrong status code. {sipResponse.StatusCode} expected 202.");
                 return;
             }
 
-            if (sipResponse.Header.CSeq != 2)
+            if (sipResponse.Header.CSeq != this.CurrentCseq)
             {
-                this.RegistrationFailed($"Header is invalid. Expected CSeq 2 got {sipResponse.Header.CSeq}.");
+                await this.RegistrationFailed($"Header is invalid. Expected CSeq {this.CurrentCseq} got {sipResponse.Header.CSeq}.");
                 return;
             }
 
@@ -160,51 +125,42 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteParticipant.Name,
                 this.Params.RemoteTag);
 
-            int cSeq = sipResponse.Header.CSeq + 1;
-            bool ackSent = await this.SendACK(cSeq);
+            bool ackSent = await this.SendACK();
 
             if (ackSent)
             {
                 this.Registered = true;
-                this.Registering = false;
                 this.logger.LogInformation("Successfully registered. \"{fromName}\" - \"{toName}\"",
                     this.Params.SourceParticipant.Name,
                     this.Params.RemoteParticipant.Name);
             }
         }
 
-        private async Task<bool> SendACK(int cSeq)
+        private async Task<bool> SendACK()
         {
             SocketError result;
 
+            this.CurrentCseq++;
             try
             {
                 result = await this.Connection.SendSIPRequest(
                     SIPMethodsEnum.ACK,
-                    this.GetHeaderParams(cSeq),
-                    this.RegistrationCT);
+                    this.GetHeaderParams(),
+                    this.Ct);
             }
             catch (OperationCanceledException)
             {
                 // Request did not get sent.
-                this.RegistrationFailed($"Registration was cancelled.");
-
-                if (!this.UnregisteredByServer)
-                {
-                    // TODO: listen for bye from server?
-                    await this.SendBYEMessage(cSeq, CancellationToken.None); // no cancellation for bye
-                }
-
+                this.CurrentCseq--;
+                await this.RegistrationFailed($"Registration was cancelled.");
                 return false;
             }
 
             if (result != SocketError.Success)
             {
                 // request did not get sent.
-                this.RegistrationFailed($"Failed to send ACK. {result}.");
-
-                // TODO: listen for server bye?
-                await this.SendBYEMessage(cSeq, CancellationToken.None); // no cancellation for bye
+                this.CurrentCseq--;
+                await this.RegistrationFailed($"Failed to send ACK. {result}.");
                 return false;
             }
 
@@ -213,23 +169,6 @@ namespace WebRTCClient.Transactions.SIP
 
         public async Task Unregister()
         {
-            // TODO: get token passed?
-            CancellationTokenSource cts = new CancellationTokenSource();
-            CancellationToken ct = cts.Token;
-
-            if (!this.Registered)
-            {
-                // TODO: log. Not registered
-                return;
-            }
-
-            if (this.Registering)
-            {
-                this.registrationCts.Cancel();
-                return;
-            }
-
-            // send disconnect message
             this.logger.LogDebug("Unregistering. From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
                 this.Params.SourceParticipant.Name,
                 this.Params.SourceTag,
@@ -237,28 +176,24 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteParticipant.Name,
                 this.Params.RemoteTag);
 
-            await this.SendBYEMessage(4, ct);
+            if (!this.UnregisteredByServer)
+            {
+                // TODO: listen for bye from server?
+                await this.SendBYEMessage(CancellationToken.None); // no cancellation for bye
+            }
 
-            await WaitFor(
-                () => !this.Registered,
-                this.ReceiveTimeout,
-                ct
-                //failureCallback: // TODO: do something on timeout? Server did not send bye. Retry?
-                );
+            this.ResetRegistration();
         }
 
         private async Task ListenForDisconnect(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
         {
             if (sipRequest.Method != SIPMethodsEnum.BYE)
             {
-                // wrong status code
+                // wrong method
                 return;
             }
 
-            if (sipRequest.Header.CSeq != 2
-                && sipRequest.Header.CSeq != 4
-                && sipRequest.Header.CSeq != 5
-                )
+            if (sipRequest.Header.CSeq != this.CurrentCseq)
             {
                 // bad request - header is invalid
                 // TODO: Unregister failed? - Server sent an invalid bye
@@ -267,17 +202,16 @@ namespace WebRTCClient.Transactions.SIP
             }
 
             this.UnregisteredByServer = true;
-            this.registrationCts.Cancel();
+            await this.Stop();
 
             this.logger.LogInformation("Unregistered. \"{fromName}\" - \"{toName}\"",
                 this.Params.SourceParticipant.Name,
                 this.Params.RemoteParticipant.Name);
 
             this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
-            this.ResetRegistration();
         }
 
-        private void RegistrationFailed(string message)
+        private async Task RegistrationFailed(string message)
         {
             this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
             this.Connection.SIPRequestReceived -= this.ListenForDisconnect;
@@ -290,26 +224,25 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteParticipant.Name,
                 this.Params.RemoteTag);
 
-            this.Registering = false;
-            this.ResetRegistration();
+            await this.Stop();
         }
 
         private void ResetRegistration()
         {
+            // TODO: remove all listeners?
             // TODO: event that Registration was reset?
             this.Params.SourceTag = null;
             this.Params.RemoteTag = null;
             this.Registered = false;
+            this.UnregisteredByServer = false;
         }
 
         // TODO: Remove ct as parameter and use Cancellationtoken None?
-        private async Task SendBYEMessage(int CSeq, CancellationToken ct)
+        private async Task SendBYEMessage(CancellationToken ct)
         {
-            SIPHeaderParams headerParams = this.GetHeaderParams(CSeq);
-
             SocketError result = await this.Connection.SendSIPRequest(
                 SIPMethodsEnum.BYE,
-                headerParams,
+                this.GetHeaderParams(),
                 ct);
 
             if (result != SocketError.Success)
