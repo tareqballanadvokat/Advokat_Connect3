@@ -116,7 +116,7 @@ namespace WebRTCLibrary.SIP
             }
         }
 
-        protected virtual SIPHeaderParams GetHeaderParams(int? cSeq = null) // TODO: make cseq nullable - default = current Cseq
+        protected virtual SIPHeaderParams GetHeaderParams(int? cSeq = null)
         {
             return new SIPHeaderParams(
                 this.Params.SourceParticipant,
@@ -165,7 +165,7 @@ namespace WebRTCLibrary.SIP
 
         /// <summary>Checks if an incoming message is part of this dialog.</summary>
         /// <param name="message">Incoming SIPMessage. SIPRequest or SIPResponse.</param>
-        /// <version date="21.03.2025" sb="MAC"></version>
+        /// <version date="21.03.2025" sb="MAC">Created.</version>
         private bool IsPartOfTransaction(SIPMessageBase message)
         {
             // TODO: check from / to participant
@@ -175,5 +175,10 @@ namespace WebRTCLibrary.SIP
 
             return callIdIsValid && toTagIsValid && fromTagIsValid;
         }
+
+        //public async virtual ValueTask DisposeAsync()
+        //{
+        //    await this.Stop();
+        //}
     }
 }

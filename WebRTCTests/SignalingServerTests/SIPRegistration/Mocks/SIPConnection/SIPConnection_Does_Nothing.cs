@@ -11,6 +11,8 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
 
         public SIPSchemesEnum SIPScheme => throw new NotImplementedException();
 
+        public ISIPTransport Transport => throw new NotImplementedException();
+
         public event SIPTransportResponseAsyncDelegate? SIPResponseReceived;
         public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 

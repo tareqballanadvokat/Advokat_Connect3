@@ -26,95 +26,41 @@ namespace WebRTCClient.Transactions.SIP
 
         private bool PeerListeningConfirmation { get; set; }
 
-        private bool Connecting { get; set; }
-
-        private CancellationTokenSource connectionCts;
-
         public SIPConnectionTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(sipScheme, transport, dialogParams, loggerFactory)
         {
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
-
-            this.connectionCts = new CancellationTokenSource();
         }
 
         protected async override Task StartRunning()
         {
+            await base.StartRunning();
+            await this.StartSIPMessager();
         }
 
-        // TODO: Use ct
-        public async override Task Start(CancellationToken? ct = null)
+        private async Task StartSIPMessager()
         {
-            if (this.Connected) // TODO: messagingDialogRunning
-            {
-                // already connected
-                return;
-            }
-
-            if (this.Connecting)
-            {
-                // another connection is already running
-                return;
-            }
-
-            this.connectionCts = ct == null ? new CancellationTokenSource() : CancellationTokenSource.CreateLinkedTokenSource((CancellationToken)ct);
-
-            this.Connecting = true;
-            this.Connection.SIPRequestReceived += this.InitialNotifyListener;
-
-            // TODO: Bye listener
-        }
-
-
-        // TODO: This method does too much
-        private async Task InitialNotifyListener(SIPEndPoint localEndpoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
-        {
-            if (sipRequest.Method != SIPMethodsEnum.NOTIFY)
-            {
-                // TODO: Check if it is a ping - ignore if it is
-                //       If is is something else we should fail i think
-                //       
-                //       Should not be a problem now - ping is with different tag and callID
-                return;
-            }
-
-            if (sipRequest.Header.CSeq != 4
-                || sipRequest.Header.From.FromTag == null
-                || sipRequest.Header.CallId == null) // TODO: nullOrEmpty?
-            {
-                // invalid header
-                return;
-            }
-
-            this.Connection.SIPRequestReceived -= this.InitialNotifyListener;
-            this.Connection.SIPRequestReceived += this.ConnectionNotifyListener;
-
-            this.Params.RemoteTag = sipRequest.Header.From.FromTag;
-            this.Params.CallId = sipRequest.Header.CallId;
-
-            if (this.connectionCts.Token.IsCancellationRequested)
-            {
-                await this.SendBYEMessage(4, CancellationToken.None);
-                return;
-            }
-
-            this.logger.LogDebug(
-                "Now listening for SIP messages. caller:\"{caller}\" tag:\"{fromTag}\" -  remote:\"{remote}\" tag:\"{toTag}\"",
-                this.Params.SourceParticipant.Name,
-                this.Params.SourceTag,
-
-                this.Params.RemoteParticipant.Name,
-                this.Params.RemoteTag);
-
             this.MessagingDialog = new SIPMessaging(this.Connection, this.Params, this.loggerFactory);
 
             this.MessagingDialog.OnRequestReceived += this.RequestRecieved;
             this.MessagingDialog.OnResponseReceived += this.ResponseRecieved;
-            await this.MessagingDialog.Start(); // TODO: Pass ct? Seperate from connection token or is it the same?
+            await this.MessagingDialog.Start();
 
-            // TODO: cancellcationlogic
-            await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5), this.connectionCts.Token);
+            this.logger.LogDebug(
+              "Now listening for SIP messages. caller:\"{caller}\" tag:\"{fromTag}\" -  remote:\"{remote}\" tag:\"{toTag}\"",
+              this.Params.SourceParticipant.Name,
+              this.Params.SourceTag,
+
+              this.Params.RemoteParticipant.Name,
+              this.Params.RemoteTag);
+
+            bool success = await this.SendAck();
+            if (!success)
+            {
+                // TODO: cancellcationlogic
+                return;
+            }
 
             await WaitFor(
                 () => this.PeerListeningConfirmation,
@@ -124,19 +70,27 @@ namespace WebRTCClient.Transactions.SIP
                 );
 
             this.Connection.SIPRequestReceived -= this.ConnectionNotifyListener;
-            this.Connecting = false;
+            //this.Connecting = false;
         }
 
         private async Task<bool> SendAck()
         {
             SocketError result;
+            
+            int ackCseq = this.CurrentCseq;
+            
+            // increment now in case of fast response
+            this.CurrentCseq++;
             try
             {
-                result = await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(cSeq: 5), this.connectionCts.Token);
+                result = await this.Connection.SendSIPRequest(SIPMethodsEnum.ACK, this.GetHeaderParams(ackCseq), this.Ct);
             }
             catch (OperationCanceledException ex)
             {
                 // ACK not sent
+                this.CurrentCseq--;
+
+
                 // TODO: send bye?
                 return false;
             }
@@ -144,6 +98,8 @@ namespace WebRTCClient.Transactions.SIP
             if (result != SocketError.Success)
             {
                 // ACK not sent
+                this.CurrentCseq--;
+
                 // TODO: send bye?
                 return false;
             }
@@ -163,16 +119,23 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
-            if (sipRequest.Header.CSeq != 6)
+            if (sipRequest.Header.CSeq != this.CurrentCseq)
             {
                 // invalid header
                 return;
             }
+            this.CurrentCseq++;
 
             this.PeerListeningConfirmation = true;
         }
 
-        public async Task Disconnect()
+        protected async override Task Finish()
+        {
+            await base.Finish();
+            await Disconnect();
+        }
+
+        private async Task Disconnect()
         {
             if (!this.Connected)
             {
@@ -180,55 +143,31 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
-            if (this.Connecting)
-            {
-                // TODO: Cancel token
-            }
+            //if (this.Connecting)
+            //{
+            //    // TODO: Cancel token
+            //}
 
-
+            
             // TODO: Get real CSeq
-            await this.SendBYEMessage(6, CancellationToken.None);
+            await this.SendBYEMessage();
         }
 
         // TODO: Remove ct as parameter and use Cancellationtoken None?
-        private async Task SendBYEMessage(int CSeq, CancellationToken ct)
+        private async Task SendBYEMessage()
         {
-            SIPHeaderParams headerParams = this.GetHeaderParams(CSeq);
+            SIPHeaderParams headerParams = this.GetHeaderParams();
 
             SocketError result = await this.Connection.SendSIPRequest(
                 SIPMethodsEnum.BYE,
                 headerParams,
-                ct);
+                CancellationToken.None);
 
             if (result != SocketError.Success)
             {
                 // TODO: Do something. BYE message could not be sent. Retry?
             }
         }
-
-        //{
-        //    // TODO: Rework completely
-
-        //    if (!this.Connected)
-        //    {
-        //        // not connected.
-        //        return;
-        //    }
-
-        //    this.Params.RemoteTag = null;
-        //    this.Params.CallId = null;
-
-        //    if (this.Connecting)
-        //    {
-        //        this.Connection.SIPRequestReceived -= this.InitialNotifyListener;
-
-        //        // TODO: what to do here? send disconnect message?
-        //        return;
-        //    }
-
-        //    //this.Connected = false;
-        //    // TODO: send a message for disconnect?
-        //}
 
         public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
         {

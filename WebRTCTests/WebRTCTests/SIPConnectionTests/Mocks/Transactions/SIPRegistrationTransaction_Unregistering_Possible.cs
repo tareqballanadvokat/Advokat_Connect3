@@ -20,9 +20,9 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public bool Running => throw new NotImplementedException();
 
-        public int CurrentCseq => throw new NotImplementedException();
+        public int CurrentCseq => 0;
 
-        public int StartCseq { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public int StartCseq { get => 4; set => throw new NotImplementedException(); }
 
         public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
         public event ISIPTransaction.TransactionStoppedDelegate? TransactionStopped;
@@ -31,12 +31,7 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
         {
         }
 
-        public Task Stop()
-        {
-            throw new NotImplementedException();
-        }
-
-        public async Task Unregister()
+        public async Task Stop()
         {
             this.Registered = false;
         }

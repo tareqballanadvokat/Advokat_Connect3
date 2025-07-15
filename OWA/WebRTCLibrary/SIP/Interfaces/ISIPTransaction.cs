@@ -3,7 +3,7 @@ using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCLibrary.SIP.Interfaces
 {
-    public interface ISIPTransaction
+    public interface ISIPTransaction //: IAsyncDisposable
     {
         public ISIPConnection Connection { get; }
 
@@ -28,7 +28,7 @@ namespace WebRTCLibrary.SIP.Interfaces
         public event TransactionStoppedDelegate? TransactionStopped;
 
         public Task Start(CancellationToken? ct = null);
-         
+        
         public Task Stop();
     }
 }

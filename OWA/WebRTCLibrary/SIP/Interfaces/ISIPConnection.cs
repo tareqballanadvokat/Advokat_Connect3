@@ -18,6 +18,8 @@ namespace WebRTCLibrary.SIP.Interfaces
 
         public SIPSchemesEnum SIPScheme { get; }
 
+        public ISIPTransport Transport { get; }
+
         public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct);
 
         public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct);

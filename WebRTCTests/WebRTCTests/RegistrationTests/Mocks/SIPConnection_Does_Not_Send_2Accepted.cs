@@ -13,6 +13,8 @@ namespace SIPClientTests.RegistrationTests.Mocks
 
         public SIPSchemesEnum SIPScheme => throw new NotImplementedException();
 
+        public ISIPTransport Transport => throw new NotImplementedException();
+
         public event SIPTransportResponseAsyncDelegate? SIPResponseReceived;
         public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 

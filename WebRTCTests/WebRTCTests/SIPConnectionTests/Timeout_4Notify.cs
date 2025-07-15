@@ -16,22 +16,29 @@ namespace SIPClientTests.SIPConnectionTests
         {
             SIPParticipant participant = new SIPParticipant(string.Empty, new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1")));
 
-            TransactionParams dialogParams = new TransactionParams(
-                participant,
-                participant,
-                sourceTag: "abcdef-source");
-
-            SIPConnectionTransaction sipConnection = new SIPConnectionTransaction(
+            SIPDialog sipDialog = new SIPDialog(
                 SIPSchemesEnum.sip,
                 new SIPTransport_Does_Nothing(),
-                dialogParams,
-                NullLoggerFactory.Instance);
+                participant,
+                participant,
+                NullLoggerFactory.Instance
+                );
 
-            sipConnection.ReceiveTimeout = 100;
+            SIPRegistrationTransaction_Factory<SIPRegistrationTransaction_Unregistering_Possible> sIPRegistrationTransaction_Factory = new();
 
-            await sipConnection.Start();
+            sipDialog.SIPRegistrationTransactionFactory = sIPRegistrationTransaction_Factory;
 
-            Assert.False(sipConnection.Connected);
+            sipDialog.ReceiveTimeout = 100;
+            sipDialog.PeerRegistrationTimeout = 100;
+            sipDialog.RegistrationTimeout = 100;
+            sipDialog.ConnectionTimeout = 100;
+
+            await sipDialog.Start();
+
+            Assert.False(sipDialog.Connected);
+
+            await Task.Delay(200);
+            Assert.False(sipDialog.Connected);
         }
 
         [Fact]
@@ -47,7 +54,6 @@ namespace SIPClientTests.SIPConnectionTests
                 NullLoggerFactory.Instance
                 );
 
-
             SIPRegistrationTransaction_Factory<SIPRegistrationTransaction_Unregistering_Possible> sIPRegistrationTransaction_Factory = new();
 
             sipDialog.SIPRegistrationTransactionFactory = sIPRegistrationTransaction_Factory;
@@ -56,6 +62,7 @@ namespace SIPClientTests.SIPConnectionTests
 
             sipDialog.RegistrationTimeout = 100;
             sipDialog.ConnectionTimeout = 100;
+            sipDialog.PeerRegistrationTimeout = 100;
 
             //_ = Task.Run(sipDialog.Start);
 

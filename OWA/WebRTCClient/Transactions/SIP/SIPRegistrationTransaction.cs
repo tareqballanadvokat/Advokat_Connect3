@@ -109,6 +109,8 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
+            this.CurrentCseq++;
+
             this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
             await this.RegistrationAccepted(sipResponse);
         }
@@ -124,7 +126,7 @@ namespace WebRTCClient.Transactions.SIP
 
                 this.Params.RemoteParticipant.Name,
                 this.Params.RemoteTag);
-
+            
             bool ackSent = await this.SendACK();
 
             if (ackSent)
@@ -140,12 +142,14 @@ namespace WebRTCClient.Transactions.SIP
         {
             SocketError result;
 
+            int ackCseq = this.CurrentCseq;
             this.CurrentCseq++;
+
             try
             {
                 result = await this.Connection.SendSIPRequest(
                     SIPMethodsEnum.ACK,
-                    this.GetHeaderParams(),
+                    this.GetHeaderParams(ackCseq),
                     this.Ct);
             }
             catch (OperationCanceledException)
@@ -167,7 +171,7 @@ namespace WebRTCClient.Transactions.SIP
             return true;
         }
 
-        public async Task Unregister()
+        private async Task Unregister()
         {
             this.logger.LogDebug("Unregistering. From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
                 this.Params.SourceParticipant.Name,
