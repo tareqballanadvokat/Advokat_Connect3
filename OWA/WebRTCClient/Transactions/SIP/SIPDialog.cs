@@ -77,14 +77,16 @@ namespace WebRTCClient.Transactions.SIP
         {
             await base.StartRunning();
             this.SetSIPRegistrationTransaction();
-            await this.SIPRegistrationTransaction.Start();
+            await this.SIPRegistrationTransaction.Start(this.Ct);
 
             await WaitForAsync(
                 () => this.Registered,
                 this.RegistrationTimeout,
-                ct: this.Ct, // TODO: implement cancellation logic
+                ct: this.Ct,
                 successCallback: this.RegistationSuccessful,
-                timeoutCallback: async () => { }); // TODO: what to do on registering failure / timeout
+                cancellationCallback: this.Stop,
+                timeoutCallback: this.Stop
+                );
         }
 
         //public override async Task Stop()
@@ -119,8 +121,8 @@ namespace WebRTCClient.Transactions.SIP
                 peerRegistrationTimouetToken.Token,
                 ct: this.Ct,
                 successCallback: this.PeerRegistered,
-                cancellationCallback: this.CancelConnection,
-                timeoutCallback: this.Unregister
+                cancellationCallback: this.Stop,
+                timeoutCallback: this.Stop
                 );
         }
 
@@ -134,8 +136,8 @@ namespace WebRTCClient.Transactions.SIP
                 this.ConnectionTimeout,
                 ct: this.Ct,
                 successCallback: async () => this.ConnectionSuccessful(),
-                cancellationCallback: this.CancelConnection, // TODO: disconnect accordingly and unregister
-                timeoutCallback: this.Unregister
+                cancellationCallback: this.Stop,
+                timeoutCallback: this.Stop
                 );
         }
 
@@ -147,16 +149,14 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteParticipant.Name);
         }
 
-        private async Task Unregister()
+        protected async override Task Finish()
         {
+            await base.Finish();
+            await (this.SIPConnectionTransaction?.Stop() ?? Task.CompletedTask);
             await (this.WaitForPeerTransaction?.Stop() ?? Task.CompletedTask);
             await (this.SIPRegistrationTransaction?.Stop() ?? Task.CompletedTask);
-        }
 
-        private async Task CancelConnection()
-        {
-            await (this.SIPConnectionTransaction?.Stop() ?? Task.CompletedTask);
-            await this.Unregister();
+            // TODO: reset
         }
 
         public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
@@ -179,8 +179,17 @@ namespace WebRTCClient.Transactions.SIP
             return await this.SIPConnectionTransaction.SendSIPResponse(statusCode, message, contentType, cSeq);
         }
 
-        [MemberNotNull(nameof(this.SIPRegistrationTransaction))]
+        private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)
+        {
+            await (this.OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
+        }
 
+        private async Task ResponseRecieved(ISIPMessager sender, SIPResponse sipResponse)
+        {
+            await (this.OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
+        }
+
+        [MemberNotNull(nameof(this.SIPRegistrationTransaction))]
         private void SetSIPRegistrationTransaction()
         {
             this.SIPRegistrationTransaction = this.SIPRegistrationTransactionFactory.Create(this.Connection, this.Params);
@@ -209,16 +218,6 @@ namespace WebRTCClient.Transactions.SIP
 
             this.WaitForPeerTransaction = new WaitForPeerTransaction(this.SIPScheme, this.Connection.Transport, dialogParams, this.loggerFactory);
             this.WaitForPeerTransaction.StartCseq = this.SIPRegistrationTransaction.CurrentCseq;
-        }
-
-        private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)
-        {
-            await (this.OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
-        }
-
-        private async Task ResponseRecieved(ISIPMessager sender, SIPResponse sipResponse)
-        {
-            await (this.OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
         }
     }
 }

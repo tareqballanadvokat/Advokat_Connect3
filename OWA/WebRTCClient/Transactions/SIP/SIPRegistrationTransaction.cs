@@ -19,6 +19,8 @@ namespace WebRTCClient.Transactions.SIP
 
         private bool UnregisteredByServer { get; set; }
 
+        private bool AcceptReceived { get; set; }
+
         public SIPRegistrationTransaction(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(connection, dialogParams, loggerFactory)
         {
@@ -99,7 +101,7 @@ namespace WebRTCClient.Transactions.SIP
         {
             if (sipResponse.Status != SIPResponseStatusCodesEnum.Accepted)
             {
-                await this.RegistrationFailed($"Wrong status code. {sipResponse.StatusCode} expected 202.");
+                //await this.RegistrationFailed($"Wrong status code. {sipResponse.StatusCode} expected 202.");
                 return;
             }
 
@@ -110,6 +112,7 @@ namespace WebRTCClient.Transactions.SIP
             }
 
             this.CurrentCseq++;
+            this.AcceptReceived = true;
 
             this.Connection.SIPResponseReceived -= this.ListenForRegistrationAccept;
             await this.RegistrationAccepted(sipResponse);
@@ -180,7 +183,7 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteParticipant.Name,
                 this.Params.RemoteTag);
 
-            if (!this.UnregisteredByServer)
+            if (!this.UnregisteredByServer && this.AcceptReceived)
             {
                 // TODO: listen for bye from server?
                 await this.SendBYEMessage(CancellationToken.None); // no cancellation for bye
@@ -239,6 +242,7 @@ namespace WebRTCClient.Transactions.SIP
             this.Params.RemoteTag = null;
             this.Registered = false;
             this.UnregisteredByServer = false;
+            this.AcceptReceived = false;
         }
 
         // TODO: Remove ct as parameter and use Cancellationtoken None?
@@ -254,10 +258,5 @@ namespace WebRTCClient.Transactions.SIP
                 // TODO: Do something. BYE message could not be sent. Retry?
             }
         }
-
-        //public async ValueTask DisposeAsync()
-        //{
-        //    await this.Unregister();
-        //}
     }
 }

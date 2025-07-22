@@ -41,6 +41,11 @@ namespace WebRTCClient.Transactions.SIP
 
         private async Task StartSIPMessager()
         {
+            if (this.Ct.IsCancellationRequested)
+            {
+                await this.ConnectionFailed("Connection cancelled.");
+            }
+
             this.MessagingDialog = new SIPMessaging(this.Connection, this.Params, this.loggerFactory);
 
             this.MessagingDialog.OnRequestReceived += this.RequestRecieved;
@@ -58,19 +63,18 @@ namespace WebRTCClient.Transactions.SIP
             bool success = await this.SendAck();
             if (!success)
             {
-                // TODO: cancellcationlogic
                 return;
             }
 
             await WaitFor(
                 () => this.PeerListeningConfirmation,
-                this.ReceiveTimeout,
-                ct: CancellationToken.None, // TODO: implement cancellation logic
-                timeoutCallback: () => { } // TODO: fail connection
+                this.ReceiveTimeout, // TODO: Check if this is the correct timeout
+                ct: this.Ct,
+                timeoutCallback: async () => await this.ConnectionFailed("Peer took too long to confirm connection."),
+                cancellationCallback: async () => await this.ConnectionFailed("Connection cancelled.")
                 );
 
             this.Connection.SIPRequestReceived -= this.ConnectionNotifyListener;
-            //this.Connecting = false;
         }
 
         private async Task<bool> SendAck()
@@ -89,9 +93,7 @@ namespace WebRTCClient.Transactions.SIP
             {
                 // ACK not sent
                 this.CurrentCseq--;
-
-
-                // TODO: send bye?
+                await this.ConnectionFailed("Connection cancelled.");
                 return false;
             }
 
@@ -99,8 +101,7 @@ namespace WebRTCClient.Transactions.SIP
             {
                 // ACK not sent
                 this.CurrentCseq--;
-
-                // TODO: send bye?
+                await this.ConnectionFailed("Failed to send Connection ACK.");
                 return false;
             }
 
@@ -112,10 +113,6 @@ namespace WebRTCClient.Transactions.SIP
         {
             if (sipRequest.Method != SIPMethodsEnum.NOTIFY)
             {
-                // TODO: Check if it is a ping - ignore if it is
-                //       If is is something else we should fail i think
-                //       
-                //       Should not be a problem now - ping is with different tag and callID
                 return;
             }
 
@@ -143,13 +140,6 @@ namespace WebRTCClient.Transactions.SIP
                 return;
             }
 
-            //if (this.Connecting)
-            //{
-            //    // TODO: Cancel token
-            //}
-
-            
-            // TODO: Get real CSeq
             await this.SendBYEMessage();
         }
 
@@ -167,6 +157,19 @@ namespace WebRTCClient.Transactions.SIP
             {
                 // TODO: Do something. BYE message could not be sent. Retry?
             }
+        }
+
+        private async Task ConnectionFailed(string message)
+        {
+            this.logger.LogDebug("Connection failed. {message} From:\"{fromName}\" tag:\"{fromTag}\"; to:\"{toName}\" tag:\"{toTag}\"",
+                message,
+                this.Params.SourceParticipant.Name,
+                this.Params.SourceTag,
+
+                this.Params.RemoteParticipant.Name,
+                this.Params.RemoteTag);
+
+            await this.Stop();
         }
 
         public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
