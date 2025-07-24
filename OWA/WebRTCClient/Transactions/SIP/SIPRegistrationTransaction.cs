@@ -56,7 +56,7 @@ namespace WebRTCClient.Transactions.SIP
 
             await WaitForAsync(
                 () => this.Registered,
-                timeOut: this.ReceiveTimeout,
+                timeOut: this.Config.ReceiveTimeout,
                 ct: this.Ct,
                 timeoutCallback: async () => await this.RegistrationFailed("Registration Timeout. Signaling server took too long to respond."),
                 cancellationCallback: async () => await this.RegistrationFailed($"Registration was cancelled.")

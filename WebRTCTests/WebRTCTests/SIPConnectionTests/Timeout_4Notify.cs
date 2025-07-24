@@ -28,10 +28,13 @@ namespace SIPClientTests.SIPConnectionTests
 
             sipDialog.SIPRegistrationTransactionFactory = sIPRegistrationTransaction_Factory;
 
-            sipDialog.ReceiveTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig() 
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             await sipDialog.Start();
 
@@ -58,11 +61,13 @@ namespace SIPClientTests.SIPConnectionTests
 
             sipDialog.SIPRegistrationTransactionFactory = sIPRegistrationTransaction_Factory;
 
-            sipDialog.ReceiveTimeout = 100;
-
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             //_ = Task.Run(sipDialog.Start);
 

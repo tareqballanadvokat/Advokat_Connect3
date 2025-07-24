@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using WebRTCClient.Transactions.SIP.Interfaces;
 using WebRTCClient.Transactions.SIP.Interfaces.TransactionFactories;
 using WebRTCClient.Transactions.SIP.TransactionFactories;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
@@ -22,21 +23,11 @@ namespace WebRTCClient.Transactions.SIP
 
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
-        public static readonly int defaultRegistrationTimeout = 1000; // TODO: Find suitable default registration timeout
-
-        public static readonly int defaultConnectionTimeout = 3000;
-
-        public static readonly int defaultPeerRegistrationTimeout = 3000; // TODO: Find suitable default timeout
-
-        public int RegistrationTimeout { get; set; } = defaultRegistrationTimeout;
-
-        /// <summary>Time to wait after own registration for the peer to register before the connection attempt is closed.
-        ///          Set null to wait indefinetly.</summary>
-        
-        /// <version date="15.07.2025" sb="MAC">Created.</version>
-        public int? PeerRegistrationTimeout { get; set; } = defaultPeerRegistrationTimeout;
-
-        public int ConnectionTimeout { get; set; } = defaultConnectionTimeout;
+        public new SIPDialogConfig Config
+        {
+            get => (SIPDialogConfig)base.Config;
+            set => base.Config = value;
+        }
 
         [MemberNotNullWhen(true, nameof(this.SIPRegistrationTransaction))]
         public bool Registered { get => this.SIPRegistrationTransaction?.Registered ?? false; }
@@ -66,6 +57,8 @@ namespace WebRTCClient.Transactions.SIP
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPDialog>();
 
+            this.Config = new SIPDialogConfig(); // Default config
+
             // default factories, TODO: get them passed in ctor?
             this.SIPConnectionTransactionFactory = new SIPConnectionTransactionFactory(this.loggerFactory);
             this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory(this.loggerFactory);
@@ -81,7 +74,7 @@ namespace WebRTCClient.Transactions.SIP
 
             await WaitForAsync(
                 () => this.Registered,
-                this.RegistrationTimeout,
+                this.Config.RegistrationTimeout,
                 ct: this.Ct,
                 successCallback: this.RegistationSuccessful,
                 cancellationCallback: this.Stop,
@@ -105,9 +98,9 @@ namespace WebRTCClient.Transactions.SIP
         {
             this.SetWaitForPeerTransaction();
 
-            CancellationTokenSource peerRegistrationTimouetToken = this.PeerRegistrationTimeout == null
+            CancellationTokenSource peerRegistrationTimouetToken = this.Config.PeerRegistrationTimeout == null
                 ? new CancellationTokenSource()
-                : new CancellationTokenSource((int)this.PeerRegistrationTimeout);
+                : new CancellationTokenSource((int)this.Config.PeerRegistrationTimeout);
 
             CancellationTokenSource peerRegistrationToken = CancellationTokenSource.CreateLinkedTokenSource(this.Ct, peerRegistrationTimouetToken.Token);
 
@@ -133,7 +126,7 @@ namespace WebRTCClient.Transactions.SIP
 
             await WaitForAsync(
                 () => this.Connected,
-                this.ConnectionTimeout,
+                this.Config.ConnectionTimeout,
                 ct: this.Ct,
                 successCallback: async () => this.ConnectionSuccessful(),
                 cancellationCallback: this.Stop,
@@ -193,7 +186,7 @@ namespace WebRTCClient.Transactions.SIP
         private void SetSIPRegistrationTransaction()
         {
             this.SIPRegistrationTransaction = this.SIPRegistrationTransactionFactory.Create(this.Connection, this.Params);
-            this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
+            this.SIPRegistrationTransaction.Config = this.Config;
         }
 
         [MemberNotNull(nameof(this.SIPConnectionTransaction))]
@@ -202,7 +195,7 @@ namespace WebRTCClient.Transactions.SIP
             this.SIPConnectionTransaction = this.SIPConnectionTransactionFactory.Create(SIPScheme, this.Connection.Transport, this.WaitForPeerTransaction.Params);
 
             this.SIPConnectionTransaction.StartCseq = this.WaitForPeerTransaction.CurrentCseq;
-            this.SIPConnectionTransaction.ReceiveTimeout = this.ReceiveTimeout;
+            this.SIPConnectionTransaction.Config = this.Config;
 
             this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
             this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;
@@ -217,6 +210,7 @@ namespace WebRTCClient.Transactions.SIP
                 sourceTag: this.Params.SourceTag);
 
             this.WaitForPeerTransaction = new WaitForPeerTransaction(this.SIPScheme, this.Connection.Transport, dialogParams, this.loggerFactory);
+            this.WaitForPeerTransaction.Config = this.Config;
             this.WaitForPeerTransaction.StartCseq = this.SIPRegistrationTransaction.CurrentCseq;
         }
     }

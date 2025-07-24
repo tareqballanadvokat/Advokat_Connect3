@@ -1,5 +1,6 @@
 ﻿using SIPSorcery.SIP;
 using WebRTCClient.Transactions.SIP.Interfaces;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
@@ -13,9 +14,6 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public TransactionParams Params => throw new NotImplementedException();
 
-        public int ReceiveTimeout { get; set; }
-        public int SendTimeout { get; set; }
-
         public SIPSchemesEnum SIPScheme => throw new NotImplementedException();
 
         public bool Running => throw new NotImplementedException();
@@ -23,6 +21,7 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
         public int CurrentCseq => throw new NotImplementedException();
 
         public int StartCseq { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public SIPConfig Config { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
         public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
         public event ISIPTransaction.TransactionStoppedDelegate? TransactionStopped;

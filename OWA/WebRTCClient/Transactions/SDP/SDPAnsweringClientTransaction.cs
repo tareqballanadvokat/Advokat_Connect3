@@ -17,8 +17,8 @@ namespace WebRTCClient.Transactions.SDP
 
         private bool PeerIsOffering { get; set; }
 
-        public SDPAnsweringClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, ILoggerFactory loggerFactory, int startCSeq = 1)
-            : base(sipConnection, peerConnection, startCSeq)
+        public SDPAnsweringClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, ILoggerFactory loggerFactory)
+            : base(sipConnection, peerConnection)
         {
             this.logger = loggerFactory.CreateLogger<SDPAnsweringClientTransaction>();
         }

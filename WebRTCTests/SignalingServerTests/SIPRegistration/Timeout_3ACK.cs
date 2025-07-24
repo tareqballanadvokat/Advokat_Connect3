@@ -1,13 +1,12 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
+using SignalingServerTests.Mocks.SIPRequests;
 using SignalingServerTests.SIPRegistration.Mocks.SIPConnection;
+using SignalingServerTests.SIPRegistration.Mocks.SIPRegistry;
 using SIPSignalingServer.Interfaces;
-using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions;
-using SIPSignalingServer;
 using SIPSorcery.SIP;
 using System.Net;
-using SignalingServerTests.SIPRegistration.Mocks.SIPRegistry;
-using SignalingServerTests.Mocks.SIPRequests;
+using WebRTCLibrary.SIP;
 
 namespace SignalingServerTests.SIPRegistration
 {
@@ -32,7 +31,11 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.ReceiveTimeout = 100;
+            sipRegistrationTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
+
             _ = Task.Run(async () => await sipRegistrationTransaction.Start());
 
             await Task.Delay(10);
@@ -61,7 +64,11 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.ReceiveTimeout = 100;
+            sipRegistrationTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
+
             _ = Task.Run(async () => await sipRegistrationTransaction.Start());
 
             await Task.Delay(10);
@@ -100,7 +107,11 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.ReceiveTimeout = 100;
+            sipRegistrationTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
+
             _ = Task.Run(async () => await sipRegistrationTransaction.Start());
 
             await Task.Delay(10);
@@ -128,7 +139,11 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.ReceiveTimeout = 100;
+            sipRegistrationTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
+
             _ = Task.Run(async () => await sipRegistrationTransaction.Start());
 
             await Task.Delay(10);
@@ -173,7 +188,11 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.ReceiveTimeout = messageTimeout;
+            sipRegistrationTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = messageTimeout
+            };
+
             //_ = Task.Run(sipRegistrationTransaction.Start);
             await sipRegistrationTransaction.Start();
             //await Task.Delay(messageTimeout + 100);

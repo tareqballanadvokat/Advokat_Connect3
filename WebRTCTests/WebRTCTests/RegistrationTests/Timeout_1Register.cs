@@ -3,6 +3,7 @@ using SIPClientTests.RegistrationTests.Mocks;
 using SIPSorcery.SIP;
 using System.Net;
 using WebRTCClient.Transactions.SIP;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
 namespace SIPClientTests.RegistrationTests
@@ -18,7 +19,12 @@ namespace SIPClientTests.RegistrationTests
             TransactionParams transactionParams = new TransactionParams(participant, participant, callId: CallProperties.CreateNewCallId());
 
             SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
-            sipRegistrationTransaction.ReceiveTimeout = 100;
+
+            sipRegistrationTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
+
             await sipRegistrationTransaction.Start();
 
             Assert.False(sipRegistrationTransaction.Registered);
@@ -36,7 +42,12 @@ namespace SIPClientTests.RegistrationTests
             TransactionParams transactionParams = new TransactionParams(participant, participant, callId: CallProperties.CreateNewCallId());
 
             SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
-            sipRegistrationTransaction.ReceiveTimeout = 100;
+            
+            sipRegistrationTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
+            
             await sipRegistrationTransaction.Start();
 
             Assert.Single(mockConnection.SentRequests);

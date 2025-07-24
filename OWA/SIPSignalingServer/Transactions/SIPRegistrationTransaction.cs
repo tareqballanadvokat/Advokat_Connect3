@@ -112,7 +112,7 @@ namespace SIPSignalingServer.Transactions
 
             await WaitForAsync(
                 () => this.Registered,
-                timeOut: this.ReceiveTimeout,
+                timeOut: this.Config.ReceiveTimeout,
                 this.Ct,
                 // TODO: interval?
                 timeoutCallback: async () => await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."),

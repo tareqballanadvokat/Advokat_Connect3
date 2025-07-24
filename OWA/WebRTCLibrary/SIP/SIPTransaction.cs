@@ -13,12 +13,9 @@ namespace WebRTCLibrary.SIP
 
         public virtual bool Running { get; protected set; }
 
-        //private static readonly int DefaultTimeOut = 2000;
-        private static readonly int DefaultTimeOut = 20000; // DEBUG
-
-        public int ReceiveTimeout { get; set; } = DefaultTimeOut;
-
         public SIPSchemesEnum SIPScheme { get => this.Connection.SIPScheme; }
+
+        public virtual SIPConfig Config { get; set; } // TODO: should not be changeable once Transaction is runningw
 
         private bool transportPassed = false;
 
@@ -62,6 +59,8 @@ namespace WebRTCLibrary.SIP
         public SIPTransaction(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPTransaction>();
+
+            this.Config = new SIPConfig();
 
             this.Params = dialogParams;
             this.Connection = connection;

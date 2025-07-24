@@ -3,6 +3,7 @@ using SIPClientTests.RegistrationTests.Mocks;
 using SIPSorcery.SIP;
 using System.Net;
 using WebRTCClient.Transactions.SIP;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
 namespace SIPClientTests.RegistrationTests
@@ -16,7 +17,9 @@ namespace SIPClientTests.RegistrationTests
             SIPConnection_Does_Not_Send_2Accepted mockConnection = new SIPConnection_Does_Not_Send_2Accepted();
             TransactionParams transactionParams = new TransactionParams(participant, participant, callId: CallProperties.CreateNewCallId());
 
-            SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance)
+            SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
+
+            sipRegistrationTransaction.Config = new SIPConfig()
             {
                 ReceiveTimeout = 100
             };
@@ -33,7 +36,9 @@ namespace SIPClientTests.RegistrationTests
             SIPConnection_Does_Not_Send_2Accepted mockConnection = new SIPConnection_Does_Not_Send_2Accepted();
             TransactionParams transactionParams = new TransactionParams(participant, participant, callId: CallProperties.CreateNewCallId());
 
-            SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance)
+            SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
+
+            sipRegistrationTransaction.Config = new SIPConfig()
             {
                 ReceiveTimeout = 100
             };
@@ -103,7 +108,9 @@ namespace SIPClientTests.RegistrationTests
             SIPConnection_Sends_2Accepted_After_Timeout mockConnection = new SIPConnection_Sends_2Accepted_After_Timeout(messageTimeout, delay_to_accept);
             TransactionParams transactionParams = new TransactionParams(participant, participant, callId: CallProperties.CreateNewCallId());
 
-            SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance)
+            SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
+
+            sipRegistrationTransaction.Config = new SIPConfig()
             {
                 ReceiveTimeout = messageTimeout
             };

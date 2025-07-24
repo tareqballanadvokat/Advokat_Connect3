@@ -1,6 +1,7 @@
 ﻿using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions.Interfaces;
 using SIPSorcery.SIP;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
@@ -14,10 +15,6 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
 
         public ISIPConnection Connection => throw new NotImplementedException();
 
-        public int ReceiveTimeout { get; set; }
-
-        public int SendTimeout { get; set; }
-
         public SIPSchemesEnum SIPScheme => throw new NotImplementedException();
 
         TransactionParams ISIPTransaction.Params => Params;
@@ -27,6 +24,7 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
         public int CurrentCseq => 4;
 
         public int StartCseq { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public SIPConfig Config { get; set; }
 
         public SIPRegistrationTransaction_Can_Unregister(
             SIPRequest initialRequest,

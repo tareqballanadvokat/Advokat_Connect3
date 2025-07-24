@@ -3,6 +3,7 @@ using SIPClientTests.RegistrationTests.Mocks;
 using SIPSorcery.SIP;
 using System.Net;
 using WebRTCClient.Transactions.SIP;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
 namespace SIPClientTests.RegistrationTests
@@ -17,7 +18,10 @@ namespace SIPClientTests.RegistrationTests
             TransactionParams transactionParams = new TransactionParams(participant, participant, callId: CallProperties.CreateNewCallId());
 
             SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
-            sipRegistrationTransaction.ReceiveTimeout = 100;
+            sipRegistrationTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
 
             await sipRegistrationTransaction.Start();
 
@@ -33,9 +37,12 @@ namespace SIPClientTests.RegistrationTests
             TransactionParams transactionParams = new TransactionParams(participant, participant, callId: CallProperties.CreateNewCallId());
 
             SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
-            
-            // make timeout extemely long. Waiting for response should get cancelled
-            sipRegistrationTransaction.ReceiveTimeout = 10000;
+
+            // make timeout extemely long. Waiting for response should get cancelled before
+            sipRegistrationTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 10000
+            };
 
             Task registrationTask = sipRegistrationTransaction.Start();
             Task timer = Task.Delay(2000);

@@ -10,6 +10,7 @@ using SIPSignalingServer.Transactions;
 using SIPSorcery.SIP;
 using System.Net;
 using WebRTCLibrary.SIP.Models;
+using WebRTCLibrary.SIP;
 
 namespace SignalingServerTests.SIPConnection
 {
@@ -48,7 +49,10 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipConnectionTransaction.ReceiveTimeout = 100;
+            sipConnectionTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
 
             await sipConnectionTransaction.Start();
 
@@ -110,10 +114,13 @@ namespace SignalingServerTests.SIPConnection
             SIPRegistrationTransaction_Can_Unregister sipRegistrationTransaction = new(initialRequest, sipEndPoint);
 
             sipDialog.SIPRegistrationTransactionFactory = new Mock_SIPRegistrationTransactionFactory(sipRegistrationTransaction);
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 200;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100,
+                PeerRegistrationTimeout = 200
+            };
 
             Assert.True(sipRegistrationTransaction.Registered);
 
@@ -164,9 +171,14 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                //PeerRegistrationTimeout = 100, ??
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
@@ -215,10 +227,14 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
+
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
@@ -283,11 +299,15 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
+           
             _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
 

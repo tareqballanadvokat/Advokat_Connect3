@@ -122,7 +122,7 @@ namespace SIPSignalingServer.Transactions
 
             await WaitForAsync(
                 () => this.ConnectionAcknowledged,
-                timeOut: this.ReceiveTimeout,
+                timeOut: this.Config.ReceiveTimeout,
                 this.Ct,
                 successCallback: this.StartConnection,
                 timeoutCallback: async () =>

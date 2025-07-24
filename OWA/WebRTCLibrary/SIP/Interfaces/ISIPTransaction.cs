@@ -8,8 +8,8 @@ namespace WebRTCLibrary.SIP.Interfaces
         public ISIPConnection Connection { get; }
 
         public TransactionParams Params { get; }
-        
-        public int ReceiveTimeout { get; set; }
+
+        public SIPConfig Config { get; set; }
 
         public bool Running { get; }
 

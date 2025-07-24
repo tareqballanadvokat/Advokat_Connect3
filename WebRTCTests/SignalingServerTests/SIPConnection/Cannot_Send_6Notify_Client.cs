@@ -56,10 +56,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            peerDialog.RegistrationTimeout = 100;
-            peerDialog.ConnectionTimeout = 100;
-            peerDialog.ReceiveTimeout = 100;
-            peerDialog.PeerRegistrationTimeout = 100;
+            peerDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             // client
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
@@ -79,10 +82,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await peerDialog.Start());
             _ = Task.Run(async () => await sipDialog.Start());
@@ -159,10 +165,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            peerDialog.RegistrationTimeout = 100;
-            peerDialog.ConnectionTimeout = 100;
-            peerDialog.ReceiveTimeout = 100;
-            peerDialog.PeerRegistrationTimeout = 100;
+            peerDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             // client
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
@@ -184,10 +193,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await peerDialog.Start());
             _ = Task.Run(async () => await sipDialog.Start());
@@ -243,10 +255,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            peerDialog.RegistrationTimeout = 100;
-            peerDialog.ConnectionTimeout = 100;
-            peerDialog.ReceiveTimeout = 100;
-            peerDialog.PeerRegistrationTimeout = 100;
+            peerDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             // client
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
@@ -268,10 +283,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await peerDialog.Start());
             _ = Task.Run(async () => await sipDialog.Start());
@@ -326,10 +344,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            peerDialog.RegistrationTimeout = 100;
-            peerDialog.ConnectionTimeout = 100;
-            peerDialog.ReceiveTimeout = 100;
-            peerDialog.PeerRegistrationTimeout = 100;
+            peerDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             // client
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
@@ -349,10 +370,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await peerDialog.Start());
             _ = Task.Run(async () => await sipDialog.Start());
