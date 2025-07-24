@@ -192,13 +192,14 @@ namespace WebRTCClient
 
             if (this.IsControllingAgent)
             {
-                this.SDPDialog = new SDPOfferingClientTransaction(this.SIPConnection, this.PeerConnection, this.loggerFactory, 2);
+                this.SDPDialog = new SDPOfferingClientTransaction(this.SIPConnection, this.PeerConnection, this.loggerFactory);
             }
             else
             {
-                this.SDPDialog = new SDPAnsweringClientTransaction(this.SIPConnection, this.PeerConnection, this.loggerFactory, 2);
+                this.SDPDialog = new SDPAnsweringClientTransaction(this.SIPConnection, this.PeerConnection, this.loggerFactory);
             }
 
+            this.SDPDialog.StartCSeq = 2; // TODO: Remove hardcode
             await this.SDPDialog.Start();
         }
     }

@@ -18,7 +18,7 @@ namespace WebRTCCaller
     /// </summary>
     public partial class MainWindow : Window
     {
-        //private static readonly string testingSignalingServer = "92.205.233.81:8081";
+        //private static readonly string testingSignalingServer = "92.205.233.81:443";
         //private static readonly string testingSignalingServer = "192.168.1.58:8081";
         private static readonly string testingSignalingServer = new IPEndPoint(IPAddress.Loopback, 8009).ToString();
 
@@ -112,10 +112,10 @@ namespace WebRTCCaller
                 return;
             }
 
-            if (this.UserAgent != null)
-            {
-                return;
-            }
+            //if (this.UserAgent != null)
+            //{
+            //    return;
+            //}
 
             List<RTCIceServer> iceServers = this.P2PServersComboBox.Items
                 .Cast<RTCOwnIceServer>()

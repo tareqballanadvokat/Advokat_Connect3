@@ -119,11 +119,6 @@ namespace WebRTCRemoteWPF
                 return;
             }
 
-            if (this.UserAgent != null)
-            {
-                return;
-            }
-
             List<RTCIceServer> iceServers = this.P2PServersComboBox.Items
                 .Cast<RTCOwnIceServer>()
                 .Select(o =>

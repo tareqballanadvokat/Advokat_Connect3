@@ -10,6 +10,7 @@ using SIPSignalingServer.Transactions;
 using SIPSorcery.SIP;
 using System.Net;
 using WebRTCLibrary.SIP.Models;
+using WebRTCLibrary.SIP;
 
 namespace SignalingServerTests.SIPConnection
 {
@@ -48,8 +49,10 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipConnectionTransaction.SendTimeout = 100;
-            sipConnectionTransaction.ReceiveTimeout = 100;
+            sipConnectionTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
 
             await sipConnectionTransaction.Start();
 
@@ -111,11 +114,13 @@ namespace SignalingServerTests.SIPConnection
             SIPRegistrationTransaction_Can_Unregister sipRegistrationTransaction = new(initialRequest, sipEndPoint);
 
             sipDialog.SIPRegistrationTransactionFactory = new Mock_SIPRegistrationTransactionFactory(sipRegistrationTransaction);
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.SendTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 200;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100,
+                PeerRegistrationTimeout = 200
+            };
 
             Assert.True(sipRegistrationTransaction.Registered);
 
@@ -166,10 +171,14 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.SendTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                //PeerRegistrationTimeout = 100, ??
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
@@ -218,10 +227,14 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.SendTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
+
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(150);
@@ -243,6 +256,69 @@ namespace SignalingServerTests.SIPConnection
             // Should be unique tag
             Assert.NotEqual(peerRegistrationParams.ClientTag, mockSIPTransport.SentRequests.Last().Header.From.FromTag);
             Assert.NotEqual(peerRegistrationParams.RemoteTag, mockSIPTransport.SentRequests.Last().Header.From.FromTag);
+        }
+
+        [Fact]
+        public async Task Does_Not_Send_ConnectionBye()
+        {
+            SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
+            SIPParticipant client = new SIPParticipant("caller-12345ab", sipEndPoint);
+            SIPParticipant remote = new SIPParticipant("remote-fsf1234", sipEndPoint);
+
+            ServerSideTransactionParams peerRegistrationParams = new ServerSideTransactionParams(
+                client,
+                remote,
+                callId: CallProperties.CreateNewCallId(),
+                remoteTag: null,
+                clientTag: CallProperties.CreateNewTag());
+
+            SIPMemoryRegistry sipRegistry = new SIPMemoryRegistry(NullLoggerFactory.Instance);
+
+            // register peer
+            sipRegistry.Register(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
+            sipRegistry.Confirm(new SIPSignalingServer.Models.SIPRegistration(peerRegistrationParams));
+
+            SIPMemoryConnectionPool connectionPool = new SIPMemoryConnectionPool(NullLoggerFactory.Instance);
+
+            MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
+            initialRequest.Header = new SIPHeader(
+                new SIPFromHeader(client.Name, new SIPURI(SIPSchemesEnum.sip, sipEndPoint), CallProperties.CreateNewTag()),
+                new SIPToHeader(remote.Name, new SIPURI(SIPSchemesEnum.sip, sipEndPoint), null),
+                1,
+                CallProperties.CreateNewCallId());
+            initialRequest.SetRemoteEndPoint(sipEndPoint);
+
+            SIPTransport_4Notify_Fails mockSIPTransport = new SIPTransport_4Notify_Fails();
+
+            SIPDialog sipDialog = new SIPDialog(
+                SIPSchemesEnum.sip,
+                mockSIPTransport,
+                initialRequest,
+                sipEndPoint,
+                sipRegistry,
+                connectionPool,
+                NullLoggerFactory.Instance);
+
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
+
+           
+            _ = Task.Run(async () => await sipDialog.Start());
+            await Task.Delay(150);
+
+            IEnumerable<SIPRequest> byeRequests = mockSIPTransport.SentRequests.Where(r => r.Method == SIPMethodsEnum.BYE);
+
+            Assert.False(byeRequests.Where(r => r.Header.CSeq != 4).Any());
+
+            IEnumerable<SIPRequest> notify4Requests = mockSIPTransport.SentRequests
+                .Where(r => r.Header.CSeq == 4 && r.Method == SIPMethodsEnum.NOTIFY);
+
+            Assert.NotEmpty(notify4Requests);
         }
     }
 }

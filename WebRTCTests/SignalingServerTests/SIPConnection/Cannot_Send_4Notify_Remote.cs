@@ -6,6 +6,7 @@ using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions;
 using SIPSorcery.SIP;
 using System.Net;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Models;
 
 namespace SignalingServerTests.SIPConnection
@@ -45,8 +46,10 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            callerConnectionTransaction.SendTimeout = 100;
-            callerConnectionTransaction.ReceiveTimeout = 100;
+            callerConnectionTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
 
             SIPConnectionTransaction remoteConnectionTransaction = new SIPConnectionTransaction(
                 SIPSchemesEnum.sip,
@@ -56,8 +59,10 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            remoteConnectionTransaction.SendTimeout = 100;
-            remoteConnectionTransaction.ReceiveTimeout = 100;
+            remoteConnectionTransaction.Config = new SIPConfig()
+            {
+                ReceiveTimeout = 100
+            };
 
             _ = Task.Run(async () => await callerConnectionTransaction.Start());
             _ = Task.Run(async () => await remoteConnectionTransaction.Start());
