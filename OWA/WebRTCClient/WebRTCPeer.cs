@@ -76,7 +76,7 @@ namespace WebRTCClient
         {
             this.signalingServerParams = signalingServerParams;
             this.iceServers = iceServers.AsReadOnly();
-            
+
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<WebRTCPeer>();
 

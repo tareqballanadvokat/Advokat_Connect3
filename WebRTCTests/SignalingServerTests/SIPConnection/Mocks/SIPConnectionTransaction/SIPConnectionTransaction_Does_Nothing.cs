@@ -1,6 +1,7 @@
 ﻿using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions.Interfaces;
 using SIPSorcery.SIP;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
@@ -14,9 +15,6 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPConnectionTransaction
 
         public ISIPConnection Connection => throw new NotImplementedException();
 
-        public int ReceiveTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-        public int SendTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-
         public bool Running => throw new NotImplementedException();
 
         public int StartCseq { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
@@ -27,8 +25,11 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPConnectionTransaction
 
         TransactionParams ISIPTransaction.Params => Params;
 
+        public SIPConfig Config { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
         public event ISIPConnectionTransaction.ConnectionFailedDelegate? OnConnectionFailed;
         public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
+        public event ISIPTransaction.TransactionStoppedDelegate? TransactionStopped;
 
         public List<DateTime> Started = [];
 

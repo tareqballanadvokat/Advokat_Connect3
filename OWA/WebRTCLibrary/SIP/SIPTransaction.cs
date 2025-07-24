@@ -13,24 +13,9 @@ namespace WebRTCLibrary.SIP
 
         public virtual bool Running { get; protected set; }
 
-        //private static readonly int DefaultTimeOut = 2000;
-        private static readonly int DefaultTimeOut = 20000; // DEBUG
-
-        private int sendTimeout = DefaultTimeOut;
-
-        public int SendTimeout
-        {
-            get => this.sendTimeout;
-            set
-            {
-                this.sendTimeout = value;
-                this.Connection.MessageTimeout = this.SendTimeout;
-            }
-        }
-
-        public int ReceiveTimeout { get; set; } = DefaultTimeOut;
-
         public SIPSchemesEnum SIPScheme { get => this.Connection.SIPScheme; }
+
+        public virtual SIPConfig Config { get; set; } // TODO: should not be changeable once Transaction is runningw
 
         private bool transportPassed = false;
 
@@ -62,6 +47,8 @@ namespace WebRTCLibrary.SIP
 
         public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
 
+        public event ISIPTransaction.TransactionStoppedDelegate? TransactionStopped;
+
         // TODO: maybe pass ConnectionFactory - for testing and different kinds of connections
         public SIPTransaction(SIPSchemesEnum sipScheme, ISIPTransport transport, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : this(new SIPConnection(sipScheme, transport, loggerFactory), dialogParams, loggerFactory)
@@ -72,6 +59,8 @@ namespace WebRTCLibrary.SIP
         public SIPTransaction(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
         {
             this.logger = loggerFactory.CreateLogger<SIPTransaction>();
+
+            this.Config = new SIPConfig();
 
             this.Params = dialogParams;
             this.Connection = connection;
@@ -110,6 +99,7 @@ namespace WebRTCLibrary.SIP
             }
 
             await this.Finish();
+            await this.InvokeTransactionStopped();
         }
 
         protected async virtual Task Finish()
@@ -125,14 +115,14 @@ namespace WebRTCLibrary.SIP
             }
         }
 
-        protected virtual SIPHeaderParams GetHeaderParams(int cSeq = 1) // TODO: make cseq nullable - default = current Cseq
+        protected virtual SIPHeaderParams GetHeaderParams(int? cSeq = null)
         {
             return new SIPHeaderParams(
                 this.Params.SourceParticipant,
                 this.Params.RemoteParticipant,
                 fromTag: this.Params.SourceTag,
                 toTag: this.Params.RemoteTag,
-                cSeq: cSeq,
+                cSeq: cSeq ?? this.CurrentCseq,
                 callID: this.Params.CallId);
         }
 
@@ -149,7 +139,6 @@ namespace WebRTCLibrary.SIP
             if (transportPassed)
             {
                 this.Connection.MessagePredicate = this.AcceptMessage;
-                this.Connection.MessageTimeout = this.SendTimeout;
             }
         }
 
@@ -168,9 +157,14 @@ namespace WebRTCLibrary.SIP
             await (this.ConnectionLost?.Invoke(this) ?? Task.CompletedTask);
         }
 
+        private async Task InvokeTransactionStopped()
+        {
+            await (this.TransactionStopped?.Invoke(this) ?? Task.CompletedTask);
+        }
+
         /// <summary>Checks if an incoming message is part of this dialog.</summary>
         /// <param name="message">Incoming SIPMessage. SIPRequest or SIPResponse.</param>
-        /// <version date="21.03.2025" sb="MAC"></version>
+        /// <version date="21.03.2025" sb="MAC">Created.</version>
         private bool IsPartOfTransaction(SIPMessageBase message)
         {
             // TODO: check from / to participant
@@ -180,5 +174,10 @@ namespace WebRTCLibrary.SIP
 
             return callIdIsValid && toTagIsValid && fromTagIsValid;
         }
+
+        //public async virtual ValueTask DisposeAsync()
+        //{
+        //    await this.Stop();
+        //}
     }
 }

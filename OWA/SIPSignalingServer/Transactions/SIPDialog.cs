@@ -18,37 +18,11 @@ namespace SIPSignalingServer.Transactions
 
         private readonly ILogger<SIPDialog> logger;
 
-        public readonly static int defaultRegistrationTimeout = 3000;
-
-        /// <summary>Timeout for the client to finish the registration process. Must be set before starting.</summary>
-        /// <value>Defualt value specified in the <see cref="defaultRegistrationTimeout"/> field.</value>
-        /// <version date="25.04.2025" sb="MAC">Created.</version>
-        public int RegistrationTimeout { get; set; } = defaultRegistrationTimeout; // TODO: add flag if it already started - prevent setting then.
-
-        public readonly static int defaultConnectionTimeout = 3000;
-
-        /// <summary>Timeout for the connection process after client and peer registration.
-        ///          Specify how long the connection process should take before it is cancelled.
-        ///          Must be set before starting.
-        ///          
-        ///          This could be adjusted in the future and sent by the client in the registration.</summary>
-        /// <version date="25.04.2025" sb="MAC">Created.</version>
-        public int ConnectionTimeout { get; set; } = defaultConnectionTimeout; // TODO: add flag if it already started - prevent setting then.
-
-
-        public readonly static int defaultPeerRegistrationTimeout = 3000;
-
-        /// <summary>Timeout for the peer to register.
-        ///          How long to wait after client registration was successful for the peer to connect.
-        ///          If set to null the connection will wait indeffinetly.
-        ///          Must be set before starting.
-        ///
-        ///          This could be adjusted in the future and sent by the client in the registration.</summary>
-        /// <version date="04.06.2025" sb="MAC">Created.</version>
-        public int? PeerRegistrationTimeout { get; set; } = defaultPeerRegistrationTimeout; // TODO: add flag if it already started - prevent setting then.
-                                                                  // TODO: Should we remove the timeout completely? let the client determine it's own timeout and stop responding after that.
-                                                                  //       If the keep alive dialog is held we keep wait for the peer indefinetly
-
+        public new SIPDialogConfig Config
+        {
+            get => (SIPDialogConfig)base.Config;
+            set => base.Config = value;
+        }
         private SIPRequest InitialRequest { get; set; }
 
         private SIPEndPoint SignalingServer { get; set; }
@@ -103,6 +77,7 @@ namespace SIPSignalingServer.Transactions
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
 
+            this.Config = new SIPDialogConfig();
             this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory();
             this.SIPConnectionTransactionFactory = new SIPConnectionTransactionFactory();
         }
@@ -130,7 +105,7 @@ namespace SIPSignalingServer.Transactions
 
             await WaitForAsync(
                 () => this.SIPRegistrationTransaction.Registered,
-                timeOut: this.RegistrationTimeout,
+                timeOut: this.Config.RegistrationTimeout,
                 this.Ct,
                 // TODO: interval?
                 successCallback: this.WaitForPeer,
@@ -153,9 +128,7 @@ namespace SIPSignalingServer.Transactions
 
             this.Params = this.SIPRegistrationTransaction.Params;
 
-            this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
-            this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
-
+            this.SIPRegistrationTransaction.Config = this.Config;
             this.SIPRegistrationTransaction.OnRegistrationFailed += this.RegistrationFailedListener;
         }
 
@@ -171,16 +144,17 @@ namespace SIPSignalingServer.Transactions
                 || (this.WaitForPeerCts != null && this.WaitForPeerCts.IsCancellationRequested))
             {
                 await this.Stop();
+                return;
             }
 
-            SIPRegistration registration = new SIPRegistration(this.Params);
-            this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", registration.RemoteUser, registration.SourceParticipant);
-            
             if (this.WaitForPeerCts == null)
             {
                 this.SetWaitingForPeerToken();
             }
 
+            SIPRegistration registration = new SIPRegistration(this.Params);
+            this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", registration.RemoteUser, registration.SourceParticipant);
+            
             await WaitForAsync(
                 () => this.Registry.PeerIsRegistered(registration), // TODO: make PeerIsRegistered an event. If registry is a db we shouldn't hit it this often.
                 this.WaitForPeerCts.Token,
@@ -192,12 +166,18 @@ namespace SIPSignalingServer.Transactions
                 );
         }
 
+        private async Task ConnectionTransactionStopped(ISIPTransaction sender)
+        {
+            sender.TransactionStopped -= this.ConnectionTransactionStopped;
+            await this.WaitForPeer();
+        }
+
         [MemberNotNull(nameof(this.WaitForPeerCts))]
         private void SetWaitingForPeerToken()
         {
             // TODO: this token never gets cancelled if timeout is null.
-            CancellationTokenSource timeoutToken = this.PeerRegistrationTimeout != null
-                ? new CancellationTokenSource((int)this.PeerRegistrationTimeout!)
+            CancellationTokenSource timeoutToken = this.Config.PeerRegistrationTimeout != null
+                ? new CancellationTokenSource((int)this.Config.PeerRegistrationTimeout!)
                 : new CancellationTokenSource();
 
             this.WaitForPeerCts = CancellationTokenSource.CreateLinkedTokenSource(this.Ct, timeoutToken.Token);
@@ -208,15 +188,15 @@ namespace SIPSignalingServer.Transactions
             this.SetSIPConnectonTransaction();
 
             await this.SIPConnectionTransaction.Start(this.Ct);
-
+            
             await WaitForAsync(() => this.Connected,
-                this.ConnectionTimeout,
+                this.Config.ConnectionTimeout,
                 this.Ct,
                 // TODO: interval?
                 successCallback: this.StartICENegotiation,
                 timeoutCallback: this.SIPConnectionTransaction.Stop,
                 cancellationCallback: this.Stop
-                ); 
+                );
 
             this.SIPConnectionTransaction.OnConnectionFailed -= this.ConnectionFailedListener;
             this.SIPConnectionTransaction.ConnectionLost -= this.ConnectionLostListener;
@@ -234,11 +214,11 @@ namespace SIPSignalingServer.Transactions
                 this.loggerFactory);
 
             this.SIPConnectionTransaction.StartCseq = this.SIPRegistrationTransaction.CurrentCseq;
-            this.SIPConnectionTransaction.ReceiveTimeout = this.ReceiveTimeout;
-            this.SIPConnectionTransaction.SendTimeout = this.SendTimeout;
+            this.SIPConnectionTransaction.Config = this.Config;
 
             this.SIPConnectionTransaction.OnConnectionFailed += this.ConnectionFailedListener;
             this.SIPConnectionTransaction.ConnectionLost += this.ConnectionLostListener;
+            this.SIPConnectionTransaction.TransactionStopped += this.ConnectionTransactionStopped;
         }
 
 
@@ -277,7 +257,7 @@ namespace SIPSignalingServer.Transactions
             await base.Finish();
         }
 
-        private async Task ConnectionLostListener(WebRTCLibrary.SIP.SIPTransaction sender)
+        private async Task ConnectionLostListener(ISIPTransaction sender)
         {
             await this.Stop();
         }

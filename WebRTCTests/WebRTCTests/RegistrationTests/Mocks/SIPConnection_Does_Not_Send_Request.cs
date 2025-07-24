@@ -3,10 +3,12 @@ using System.Net.Sockets;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
-namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
+namespace SIPClientTests.RegistrationTests.Mocks
 {
-    internal class SIPConnection_Does_Nothing : ISIPConnection
+    public class SIPConnection_Does_Not_Send_Request : ISIPConnection
     {
+        public List<(SIPMethodsEnum method, SIPHeaderParams headerParams)> SentRequests = [];
+
         public ISIPConnection.AcceptMessage? MessagePredicate { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
         public SIPSchemesEnum SIPScheme => throw new NotImplementedException();
@@ -16,9 +18,10 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
         public event SIPTransportResponseAsyncDelegate? SIPResponseReceived;
         public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 
-        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct)
         {
-            throw new NotImplementedException();
+            SentRequests.Add((method, headerParams));
+            return SocketError.SocketError;
         }
 
         public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct)
