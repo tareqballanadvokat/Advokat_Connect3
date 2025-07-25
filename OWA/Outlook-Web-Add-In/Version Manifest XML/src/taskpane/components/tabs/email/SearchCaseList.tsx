@@ -39,7 +39,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         } else 
         {
           
-            const data = await getCases('');
+            const data = await getCases(filter);
             setFullData(data);
 
             setRows(

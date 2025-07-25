@@ -2,6 +2,8 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./components/App";
 import { FluentProvider, webLightTheme, webDarkTheme } from "@fluentui/react-components";
+import { Provider } from "react-redux";
+import { store } from "../store";
 
 /* global document, Office, module, require, HTMLElement */
 
@@ -29,9 +31,11 @@ Office.onReady(() => {
   const chosenTheme = isDark ? webDarkTheme : webLightTheme;
 
   root?.render(
-    <FluentProvider theme={chosenTheme}>
-      <App title={title} />
-    </FluentProvider>
+    <Provider store={store}>
+      <FluentProvider theme={chosenTheme}>
+        <App title={title} />
+      </FluentProvider>
+    </Provider>
   );
 
 

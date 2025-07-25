@@ -1,4 +1,4 @@
-// src/taskpane/components/tabs/email/CaseSend.tsx
+// src/taskpane/components/tabs/email/EmailSend.tsx
 import React from 'react';
 import { EmailSendProps } from '../../interfaces/IEmail';
 import Button from 'devextreme-react/button';

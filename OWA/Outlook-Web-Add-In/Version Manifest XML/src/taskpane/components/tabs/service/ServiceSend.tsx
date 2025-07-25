@@ -1,4 +1,4 @@
-// src/taskpane/components/tabs/email/CaseSend.tsx
+// src/taskpane/components/tabs/service/ServiceSend.tsx
 import React from 'react';
 import Button from 'devextreme-react/button';
 import { Height } from 'devextreme-react/cjs/chart';

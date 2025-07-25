@@ -29,7 +29,7 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
         const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: '' })   // lub inny payload
+          body: JSON.stringify({ query: 'test' })
         });
         const data: CaseItem[] = await resp.json();
         setFullData(data);
