@@ -10,7 +10,7 @@ namespace WebRTCLibrary.SIP.Interfaces
 
         public event SIPTransportRequestAsyncDelegate? SIPRequestReceived;
 
-        public int MessageTimeout { get; set; }
+        //public int MessageTimeout { get; set; }
 
         public delegate bool AcceptMessage(SIPMessageBase message);
 
@@ -18,16 +18,18 @@ namespace WebRTCLibrary.SIP.Interfaces
 
         public SIPSchemesEnum SIPScheme { get; }
 
-        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null);
+        public ISIPTransport Transport { get; }
 
-        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct, int? timeOut = null);
+        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct);
 
-        public Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct, int? timeOut = null);
+        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct);
 
-        public Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null);
+        public Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct);
 
-        public Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct, int? timeOut = null);
+        public Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, CancellationToken ct);
 
-        public Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct, int? timeOut = null);
+        public Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct);
+
+        public Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct);
     }
 }

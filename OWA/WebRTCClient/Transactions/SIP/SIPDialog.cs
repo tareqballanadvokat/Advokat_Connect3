@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using WebRTCClient.Transactions.SIP.Interfaces;
 using WebRTCClient.Transactions.SIP.Interfaces.TransactionFactories;
 using WebRTCClient.Transactions.SIP.TransactionFactories;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
@@ -22,13 +23,11 @@ namespace WebRTCClient.Transactions.SIP
 
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
-        public static readonly int defaultRegistrationTimeout = 1000; // TODO: Find suitable default registration timeout
-
-        public static readonly int defaultConnectionTimeout = 3000;
-
-        public int RegistrationTimeout { get; set; } = defaultRegistrationTimeout;
-
-        public int ConnectionTimeout { get; set; } = defaultConnectionTimeout;
+        public new SIPDialogConfig Config
+        {
+            get => (SIPDialogConfig)base.Config;
+            set => base.Config = value;
+        }
 
         [MemberNotNullWhen(true, nameof(this.SIPRegistrationTransaction))]
         public bool Registered { get => this.SIPRegistrationTransaction?.Registered ?? false; }
@@ -44,9 +43,9 @@ namespace WebRTCClient.Transactions.SIP
 
         public ISIPConnectionTransactionFactory SIPConnectionTransactionFactory { get; set; }
 
-        private SIPKeepAlive SIPKeepAlive { get; set; }
+        public WaitForPeerTransaction? WaitForPeerTransaction { get; set; }
 
-        private ISIPTransport Transport { get; set; }
+        private SIPKeepAlive SIPKeepAlive { get; set; }
 
         public SIPDialog(SIPSchemesEnum sipScheme, ISIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, ILoggerFactory loggerFactory)
             : base(
@@ -58,31 +57,29 @@ namespace WebRTCClient.Transactions.SIP
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPDialog>();
 
+            this.Config = new SIPDialogConfig(); // Default config
+
             // default factories, TODO: get them passed in ctor?
             this.SIPConnectionTransactionFactory = new SIPConnectionTransactionFactory(this.loggerFactory);
             this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory(this.loggerFactory);
-
-            this.Transport = transport;
 
             this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params, this.loggerFactory);
         }
 
         protected async override Task StartRunning()
         {
-        }
-
-        // TODO: Use ct
-        public async override Task Start(CancellationToken? ct = null)
-        {
+            await base.StartRunning();
             this.SetSIPRegistrationTransaction();
-            await this.SIPRegistrationTransaction.Start();
+            await this.SIPRegistrationTransaction.Start(this.Ct);
 
             await WaitForAsync(
                 () => this.Registered,
-                this.RegistrationTimeout,
-                ct: CancellationToken.None, // TODO: implement cancellation logic
+                this.Config.RegistrationTimeout,
+                ct: this.Ct,
                 successCallback: this.RegistationSuccessful,
-                timeoutCallback: async () => { }); // TODO: what to do on registering failure / timeout
+                cancellationCallback: this.Stop,
+                timeoutCallback: this.Stop
+                );
         }
 
         //public override async Task Stop()
@@ -99,21 +96,41 @@ namespace WebRTCClient.Transactions.SIP
 
         private async Task RegistationSuccessful()
         {
+            this.SetWaitForPeerTransaction();
+
+            CancellationTokenSource peerRegistrationTimouetToken = this.Config.PeerRegistrationTimeout == null
+                ? new CancellationTokenSource()
+                : new CancellationTokenSource((int)this.Config.PeerRegistrationTimeout);
+
+            CancellationTokenSource peerRegistrationToken = CancellationTokenSource.CreateLinkedTokenSource(this.Ct, peerRegistrationTimouetToken.Token);
+
+            await this.WaitForPeerTransaction.Start(peerRegistrationToken.Token);
+            //await this.SIPKeepAlive.Start(this.Ct); // TODO: stop dialog on stop / unregister
+            //                                        //       Also, should keep alive send pings starting from peer or from server
+            //                                        //       Is not needed if there is no timeout for our signaling server in firewall
+
+            await WaitForAsync(
+                () => this.WaitForPeerTransaction.PeerRegistered,
+                peerRegistrationTimouetToken.Token,
+                ct: this.Ct,
+                successCallback: this.PeerRegistered,
+                cancellationCallback: this.Stop,
+                timeoutCallback: this.Stop
+                );
+        }
+
+        private async Task PeerRegistered()
+        {
             this.SetSIPConnectionTransaction();
+            await this.SIPConnectionTransaction.Start(this.Ct);
 
-            await this.SIPConnectionTransaction.Start();
-            await this.SIPKeepAlive.Start(); // TODO: stop dialog on stop / unregister
-                                             //       Also, should keep alive send pings starting from peer or from server
-                                             //       Is not needed if there is no timeout for our signaling server in firewall
-
-            // TODO: create a seperate timeout for connection found. This timeout is both for finding peer and connecting
             await WaitForAsync(
                 () => this.Connected,
-                this.ConnectionTimeout, // TODO: Get suitable timeout for connection - keep in mind to wait for remote to register. have a timeout at all?
-                ct: CancellationToken.None, // TODO: implement cancellation logic
+                this.Config.ConnectionTimeout,
+                ct: this.Ct,
                 successCallback: async () => this.ConnectionSuccessful(),
-                cancellationCallback: this.CancelConnection, // TODO: disconnect accordingly and unregister
-                timeoutCallback: this.Unregister
+                cancellationCallback: this.Stop,
+                timeoutCallback: this.Stop
                 );
         }
 
@@ -125,15 +142,14 @@ namespace WebRTCClient.Transactions.SIP
                 this.Params.RemoteParticipant.Name);
         }
 
-        private async Task Unregister()
+        protected async override Task Finish()
         {
-            await (this.SIPRegistrationTransaction?.Unregister() ?? Task.CompletedTask);
-        }
+            await base.Finish();
+            await (this.SIPConnectionTransaction?.Stop() ?? Task.CompletedTask);
+            await (this.WaitForPeerTransaction?.Stop() ?? Task.CompletedTask);
+            await (this.SIPRegistrationTransaction?.Stop() ?? Task.CompletedTask);
 
-        private async Task CancelConnection()
-        {
-            await (this.SIPConnectionTransaction?.Disconnect() ?? Task.CompletedTask);
-            await this.Unregister();
+            // TODO: reset
         }
 
         public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, string message, string contentType, int cSeq)
@@ -156,31 +172,6 @@ namespace WebRTCClient.Transactions.SIP
             return await this.SIPConnectionTransaction.SendSIPResponse(statusCode, message, contentType, cSeq);
         }
 
-        [MemberNotNull(nameof(this.SIPRegistrationTransaction))]
-
-        private void SetSIPRegistrationTransaction()
-        {
-            this.SIPRegistrationTransaction = this.SIPRegistrationTransactionFactory.Create(this.Connection, this.Params);
-            this.SIPRegistrationTransaction.SendTimeout = this.SendTimeout;
-            this.SIPRegistrationTransaction.ReceiveTimeout = this.ReceiveTimeout;
-        }
-
-        [MemberNotNull(nameof(this.SIPConnectionTransaction))]
-        private void SetSIPConnectionTransaction()
-        {
-            TransactionParams dialogParams = new TransactionParams(
-                this.Params.SourceParticipant,
-                this.Params.RemoteParticipant,
-                sourceTag: this.Params.SourceTag);
-
-            this.SIPConnectionTransaction = this.SIPConnectionTransactionFactory.Create(SIPScheme, this.Transport, dialogParams);
-            this.SIPConnectionTransaction.SendTimeout = this.SendTimeout;
-            this.SIPConnectionTransaction.ReceiveTimeout = this.ReceiveTimeout;
-
-            this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
-            this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;
-        }
-
         private async Task RequestRecieved(ISIPMessager sender, SIPRequest sipRequest)
         {
             await (this.OnRequestReceived?.Invoke(this, sipRequest) ?? Task.CompletedTask);
@@ -189,6 +180,38 @@ namespace WebRTCClient.Transactions.SIP
         private async Task ResponseRecieved(ISIPMessager sender, SIPResponse sipResponse)
         {
             await (this.OnResponseReceived?.Invoke(this, sipResponse) ?? Task.CompletedTask);
+        }
+
+        [MemberNotNull(nameof(this.SIPRegistrationTransaction))]
+        private void SetSIPRegistrationTransaction()
+        {
+            this.SIPRegistrationTransaction = this.SIPRegistrationTransactionFactory.Create(this.Connection, this.Params);
+            this.SIPRegistrationTransaction.Config = this.Config;
+        }
+
+        [MemberNotNull(nameof(this.SIPConnectionTransaction))]
+        private void SetSIPConnectionTransaction()
+        {
+            this.SIPConnectionTransaction = this.SIPConnectionTransactionFactory.Create(SIPScheme, this.Connection.Transport, this.WaitForPeerTransaction.Params);
+
+            this.SIPConnectionTransaction.StartCseq = this.WaitForPeerTransaction.CurrentCseq;
+            this.SIPConnectionTransaction.Config = this.Config;
+
+            this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
+            this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;
+        }
+
+        [MemberNotNull(nameof(this.WaitForPeerTransaction))]
+        private void SetWaitForPeerTransaction()
+        {
+            TransactionParams dialogParams = new TransactionParams(
+                this.Params.SourceParticipant,
+                this.Params.RemoteParticipant,
+                sourceTag: this.Params.SourceTag);
+
+            this.WaitForPeerTransaction = new WaitForPeerTransaction(this.SIPScheme, this.Connection.Transport, dialogParams, this.loggerFactory);
+            this.WaitForPeerTransaction.Config = this.Config;
+            this.WaitForPeerTransaction.StartCseq = this.SIPRegistrationTransaction.CurrentCseq;
         }
     }
 }

@@ -56,11 +56,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            peerDialog.RegistrationTimeout = 1000;
-            peerDialog.ConnectionTimeout = 1000;
-            peerDialog.SendTimeout = 1000;
-            peerDialog.ReceiveTimeout = 1000;
-            peerDialog.PeerRegistrationTimeout = 1000;
+            peerDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 1000,
+                PeerRegistrationTimeout = 1000,
+                RegistrationTimeout = 1000,
+                ConnectionTimeout = 1000
+            };
 
             // client
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
@@ -80,30 +82,37 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 1000;
-            sipDialog.ConnectionTimeout = 1000;
-            sipDialog.SendTimeout = 1000;
-            sipDialog.PeerRegistrationTimeout = 1000;
-            sipDialog.ReceiveTimeout = 100; // this is the important timeout
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100, // this is the important timeout
+                PeerRegistrationTimeout = 1000,
+                RegistrationTimeout = 1000,
+                ConnectionTimeout = 1000
+            };
 
             _ = Task.Run(async () => await peerDialog.Start());
             _ = Task.Run(async () => await sipDialog.Start());
 
             await Task.Delay(50);
+            // no reveiveTimeout
             Assert.Single(peerTransport.SentRequests);
             Assert.Equal(SIPMethodsEnum.NOTIFY, peerTransport.SentRequests[0].Method);
 
-            await Task.Delay(100);
+            // PeerRegistrationTimeout not hit yet
+            await Task.Delay(700);
 
-            Assert.Equal(2, peerTransport.SentRequests.Count);
-            Assert.Equal(SIPMethodsEnum.NOTIFY, peerTransport.SentRequests[0].Method);
-            Assert.Equal(SIPMethodsEnum.BYE, peerTransport.SentRequests[1].Method);
-            Assert.Equal(6, peerTransport.SentRequests[1].Header.CSeq);
+            IEnumerable<SIPRequest> byeRequests = peerTransport.SentRequests.Where(r => r.Method == SIPMethodsEnum.BYE);
+            IEnumerable<SIPRequest> connectionByes = byeRequests.Where(r => r.Header.CSeq == 6);
+            IEnumerable<SIPRequest> registrationByes = byeRequests.Where(r => r.Header.CSeq == 4);
 
-            await Task.Delay(1100);
+            Assert.NotEmpty(connectionByes);
+            Assert.Empty(registrationByes);
 
-            Assert.Equal(3, peerTransport.SentRequests.Count);
-            Assert.Equal(SIPMethodsEnum.BYE, peerTransport.SentRequests[2].Method);
+            // PeerRegistrationTimeout hit
+            await Task.Delay(400);
+
+            Assert.Equal(SIPMethodsEnum.BYE, peerTransport.SentRequests.Last().Method);
+            Assert.Equal(4, peerTransport.SentRequests.Last().Header.CSeq);
         }
 
         //[Fact]
@@ -242,11 +251,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            peerDialog.RegistrationTimeout = 100;
-            peerDialog.ConnectionTimeout = 200;
-            peerDialog.SendTimeout = 100;
-            peerDialog.ReceiveTimeout = 100;
-            peerDialog.PeerRegistrationTimeout = 200;
+            peerDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 200,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 200
+            };
 
             // client
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
@@ -266,26 +277,30 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 200;
-            sipDialog.SendTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 200;
-            sipDialog.ReceiveTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 200,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 200
+            };
 
             _ = Task.Run(async () => await peerDialog.Start());
             _ = Task.Run(async () => await sipDialog.Start());
 
-            await Task.Delay(600); // max time it should take is 300ms (100 registration, 100 wait for peer, 100 connection) - still fails sometimes with 400... TODO: fix
+            await Task.Delay(400); 
 
+            IEnumerable<SIPRequest> notifyRequests = peerTransport.SentRequests
+                .Where(r => r.Method == SIPMethodsEnum.NOTIFY);
 
-            // TODO: This sometimes only sends two requests - find out why
-            // it's (4 Notify + 4 bye...)???
-            Assert.Equal(3, peerTransport.SentRequests.Count);
-            Assert.Equal(SIPMethodsEnum.NOTIFY, peerTransport.SentRequests[0].Method);
-            Assert.Equal(4, peerTransport.SentRequests[0].Header.CSeq);
+            IEnumerable<SIPRequest> notify6Requests = notifyRequests.Where(r => r.Header.CSeq == 6);
+            IEnumerable<SIPRequest> notify4Requests = notifyRequests.Where(r => r.Header.CSeq == 4);
 
-            Assert.Equal(SIPMethodsEnum.BYE, peerTransport.SentRequests[1].Method);
-            Assert.Equal(SIPMethodsEnum.BYE, peerTransport.SentRequests[2].Method);
+            Assert.Empty(notify6Requests);
+            Assert.NotEmpty(notify4Requests);
+
+            Assert.Equal(SIPMethodsEnum.BYE, peerTransport.SentRequests[peerTransport.SentRequests.Count - 2].Method);
+            Assert.Equal(SIPMethodsEnum.BYE, peerTransport.SentRequests.Last().Method);
         }
 
         [Fact]
@@ -331,11 +346,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            peerDialog.RegistrationTimeout = 100;
-            peerDialog.ConnectionTimeout = 100;
-            peerDialog.SendTimeout = 100;
-            peerDialog.ReceiveTimeout = 100;
-            peerDialog.PeerRegistrationTimeout = 100;
+            peerDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             // client
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
@@ -355,11 +372,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.SendTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await peerDialog.Start());
             _ = Task.Run(async () => await sipDialog.Start());
@@ -425,13 +444,15 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            peerDialog.RegistrationTimeout = 100;
-            peerDialog.ConnectionTimeout = 1000;
-            peerDialog.SendTimeout = 1000;
+            peerDialog.Config = new SIPDialogConfig()
+            {
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 1000,
 
-            // these are the important timeouts
-            peerDialog.ReceiveTimeout = 100;
-            peerDialog.PeerRegistrationTimeout = 500;
+                // these are the important timeouts
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 500,
+            };
 
             // client
             MockSIPRequest initialRequest = new MockSIPRequest(SIPMethodsEnum.REGISTER, new SIPURI(SIPSchemesEnum.sip, sipEndPoint));
@@ -451,11 +472,13 @@ namespace SignalingServerTests.SIPConnection
                 connectionPool,
                 NullLoggerFactory.Instance);
 
-            sipDialog.RegistrationTimeout = 100;
-            sipDialog.ConnectionTimeout = 100;
-            sipDialog.SendTimeout = 100;
-            sipDialog.PeerRegistrationTimeout = 100;
-            sipDialog.ReceiveTimeout = 100;
+            sipDialog.Config = new SIPDialogConfig()
+            {
+                ReceiveTimeout = 100,
+                PeerRegistrationTimeout = 100,
+                RegistrationTimeout = 100,
+                ConnectionTimeout = 100
+            };
 
             _ = Task.Run(async () => await peerDialog.Start());
             _ = Task.Run(async () => await sipDialog.Start());

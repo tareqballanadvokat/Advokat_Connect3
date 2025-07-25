@@ -6,7 +6,6 @@ using WebRTCClient.Models;
 using WebRTCLibrary.SIP.Interfaces;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
-
 namespace WebRTCClient.Transactions.SDP
 {
     internal class SDPOfferingClientTransaction : SDPTransaction
@@ -17,14 +16,15 @@ namespace WebRTCClient.Transactions.SDP
 
         private bool PeerIsAnswering { get; set; }
 
-        public SDPOfferingClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, ILoggerFactory loggerFactory, int startCseq = 1)
-            : base(sipConnection, peerConnection, startCseq)
+        public SDPOfferingClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, ILoggerFactory loggerFactory)
+            : base(sipConnection, peerConnection)
         {
             this.logger = loggerFactory.CreateLogger<SDPOfferingClientTransaction>();
         }
 
         public async override Task Start()
         {
+            await base.Start();
             this.Connection.OnRequestReceived += this.ListenForAck;
 
             await this.SendACK();
@@ -150,7 +150,7 @@ namespace WebRTCClient.Transactions.SDP
         {
             this.Connection.OnRequestReceived += this.ListenForSDPAnswer; 
 
-            RTCSessionDescriptionInit offer = this.PeerConnection.createOffer(null);
+            RTCSessionDescriptionInit offer = this.PeerConnection.createOffer();
             await this.PeerConnection.setLocalDescription(offer);
 
             string sdpOfferJson = JsonSerializer.Serialize(new { sdp = offer.sdp, type = "offer" });

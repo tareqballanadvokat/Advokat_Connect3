@@ -1,4 +1,5 @@
 ﻿using SIPSorcery.SIP;
+using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using WebRTCLibrary.SIP.Interfaces;
 
@@ -25,17 +26,18 @@ namespace WebRTCClient.Utils
 
         public SIPChannel GetChannelInstance(SIPEndPoint endpoint, X509Certificate2? sslCertificate = null)
         {
+            IPEndPoint ipEndpoint = endpoint.GetIPEndPoint();
+            
             switch (this)
             {
                 case var _ when this == UDP:
-                    return new SIPUDPChannel(endpoint.GetIPEndPoint());
+                    return new SIPUDPChannel(ipEndpoint);
 
                 case var _ when this == TCP:
-                    return new SIPTCPChannel(endpoint.GetIPEndPoint());
+                    return new SIPTCPChannel(ipEndpoint);
 
                 case var _ when this == TLS:
-                    // TODO: Currently not working
-                    return new SIPTLSChannel(endpoint.GetIPEndPoint());
+                    return new SIPTLSChannel(ipEndpoint);
 
                 case var _ when this == WebSocket:
                     return new SIPClientWebSocketChannel();

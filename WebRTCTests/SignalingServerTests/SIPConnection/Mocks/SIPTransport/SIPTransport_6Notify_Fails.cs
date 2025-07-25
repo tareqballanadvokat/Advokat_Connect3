@@ -28,7 +28,7 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
             {
                 if (request.Header.CSeq == 4)
                 {
-                    await this.Send5AckAfterTimeout(request);
+                    await this.Send5Ack(request);
                 }
 
                 if (request.Header.CSeq == 6)
@@ -40,7 +40,7 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
             return SocketError.Success;
         }
 
-        private async Task Send5AckAfterTimeout(SIPRequest request)
+        private async Task Send5Ack(SIPRequest request)
         {
             SIPEndPoint sipEndPoint = new SIPEndPoint(IPEndPoint.Parse("1.1.1.1:1"));
             SIPURI uri = new SIPURI(SIPSchemesEnum.sip, sipEndPoint);

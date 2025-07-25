@@ -11,17 +11,21 @@ namespace WebRTCClient.Transactions.SDP
 
         protected RTCPeerConnection PeerConnection { get; private set; }
 
-        protected int StartCSeq { get; private set; }
+        public int StartCSeq { get; set; } = 1;
+
+        public int CurrentCSeq { get; private set; }
 
         protected ISIPMessager Connection {  get; private set; }
 
-        public SDPTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, int startCSeq = 1)
+        public SDPTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection)
         {
             this.Connection = sipConnection;
             this.PeerConnection = peerConnection;
-            this.StartCSeq = startCSeq;
         }
 
-        public abstract Task Start();
+        public async virtual Task Start()
+        {
+            this.CurrentCSeq = this.StartCSeq;
+        }
     }
 }

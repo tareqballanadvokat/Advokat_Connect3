@@ -12,12 +12,6 @@ namespace WebRTCLibrary.SIP
     {
         private readonly ILogger<SIPConnection> logger;
 
-        public static readonly int defaultMessageTimeout = 2000;
-
-        public int MessageTimeout { get; set; } = defaultMessageTimeout;
-
-        //public delegate bool AcceptMessage(SIPMessageBase message);
-
         public AcceptMessage? MessagePredicate { get; set; }
 
         public SIPSchemesEnum SIPScheme { get; private set; }
@@ -44,10 +38,10 @@ namespace WebRTCLibrary.SIP
             this.Transport.SIPTransportRequestReceived += this.OnRequestRecieved;
         }
 
-        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, CancellationToken ct)
         {
             SIPRequest request = SIPHelper.GetRequest(this.SIPScheme, method, headerParams);
-            return await this.SendSIPRequest(request, ct, timeOut);
+            return await this.SendSIPRequest(request, ct);
         }
 
         public async Task<SocketError> SendSIPRequest(
@@ -55,14 +49,13 @@ namespace WebRTCLibrary.SIP
             SIPHeaderParams headerParams,
             string message,
             string contentType,
-            CancellationToken ct,
-            int? timeOut = null)
+            CancellationToken ct)
         {
             SIPRequest request = SIPHelper.GetRequest(this.SIPScheme, method, headerParams, message, contentType);
-            return await this.SendSIPRequest(request, ct, timeOut);
+            return await this.SendSIPRequest(request, ct);
         }
 
-        public async Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct, int ? timeOut = null)
+        public async Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
 
@@ -76,14 +69,13 @@ namespace WebRTCLibrary.SIP
                 request.Header.CallId);
             this.logger.LogTrace("payload: {payload}", request.Body);
 
-            Task<SocketError> requestTask = this.Transport.SendRequestAsync(request);
-            return await this.WaitForSendConfirmation(requestTask, timeOut);
+            return await this.Transport.SendRequestAsync(request);
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, SIPHeaderParams headerParams, CancellationToken ct)
         {
             SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams);
-            return await this.SendSIPResponse(response, ct, timeOut);
+            return await this.SendSIPResponse(response, ct);
         }
 
         public async Task<SocketError> SendSIPResponse(
@@ -91,14 +83,13 @@ namespace WebRTCLibrary.SIP
             SIPHeaderParams headerParams,
             string message,
             string contentType,
-            CancellationToken ct,
-            int? timeOut = null)
+            CancellationToken ct)
         {
             SIPResponse response = SIPHelper.GetResponse(this.SIPScheme, statusCode, headerParams, message, contentType);
-            return await this.SendSIPResponse(response, ct, timeOut);
+            return await this.SendSIPResponse(response, ct);
         }
 
-        public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct, int? timeOut = null)
+        public async Task<SocketError> SendSIPResponse(SIPResponse response, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
 
@@ -112,8 +103,7 @@ namespace WebRTCLibrary.SIP
                 response.Header.CallId);
             this.logger.LogTrace("payload: {payload}", response.Body);
 
-            Task<SocketError> responseTask = this.Transport.SendResponseAsync(response); // TODO: Should we specify the endpoint? 
-            return await this.WaitForSendConfirmation(responseTask, timeOut);
+            return await this.Transport.SendResponseAsync(response);
         }
 
         private async Task OnResponseRecieved(SIPEndPoint localSIPEndPoint, SIPEndPoint remoteEndPoint, SIPResponse sipResponse)
@@ -152,39 +142,45 @@ namespace WebRTCLibrary.SIP
             }
         }
 
-        private async Task<SocketError> WaitForSendConfirmation(Task<SocketError> request, int? timeOut = null, uint retries = 0)
-        {
-            SocketError result = SocketError.SocketError; // always gets reassigned
+        //private async Task<SocketError> WaitForSendConfirmation(SIPMessageBase request, Func<SIPMessageBase, bool, Task<SocketError>> requestMethod, int? timeOut = null, uint retries = 0)
+        //{
+        //    SocketError result = SocketError.SocketError; // always gets reassigned
 
-            for(uint i = 0; i <= retries; i++)
-            {
-                timeOut ??= this.MessageTimeout;
-                Task timeoutTask = Task.Delay((int)timeOut);
+        //    for(uint i = 0; i <= retries; i++)
+        //    {
+        //        CancellationTokenSource cts = new CancellationTokenSource();
 
-                if (await Task.WhenAny(request, timeoutTask) == request) 
-                {
-                    // Task completed within timeout.
-                    // TODO: Consider that the task may have faulted or been canceled.
-                    // We re-await the task so that any exceptions/cancellation is rethrown.
+        //        timeOut ??= this.MessageTimeout;
+        //        Task timeoutTask = Task.Delay((int)timeOut, cts.Token);
+        //        Task<SocketError> requestTask = requestMethod(request, false); // TODO: WaitForDNS = true?
 
-                    result = await request;
-                    if (result == SocketError.Success)
-                    {
-                        //break;
-                        return SocketError.Success;
-                    }
+        //        if (await Task.WhenAny(requestTask, timeoutTask) == requestTask) 
+        //        {
+        //            cts.Cancel();
 
-                    this.logger.LogDebug("Sending failed. Error: {error}, try: {tryCount}", result, i+1);
-                }
-                else
-                {
-                    this.logger.LogDebug("Send timeout. try: {tryCount}", i + 1);
-                    result = SocketError.TimedOut;
-                }
-            }
+        //            // Task completed within timeout.
+        //            // TODO: Consider that the task may have faulted or been canceled.
+        //            // We re-await the task so that any exceptions/cancellation is rethrown.
 
-            this.logger.LogDebug("Sending failed no more retries. Error: {error}", result);
-            return result;
-        }
+        //            result = await requestTask;
+        //            if (result == SocketError.Success)
+        //            {
+        //                //break;
+        //                return SocketError.Success;
+        //            }
+
+        //            this.logger.LogDebug("Sending failed. Error: {error}, try: {tryCount}", result, i+1);
+        //            //return result;
+        //        }
+        //        else
+        //        {
+        //            this.logger.LogDebug("Send timeout. try: {tryCount}", i + 1);
+        //            result = SocketError.TimedOut;
+        //        }
+        //    }
+
+        //    this.logger.LogDebug("Sending failed no more retries. Error: {error}", result);
+        //    return result;
+        //}
     }
 }
