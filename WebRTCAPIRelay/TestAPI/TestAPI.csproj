@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+	  <TargetFramework>net8.0-windows</TargetFramework>
+	  <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+	</ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\AdvokatX\PlugIns\AdvokatConnector\Adovkat.Connector.Plugin\Advokat.Connector.Plugin.csproj" />
+    <ProjectReference Include="..\WebRTCAPIRelay\WebRTCAPIRelay.csproj" />
+  </ItemGroup>
+
+</Project>
