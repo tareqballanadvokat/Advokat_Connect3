@@ -67,50 +67,34 @@ namespace Caller
 
         private async static Task SendRequest()
         {
-            //string uri = "localhost:5183/test";
             string uri = "/test";
             
             Console.WriteLine();
             Console.WriteLine($"Enter to send GET request to {uri}");
             Console.ReadLine();
 
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-
-            string requestString = await ToRawString(request); // Check if this is the entire method
+            string requestString = """
+                {
+                	"Method": "Get",
+                	"Uri": "/test",
+                	"Headers": {
+                		"Host": "localhost",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                        "Accept-Language": "de,en-US;q=0.7,en;q=0.3",
+                        "Accept-Encoding": "gzip, deflate, br, zstd",
+                        "Connection": "keep-alive",
+                        "Upgrade-Insecure-Requests": "1",
+                        "Sec-Fetch-Dest": "document",
+                        "Sec-Fetch-Mode": "navigate",
+                        "Sec-Fetch-Site": "none",
+                        "Sec-Fetch-User": "?1",
+                        "Priority": "u=0, i",
+                	},
+                }
+                """;
 
             await UserAgent.SendMessageToPeer(requestString);
-        }
-
-        private static async Task<string> ToRawString(HttpRequestMessage request)
-        {
-            var sb = new StringBuilder();
-
-            var line1 = $"{request.Method} {request.RequestUri} HTTP/{request.Version}";
-            sb.AppendLine(line1);
-
-            foreach (var (key, value) in request.Headers)
-                foreach (var val in value)
-                {
-                    var header = $"{key}: {val}";
-                    sb.AppendLine(header);
-                }
-
-            if (request.Content?.Headers != null)
-            {
-                foreach (var (key, value) in request.Content.Headers)
-                    foreach (var val in value)
-                    {
-                        var header = $"{key}: {val}";
-                        sb.AppendLine(header);
-                    }
-            }
-            sb.AppendLine();
-
-            var body = await (request.Content?.ReadAsStringAsync() ?? Task.FromResult<string>(null));
-            if (!string.IsNullOrWhiteSpace(body))
-                sb.AppendLine(body);
-
-            return sb.ToString();
         }
     }
 }
