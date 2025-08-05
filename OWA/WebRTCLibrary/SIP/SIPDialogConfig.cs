@@ -1,6 +1,4 @@
-﻿using WebRTCLibrary.SIP;
-
-namespace SIPSignalingServer.Transactions
+﻿namespace WebRTCLibrary.SIP
 {
     public class SIPDialogConfig : SIPConfig
     {
@@ -13,7 +11,7 @@ namespace SIPSignalingServer.Transactions
 
         public readonly static int defaultConnectionTimeout = 3000;
 
-        /// <summary>Timeout for the connection process after client and peer registration.
+        /// <summary>Timeout for the connection process after both peers successfully registered.
         ///          Specify how long the connection process should take before it is cancelled.
         ///          Must be set before starting.
         ///          

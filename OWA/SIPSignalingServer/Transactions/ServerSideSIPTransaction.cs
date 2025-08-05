@@ -9,7 +9,7 @@ namespace SIPSignalingServer.Transactions
     public abstract class ServerSideSIPTransaction : WebRTCLibrary.SIP.SIPTransaction, ISIPTransaction
     {
         public new ServerSideTransactionParams Params
-        { 
+        {
             get => (ServerSideTransactionParams)base.Params;
             set => base.Params = value;
         }

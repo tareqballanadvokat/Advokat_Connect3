@@ -195,7 +195,7 @@ namespace WebRTCClient.Transactions.SIP
             this.SIPConnectionTransaction = this.SIPConnectionTransactionFactory.Create(SIPScheme, this.Connection.Transport, this.WaitForPeerTransaction.Params);
 
             this.SIPConnectionTransaction.StartCseq = this.WaitForPeerTransaction.CurrentCseq;
-            this.SIPConnectionTransaction.Config = this.Config;
+            ((WebRTCLibrary.SIP.SIPTransaction)this.SIPConnectionTransaction).Config = this.Config;
 
             this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
             this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;

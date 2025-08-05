@@ -7,6 +7,7 @@ using SIPSignalingServer.Transactions.TransactionFactories;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -23,6 +24,7 @@ namespace SIPSignalingServer.Transactions
             get => (SIPDialogConfig)base.Config;
             set => base.Config = value;
         }
+
         private SIPRequest InitialRequest { get; set; }
 
         private SIPEndPoint SignalingServer { get; set; }
@@ -78,6 +80,7 @@ namespace SIPSignalingServer.Transactions
             this.ConnectionPool = connectionPool;
 
             this.Config = new SIPDialogConfig();
+
             this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory();
             this.SIPConnectionTransactionFactory = new SIPConnectionTransactionFactory();
         }

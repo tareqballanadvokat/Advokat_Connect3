@@ -15,7 +15,7 @@ namespace WebRTCLibrary.SIP
 
         public SIPSchemesEnum SIPScheme { get => this.Connection.SIPScheme; }
 
-        public virtual SIPConfig Config { get; set; } // TODO: should not be changeable once Transaction is runningw
+        public virtual SIPConfig Config { get; set; } // TODO: should not be changeable once Transaction is running
 
         private bool transportPassed = false;
 

@@ -34,6 +34,7 @@ namespace WebRTCLibrary.SIP.Utils
             foreach (ISIPChannelFactory channelFactory in sipChannels)
             {
                 // set listening channels
+                // TODO: threw an InvalidOperationException --> probably multiple processes on same socket
 
                 SIPChannel channel = channelFactory.GetChannelInstance(new SIPEndPoint(channelFactory.Protocol, sourceEndpoint), sslCertificate);
                 this.AddSIPChannel(channel);
