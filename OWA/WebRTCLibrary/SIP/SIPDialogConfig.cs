@@ -1,6 +1,8 @@
-﻿namespace WebRTCLibrary.SIP
+﻿using WebRTCLibrary.SIP.Interfaces;
+
+namespace WebRTCLibrary.SIP
 {
-    public class SIPDialogConfig : SIPConfig
+    public class SIPDialogConfig : SIPConfig, ISIPDialogConfig
     {
         public readonly static int defaultRegistrationTimeout = 3000;
 

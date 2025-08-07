@@ -23,9 +23,9 @@ namespace WebRTCClient.Transactions.SIP
 
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
-        public new SIPDialogConfig Config
+        public new ISIPDialogConfig Config
         {
-            get => (SIPDialogConfig)base.Config;
+            get => (ISIPDialogConfig)base.Config;
             set => base.Config = value;
         }
 
@@ -45,7 +45,7 @@ namespace WebRTCClient.Transactions.SIP
 
         public WaitForPeerTransaction? WaitForPeerTransaction { get; set; }
 
-        private SIPKeepAlive SIPKeepAlive { get; set; }
+        //private SIPKeepAlive SIPKeepAlive { get; set; }
 
         public SIPDialog(SIPSchemesEnum sipScheme, ISIPTransport transport, SIPParticipant sourceParticipant, SIPParticipant remoteParticipant, ILoggerFactory loggerFactory)
             : base(
@@ -57,13 +57,13 @@ namespace WebRTCClient.Transactions.SIP
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPDialog>();
 
-            this.Config = new SIPDialogConfig(); // Default config
+            this.Config = new SIPDialogConfig();
 
-            // default factories, TODO: get them passed in ctor?
+            // default factories
             this.SIPConnectionTransactionFactory = new SIPConnectionTransactionFactory(this.loggerFactory);
             this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory(this.loggerFactory);
 
-            this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params, this.loggerFactory);
+            //this.SIPKeepAlive = new SIPKeepAlive(this.Connection, this.Params, this.loggerFactory);
         }
 
         protected async override Task StartRunning()

@@ -19,9 +19,9 @@ namespace SIPSignalingServer.Transactions
 
         private readonly ILogger<SIPDialog> logger;
 
-        public new SIPDialogConfig Config
+        public new ISIPDialogConfig Config
         {
-            get => (SIPDialogConfig)base.Config;
+            get => (ISIPDialogConfig)base.Config;
             set => base.Config = value;
         }
 

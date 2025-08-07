@@ -1,12 +1,13 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
+using WebRTCClient.Configs;
+using WebRTCClient.Configs.Interfaces;
 using WebRTCClient.Models;
 using WebRTCClient.Transactions.SIP;
 using WebRTCClient.Transactions.SIP.Interfaces;
 using WebRTCClient.Utils;
-using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Interfaces;
+using WebRTCLibrary.SIP.Interfaces; 
 using WebRTCLibrary.SIP.Models;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -20,7 +21,7 @@ namespace WebRTCClient
 
         private readonly ILogger<SIPClient> logger;
 
-        public SIPClientConfig Config { get; set;}
+        public ISIPClientConfig Config { get; set;}
 
         public delegate Task MessageReceivedDelegate(SIPClient sender, byte[] data);
 

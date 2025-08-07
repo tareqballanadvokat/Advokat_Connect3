@@ -1,8 +1,9 @@
-﻿using WebRTCLibrary.SIP;
+﻿using WebRTCClient.Configs.Interfaces;
+using WebRTCLibrary.SIP;
 
-namespace WebRTCClient
+namespace WebRTCClient.Configs
 {
-    public class SIPClientConfig : SIPDialogConfig
+    public class SIPClientConfig : SIPDialogConfig, ISIPClientConfig
     {
         public static int defaultSIPPeerConnectionTimout = 9000;
 

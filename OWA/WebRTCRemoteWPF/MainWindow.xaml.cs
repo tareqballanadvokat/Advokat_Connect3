@@ -1,15 +1,16 @@
 ﻿using Microsoft.Extensions.Logging;
 using Serilog;
+using Serilog.Sinks.LogList;
 using SIPSorcery.Net;
 using SIPSorcery.SIP;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Net;
 using System.Text;
 using System.Windows;
+using System.Windows.Data;
 using WebRTCClient;
 using WebRTCLibrary.SIP.Models;
-using Serilog.Sinks.LogList;
-using System.Collections.ObjectModel;
-using System.Windows.Data;
 
 namespace WebRTCRemoteWPF
 {
