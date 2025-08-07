@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using WebRTCLibrary.SIP.Interfaces;
+using WebRTCClient.Transactions.SIP.Interfaces;
 
 namespace WebRTCClient
 {
@@ -43,16 +44,16 @@ namespace WebRTCClient
 
         private SDPTransaction? SDPDialog { get; set; }
 
-        private ISIPMessager SIPConnection { get; set; }
+        private ISIPClient SIPConnection { get; set; }
 
         private bool ICECandidatesReady { get; set; } // TODO: we should wait with the negotiation until this is true?
 
-        public P2PConnection(ISIPMessager sipConnection, IReadOnlyList<RTCIceServer> iceServers, ILoggerFactory loggerFactory)
+        public P2PConnection(ISIPClient sipConnection, IReadOnlyList<RTCIceServer> iceServers, ILoggerFactory loggerFactory)
             :this(sipConnection, iceServers, loggerFactory, defaultPortRange)
         {
         }
 
-        public P2PConnection(ISIPMessager sipConnection, IReadOnlyList<RTCIceServer> iceServers, ILoggerFactory loggerFactory, PortRange portRange)
+        public P2PConnection(ISIPClient sipConnection, IReadOnlyList<RTCIceServer> iceServers, ILoggerFactory loggerFactory, PortRange portRange)
         {
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<P2PConnection>();

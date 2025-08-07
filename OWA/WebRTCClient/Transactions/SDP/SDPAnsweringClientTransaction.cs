@@ -3,6 +3,7 @@ using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Text.Json;
 using WebRTCClient.Models;
+using WebRTCClient.Transactions.SIP.Interfaces;
 using WebRTCLibrary.SIP.Interfaces;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -17,13 +18,13 @@ namespace WebRTCClient.Transactions.SDP
 
         private bool PeerIsOffering { get; set; }
 
-        public SDPAnsweringClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, ILoggerFactory loggerFactory)
+        public SDPAnsweringClientTransaction(ISIPClient sipConnection, RTCPeerConnection peerConnection, ILoggerFactory loggerFactory)
             : base(sipConnection, peerConnection)
         {
             this.logger = loggerFactory.CreateLogger<SDPAnsweringClientTransaction>();
         }
 
-        public async override Task Start()
+        public async override Task Start(CancellationToken? ct = null)
         {
             this.Connection.OnRequestReceived += this.ListenForACK;
 

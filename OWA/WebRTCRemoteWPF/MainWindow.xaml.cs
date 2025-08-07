@@ -145,7 +145,7 @@ namespace WebRTCRemoteWPF
                 iceServers: iceServers,
                 this.loggerFactory
                 );
-            
+
             this.UserAgent.OnMessageReceived += this.OnMessage;
 
             //this.UserAgent.OnConnected += this.OnConnected;

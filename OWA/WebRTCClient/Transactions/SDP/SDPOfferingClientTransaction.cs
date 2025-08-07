@@ -3,6 +3,7 @@ using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Text.Json;
 using WebRTCClient.Models;
+using WebRTCClient.Transactions.SIP.Interfaces;
 using WebRTCLibrary.SIP.Interfaces;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -16,24 +17,25 @@ namespace WebRTCClient.Transactions.SDP
 
         private bool PeerIsAnswering { get; set; }
 
-        public SDPOfferingClientTransaction(ISIPMessager sipConnection, RTCPeerConnection peerConnection, ILoggerFactory loggerFactory)
+        public SDPOfferingClientTransaction(ISIPClient sipConnection, RTCPeerConnection peerConnection, ILoggerFactory loggerFactory)
             : base(sipConnection, peerConnection)
         {
             this.logger = loggerFactory.CreateLogger<SDPOfferingClientTransaction>();
         }
 
-        public async override Task Start()
+        public async override Task Start(CancellationToken? ct = null)
         {
-            await base.Start();
+            await base.Start(ct);
             this.Connection.OnRequestReceived += this.ListenForAck;
 
             await this.SendACK();
 
             await WaitForAsync(
                 () => this.PeerIsAnswering,
-                20000, // TODO: Find suitable timeout
+                this.Connection.Config.ReceiveTimeout,
                 ct: CancellationToken.None, // TODO: implement cancellation logic
-                successCallback: this.SendSDPOffer
+                successCallback: this.SendSDPOffer,
+                timeoutCallback: async () => { } // TODO: send 408 Timeout
                 // TODO: failurecallback ? 
                 );
             
@@ -102,6 +104,28 @@ namespace WebRTCClient.Transactions.SDP
             this.PeerIsAnswering = true;
         }
 
+        private async Task SendSDPOffer()
+        {
+            this.Connection.OnRequestReceived += this.ListenForSDPAnswer;
+
+            RTCSessionDescriptionInit offer = this.PeerConnection.createOffer();
+            await this.PeerConnection.setLocalDescription(offer);
+
+            string sdpOfferJson = JsonSerializer.Serialize(new { sdp = offer.sdp, type = "offer" });
+
+            this.logger.LogDebug("Sending SDP offer.");
+            await this.Connection.SendSIPRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 2);
+
+            await WaitFor(
+                () => this.AnswerReceived,
+                this.Connection.Config.ReceiveTimeout,
+                ct: CancellationToken.None // TODO: implement cancellation logic
+                );
+
+            // TODO: For some reason wait for does not wait here. Does it not work in general?
+            //this.Connection.OnRequestReceived -= this.ListenForSDPAnswer;
+        }
+
         private async Task ListenForSDPAnswer(ISIPMessager sender, SIPRequest request)
         {
             if (request.Method != SIPMethodsEnum.SERVICE)
@@ -144,28 +168,6 @@ namespace WebRTCClient.Transactions.SDP
 
             this.PeerConnection.setRemoteDescription(initialization);
             this.AnswerReceived = true;
-        }
-
-        private async Task SendSDPOffer()
-        {
-            this.Connection.OnRequestReceived += this.ListenForSDPAnswer; 
-
-            RTCSessionDescriptionInit offer = this.PeerConnection.createOffer();
-            await this.PeerConnection.setLocalDescription(offer);
-
-            string sdpOfferJson = JsonSerializer.Serialize(new { sdp = offer.sdp, type = "offer" });
-
-            this.logger.LogDebug("Sending SDP offer.");
-            await this.Connection.SendSIPRequest(SIPMethodsEnum.SERVICE, sdpOfferJson, SDPContentType, this.StartCSeq + 2);
-
-            await WaitFor(
-                () => this.AnswerReceived,
-                timeOut: 20000, // TODO: get real timeout
-                ct: CancellationToken.None // TODO: implement cancellation logic
-                );
-
-            // TODO: For some reason wait for does not wait here. Does it not work in general?
-            //this.Connection.OnRequestReceived -= this.ListenForSDPAnswer;
         }
     }
 }

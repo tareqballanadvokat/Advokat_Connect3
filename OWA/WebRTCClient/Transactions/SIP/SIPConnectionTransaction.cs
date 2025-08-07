@@ -3,6 +3,7 @@ using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using WebRTCClient.Transactions.SIP.Interfaces;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using static WebRTCLibrary.Utils.TaskHelpers;
@@ -20,6 +21,12 @@ namespace WebRTCClient.Transactions.SIP
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
         private SIPMessaging? MessagingDialog { get; set; }
+
+        public new SIPDialogConfig Config
+        {
+            get => (SIPDialogConfig)base.Config;
+            set => base.Config = value;
+        }
 
         [MemberNotNullWhen(true, nameof(MessagingDialog))]
         public bool Connected { get => MessagingDialog?.Running ?? false && PeerListeningConfirmation; }
