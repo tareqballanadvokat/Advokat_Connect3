@@ -1,100 +1,99 @@
-// src/taskpane/components/tabs/email/EmailTabContent.tsx
-import React, { useState, useEffect } from 'react';
-// import SearchAndCaseList from './SearchAndCaseList';
-import ServiceSection, { ServiceSectionProps } from '../shared/ServiceSection';
-import SearchCaseList from '../email/SearchCaseList'; 
-import ServiceSend from '../email/EmailSend';
+// src/taskpane/components/tabs/service/ServiceTabContent.tsx
+import React from 'react';
+import { useAppSelector, useAppDispatch } from '@store/hooks';
+import ServiceSection from './ServiceSection';
+import SearchCaseList from '../email/SearchCaseList';
+import { setSelectedCase, updateTransferCaseDisableState } from '@store/slices/emailSlice';
+import { saveServiceInformation } from '@utils/api';
+import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
+import { ServiceModel } from '@components/interfaces/IService';
+import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
-import  { saveServiceInformation } from './../../../utils/api';
-
-import {  getInternetMessageIdAsync } from '../../../hooks/useOfficeItem'; 
+import ServiceSend from './ServiceSend';
 
 const ServiceTabContent: React.FC = () => {
-    //Search Panel selection
-    const [selectedCaseName, setSelectedCaseName] = useState(''); //case name
-    const [selectedCaseId, setSelectedCaseId]     = useState(-1);  //case id
+  const dispatch = useAppDispatch();
+  
+  // Get the relevant state from Redux
+  const { abbreviation, time, text, sb } = useAppSelector(state => state.service);
+  const { selectedCaseId, selectedCaseName, selectedCaseDisable, transferCaseDisable } = useAppSelector(state => state.email);
+  
+  // Refresh trigger for registered services
+  const [refreshFlag, setRefreshFlag] = React.useState(0);
 
-  // const [abbrev, setAbbrev] = useState('');  
-  const [abbrev, setAbbrev] = useState<number>(0);
-  const [time, setTime]   = useState('');
-  const [text, setText]   = useState('');
-  const [sb, setSb]   = useState('');
-  // const { messageId, emailContent } = useOfficeItem();
-  const [refreshFlag, setRefreshFlag] = useState(0);
-  //SendEmail buttons 
-  const [selectedCaseDisable, setSelectedCaseDisable] = useState(false); //is input disabled if email was registered
-  const [transferCaseDisable, setTransferCaseDisable] = useState(true);   //is button on availabe when input not filled
-
-  const sendEmailHandler = async () => {
- 
-    console.log(sb, text,abbrev,time);
- 
-  const email = Office.context.mailbox.item;
-  const messageId= await getInternetMessageIdAsync(email);
-
- 
-  const payload   =
-   {
-      caseId:       selectedCaseId,
-      serviceAbbreviationType:  abbrev.toString(),
-      serviceSB:           sb,         
-      serviceTime:         time,
-      serviceText:         text,
-      internetMessageId: messageId,
-      userId :1
-    }
- 
-    const data = await saveServiceInformation(payload);
-   setRefreshFlag(f => f + 1);
+  // Handler for case selection
+  const setCaseHandler = (id: string, name: string) => {
+    dispatch(setSelectedCase({
+      id: Number.parseInt(id),
+      name: name
+    }));
+    dispatch(updateTransferCaseDisableState());
   };
-
-
-   const setCaseHandler = async (id: string, name: string) => {
-      console.log(id, name);
-      setSelectedCaseName(name);
-      setSelectedCaseId(Number.parseInt(id));
-      // setTransferCaseDisable(false);
-  }
-
-   useEffect(() => {
-     (() => {
-       if( text != '' && time != '' && time != '' && selectedCaseId != -1)
-             setTransferCaseDisable(false); 
- 
-       if( text == '' || time == '' || time == '' || selectedCaseId == -1)
-             setTransferCaseDisable(true); 
- 
-      })();
-   }, [text, time, selectedCaseId, abbrev, sb]);
- 
- 
- 
+  
+  // Handler for case name change
+  const handleCaseChange = (value: string) => {
+    dispatch(setSelectedCase({
+      id: selectedCaseId,
+      name: value
+    }));
+  };
+  
+  // Handler for sending service
+  const sendServiceHandler = async () => {
+    if (selectedCaseId === -1) {
+      notify('Please select a case first', 'warning', 3000);
+      return;
+    }
+    
+    try {
+      // Get message ID for reference (if needed)
+      const email = Office.context.mailbox.item;
+      const messageId = await getInternetMessageIdAsync(email);
+      
+      // Create payload using ServiceModel interface
+      const payload: ServiceModel = {
+        caseId: selectedCaseId,
+        serviceAbbreviationType: abbreviation.toString(),
+        serviceSB: sb,
+        serviceTime: time,
+        serviceText: text,
+        internetMessageId: messageId,
+        userId: 1
+      };
+      
+      // Send to API
+      await saveServiceInformation(payload);
+      notify('Service saved successfully', 'success', 3000);
+      
+      // Trigger refresh
+      setRefreshFlag(f => f + 1);
+    } catch (error) {
+      console.error('Failed to save service:', error);
+      notify('Failed to save service', 'error', 5000);
+    }
+  };
+  
   return (
-    <div  >
- 
-    <SearchCaseList onCaseSelect={setCaseHandler} />
-    <ServiceSend     
+    <div>
+      {/* Case Search */}
+      <SearchCaseList onCaseSelect={setCaseHandler} />
+      
+      {/* Service Send Button */}
+      <ServiceSend
         caseId={selectedCaseName}
-        onCaseChange={setSelectedCaseName}
-        onTransfer={sendEmailHandler}
+        onCaseChange={handleCaseChange}
+        onTransfer={sendServiceHandler}
         caseIdDisable={selectedCaseDisable}
-        transferBtnDisable={transferCaseDisable} 
-        />
-
-    <ServiceSection
-        abbreviation={abbrev}
-        onAbbreviationChange={setAbbrev}
-        time={time}
-        onTimeChange={setTime}
-        text={text}
-        onTextChange={setText}
-        sb={sb}
-        onSbChange={setSb}
-        oveerideDataOnStartup={false}
+        transferBtnDisable={transferCaseDisable}
       />
-
-<RegisteredService  refreshTrigger={refreshFlag}  />
+      
+      {/* Service Section */}
+      <ServiceSection />
+      
+      {/* Registered Services */}
+      <RegisteredService refreshTrigger={refreshFlag} />
     </div>
   );
 };
+
 export default ServiceTabContent;

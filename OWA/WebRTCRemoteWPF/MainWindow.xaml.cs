@@ -21,8 +21,7 @@ namespace WebRTCRemoteWPF
     {
         //private static readonly string testingSignalingServer = "92.205.233.81:8081";
         //private static readonly string testingSignalingServer = "192.168.1.58:8081";
-        private static readonly string testingSignalingServer = new IPEndPoint(IPAddress.Loopback, 443).ToString();
-        //private static readonly string testingSignalingServer = new IPEndPoint(IPAddress.Loopback, 8081).ToString();
+        private static readonly string testingSignalingServer = new IPEndPoint(IPAddress.Loopback, 8009).ToString();
 
         private static readonly string testingCallerName = "macs";
         private static readonly string testingRemoteName = "macc";

@@ -18,44 +18,44 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
   const dcRef = useRef<RTCDataChannel | null>(null);
   const [messages, setMessages] = useState<string[]>([]);
 
-  // 1) Inicjalizacja PeerConnection i – w zależności od roli – utworzenie DataChannel albo obsługa ondatachannel
+  // 1) Initialize PeerConnection and - depending on the role - create DataChannel or handle ondatachannel
   useEffect(() => {
-    // a) Utwórz nowy RTCPeerConnection ze STUN-em (Google STUN)
+    // a) Create new RTCPeerConnection with STUN (Google STUN)
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
     pcRef.current = pc;
 
-    // b) Jeśli to my (offerer), od razu tworzymy data channel
+    // b) If it's us (the offerer), we immediately create a data channel
     if (isOfferer) {
       const dc = pc.createDataChannel('udp-like-channel');
       dcRef.current = dc;
 
       dc.onopen = () => {
-        console.log('DataChannel (offerer) OTWARTY');
+        console.log('DataChannel (offerer) Open');
       };
       dc.onmessage = (e) => {
         setMessages((prev) => [...prev, 'Remote: ' + e.data]);
       };
 
-      // Utwórz ofertę SDP i wyślij do drugiej strony
+      // Create SDP offer and send to other party
       pc.createOffer()
         .then((offer) => pc.setLocalDescription(offer))
         .then(() => {
-          // pc.localDescription nie będzie null
+          // pc.localDescription will not be null
           if (pc.localDescription) {
             sendSignal(pc.localDescription);
           }
         })
         .catch((err) => console.error('Błąd podczas tworzenia oferty:', err));
     } else {
-      // c) Jeśli to nie my (answerer), czekamy na ondatachannel
+      // c) If it's not us (the answerer), we're waiting for ondatachannel
       pc.ondatachannel = (event) => {
         const dc = event.channel;
         dcRef.current = dc;
 
         dc.onopen = () => {
-          console.log('DataChannel (answerer) OTWARTY');
+          console.log('DataChannel (answerer) Open');
         };
         dc.onmessage = (e) => {
           setMessages((prev) => [...prev, 'Remote: ' + e.data]);
@@ -63,14 +63,14 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
       };
     }
 
-    // d) Wymiana ICE candidates
+    // d) ICE candidates exchange
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         sendSignal({ candidate: event.candidate });
       }
     };
 
-    // e) Cleanup: przy odmontowaniu komponentu zamykamy peer connection
+    // e) Cleanup: when unmounting a component we close the peer connection
     return () => {
       if (pcRef.current) {
         pcRef.current.close();
@@ -80,7 +80,7 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
     };
   }, [isOfferer, sendSignal]);
 
-  // 2) Gdy przychodzą dane sygnałowe (SDP lub IceCandidate) – obsłuż je
+  // 2)When signal data comes in (SDP or IceCandidate) – handle it
   useEffect(() => {
     if (!incomingSignal || !pcRef.current) {
       return;
@@ -88,17 +88,17 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
 
     const pc = pcRef.current;
 
-    // a) Jeżeli przyszło SDP (offer/answer)
+    // a) If SDP (offer/answer) came
     if (incomingSignal.sdp) {
       const desc = new RTCSessionDescription(incomingSignal.sdp);
 
       pc.setRemoteDescription(desc)
         .then(() => {
-          // Jeśli to był offer, to utwórz odpowiedź (answer)
+          // If this was an offer, then create an answer
           if (desc.type === 'offer') {
             return pc.createAnswer();
           }
-          // W innym wypadku – nic nie zwracamy
+          // Otherwise, we return nothing
           return null;
         })
         .then((answer) => {
@@ -114,7 +114,7 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
         })
         .catch((err) => console.error('Błąd przy obsłudze SDP:', err));
     }
-    // b) Jeżeli przyszło IceCandidate
+    // b) If IceCandidate came
     else if (incomingSignal.candidate) {
       const iceCandidate = new RTCIceCandidate(incomingSignal.candidate);
       pc.addIceCandidate(iceCandidate).catch((err) => {

@@ -186,7 +186,7 @@ export function useOfficeItem() {
       .catch(err => console.error('Email content error:', err));
   }, []);
 
-  // 2) Gdy wszystkie cztery wartości są ustawione, włączamy ready
+  // 2) Once all four values ​​are set, we turn on ready
   useEffect(() => {
     if (
       subject !== '' &&

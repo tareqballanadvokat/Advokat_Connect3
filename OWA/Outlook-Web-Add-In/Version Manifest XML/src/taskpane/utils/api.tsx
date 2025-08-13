@@ -1,57 +1,16 @@
-// import { AttachmentInfo } from './calculateAttachments';
+// API utility functions
 import { TransferAttachmentItem, TransferEmailItem } from '../components/tabs/email/TransferAndAttachment';
 import { API_BASE } from '../../config';
-import {CaseItem} from '../components/interfaces/ISearchCase'
-import {Person} from '../components/interfaces/IPerson'
+import { CaseItem } from '../components/interfaces/ISearchCase';
+import { Person } from '../components/interfaces/IPerson';
+import { EmailModel, Attachment } from '../components/interfaces/IEmail';
+import { ServiceModel } from '../components/interfaces/IService';
+import { Abbreviation, TransferData } from '../components/interfaces/ICommon';
+import { HierarchyTree } from '../components/interfaces/ICase';
+import notify from 'devextreme/ui/notify';
 
-import notify from 'devextreme/ui/notify'; // ← import DevExtreme notify
-export interface TransferData {
-  emailRow: TransferEmailItem;
-  attachmentRows: TransferAttachmentItem[];
-}
-
-export interface EmailModel {
-  caseId  :number;
-  caseName  :string;
-  serviceAbbreviationType  :string;
-  serviceSB  :string;
-  serviceTime :string;
-  serviceText  :string;
-  internetMessageId :string;
-  emailName  :string;
-  emailContent :string;
-  emailFolder  :string;
-  emailFolderId  :number;
-    userID  :string;
-    attachments: Attachment[] | [];
-}
-
-export interface Attachment
-{
-   id :string;
-   originalFileName  :string;
-   fileName  :string;
-   contentBase64  :string;
-   folder  :number;
-} 
-
- 
-export interface HierarchyTree {
-  id: number;
-  name: string;
-  rootId?: number | null;
-  hasChild: boolean;
-  isStructure: boolean;
-  causa: string;
-  hasUrl: boolean;
-  url: string; 
-}
-
-export interface  Abbreviation
-{
-        id :number;
-        name: string;
-}
+// Re-export interfaces for backward compatibility (can be removed later)
+export type { EmailModel, Attachment, ServiceModel, Abbreviation, TransferData, HierarchyTree };
 
 export async function saveEmailInformation(payload: EmailModel)
 {
@@ -398,14 +357,13 @@ export async function removePerson(personId)
 
 export async function getCases(searchValue:string): Promise<CaseItem[]> 
 { 
-// const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
   const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: searchValue })   // lub inny payload
+          body: JSON.stringify({ query: searchValue }) 
         });
   const data: CaseItem[] = await resp.json();
-   
+
   if (!resp.ok) {
     notify('Search cases failed', 'error', 5000);
     const txt = await resp.text();

@@ -31,6 +31,13 @@ module.exports = async (env, options) => {
     },
     resolve: {
       extensions: [".ts", ".tsx", ".html", ".js"],
+      alias: {
+        '@store': path.resolve(__dirname, './src/store'),
+        '@components': path.resolve(__dirname, './src/taskpane/components'),
+        '@utils': path.resolve(__dirname, './src/taskpane/utils'),
+        '@hooks': path.resolve(__dirname, './src/taskpane/hooks'),
+        '@src': path.resolve(__dirname, './src')
+      }
     },
     module: {
       rules: [
@@ -44,7 +51,14 @@ module.exports = async (env, options) => {
         {
           test: /\.tsx?$/,
           exclude: /node_modules/,
-          use: ["ts-loader"],
+          use: [
+            {
+              loader: "ts-loader",
+              options: {
+                configFile: path.resolve('./tsconfig.json')
+              }
+            }
+          ],
         },
         {
           test: /\.html$/,

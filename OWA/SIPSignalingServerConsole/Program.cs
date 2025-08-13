@@ -24,10 +24,8 @@ namespace SIPSignalingServer
                 // TODO: Get certpath from appsettings? Get Password from environment / registry?
 
                 // IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 80);
-                 //IPEndPoint serverEndpoint = IPEndPoint.Parse("192.168.1.58:8081");
-                IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Loopback, 443);
-                //IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Loopback, 8081);
-
+                // IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:443");
+                IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Loopback, 8009);
                 signalingServer = new SignalingServer(serverEndpoint, loggerFactory);
 
                 string certPath = Path.Combine(Directory.GetCurrentDirectory(), "127.0.0.1.pfx");
