@@ -1,6 +1,6 @@
 ﻿namespace WebRTCClient
 {
-    public interface IWebRTCPeer
+    public interface IWebRTCPeer : IAsyncDisposable 
     {
         //public delegate Task SIPMessageReceivedDelegate(IWebRTCPeer sender, byte[] data); // TODO: Is this needed?
         

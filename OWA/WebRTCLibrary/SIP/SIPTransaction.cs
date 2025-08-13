@@ -65,6 +65,7 @@ namespace WebRTCLibrary.SIP
             this.Config = new SIPConfig();
         }
 
+        // TODO: make abstract?
         protected async virtual Task StartRunning()
         {
         }
@@ -174,9 +175,14 @@ namespace WebRTCLibrary.SIP
             return callIdIsValid && toTagIsValid && fromTagIsValid;
         }
 
-        //public async virtual ValueTask DisposeAsync()
-        //{
-        //    await this.Stop();
-        //}
+        public async virtual ValueTask DisposeAsync()
+        {
+            await this.Stop();
+            if (!this.transportPassed)
+            {
+                // TODO: dispose connection
+                this.Connection.Transport.Dispose();
+            }
+        }
     }
 }

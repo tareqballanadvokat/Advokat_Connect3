@@ -3,7 +3,7 @@ using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCLibrary.SIP.Interfaces
 {
-    public interface ISIPTransaction //: IAsyncDisposable
+    public interface ISIPTransaction : IAsyncDisposable
     {
         public ISIPConnection Connection { get; }
 

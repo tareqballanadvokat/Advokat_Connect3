@@ -113,6 +113,9 @@ namespace WebRTCClient
         public async Task Disconnect()
         {
             await this.sipClient.StopDialog();
+            
+            // TODO: disconnect
+            //this.p2pConnection.Stop()
         }
 
         private async Task WaitForDirectConnection(SIPClient sender)
@@ -174,6 +177,12 @@ namespace WebRTCClient
         private async Task DirectMessageReceived(P2PConnection connection, byte[] data)
         {
             await (this.OnMessageReceived?.Invoke(this, data) ?? Task.CompletedTask);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await this.Disconnect();
+            await this.sipClient.DisposeAsync();
         }
     }
 }

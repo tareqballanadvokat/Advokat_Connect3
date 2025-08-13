@@ -37,6 +37,8 @@ namespace WebRTCClient
 
         private SIPDialog Dialog { get; set; }
 
+        private ISIPTransport Transport { get; set; }
+
         public bool SignalingServerConnected { get => this.Dialog.Connected; }
 
         public event ISIPMessager.RequestReceivedDelegate? OnRequestReceived
@@ -50,6 +52,9 @@ namespace WebRTCClient
             add => this.Dialog.OnResponseReceived += value;
             remove => this.Dialog.OnResponseReceived -= value;
         }
+
+        private bool TransportCreated { get; set; }
+
         public SIPClient(SignalingServerParams connectionParams, ILoggerFactory loggerFactory)
             :this(
                  connectionParams.SIPScheme,
@@ -58,6 +63,7 @@ namespace WebRTCClient
                  remoteParticipant: connectionParams.RemoteParticipant,
                  loggerFactory: loggerFactory)
         {
+            this.TransportCreated = true;
         }
 
         public SIPClient(
@@ -74,6 +80,7 @@ namespace WebRTCClient
             this.RemoteParticipant = remoteParticipant;
             
             this.Config = new SIPClientConfig(); // Default config
+            this.Transport = transport;
 
             this.Dialog = new SIPDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant, this.loggerFactory);
         }
@@ -117,6 +124,15 @@ namespace WebRTCClient
             }
 
             return new WebRTCLibrary.SIP.Utils.SIPTransport(caller.Endpoint.GetIPEndPoint(), sipChannelEnums);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await this.StopDialog();
+            if (this.TransportCreated)
+            {
+                this.Transport.Dispose();
+            }
         }
     }
 }

@@ -10,6 +10,7 @@ using Serilog;
 using Serilog.Sinks.LogList;
 using System.Collections.ObjectModel;
 using System.Windows.Data;
+using System.ComponentModel;
 
 namespace WebRTCCaller
 {
@@ -145,6 +146,12 @@ namespace WebRTCCaller
             this.UserAgent.OnMessageReceived += this.OnMessage;
             //this.UserAgent.OnConnected += this.OnConnected;
             await this.UserAgent.Connect();
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            this.UserAgent?.DisposeAsync();
+            base.OnClosing(e);
         }
 
         private async Task OnMessage(IWebRTCPeer sender, byte[] message)

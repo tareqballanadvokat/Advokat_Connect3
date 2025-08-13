@@ -153,6 +153,13 @@ namespace WebRTCRemoteWPF
 
             await this.UserAgent.Connect();
         }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            this.UserAgent?.DisposeAsync();
+            base.OnClosing(e);
+        }
+
         private async Task OnMessage(IWebRTCPeer sender, byte[] message)
         {
             this.AddLineToTextBox(message);
