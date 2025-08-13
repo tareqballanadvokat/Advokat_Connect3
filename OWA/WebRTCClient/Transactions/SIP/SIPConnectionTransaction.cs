@@ -68,7 +68,7 @@ namespace WebRTCClient.Transactions.SIP
 
             await WaitFor(
                 () => this.PeerListeningConfirmation,
-                this.Config.ReceiveTimeout, // TODO: Check if this is the correct timeout
+                this.Config.ReceiveTimeout,
                 ct: this.Ct,
                 timeoutCallback: async () => await this.ConnectionFailed("Peer took too long to confirm connection."),
                 cancellationCallback: async () => await this.ConnectionFailed("Connection cancelled.")

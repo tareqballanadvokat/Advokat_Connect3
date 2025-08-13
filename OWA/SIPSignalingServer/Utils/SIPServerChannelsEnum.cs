@@ -55,7 +55,7 @@ namespace SIPSignalingServer.Utils
                     sslConfig.ServerCertificate = sslCertificate;
                     sslConfig.CheckCertificateRevocation = true;
                     sslConfig.EnabledSslProtocols = SslProtocols.None; // lets the OS choose the TLS version
-
+                    // TODO: threw an InvalidOperationException --> probably multiple processes on same socket
                     return new SIPWebSocketChannel(ipEndpoint, SIPConstants.DEFAULT_ENCODING, SIPConstants.DEFAULT_ENCODING, sslConfig);
 
                 default:

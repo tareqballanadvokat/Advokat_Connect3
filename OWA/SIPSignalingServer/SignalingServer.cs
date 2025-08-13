@@ -124,6 +124,7 @@ namespace SIPSignalingServer
             {
                 throw new ArgumentException("No SIPChannel set. Cannot create a SIP connection.");
             }
+            // TODO: threw an InvalidOperationException --> probably multiple processes on same socket
 
             return new WebRTCLibrary.SIP.Utils.SIPTransport(sourceEndpoint, this.SIPChannels, this.SSLCertificate);
         }

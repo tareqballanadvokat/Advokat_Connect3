@@ -3,7 +3,10 @@ using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using System.Collections.ObjectModel;
 using System.Net;
+using WebRTCClient.Configs;
+using WebRTCClient.Configs.Interfaces;
 using WebRTCClient.Models;
+using WebRTCClient.Transactions.SIP.Interfaces;
 using WebRTCClient.Utils;
 using WebRTCLibrary.SIP.Models;
 using static WebRTCLibrary.Utils.TaskHelpers;
@@ -34,9 +37,11 @@ namespace WebRTCClient
         /// <version date="22.04.2025" sb="MAC">Created.</version>
         public bool IsConnected { get => this.p2pConnection?.IsConnected ?? false; }
 
+        public IWebRTCConfig WebRTCConfig { get; set; }
+
         private P2PConnection p2pConnection;
 
-        private SIPClient sipClient;
+        private SIPClient sipClient; // TODO: interface
 
         private readonly SignalingServerParams signalingServerParams;
 
@@ -80,6 +85,8 @@ namespace WebRTCClient
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<WebRTCPeer>();
 
+            this.WebRTCConfig = new WebRTCConfig();
+
             this.sipClient = new SIPClient(this.signalingServerParams, this.loggerFactory);
             this.p2pConnection = new P2PConnection(this.sipClient, this.iceServers, this.loggerFactory);
         }
@@ -91,6 +98,9 @@ namespace WebRTCClient
         public async Task Connect()
         {
             // TODO: maybe expose the SIPClient. Add check if SIPClient is connected in that case
+
+            this.sipClient.Config = this.WebRTCConfig.SIPClientConfig;
+            this.p2pConnection.Config = this.WebRTCConfig.P2PConnectionConfig;
 
             this.p2pConnection.OnMessageReceived += this.DirectMessageReceived;
             this.sipClient.OnConnected += this.WaitForDirectConnection;
@@ -109,7 +119,7 @@ namespace WebRTCClient
         {
             await WaitForAsync(
                 () => this.p2pConnection.IsConnected,
-                timeOut: 5000, // TODO: find suitable timout for p2p connection
+                timeOut: this.WebRTCConfig.P2PConnectionConfig.ConnectionTimeout, // TODO: find suitable timout for p2p connection
                                //       This is the reason why the waiting peer does not fire the OnConnected event when we wait a bit
                 ct: CancellationToken.None, // TODO: implement cancellation logic
                 successCallback: this.DirectConnectionOpen

@@ -1,10 +1,13 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
+using WebRTCClient.Configs;
+using WebRTCClient.Configs.Interfaces;
 using WebRTCClient.Models;
 using WebRTCClient.Transactions.SIP;
+using WebRTCClient.Transactions.SIP.Interfaces;
 using WebRTCClient.Utils;
-using WebRTCLibrary.SIP.Interfaces;
+using WebRTCLibrary.SIP.Interfaces; 
 using WebRTCLibrary.SIP.Models;
 using static WebRTCLibrary.Utils.TaskHelpers;
 
@@ -12,11 +15,13 @@ namespace WebRTCClient
 {
     // TODO: Do we need this abstraction?
 
-    public class SIPClient : ISIPMessager
+    public class SIPClient : ISIPClient
     {
         private readonly ILoggerFactory loggerFactory;
 
         private readonly ILogger<SIPClient> logger;
+
+        public ISIPClientConfig Config { get; set;}
 
         public delegate Task MessageReceivedDelegate(SIPClient sender, byte[] data);
 
@@ -67,6 +72,8 @@ namespace WebRTCClient
 
             this.SourceParticipant = sourceParticipant;
             this.RemoteParticipant = remoteParticipant;
+            
+            this.Config = new SIPClientConfig(); // Default config
 
             this.Dialog = new SIPDialog(sipScheme, transport, this.SourceParticipant, this.RemoteParticipant, this.loggerFactory);
         }
@@ -83,11 +90,12 @@ namespace WebRTCClient
 
         public async Task StartDialog() //List<RTCIceServer> iceServers)
         {
+            this.Dialog.Config = this.Config;
             await this.Dialog.Start();
 
             await WaitForAsync(
                 () => this.Dialog.Connected, // TODO: start listening on MessagingDialog set? Request could be dropped between peer confirmation and start of SPD listener
-                timeOut: 5000, // TODO: Get timout for connection
+                timeOut: this.Config.SIPPeerConnectionTimout, // TODO: Get timout for connection
                 ct: CancellationToken.None, // TODO: implement cancellation logic
                 //successCallback: async () => await this.ConnectWithPeer(iceServers)
                 successCallback: async () => await (this.OnConnected?.Invoke(this) ?? Task.CompletedTask)

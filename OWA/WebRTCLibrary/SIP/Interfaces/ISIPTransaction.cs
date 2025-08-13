@@ -9,7 +9,7 @@ namespace WebRTCLibrary.SIP.Interfaces
 
         public TransactionParams Params { get; }
 
-        public SIPConfig Config { get; set; }
+        public ISIPConfig Config { get; set; }
 
         public bool Running { get; }
 
