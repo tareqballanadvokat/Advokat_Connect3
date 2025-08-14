@@ -1,15 +1,16 @@
 ﻿using Microsoft.Extensions.Logging;
 using Serilog;
+using Serilog.Sinks.LogList;
 using SIPSorcery.Net;
 using SIPSorcery.SIP;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Net;
 using System.Text;
 using System.Windows;
+using System.Windows.Data;
 using WebRTCClient;
 using WebRTCLibrary.SIP.Models;
-using Serilog.Sinks.LogList;
-using System.Collections.ObjectModel;
-using System.Windows.Data;
 
 namespace WebRTCRemoteWPF
 {
@@ -152,6 +153,13 @@ namespace WebRTCRemoteWPF
 
             await this.UserAgent.Connect();
         }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            this.UserAgent?.DisposeAsync();
+            base.OnClosing(e);
+        }
+
         private async Task OnMessage(IWebRTCPeer sender, byte[] message)
         {
             this.AddLineToTextBox(message);

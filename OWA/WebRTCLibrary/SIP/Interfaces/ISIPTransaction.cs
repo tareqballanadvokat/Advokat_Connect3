@@ -3,13 +3,13 @@ using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCLibrary.SIP.Interfaces
 {
-    public interface ISIPTransaction //: IAsyncDisposable
+    public interface ISIPTransaction : IAsyncDisposable
     {
         public ISIPConnection Connection { get; }
 
         public TransactionParams Params { get; }
 
-        public SIPConfig Config { get; set; }
+        public ISIPConfig Config { get; set; }
 
         public bool Running { get; }
 

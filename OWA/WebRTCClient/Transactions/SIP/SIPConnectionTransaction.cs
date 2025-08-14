@@ -3,7 +3,6 @@ using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using WebRTCClient.Transactions.SIP.Interfaces;
-using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 using static WebRTCLibrary.Utils.TaskHelpers;
@@ -21,12 +20,6 @@ namespace WebRTCClient.Transactions.SIP
         public event ISIPMessager.ResponseReceivedDelegate? OnResponseReceived;
 
         private SIPMessaging? MessagingDialog { get; set; }
-
-        public new SIPDialogConfig Config
-        {
-            get => (SIPDialogConfig)base.Config;
-            set => base.Config = value;
-        }
 
         [MemberNotNullWhen(true, nameof(MessagingDialog))]
         public bool Connected { get => MessagingDialog?.Running ?? false && PeerListeningConfirmation; }
@@ -75,7 +68,7 @@ namespace WebRTCClient.Transactions.SIP
 
             await WaitFor(
                 () => this.PeerListeningConfirmation,
-                this.Config.ReceiveTimeout, // TODO: Check if this is the correct timeout
+                this.Config.ReceiveTimeout,
                 ct: this.Ct,
                 timeoutCallback: async () => await this.ConnectionFailed("Peer took too long to confirm connection."),
                 cancellationCallback: async () => await this.ConnectionFailed("Connection cancelled.")

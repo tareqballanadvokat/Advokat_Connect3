@@ -1,14 +1,17 @@
-﻿using SIPSorcery.Net;
+﻿using Microsoft.Extensions.Logging;
+using SIPSorcery.Net;
 using SIPSorcery.SIP;
 using SIPSorcery.Sys;
-using System.Text.Json;
-using WebRTCClient.Transactions.SDP;
-using WebRTCClient.Models;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
-using Microsoft.Extensions.Logging;
-using WebRTCLibrary.SIP.Interfaces;
+using System.Text.Json;
+using WebRTCClient.Configs;
+using WebRTCClient.Configs.Interfaces;
+using WebRTCClient.Models;
+using WebRTCClient.Transactions.SDP;
 using WebRTCClient.Transactions.SIP.Interfaces;
+using WebRTCLibrary.SIP.Interfaces;
+using static Org.BouncyCastle.Math.EC.ECCurve;
 
 namespace WebRTCClient
 {
@@ -18,7 +21,7 @@ namespace WebRTCClient
 
         private readonly ILogger<P2PConnection> logger;
 
-        private static readonly PortRange defaultPortRange = new PortRange(10000, 10010, true); // TODO: Check which portrange to actually use
+        public IP2PConnectionConfig Config { get; set; } 
 
         public delegate Task MessageReceivedDelegate(P2PConnection sender, byte[] data);
         
@@ -48,24 +51,29 @@ namespace WebRTCClient
 
         private bool ICECandidatesReady { get; set; } // TODO: we should wait with the negotiation until this is true?
 
-        public P2PConnection(ISIPClient sipConnection, IReadOnlyList<RTCIceServer> iceServers, ILoggerFactory loggerFactory)
-            :this(sipConnection, iceServers, loggerFactory, defaultPortRange)
-        {
-        }
+        private List<RTCIceServer> IceServers { get; set; }
 
-        public P2PConnection(ISIPClient sipConnection, IReadOnlyList<RTCIceServer> iceServers, ILoggerFactory loggerFactory, PortRange portRange)
+        public P2PConnection(ISIPClient sipConnection, IReadOnlyList<RTCIceServer> iceServers, ILoggerFactory loggerFactory)
         {
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<P2PConnection>();
 
             this.SIPConnection = sipConnection;
+            this.IceServers = iceServers.ToList();
 
-            RTCConfiguration config = new RTCConfiguration
+            this.Config = new P2PConnectionConfig();
+        }
+
+        public async Task Start()
+        {
+            // TODO: Check if it is already connected?
+
+            RTCConfiguration rtcConfig = new RTCConfiguration
             {
-                iceServers = iceServers.ToList(),
+                iceServers = this.IceServers,
             };
 
-            this.PeerConnection = new RTCPeerConnection(config, portRange: portRange);
+            this.PeerConnection = new RTCPeerConnection(rtcConfig, portRange: this.Config.PortRange);
             this.PeerConnection.onnegotiationneeded += () =>
             {
                 // TODO: Check if this gets called when STUN servers are reachable. Does not get called when they are not available (current PC)
@@ -74,11 +82,6 @@ namespace WebRTCClient
             this.PeerConnection.onconnectionstatechange += (cstate) => {
                 // TODO: Do we need to close the data channel manually?
             };
-        }
-
-        public async Task Start()
-        {
-            // TODO: Check if it is already connected?
 
             this.SIPConnection.OnRequestReceived += this.ListenForSDPAllocation;
 

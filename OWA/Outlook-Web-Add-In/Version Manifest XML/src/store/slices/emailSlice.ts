@@ -1,0 +1,82 @@
+// src/store/slices/emailSlice.ts
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { TransferAttachmentItem } from '../../taskpane/components/tabs/email/TransferAndAttachment';
+import { emailApi } from '../services/emailApi';
+
+// Define the state structure for email-related functionality
+interface EmailState {
+  // Case information
+  selectedCaseId: number;
+  selectedCaseName: string;
+  selectedCaseDisable: boolean;
+  transferCaseDisable: boolean;
+  
+  // Attachments
+  attachmentSelected: TransferAttachmentItem[];
+}
+
+// Initial state
+const initialState: EmailState = {
+  selectedCaseId: -1,
+  selectedCaseName: '',
+  selectedCaseDisable: false,
+  transferCaseDisable: true,
+  
+  attachmentSelected: [],
+};
+
+// Create the email slice
+const emailSlice = createSlice({
+  name: 'email',
+  initialState,
+  reducers: {
+    // Case selection actions
+    setSelectedCase: (state, action: PayloadAction<{ id: number, name: string }>) => {
+      state.selectedCaseId = action.payload.id;
+      state.selectedCaseName = action.payload.name;
+    },
+    setSelectedCaseDisable: (state, action: PayloadAction<boolean>) => {
+      state.selectedCaseDisable = action.payload;
+    },
+    
+    // Attachment actions
+    setAttachmentSelected: (state, action: PayloadAction<TransferAttachmentItem[]>) => {
+      state.attachmentSelected = action.payload;
+    },
+    
+    // Update transfer case button state based on service data in the root state
+    updateTransferCaseDisableState: (state) => {
+      // Get service state via selector in components instead of here
+      state.transferCaseDisable = state.selectedCaseId === -1;
+    },
+  },
+  // Extra reducers to handle API interactions
+  extraReducers: (builder) => {
+    // When we get a successful email fetch, update our state
+    builder.addMatcher(
+      emailApi.endpoints.getSavedEmail.matchFulfilled,
+      (state, action) => {
+        const { payload } = action;
+        if (payload) {
+          state.selectedCaseName = payload.caseName;
+          state.selectedCaseId = payload.caseId;
+          
+          // Update service data through the service slice is now handled separately
+          // This needs to be done in a component using the payload from this action
+          
+          state.transferCaseDisable = false;
+        }
+      }
+    );
+  },
+});
+
+// Export actions and reducer
+export const { 
+  setSelectedCase,
+  setSelectedCaseDisable,
+  setAttachmentSelected,
+  updateTransferCaseDisableState,
+} = emailSlice.actions;
+
+export default emailSlice.reducer;

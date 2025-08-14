@@ -21,7 +21,15 @@
     "pretty": true,
     "typeRoots": [
       "node_modules/@types"
-    ]
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@store/*": ["src/store/*"],
+      "@components/*": ["src/taskpane/components/*"],
+      "@utils/*": ["src/taskpane/utils/*"],
+      "@hooks/*": ["src/taskpane/hooks/*"],
+      "@src/*": ["src/*"]
+    }
   },
   "exclude": [
     "node_modules"

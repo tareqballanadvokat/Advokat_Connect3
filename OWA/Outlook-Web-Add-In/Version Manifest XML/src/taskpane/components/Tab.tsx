@@ -3,9 +3,9 @@ import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
 // import  { Person } from './tabs/person/PersonTabContent'; 
 //  import {SipClient} from "./tabs/SipClient"; 
- import { initializeSipClient } from './tabs/SipClient';
+ import { initializeSipClient } from './SIP_Library';
 // lazy-import
-const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));
+const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent-new'));
 const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
 const PersonTab  = lazy(() => import('./tabs/person/PersonTabContent'));
 const CaseTabContent = lazy(() => import('./tabs/case/CaseTabContent'));

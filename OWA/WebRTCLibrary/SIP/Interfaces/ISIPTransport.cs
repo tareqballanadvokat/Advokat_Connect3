@@ -3,7 +3,7 @@ using System.Net.Sockets;
 
 namespace WebRTCLibrary.SIP.Interfaces
 {
-    public interface ISIPTransport
+    public interface ISIPTransport : IDisposable
     {
         public event SIPTransportRequestAsyncDelegate SIPTransportRequestReceived;
 

@@ -47,6 +47,7 @@ public class ReactStructureController : ControllerBase
     public ActionResult<HierarchyTree> SearchCases([FromBody] SearchRequest query)
     {
         //needs to remove currently added nodes!!!!
+        DatabaseServiceMock.FillMockData();
         var customTree = DatabaseServiceMock.customTree;
         var list = new List<HierarchyTree>();
         var allPossibilities = customTree.Where(x => x.Name.ToLower().Contains(query.Query.ToLower())).ToList();

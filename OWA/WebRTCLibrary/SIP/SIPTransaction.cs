@@ -15,7 +15,7 @@ namespace WebRTCLibrary.SIP
 
         public SIPSchemesEnum SIPScheme { get => this.Connection.SIPScheme; }
 
-        public virtual SIPConfig Config { get; set; } // TODO: should not be changeable once Transaction is running
+        public virtual ISIPConfig Config { get; set; } // TODO: should not be changeable once Transaction is running
 
         private bool transportPassed = false;
 
@@ -60,12 +60,12 @@ namespace WebRTCLibrary.SIP
         {
             this.logger = loggerFactory.CreateLogger<SIPTransaction>();
 
-            this.Config = new SIPConfig();
-
             this.Params = dialogParams;
             this.Connection = connection;
+            this.Config = new SIPConfig();
         }
 
+        // TODO: make abstract?
         protected async virtual Task StartRunning()
         {
         }
@@ -175,9 +175,14 @@ namespace WebRTCLibrary.SIP
             return callIdIsValid && toTagIsValid && fromTagIsValid;
         }
 
-        //public async virtual ValueTask DisposeAsync()
-        //{
-        //    await this.Stop();
-        //}
+        public async virtual ValueTask DisposeAsync()
+        {
+            await this.Stop();
+            if (!this.transportPassed)
+            {
+                // TODO: dispose connection
+                this.Connection.Transport.Dispose();
+            }
+        }
     }
 }
