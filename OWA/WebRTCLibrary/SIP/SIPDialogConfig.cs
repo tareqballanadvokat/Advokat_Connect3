@@ -22,7 +22,7 @@ namespace WebRTCLibrary.SIP
         public int ConnectionTimeout { get; set; } = defaultConnectionTimeout; // TODO: add flag if it already started - prevent setting then.
 
 
-        public readonly static int defaultPeerRegistrationTimeout = 3000;
+        public readonly static int? defaultPeerRegistrationTimeout = null;
 
         /// <summary>Timeout for the peer to register.
         ///          How long to wait after client registration was successful for the peer to connect.
