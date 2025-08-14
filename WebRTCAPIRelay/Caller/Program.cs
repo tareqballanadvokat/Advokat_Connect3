@@ -76,7 +76,7 @@ namespace Caller
             string requestString = """
                 {
                 	"Method": "Get",
-                	"Uri": "/test",
+                	"Uri": "/akten",
                 	"Headers": {
                 		"Host": "localhost",
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
@@ -93,6 +93,13 @@ namespace Caller
                 	},
                 }
                 """;
+                    //"body": "{
+                    //    "AktId": 12,
+                    //    "AKurzLike": "abc",
+                    //    "Count": 4,
+                    //    "NurFavoriten": true,
+                    //    "WithCausa": false,
+                    //}"
 
             await UserAgent.SendMessageToPeer(requestString);
         }

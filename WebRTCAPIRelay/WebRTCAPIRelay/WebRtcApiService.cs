@@ -7,6 +7,7 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using WebRTCAPIRelay.DTOs;
 using WebRTCClient;
 
 namespace WebRTCAPIRelay
@@ -80,7 +81,18 @@ namespace WebRTCAPIRelay
             IRequestHandler requestHandler = serviceScope.ServiceProvider.GetRequiredService<IRequestHandler>();
             ResponsePayload response = await requestHandler.InvokeAsync(request);
 
-            string responseString = JsonSerializer.Serialize(response, JsonOptions);
+            string? content = response.Content != null ? Encoding.UTF8.GetString(response.Content) : null;
+
+            WebRTCResponsePayload webRTCResponse = new WebRTCResponsePayload()
+            {
+                StatusCode = response.StatusCode,
+                StatusText = response.StatusText,
+                Headers = response.Headers,
+                Content = content
+            };
+
+            string responseString = JsonSerializer.Serialize(webRTCResponse, JsonOptions);
+
             await sender.SendMessageToPeer(responseString);
         }
 
