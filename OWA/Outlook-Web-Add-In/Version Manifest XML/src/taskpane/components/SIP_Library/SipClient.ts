@@ -57,7 +57,7 @@ export function initializeSipClient(): SipClientInstance {
     const wsUri = "wss://localhost:8009";// here we need to establish a signaling server
     //each lawyer has their own server, therefore peers are allowed to only connect to one remote server that belongs to them
     // On the other hand there is only one signaling server
-    // I need to find the target Remote, which is the to parameter in Registration.ts sip:macs@127.0.0.1:8009, tight now it is only hardcoded
+    // I need to find the target Remote, which is the to parameter in Registration.ts sip:macs@127.0.0.1:8009, right now it is only hardcoded
     
     const tag = Math.random().toString(36).substring(2, 12); // Updated from deprecated substr
     const callId = Math.random().toString(36).substring(2, 12); // Updated from deprecated substr
@@ -77,6 +77,7 @@ export function initializeSipClient(): SipClientInstance {
      * WebSocket connection opened - start SIP registration
      */
     socket.onopen = () => {
+        
         const registerMsg = registrationObj.getInitialRegistration();
         socket.send(registerMsg);
         logger.log('🔄 Sent REGISTER message');

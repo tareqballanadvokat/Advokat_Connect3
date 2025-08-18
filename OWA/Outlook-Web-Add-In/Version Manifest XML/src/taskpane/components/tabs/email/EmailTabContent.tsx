@@ -4,11 +4,14 @@ import SearchCaseList from './SearchCaseList';
 import notify from 'devextreme/ui/notify';
 import EmailSend from './EmailSend'; 
 import RegisteredEmails from './RegisteredEmails';  
-// Import Service Section
-import ServiceSection from './ServiceSection';
+// Import Service Section from shared
+import ServiceSection from '../shared/ServiceSection';
 import { getEmailAttachmentData, getEmailContentAsync } from '@hooks/useOfficeItem';
 import TransferAndAttachment, { TransferAttachmentItem } from './TransferAndAttachment';
 import { Attachment, EmailModel } from '@components/interfaces/IEmail';
+import { LeistungPostData } from '@components/interfaces/IService';
+import { webRTCApiService } from '../../../services/webRTCApiService';
+import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem'; 
 import DropAttachArea from '../shared/DropAttachArea';
@@ -55,6 +58,9 @@ async function mapToAttachments(
 const EmailTabContent: React.FC = () => {
   // Get Redux dispatch function
   const dispatch = useAppDispatch();
+  
+  // Local state for transfer loading
+  const [transferLoading, setTransferLoading] = React.useState(false);
   
   // Get Redux state from both email and service slices
   const {
@@ -113,62 +119,130 @@ const EmailTabContent: React.FC = () => {
     console.log('Transfer to ADVOKAT, caseId =', selectedCaseName);
     console.log(sb, text, abbreviation, time);
 
-    if (!messageId) return;
-    
-    const email = Office.context.mailbox.item;
-    
-    // Find selected email
-    const firstE = attachmentSelected.find(i => i.checked && i.type === 'E'); // email taken
-    let emailContent = '';
-    if (firstE != null) {
-      emailContent = await getEmailContentAsync(email);
+    if (selectedCaseId === -1) {
+      notify('Please select a case first', 'warning', 3000);
+      return;
     }
 
-    // Get selected attachments
-    const attachmentsPayload = await mapToAttachments(
-      attachmentSelected.filter(i => i.checked && i.type === 'A')
-    );
+    if (!messageId) {
+      notify('Email message ID not available', 'warning', 3000);
+      return;
+    }
 
-    // Create payload
-    const payload: EmailModel = firstE
-      ? {
-          caseId: selectedCaseId,
-          caseName: selectedCaseName,
-          serviceAbbreviationType: abbreviation.toString(),
-          serviceSB: sb,
-          serviceTime: time,
-          serviceText: text,
-          internetMessageId: messageId,
-          emailName: firstE.label,
-          emailFolder: firstE.option.toString(),
-          emailFolderId: firstE.option,
-          emailContent: emailContent,
-          attachments: attachmentsPayload,
-          userID: '-1'
-        }
-      : {
-          caseId: selectedCaseId,
-          caseName: selectedCaseName,
-          serviceAbbreviationType: abbreviation.toString(),
-          serviceSB: sb,
-          serviceTime: time,
-          serviceText: text,
-          internetMessageId: messageId,
-          emailName: firstE ? firstE.label : '',
-          emailFolder: '-1',
-          emailFolderId: -1,
-          emailContent: emailContent,
-          attachments: attachmentsPayload,
-          userID: '-1'
-        };
-  
-    // Use the RTK Query mutation to save email
+    // Set loading state
+    setTransferLoading(true);
+
     try {
-      await saveEmailInfo(payload).unwrap();
-      notify('Email saved successfully', 'success', 3000);
+      // STEP 1: Save Leistung first (if service is selected)
+      if (abbreviation && abbreviation > 0) {
+        console.log('📤 Saving Leistung via WebRTC...');
+        
+        // Create payload using LeistungPostData interface matching C# model
+        const leistungPayload: LeistungPostData = {
+          AktId: selectedCaseId,
+          AKurz: selectedCaseName,
+          LeistungKurz: abbreviation.toString(),
+          Datum: new Date().toISOString(), // Current date in ISO format
+          Honorartext: text || undefined,
+          Memo: text || undefined,
+          SBZeitVerrechenbarInMinuten: time ? parseInt(time) : undefined,
+          SBZeitNichtVerrechenbarInMinuten: undefined
+        };
+        
+        // Check if WebRTC connection is ready
+        if (!webRTCApiService.isReady()) {
+          notify('WebRTC connection not available. Please ensure connection is established.', 'warning', 5000);
+          return;
+        }
+        
+        // Send Leistung to API via WebRTC
+        const leistungResponse = await webRTCApiService.saveLeistung(leistungPayload);
+        
+        if (leistungResponse.statusCode >= 200 && leistungResponse.statusCode < 300) {
+          console.log('✅ Leistung saved successfully');
+          notify('Service saved successfully', 'success', 3000);
+        } else {
+          throw new Error(leistungResponse.error || 'Failed to save service');
+        }
+      } else {
+        console.log('⚠️ No service selected, skipping Leistung save');
+      }
+
+      // STEP 2: Handle Email and Attachments
+      // TODO: Implement email content transfer via WebRTC API
+      // TODO: Implement attachment transfer via WebRTC API
+      
+      console.log('📧 Processing email and attachments...');
+      
+      const email = Office.context.mailbox.item;
+      
+      // Find selected email
+      const firstE = attachmentSelected.find(i => i.checked && i.type === 'E'); // email taken
+      let emailContent = '';
+      if (firstE != null) {
+        emailContent = await getEmailContentAsync(email);
+        console.log('📄 Email content extracted for transfer');
+        // TODO: Send email content via WebRTC API to save email to case
+      }
+
+      // Get selected attachments
+      const attachmentsPayload = await mapToAttachments(
+        attachmentSelected.filter(i => i.checked && i.type === 'A')
+      );
+      
+      if (attachmentsPayload.length > 0) {
+        console.log(`📎 ${attachmentsPayload.length} attachments processed for transfer`);
+        // TODO: Send attachments via WebRTC API to save documents to case
+      }
+
+      // TEMPORARY: Use existing RTK Query for now (remove when WebRTC email/attachment API is ready)
+      if (firstE || attachmentsPayload.length > 0) {
+        console.log('💾 Saving email/attachments via existing API (temporary)...');
+        
+        // Create payload
+        const payload: EmailModel = firstE
+          ? {
+              caseId: selectedCaseId,
+              caseName: selectedCaseName,
+              serviceAbbreviationType: abbreviation.toString(),
+              serviceSB: sb,
+              serviceTime: time,
+              serviceText: text,
+              internetMessageId: messageId,
+              emailName: firstE.label,
+              emailFolder: firstE.option.toString(),
+              emailFolderId: firstE.option,
+              emailContent: emailContent,
+              attachments: attachmentsPayload,
+              userID: '-1'
+            }
+          : {
+              caseId: selectedCaseId,
+              caseName: selectedCaseName,
+              serviceAbbreviationType: abbreviation.toString(),
+              serviceSB: sb,
+              serviceTime: time,
+              serviceText: text,
+              internetMessageId: messageId,
+              emailName: firstE ? firstE.label : '',
+              emailFolder: '-1',
+              emailFolderId: -1,
+              emailContent: emailContent,
+              attachments: attachmentsPayload,
+              userID: '-1'
+            };
+      
+        // Use the RTK Query mutation to save email
+        await saveEmailInfo(payload).unwrap();
+        notify('Email and attachments transferred successfully', 'success', 3000);
+      }
+
     } catch (error) {
-      console.error('Failed to save email:', error);
-      notify('Failed to save email', 'error', 5000);
+      console.error('Failed to transfer:', error);
+      notify('Failed to transfer to ADVOKAT', 'error', 5000);
+    } finally {
+      // Reset loading state
+      setTransferLoading(false);
     }
   };
  
@@ -187,6 +261,9 @@ const EmailTabContent: React.FC = () => {
 
   return (
     <div>
+      {/* WebRTC Connection Status */}
+      <WebRTCConnectionStatus />
+
       {/* 1) Search panel + case list */}
       <SearchCaseList onCaseSelect={setCaseHandler} />
  
@@ -199,10 +276,11 @@ const EmailTabContent: React.FC = () => {
         onTransfer={sendEmailHandler}
         caseIdDisable={selectedCaseDisable}
         transferBtnDisable={transferCaseDisable}
+        transferLoading={transferLoading}
       />
 
-      {/* Use the Redux-enabled ServiceSection component */}
-      <ServiceSection />
+      {/* Use the shared ServiceSection component in email mode */}
+      <ServiceSection selectedAktKuerzel={selectedCaseName} mode="email" />
  
       {/* 4) Transfer e-mail and attachments */}
       <TransferAndAttachment 

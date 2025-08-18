@@ -4,6 +4,7 @@ import { API_BASE } from '../../config';
 import notify from 'devextreme/ui/notify';
 
 // Create a base API with shared configuration
+//TODO this should be removed since we don't have Http calls. Remove it also from the store
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({ 

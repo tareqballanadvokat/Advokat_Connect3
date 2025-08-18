@@ -3,14 +3,16 @@ import React, { useState, useEffect } from 'react';
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { API_BASE } from '../../../../config';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { searchAktenAsync, clearCases, setSearchTerm } from '../../../../store/slices/aktenSlice';
+import { AktLookUpResponse } from '../../interfaces/IAkten';
 
  
 
 interface CaseItem {
-  caseId: string;
-  causa: string;
-  name: string;
+  aktId: number;
+  aKurz: string;
+  causa?: string;
 }
 
 interface Props {
@@ -18,40 +20,36 @@ interface Props {
 }
 
 const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
-  const [searchValue, setSearchValue] = useState('');
-  const [rows, setRows] = useState<CaseItem[]>([]);
-  const [fullData, setFullData] = useState<CaseItem[]>([]);
+  const dispatch = useAppDispatch();
+  const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
+  
+  const [searchValue, setSearchValue] = useState(searchTerm || '');
 
   useEffect(() => {
-    // fetch initial data
-    (async () => {
-      try {
-        const resp = await fetch(API_BASE+'api/react-structure/search-cases', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: 'test' })
-        });
-        const data: CaseItem[] = await resp.json();
-        setFullData(data);
-        setRows(data);
-      } catch (e) {
-        console.error(e);
-      }
-    })();
+    // Load initial data with a default search
+    handleSearch('demo'); // Load some demo cases initially
   }, []);
 
-  const handleSearch = async () => {
-    const filter = searchValue.trim().toLowerCase();
-    if (!filter) {
-      setRows(fullData);
-    } else {
-      setRows(
-        fullData.filter(
-          item =>
-            item.name.toLowerCase().includes(filter) 
-          //||  item.causa.toLowerCase().includes(filter),
-        ),
-      );
+  const handleSearch = async (searchQuery?: string) => {
+    const query = searchQuery || searchValue.trim();
+    
+    if (!query) {
+      dispatch(clearCases());
+      return;
+    }
+
+    // Update search term in Redux
+    dispatch(setSearchTerm(query));
+    
+    // Perform WebRTC-based search
+    try {
+      await dispatch(searchAktenAsync({
+        aKurzLike: query,
+        withCausa: true,
+        count: 20
+      })).unwrap();
+    } catch (error) {
+      console.error('Search failed:', error);
     }
   };
 
@@ -60,7 +58,7 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
 return (
   <div>
       <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        Search 
+        Search Cases via WebRTC
       </h3>
 
       {/* Search panel */}
@@ -68,26 +66,43 @@ return (
         <TextBox
           width={250}
           stylingMode="outlined"
-          placeholder="Search..."
+          placeholder="Search by Kürzel..."
           value={searchValue}
           onValueChanged={e => setSearchValue(e.value)}
-          onEnterKey={handleSearch}
+          onEnterKey={() => handleSearch()}
         />
-        <Button icon="search" stylingMode="contained" onClick={handleSearch} />
+        <Button 
+          icon="search" 
+          stylingMode="contained" 
+          onClick={() => handleSearch()}
+          disabled={loading}
+        />
       </div>
-    {/* … Twój panel wyszukiwania … */}
+
+      {/* Error message */}
+      {error && (
+        <div style={{ color: 'red', marginBottom: 16, padding: 8, backgroundColor: '#fee' }}>
+          Error: {error}
+        </div>
+      )}
+
+      {/* Loading indicator */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: 16 }}>
+          Searching via WebRTC...
+        </div>
+      )}
 
     <DataGrid
       className="compact-grid"
-      dataSource={rows}
-      keyExpr="id"               // Twój klucz
+      dataSource={cases}
+      keyExpr="aktId"
       showBorders={false}
-   
       showColumnLines={false}
       showRowLines={true}
       columnAutoWidth={true}
       rowAlternationEnabled={false}
-      
+      noDataText={loading ? "Loading..." : "No cases found. Try searching for 'demo' or enter a Kürzel."}
     >
       <Paging defaultPageSize={5} />
       <Pager
@@ -96,16 +111,16 @@ return (
         allowedPageSizes={[5]}
         showInfo
       />
-      {/* -------------------------------- */}
+      
       <Column
-        dataField="id"
-        caption="Case ID"
-        visible={false}         // ukryte, ale dalej dostępne
+        dataField="aktId"
+        caption="Akt ID"
+        visible={false}
         alignment="left"
       />
       <Column
-        dataField="name"
-        caption="Name"
+        dataField="aKurz"
+        caption="Kürzel"
         alignment="left"
       />
       <Column
@@ -119,9 +134,8 @@ return (
         buttons={[
           {
             icon: 'arrowright',
-            //stylingMode: 'text',
             hint: 'Select',
-            onClick: e => onCaseSelect(e.row.data.name)  // Twój callback
+            onClick: e => onCaseSelect(e.row.data.aKurz)
           }
         ]}
       />

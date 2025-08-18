@@ -3,12 +3,35 @@ import React from 'react';
 import { EmailSendProps } from '../../interfaces/IEmail';
 import Button from 'devextreme-react/button';
 
+// Inject CSS for orange loading button
+const orangeButtonStyles = `
+  .transfer-button-loading .dx-button-content {
+    background-color: #ff8c00 !important;
+    color: #fff !important;
+    border-color: #ff8c00 !important;
+  }
+  .transfer-button-loading:not(.dx-state-disabled) {
+    background-color: #ff8c00 !important;
+    border-color: #ff8c00 !important;
+  }
+`;
+
+// Add styles to document head if not already added
+if (!document.getElementById('transfer-button-styles')) {
+  const styleSheet = document.createElement('style');
+  styleSheet.type = 'text/css';
+  styleSheet.id = 'transfer-button-styles';
+  styleSheet.innerText = orangeButtonStyles;
+  document.head.appendChild(styleSheet);
+}
+
 const EmailSend: React.FC<EmailSendProps> = ({ 
     caseId,
     onCaseChange,
     onTransfer,
     caseIdDisable,
-    transferBtnDisable
+    transferBtnDisable,
+    transferLoading = false
 }) => (
   <div>  
     <h3>Case</h3>
@@ -30,17 +53,15 @@ const EmailSend: React.FC<EmailSendProps> = ({
       }}
     />
     <Button
-        text="Transfer"
-        type="success"
-        width={80}
-        disabled={transferBtnDisable}
+        text={transferLoading ? "Sending..." : "Transfer"}
+        type={transferLoading ? "default" : "success"}
+        width={transferLoading ? 100 : 80}
+        disabled={transferBtnDisable || transferLoading}
+        className={transferLoading ? "transfer-button-loading" : ""}
         style={{
-          // width: 80,
-          // Height: 80,
-          // padding: '8px 12px',
           fontSize: 14,
           border: '1px solid #ccc',
-          borderRadius: 4,
+          borderRadius: 4
         }}
         stylingMode="contained" onClick={() => {
         onTransfer();

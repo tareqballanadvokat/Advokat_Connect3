@@ -1,67 +1,83 @@
-// src/taskpane/components/tabs/email/SearchAndCaseList.tsx
+// src/taskpane/components/tabs/email/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { SearchProps, CaseItem } from '../../interfaces/ISearchCase'
-import { getCases } from '../../../utils/api';
-import notify from 'devextreme/ui/notify';  
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { searchAktenFakeAsync, setSearchTerm, clearCases } from '../../../../store/slices/aktenSlice';
+import { AktLookUpResponse } from '../../interfaces/IAkten';
+import notify from 'devextreme/ui/notify';
 
-// import { CaseItem } from '../../interfaces/ISearchCase';
+// Updated interface to match the new API model
+interface SearchProps {
+  onCaseSelect: (caseId: string, caseName: string) => void;
+}
+
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
+  const dispatch = useAppDispatch();
+  const { cases, loading, error, searchTerm, currentSearchTerm } = useAppSelector(state => state.akten);
+  
   const [searchValue, setSearchValue] = useState('');
-  const [rows, setRows] = useState<CaseItem[]>([]);
-  const [fullData, setFullData] = useState<CaseItem[]>([]);
   const [gridVisible, setGridVisible] = useState(false);
 
-  // useEffect(() => {
-  //   (async () => {
-  //     try {
-  //       const data = await getCases('');
-  //       setFullData(data);
-  //       setRows(data);
-  //     } catch (e) {
-  //       console.error(e);
-  //     }
-  //   })();
-  // }, []);
+  // Handle Redux error states
+  useEffect(() => {
+    if (error) {
+      notify(error, 'error', 5000);
+    }
+  }, [error]);
 
-
-
+  // Update grid visibility when cases change
+  useEffect(() => {
+    setGridVisible(cases.length > 0);
+  }, [cases]);
 
   const handleSearch = async () => {
-    const filter = searchValue.trim().toLowerCase();
-    try{
-
-    if (!filter) 
-        {
-          setRows([]);
-        } else 
-        {
-          
-            const data = await getCases(filter);
-            setFullData(data);
-
-            setRows(
-              fullData.filter(
-                item =>
-                  item.name.toLowerCase().includes(filter) 
-                //||  item.causa.toLowerCase().includes(filter),
-              ),
-            );
-          setGridVisible(true);
-        }
+    const filter = searchValue.trim();
+    
+    if (!filter) {
+      dispatch(clearCases());
+      setGridVisible(false);
+      return;
     }
-    catch(e){
-        notify('Search cases failed', 'error', 5000);
-    }
+
+    try {
+      // Determine if search input is numeric (AktId) or text (Kürzel)
+      const isNumeric = /^\d+$/.test(filter);
+      const searchQuery = isNumeric 
+        ? { 
+            aktId: parseInt(filter),  // Search by AktId
+            withCausa: true,
+            count: 10 
+          }
+        : { 
+            aKurzLike: filter,        // Search by Kürzel pattern
+            withCausa: true,
+            count: 10 
+          };
+
+      // Dispatch Redux action to search for cases
+      // Using fake async for testing - replace with searchAktenAsync when WebRTC is ready
+      await dispatch(searchAktenFakeAsync(searchQuery)).unwrap();
       
+      dispatch(setSearchTerm(filter));
+    } catch (error) {
+      console.error('Search failed:', error);
+      notify('Search cases failed', 'error', 5000);
+    }
   };
 
-return (
-  <div>
+  // Transform AktLookUpResponse to match the grid expected format
+  const transformedCases = cases.map((aktCase: AktLookUpResponse) => ({
+    id: aktCase.aktId.toString(),
+    name: aktCase.aKurz,
+    causa: aktCase.causa || 'No causa provided'
+  }));
+
+  return (
+    <div>
       <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        Search 
+        Search Cases
       </h3>
 
       {/* Search panel */}
@@ -69,69 +85,79 @@ return (
         <TextBox
           width={250}
           stylingMode="outlined"
-          placeholder="Search..."
+          placeholder="Search by AktId (123) or Kürzel (ABC)..."
           value={searchValue}
           onValueChanged={e => setSearchValue(e.value)}
           onEnterKey={handleSearch}
+          disabled={loading}
         />
-        <Button icon="search" stylingMode="contained" onClick={handleSearch} />
+        <Button 
+          icon="search" 
+          stylingMode="contained" 
+          onClick={handleSearch}
+          disabled={loading}
+          text={loading ? "Searching..." : ""}
+        />
       </div>
- 
 
-    <DataGrid
-      className="compact-grid"
-      dataSource={rows}
-      keyExpr="id"               
-      showBorders={false}
-   
-      visible={gridVisible}
-      showColumnLines={false}
-      showRowLines={true}
-      columnAutoWidth={true}
-      rowAlternationEnabled={false}
-      
-    >
-      <Paging defaultPageSize={5} />
-      <Pager
-        visible
-        showPageSizeSelector={false}
-        allowedPageSizes={[5]}
-        showInfo
-      />
-      {/* -------------------------------- */}
-      <Column
-        dataField="id"
-        caption="Case ID"
-        visible={false} 
-        alignment="left"
-      />
-      <Column
-        dataField="name"
-        caption="Name"
-        alignment="left"
-      />
-      <Column
-        dataField="causa"
-        caption="Causa"
-        alignment="left"
-      />
-      <Column
-        type="buttons"
-        width={50}
-        buttons={[
-          {
-            icon: 'arrowright',
-            //stylingMode: 'text',
-            hint: 'Select',
-            onClick: e => onCaseSelect(e.row.data.id, e.row.data.name)  // Twój callback
-          }
-        ]}
-      />
-    </DataGrid>
-  </div>
-);
+      {/* Loading indicator */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '10px' }}>
+          <span>Searching cases...</span>
+        </div>
+      )}
 
-
+      {/* Results grid */}
+      <DataGrid
+        className="compact-grid"
+        dataSource={transformedCases}
+        keyExpr="id"               
+        showBorders={false}
+        visible={gridVisible && !loading}
+        showColumnLines={false}
+        showRowLines={true}
+        columnAutoWidth={true}
+        rowAlternationEnabled={false}
+        noDataText="No cases found. Try a different search term."
+      >
+        <Paging defaultPageSize={5} />
+        <Pager
+          visible
+          showPageSizeSelector={false}
+          allowedPageSizes={[5]}
+          showInfo
+        />
+        {/* -------------------------------- */}
+        <Column
+          dataField="id"
+          caption="Case ID"
+          visible={false} 
+          alignment="left"
+        />
+        <Column
+          dataField="name"
+          caption="Name"
+          alignment="left"
+        />
+        <Column
+          dataField="causa"
+          caption="Causa"
+          alignment="left"
+        />
+        <Column
+          type="buttons"
+          width={50}
+          buttons={[
+            {
+              icon: 'arrowright',
+              hint: 'Select',
+              onClick: e => onCaseSelect(e.row.data.id, e.row.data.name)
+            }
+          ]}
+        />
+      </DataGrid>
+    </div>
+  );
 };
 
 export default SearchCaseList;

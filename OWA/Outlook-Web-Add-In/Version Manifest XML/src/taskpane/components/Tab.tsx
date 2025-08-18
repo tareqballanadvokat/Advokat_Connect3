@@ -3,9 +3,9 @@ import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
 // import  { Person } from './tabs/person/PersonTabContent'; 
 //  import {SipClient} from "./tabs/SipClient"; 
- import { initializeSipClient } from './SIP_Library';
+import { sipClientService } from '../services/sipClientService';
 // lazy-import
-const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent-new'));
+const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));
 const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
 const PersonTab  = lazy(() => import('./tabs/person/PersonTabContent'));
 const CaseTabContent = lazy(() => import('./tabs/case/CaseTabContent'));
@@ -18,10 +18,10 @@ const DevTabs: React.FC = () => {
 //     SipClient(); // uruchomienie kodu SIP
 //   }, []);
 
-
-  useEffect(() => {
-    sipRef.current = initializeSipClient();
-  }, []);
+  // Removed duplicate SIP initialization - now handled by singleton service
+  // useEffect(() => {
+  //   sipRef.current = initializeSipClient();
+  // }, []);
 
 
   const handleDelete = (id: string) => {
@@ -37,10 +37,7 @@ const DevTabs: React.FC = () => {
       case 0: return <EmailTab />;
       case 1: return <ServiceTab />;
       case 2: return <CaseTabContent />;
-      case 3: return <PersonTab   sip={sipRef.current}
-      // onDeleteFavorite={handleDelete}
-      // onAddFavorite={handleAdd} 
-      />;
+      case 3: return <PersonTab />;
       default: return null;
     }
   };

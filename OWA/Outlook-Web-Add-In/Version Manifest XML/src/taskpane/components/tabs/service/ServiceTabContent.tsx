@@ -1,18 +1,23 @@
 // src/taskpane/components/tabs/service/ServiceTabContent.tsx
 import React from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import ServiceSection from './ServiceSection';
+import ServiceSection from '../shared/ServiceSection';
 import SearchCaseList from '../email/SearchCaseList';
 import { setSelectedCase, updateTransferCaseDisableState } from '@store/slices/emailSlice';
 import { saveServiceInformation } from '@utils/api';
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
-import { ServiceModel } from '@components/interfaces/IService';
+import { ServiceModel, LeistungPostData } from '@components/interfaces/IService';
+import { webRTCApiService } from '../../../services/webRTCApiService';
 import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
 import ServiceSend from './ServiceSend';
+import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 
 const ServiceTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
+  
+  // Local state for transfer loading
+  const [transferLoading, setTransferLoading] = React.useState(false);
   
   // Get the relevant state from Redux
   const { abbreviation, time, text, sb } = useAppSelector(state => state.service);
@@ -45,36 +50,53 @@ const ServiceTabContent: React.FC = () => {
       return;
     }
     
+    // Set loading state
+    setTransferLoading(true);
+    
     try {
-      // Get message ID for reference (if needed)
-      const email = Office.context.mailbox.item;
-      const messageId = await getInternetMessageIdAsync(email);
-      
-      // Create payload using ServiceModel interface
-      const payload: ServiceModel = {
-        caseId: selectedCaseId,
-        serviceAbbreviationType: abbreviation.toString(),
-        serviceSB: sb,
-        serviceTime: time,
-        serviceText: text,
-        internetMessageId: messageId,
-        userId: 1
+      // Create payload using LeistungPostData interface matching C# model
+      const payload: LeistungPostData = {
+        AktId: selectedCaseId,
+        AKurz: selectedCaseName,
+        LeistungKurz: abbreviation.toString(),
+        Datum: new Date().toISOString(), // Current date in ISO format
+        Honorartext: text || undefined,
+        Memo: text || undefined,
+        SBZeitVerrechenbarInMinuten: time ? parseInt(time) : undefined,
+        SBZeitNichtVerrechenbarInMinuten: undefined
       };
       
-      // Send to API
-      await saveServiceInformation(payload);
-      notify('Service saved successfully', 'success', 3000);
+      // Check if WebRTC connection is ready
+      if (!webRTCApiService.isReady()) {
+        notify('WebRTC connection not available. Please ensure connection is established.', 'warning', 5000);
+        return;
+      }
       
-      // Trigger refresh
-      setRefreshFlag(f => f + 1);
+      // Send to API via WebRTC
+      const response = await webRTCApiService.saveLeistung(payload);
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        notify('Service saved successfully', 'success', 3000);
+        // Trigger refresh
+        setRefreshFlag(f => f + 1);
+      } else {
+        throw new Error(response.error || 'Failed to save service');
+      }
+      
     } catch (error) {
       console.error('Failed to save service:', error);
       notify('Failed to save service', 'error', 5000);
+    } finally {
+      // Reset loading state
+      setTransferLoading(false);
     }
   };
   
   return (
     <div>
+      {/* WebRTC Connection Status */}
+      <WebRTCConnectionStatus />
+      
       {/* Case Search */}
       <SearchCaseList onCaseSelect={setCaseHandler} />
       
@@ -85,10 +107,11 @@ const ServiceTabContent: React.FC = () => {
         onTransfer={sendServiceHandler}
         caseIdDisable={selectedCaseDisable}
         transferBtnDisable={transferCaseDisable}
+        transferLoading={transferLoading}
       />
       
-      {/* Service Section */}
-      <ServiceSection />
+      {/* Service Section in service mode (no email attachments) */}
+      <ServiceSection selectedAktKuerzel={selectedCaseName} mode="service" />
       
       {/* Registered Services */}
       <RegisteredService refreshTrigger={refreshFlag} />

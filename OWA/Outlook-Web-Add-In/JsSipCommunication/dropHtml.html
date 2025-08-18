@@ -676,14 +676,14 @@ class EstablishingConnection
 	  {
 		var registrationEvent = registrationObj.getInitialRegistration();
 		socket.send(registrationEvent);
-		logger.log('🔄 wysłano register');
+		logger.log('🔄 sent REGISTER');
       };
 
 
 
       socket.onmessage = async event => {
 		const data =  logger.blobToString(event.data);
-        logger.log('📥 Otrzymano:\n' + data); 
+        logger.log('📥 received:\n' + data); 
 		
 
 		console.log( registrationObj.IsRegistrationProcessFinished);

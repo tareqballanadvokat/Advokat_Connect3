@@ -50,6 +50,7 @@ export class Registration {
      * @returns The formatted SIP REGISTER message
      */
     getInitialRegistration(): string {
+        
         logger.log('🔗 WebSocket connected');
         // To and From should be dynamic
         const register = 
@@ -98,6 +99,7 @@ export class Registration {
      * @returns The appropriate response message or empty string
      */
     parseMessage(data: string): string {
+        
         if (/SIP\/2\.0 202/.test(data)) {
             logger.log('✔️ ACK sent ');
             return this.createAck(data);
@@ -124,6 +126,7 @@ export class Registration {
      * @returns The formatted ACK response
      */
     createAckAfterNotification(data: string): string {
+        
         const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
         const m = data.match(reCallId);
         
@@ -153,6 +156,7 @@ export class Registration {
      * @returns The formatted confirmation ACK
      */
     createConfirmation(data: string): string {
+        
         const branchAck = 'z9hG4bK' + Math.random().toString(36).substring(2, 11); // Updated from deprecated substr
         
         const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
@@ -183,6 +187,7 @@ export class Registration {
      * @param data - The SIP message containing FROM header
      */
     getFromParts(data: string): void {
+        
         if (fromTag !== "" && fromUri !== "") return;
         
         const re = /^From:\s*(?:"([^"]+)"\s*)?<([^>]+)>;tag=(\S+)/m;

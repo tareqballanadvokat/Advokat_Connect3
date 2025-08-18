@@ -5,6 +5,7 @@ import SearchCaseList from './SearchCaseList';
 import {IsComposeMode, setAttachmentToItemAsync} from '../../../hooks/useOfficeItem'
 import LoadPanel from 'devextreme-react/load-panel';
 import {HierarchyTree} from '../../interfaces/ICase'
+import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 import TreeList, {
   Column,
   Scrolling,
@@ -109,6 +110,9 @@ const handleSelectionAdd = useCallback(async (node: string) => {
 
    return (
     <div /* … */>
+      {/* WebRTC Connection Status */}
+      <WebRTCConnectionStatus />
+      
       {/* … SearchCaseList, header, LoadPanel … */}
 
       <SearchCaseList onCaseSelect={handleSelectionAdd} />

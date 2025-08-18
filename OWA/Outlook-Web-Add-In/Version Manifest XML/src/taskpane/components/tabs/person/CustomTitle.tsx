@@ -1,17 +1,23 @@
 import React from 'react';
  
 export interface CustomTitleProps {
-  id: string;
-  fullName: string;
+  personId: number;
+  anzeigename: string;
   onDelete: () => void;
 }
 
-export default function CustomTitle({ id, fullName, onDelete }: CustomTitleProps) {
+export default function CustomTitle({ anzeigename, onDelete }: Omit<CustomTitleProps, 'personId'>) {
   return (
     <div className='header' style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span>{fullName} {id}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <i className="dx-icon dx-icon-user" style={{ fontSize: 16 }} />
+        <span>{anzeigename}</span>
+      </div>
       <button
-        onClick={onDelete}
+        onClick={(e) => {
+          e.stopPropagation(); // Prevent accordion expansion
+          onDelete();
+        }}
         style={{
           background: 'none',
           border: 'none',

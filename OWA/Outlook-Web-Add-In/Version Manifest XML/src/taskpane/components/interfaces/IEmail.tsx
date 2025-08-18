@@ -6,6 +6,7 @@ export interface EmailSendProps {
   onTransfer: () => void;
   caseIdDisable: boolean;
   transferBtnDisable: boolean;
+  transferLoading?: boolean;  // New prop for loading state
 }
 
 export interface CaseSendProps {

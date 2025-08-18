@@ -1,6 +1,8 @@
 // src/store/slices/serviceSlice.ts
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { abbreviationApi } from '../services/abbreviationApi';
+import { LeistungenAuswahlQuery, LeistungAuswahlResponse } from '../../taskpane/components/interfaces/IService';
+import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 
 // Define the state structure for service-related functionality
 interface ServiceState {
@@ -9,6 +11,12 @@ interface ServiceState {
   time: string;
   text: string;
   sb: string;
+  
+  // Services dropdown data
+  services: LeistungAuswahlResponse[];
+  servicesLoading: boolean;
+  servicesError: string | null;
+  currentAktKuerzel: string | null; // Track which Akt's services are currently loaded
 }
 
 // Initial state
@@ -17,7 +25,27 @@ const initialState: ServiceState = {
   time: '',
   text: '',
   sb: '',
+  services: [],
+  servicesLoading: false,
+  servicesError: null,
+  currentAktKuerzel: null,
 };
+
+// Async thunk for loading services
+export const loadServicesAsync = createAsyncThunk(
+  'service/loadServices',
+  async (query: LeistungenAuswahlQuery) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    const response = await webRTCApiService.loadServices(query);
+    
+    if (response.statusCode === 200) {
+      return response.data as LeistungAuswahlResponse[];
+    } else {
+      throw new Error(response.error || 'Failed to load services');
+    }
+  }
+);
 
 // Create the service slice
 const serviceSlice = createSlice({
@@ -56,6 +84,35 @@ const serviceSlice = createSlice({
       state.text = action.payload.text;
       state.sb = action.payload.sb;
     },
+    // Clear services
+    clearServices: (state) => {
+      state.services = [];
+      state.servicesError = null;
+      state.currentAktKuerzel = null;
+      state.abbreviation = 0; // Also clear selected service
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(loadServicesAsync.pending, (state, action) => {
+        state.servicesLoading = true;
+        state.servicesError = null;
+        // Store which Akt we're loading services for
+        state.currentAktKuerzel = action.meta.arg.Kürzel || null;
+      })
+      .addCase(loadServicesAsync.fulfilled, (state, action) => {
+        state.servicesLoading = false;
+        state.services = action.payload;
+        state.servicesError = null;
+        // Keep the currentAktKuerzel to track which Akt's services we have
+        // (it was already set in the pending case, so we just leave it as is)
+      })
+      .addCase(loadServicesAsync.rejected, (state, action) => {
+        state.servicesLoading = false;
+        state.servicesError = action.error.message || 'Failed to load services';
+        // Clear currentAktKuerzel on error
+        state.currentAktKuerzel = null;
+      });
   },
 });
 
@@ -67,6 +124,7 @@ export const {
   setSb,
   resetServiceData,
   setServiceData,
+  clearServices,
 } = serviceSlice.actions;
 
 export default serviceSlice.reducer;

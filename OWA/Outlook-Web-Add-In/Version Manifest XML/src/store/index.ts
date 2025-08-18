@@ -4,6 +4,8 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import { baseApi } from './services/baseApi';
 import emailReducer from './slices/emailSlice';
 import serviceReducer from './slices/serviceSlice';
+import aktenReducer from './slices/aktenSlice';
+import personReducer from './slices/personSlice';
 
 // Configure the Redux store
 export const store = configureStore({
@@ -12,6 +14,8 @@ export const store = configureStore({
     [baseApi.reducerPath]: baseApi.reducer,
     email: emailReducer,
     service: serviceReducer,
+    akten: aktenReducer,
+    person: personReducer,
     // Add other reducers here as your application grows
   },
   // Adding the api middleware enables caching, invalidation, polling,
