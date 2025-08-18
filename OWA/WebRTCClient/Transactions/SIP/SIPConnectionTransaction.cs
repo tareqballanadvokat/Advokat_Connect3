@@ -148,6 +148,8 @@ namespace WebRTCClient.Transactions.SIP
         {
             SIPHeaderParams headerParams = this.GetHeaderParams();
 
+            // TODO: threw "System.Net.WebSockets.WebSocketException: 'The WebSocket is in an invalid state ('Aborted') for this operation. Valid states are: 'Open, CloseReceived''"
+            // closed client and signaling server
             SocketError result = await this.Connection.SendSIPRequest(
                 SIPMethodsEnum.BYE,
                 headerParams,

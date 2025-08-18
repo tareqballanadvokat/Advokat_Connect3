@@ -20,10 +20,10 @@ namespace Caller
 
         private async static void Run()
         {
-            string callerName = "caller";
+            string callerName = "macc";
             IPEndPoint? callerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).LastOrDefault(), 8098);
 
-            string remoteName = "remote";
+            string remoteName = "macs";
 
             IPEndPoint signalingServerEndpoint = new IPEndPoint(IPAddress.Loopback, 8009);
 

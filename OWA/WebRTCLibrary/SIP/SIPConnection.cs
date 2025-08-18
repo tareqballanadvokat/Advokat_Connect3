@@ -69,6 +69,9 @@ namespace WebRTCLibrary.SIP
                 request.Header.CallId);
             this.logger.LogTrace("payload: {payload}", request.Body);
 
+
+            // TODO: threw "System.Net.WebSockets.WebSocketException: 'The WebSocket is in an invalid state ('Aborted') for this operation. Valid states are: 'Open, CloseReceived''"
+            // closed caller and signaling server
             return await this.Transport.SendRequestAsync(request);
         }
 
