@@ -33,8 +33,8 @@ namespace WebRTCAPIRelay
             // after implementing multiple connections with the same registration, caller should be empty
             // remote should be a unique string - does every server have an id? Or request a unique id from signaling server?
 
-            string callerName = "caller";
-            string remoteName = "remote";
+            string callerName = "macc";
+            string remoteName = "macs";
 
             IPEndPoint? remoteEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).LastOrDefault(), 7008);
             IPEndPoint signalingServerEndpoint = new IPEndPoint(IPAddress.Loopback, 8009);

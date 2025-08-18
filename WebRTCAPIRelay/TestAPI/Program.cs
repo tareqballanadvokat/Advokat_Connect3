@@ -1,5 +1,6 @@
 using Advokat.Connector.Plugin;
 using Advokat.Core.AspNetCore.Pipeline;
+using Advokat.Legacy.Settings;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using WebRTCAPIRelay;
 
@@ -14,6 +15,10 @@ namespace TestAPI
             // Add services to the container.
             builder.Services.AddControllers();
             builder.Services.AddHttpClient();
+
+            builder.Services.TryAddSingleton<SettingsService>();
+            builder.Services.TryAddSingleton<ISettingsService>(sp => sp.GetRequiredService<SettingsService>());
+
             await new ConnectorPlugIn().AddServicesAsync(builder.Services);
 
             builder.Services.AddWebRTCRemote();
