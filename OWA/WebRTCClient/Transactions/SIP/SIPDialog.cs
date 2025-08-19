@@ -70,11 +70,11 @@ namespace WebRTCClient.Transactions.SIP
         {
             await base.StartRunning();
             this.SetSIPRegistrationTransaction();
-            await this.SIPRegistrationTransaction.Start(this.Ct);
+            await this.SIPRegistrationTransaction.Start(this.Ct); // updates the Config object if the signaling server sends differing values
 
             await WaitForAsync(
                 () => this.Registered,
-                this.Config.RegistrationTimeout,
+                this.Config.RegistrationTimeout, // this cannot be set by the signaling server
                 ct: this.Ct,
                 successCallback: this.RegistationSuccessful,
                 cancellationCallback: this.Stop,
@@ -195,7 +195,7 @@ namespace WebRTCClient.Transactions.SIP
             this.SIPConnectionTransaction = this.SIPConnectionTransactionFactory.Create(SIPScheme, this.Connection.Transport, this.WaitForPeerTransaction.Params);
 
             this.SIPConnectionTransaction.StartCseq = this.WaitForPeerTransaction.CurrentCseq;
-            ((WebRTCLibrary.SIP.SIPTransaction)this.SIPConnectionTransaction).Config = this.Config;
+            this.SIPConnectionTransaction.Config = this.Config;
 
             this.SIPConnectionTransaction.OnRequestReceived += RequestRecieved;
             this.SIPConnectionTransaction.OnResponseReceived += ResponseRecieved;

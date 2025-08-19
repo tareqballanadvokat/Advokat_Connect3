@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using SIPSignalingServer.Interfaces;
 using WebRTCLibrary.SIP.Interfaces;
 using SIPSignalingServer.Transactions.Interfaces;
+using System.Text.Json;
 
 [assembly: InternalsVisibleTo("SignalingServerTests")]
 namespace SIPSignalingServer.Transactions
@@ -25,6 +26,12 @@ namespace SIPSignalingServer.Transactions
         {
             get => this.Registering || this.Registered;
             protected set => this.Registering = value;
+        }
+
+        public new ISIPDialogConfig Config
+        {
+            get => (ISIPDialogConfig)base.Config;
+            set => base.Config = value;
         }
 
         public bool Registered { get; private set; }
@@ -125,7 +132,10 @@ namespace SIPSignalingServer.Transactions
         private SIPResponse GetRegisteredAcceptedResponse()
         {
             SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: this.CurrentCseq);
-            return SIPHelper.GetResponse(this.SIPScheme, SIPResponseStatusCodesEnum.Accepted, headerParams);
+            string body = JsonSerializer.Serialize(this.Config);
+            string contentType = "text/json";
+
+            return SIPHelper.GetResponse(this.SIPScheme, SIPResponseStatusCodesEnum.Accepted, headerParams, body, contentType);
         }
 
         private async Task<bool> SendAcceptedResponse()
@@ -150,6 +160,7 @@ namespace SIPSignalingServer.Transactions
             catch (OperationCanceledException ex)
             {
                 // response did not get sent
+                // TODO: revert current cseq?
                 await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Accept not sent. Registration was cancelled.");
                 return false;
             }
