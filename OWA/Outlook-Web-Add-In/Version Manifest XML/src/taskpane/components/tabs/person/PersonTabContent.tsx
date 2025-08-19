@@ -52,7 +52,6 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
   // callback for opening/closing Accordion
   const handleSelectionChanged = useCallback((e: AccordionTypes.SelectionChangedEvent) => {
     setExpandedItems(e.addedItems as PersonLookUpResponse[]);
-    console.log(e);
   }, []);
 
   // removing person

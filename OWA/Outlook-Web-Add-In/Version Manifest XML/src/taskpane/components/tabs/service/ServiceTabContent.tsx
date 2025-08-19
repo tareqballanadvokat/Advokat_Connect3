@@ -1,5 +1,5 @@
 // src/taskpane/components/tabs/service/ServiceTabContent.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '../shared/ServiceSection';
 import SearchCaseList from '../email/SearchCaseList';
@@ -17,7 +17,7 @@ const ServiceTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
   
   // Local state for transfer loading
-  const [transferLoading, setTransferLoading] = React.useState(false);
+  const [transferLoading, setTransferLoading] = useState(false);
   
   // Get the relevant state from Redux
   const { abbreviation, time, text, sb } = useAppSelector(state => state.service);

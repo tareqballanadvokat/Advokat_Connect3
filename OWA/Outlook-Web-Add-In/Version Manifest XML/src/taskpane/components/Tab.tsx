@@ -24,12 +24,12 @@ const DevTabs: React.FC = () => {
   // }, []);
 
 
-  const handleDelete = (id: string) => {
-    console.log(id);
+  const handleDelete = (_id: string) => {
+    // TODO: Implement delete functionality
   };
 
-  const handleAdd = (id: string) => {
-    console.log(id);
+  const handleAdd = (_id: string) => {
+    // TODO: Implement add functionality
   };
 
   const renderContent = () => {

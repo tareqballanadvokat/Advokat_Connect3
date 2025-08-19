@@ -2,8 +2,6 @@ import React from 'react';
 import { PersonLookUpResponse } from '../../interfaces/IPerson';
 
 export default function CustomItem(data: PersonLookUpResponse) {
-  console.log('CustomItem received data:', data); // Debug log
-  
   return (
     <div style={{ padding: 16 }}>
       {/* Address Section */}

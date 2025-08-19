@@ -1,5 +1,5 @@
 // src/taskpane/components/tabs/email/EmailTabContent.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import SearchCaseList from './SearchCaseList'; 
 import notify from 'devextreme/ui/notify';
 import EmailSend from './EmailSend'; 
@@ -13,8 +13,7 @@ import { LeistungPostData } from '@components/interfaces/IService';
 import { webRTCApiService } from '../../../services/webRTCApiService';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 
-import { getInternetMessageIdAsync } from '@hooks/useOfficeItem'; 
-import DropAttachArea from '../shared/DropAttachArea';
+import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
@@ -60,7 +59,7 @@ const EmailTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
   
   // Local state for transfer loading
-  const [transferLoading, setTransferLoading] = React.useState(false);
+  const [transferLoading, setTransferLoading] = useState(false);
   
   // Get Redux state from both email and service slices
   const {
@@ -78,7 +77,7 @@ const EmailTabContent: React.FC = () => {
   const [saveEmailInfo] = useSaveEmailInfoMutation();
   
   // Get email message ID
-  const [messageId, setMessageId] = React.useState<string | null>(null);
+  const [messageId, setMessageId] = useState<string | null>(null);
   
   // Use RTK Query to fetch saved email
   const { data: savedEmail } = useGetSavedEmailQuery(messageId || '', {
@@ -107,7 +106,6 @@ const EmailTabContent: React.FC = () => {
 
   // Handler for case selection
   const setCaseHandler = async (id: string, name: string) => {
-    console.log(id, name);
     dispatch(setSelectedCase({
       id: Number.parseInt(id),
       name: name
@@ -116,9 +114,6 @@ const EmailTabContent: React.FC = () => {
   
   // Handler for sending email
   const sendEmailHandler = async () => {
-    console.log('Transfer to ADVOKAT, caseId =', selectedCaseName);
-    console.log(sb, text, abbreviation, time);
-
     if (selectedCaseId === -1) {
       notify('Please select a case first', 'warning', 3000);
       return;
