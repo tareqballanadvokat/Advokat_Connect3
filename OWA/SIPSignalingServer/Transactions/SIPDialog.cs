@@ -74,6 +74,7 @@ namespace SIPSignalingServer.Transactions
 
             this.Transport = transport;
 
+            // TODO: should actually be passed in the StartRunning method?
             this.InitialRequest = initialRequest;
             this.SignalingServer = signalingServer;
             this.Registry = registry;

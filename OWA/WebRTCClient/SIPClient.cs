@@ -97,7 +97,7 @@ namespace WebRTCClient
 
         public async Task StartDialog() //List<RTCIceServer> iceServers)
         {
-            this.Dialog.Config = this.Config;
+            this.Dialog.Config = (ISIPDialogConfig)this.Config.Clone();
             await this.Dialog.Start();
 
             await WaitForAsync(

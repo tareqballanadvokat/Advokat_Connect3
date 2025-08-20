@@ -6,6 +6,7 @@ using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 
@@ -21,29 +22,7 @@ namespace SIPSignalingServer
 
         private ISIPRegistry registry;
 
-        private SIPSchemesEnum sipScheme = SIPSchemesEnum.sip;
-
-        public static readonly SIPServerChannelsEnum defaultSIPChannel = SIPServerChannelsEnum.WebSocketSSL;
-
-        private X509Certificate2? sslCertificate = null;
-
-        public X509Certificate2? SSLCertificate
-        {
-            get => this.sslCertificate;
-            set
-            {
-                if (this.Running)
-                {
-                    throw new InvalidOperationException("Certificate cannot be changed while the server is running.");
-                }
-
-                this.sslCertificate = value;
-            }
-        }
-
-        public HashSet<SIPServerChannelsEnum> SIPChannels { get; set; } = [defaultSIPChannel];
-
-        //public SIPServerChannelsEnum SIPChannel { get; set; } = defaultSIPChannel;
+        public SignalingServerOptions Options { get; private set; }
 
         private ISIPTransport? Transport { get; set; }
 
@@ -62,7 +41,13 @@ namespace SIPSignalingServer
         public event ServerEventDelegate? ServerStopped;
 
         public SignalingServer(IPEndPoint serverEndpoint, ILoggerFactory loggerFactory)
+            :this(serverEndpoint, new SignalingServerOptions(), loggerFactory)
+        {            
+        }
+
+        public SignalingServer(IPEndPoint serverEndpoint, SignalingServerOptions options, ILoggerFactory loggerFactory)
         {
+            this.Options = options;
             this.ServerEndpoint = serverEndpoint;
 
             this.loggerFactory = loggerFactory;
@@ -82,8 +67,8 @@ namespace SIPSignalingServer
             }
             this.Transport = this.GetTransport(this.ServerEndpoint);
             
-            this.Connection = new SIPConnection(this.sipScheme, this.Transport, this.loggerFactory, this.IsRegistrationRequest);
-            this.Connection.SIPRequestReceived += this.RegistraionListener;
+            this.Connection = new SIPConnection(this.Options.SIPScheme, this.Transport, this.loggerFactory, this.IsRegistrationRequest);
+            this.Connection.SIPRequestReceived += this.RequestListener;
             
             this.Running = true;
             
@@ -100,7 +85,7 @@ namespace SIPSignalingServer
                 // server not running
                 return;
             }
-            this.Connection.SIPRequestReceived -= this.RegistraionListener;
+            this.Connection.SIPRequestReceived -= this.RequestListener;
 
             this.Transport = null;
 
@@ -120,21 +105,75 @@ namespace SIPSignalingServer
 
         private ISIPTransport GetTransport(IPEndPoint sourceEndpoint)
         {
-            if (this.SIPChannels.Count == 0)
+            if (this.Options.SIPChannels.Count == 0)
             {
-                throw new ArgumentException("No SIPChannel set. Cannot create a SIP connection.");
+                throw new ArgumentException("No SIPChannel set in options. Cannot create a SIP connection.");
             }
             // TODO: threw an InvalidOperationException --> probably multiple processes on same socket
 
-            return new WebRTCLibrary.SIP.Utils.SIPTransport(sourceEndpoint, this.SIPChannels, this.SSLCertificate);
+            return new WebRTCLibrary.SIP.Utils.SIPTransport(sourceEndpoint, this.Options.SIPChannels, this.Options.SSLCertificate);
         }
 
         /// <summary>General listener for all requests from clients.</summary>
         /// <version date="20.03.2025" sb="MAC"></version>
-        private async Task RegistraionListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
+        private async Task RequestListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest sipRequest)
         {
-            SIPDialog SIPDialog = new SIPDialog(this.sipScheme, this.Transport!, sipRequest, localEndPoint, this.registry, this.connectionPool, this.loggerFactory);
+            if (sipRequest.Method == SIPMethodsEnum.REGISTER)
+            {
+                await this.StartConnection(localEndPoint, sipRequest);
+            }
+
+            // TODO: implement other paths - Options, BadRequest, Code registration / deletion
+        }
+
+        private async Task StartConnection(SIPEndPoint localEndPoint, SIPRequest sipRequest)
+        {
+            ISIPDialogConfig config = this.GetConfig(sipRequest);
+
+            SIPDialog SIPDialog = new SIPDialog(this.Options.SIPScheme, this.Transport!, sipRequest, localEndPoint, this.registry, this.connectionPool, this.loggerFactory);
+            SIPDialog.Config = config;
             await SIPDialog.Start();
+        }
+
+        private ISIPDialogConfig GetConfig(SIPRequest initialRequest)
+        {
+            ISIPDialogConfig config = (ISIPDialogConfig)this.Options.SIPConfig.Clone();
+            
+            if (this.Options.AllowClientConfigs == false)
+            {
+                return config;
+            }
+
+            if (!(initialRequest.Header.ContentType == "text/json"
+                && initialRequest.Header.ContentLength > 0
+                && initialRequest.Body.Length > 0))
+            {
+                return config;
+            }
+
+            SIPDialogConfig? clientConfig;
+
+            try
+            {
+                clientConfig = JsonSerializer.Deserialize<SIPDialogConfig>(initialRequest.Body);
+            }
+            catch (JsonException ex)
+            {
+                return config;
+            }
+
+            if (clientConfig == null)
+            {
+                return config;
+            }
+
+            // TODO: check what happens when an attribute is sent as null or left out in json
+            config.ConnectionTimeout = Math.Min(clientConfig.ConnectionTimeout, config.ConnectionTimeout);
+            config.RegistrationTimeout = Math.Min(clientConfig.RegistrationTimeout, config.RegistrationTimeout);
+            config.PeerRegistrationTimeout = clientConfig.PeerRegistrationTimeout; // override from client config
+            // ReceiveTimeout is left out on purpose - one way latency
+
+            return config;
         }
     }
 }
