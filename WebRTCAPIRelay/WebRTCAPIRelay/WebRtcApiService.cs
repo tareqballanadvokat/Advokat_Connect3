@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using WebRTCAPIRelay.DTOs;
@@ -24,6 +24,7 @@ namespace WebRTCAPIRelay
             AllowTrailingCommas = true,
             PropertyNameCaseInsensitive = true,
             DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            PropertyNamingPolicy = JsonNamingPolicy.KebabCaseLower
         };
 
         public WebRtcApiService()
@@ -47,6 +48,7 @@ namespace WebRTCAPIRelay
                 iceServers: [],
                 NullLoggerFactory.Instance
                 );
+            this.UserAgent.WebRTCConfig.SIPClientConfig.PeerRegistrationTimeout = null;
         }
 
         /// <summary>Starts the connection with the signaling server and waits for callers to connect over WebRTC.
@@ -69,63 +71,139 @@ namespace WebRTCAPIRelay
 
         private async Task HandleRequest(IWebRTCPeer sender, byte[] data)
         {
-            using var serviceScope = this.Services.CreateScope();
-            RequestPayload? request = ParseRequest(data, serviceScope.ServiceProvider);
+            if (!ChecksumChecksOut(data))
+            {
+                // TODO: some sort of response to tell the client to send this request again
+                //       should we parse it first? if the data is corrupted there is a good possibility that the deserialization does not work
+                
+                //await BadRequest(sender);
 
-            if (request == null)
+                return;
+            }
+
+            WebRTCRequest? webRtcRequest = ParseRequest(data);
+
+            if (webRtcRequest == null)
             {
                 await BadRequest(sender);
                 return;
             }
 
-            IRequestHandler requestHandler = serviceScope.ServiceProvider.GetRequiredService<IRequestHandler>();
-            ResponsePayload response = await requestHandler.InvokeAsync(request);
-
-            string? content = response.Content != null ? Encoding.UTF8.GetString(response.Content) : null;
-
-            WebRTCResponsePayload webRTCResponse = new WebRTCResponsePayload()
+            if (!RequestIsValid(webRtcRequest.Payload))
             {
-                StatusCode = response.StatusCode,
-                StatusText = response.StatusText,
-                Headers = response.Headers,
-                Content = content
+                await BadRequest(sender);
+                return;
+            }
+
+            RequestPayload? httpRequest = new RequestPayload()
+            {
+                Method = webRtcRequest.Payload.Method,
+                Uri = webRtcRequest.Payload.Uri,
+                Headers = webRtcRequest.Payload.Headers,
+                Body = webRtcRequest.Payload.Body
             };
 
-            string responseString = JsonSerializer.Serialize(webRTCResponse, JsonOptions);
+            using var serviceScope = this.Services.CreateScope();
+            IRequestHandler requestHandler = serviceScope.ServiceProvider.GetRequiredService<IRequestHandler>();
+            ResponsePayload httpResponse = await requestHandler.InvokeAsync(httpRequest);
 
+            WebRTCResponsePayload responsePayload = new WebRTCResponsePayload()
+            {
+                Id = webRtcRequest.Payload.Id,
+                Timestamp = DateTime.Now.Ticks,
+                StatusCode = httpResponse.StatusCode,
+                Headers = httpResponse.Headers,
+                Body = httpResponse.Content
+            };
+
+            WebRTCResponse webRtcResponse = new WebRTCResponse()
+            {
+                Checksum = GetChecksum(responsePayload),
+                Payload = responsePayload
+            };
+
+            string responseString = JsonSerializer.Serialize(webRtcResponse, JsonOptions);
             await sender.SendMessageToPeer(responseString);
         }
 
-        private static RequestPayload? ParseRequest(byte[] data, IServiceProvider serviceProvider)
+        private static WebRTCRequest? ParseRequest(byte[] data)
         {
             string requestString = Encoding.UTF8.GetString(data);
-            RequestPayload? request;
+            WebRTCRequest? request;
             try
             {
-                request = JsonSerializer.Deserialize<RequestPayload>(data, JsonOptions);
+                request = JsonSerializer.Deserialize<WebRTCRequest>(data, JsonOptions);
             }
             catch (JsonException)
             {
                 // cannot be parsed -> bad request
+                //  TODO: parsing error. No id to tell the caller which request to resend
                 return null;
             }
 
             if (request == null)
             {
                 // cannot be parsed -> bad request
-                return null;
-            }
-
-            if (!RequestIsValid(request))
-            {
+                //  TODO: parsing error. No id to tell the caller which request to resend
                 return null;
             }
 
             return request;
         }
 
-        private static bool RequestIsValid(RequestPayload request)
+        private bool ChecksumChecksOut(byte[] rawRequest)
         {
+            JsonDocument request;
+
+            try
+            {
+                request = JsonDocument.Parse(rawRequest, new JsonDocumentOptions() { AllowTrailingCommas = JsonOptions.AllowTrailingCommas });
+            }
+            catch (JsonException)
+            {
+                // TODO: parsing error. No id to tell the caller which request to resend
+                return false;
+            }
+
+            JsonElement checksum;
+            JsonElement payload;
+            try
+            {
+                JsonElement rootElement = request.RootElement;
+
+                checksum = rootElement.GetProperty("checksum");
+                payload = rootElement.GetProperty("request");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                // TODO: parsing error. No id to tell the caller which request to resend
+                return false;
+            }
+
+            string checksumRawText = checksum.ToString();
+            byte[] sentChecksum;
+            try
+            {
+                sentChecksum = Convert.FromBase64String(checksumRawText);
+            }
+            catch (FormatException)
+            {
+                // The checksum is not base64 encoded
+                return false;
+            }
+
+            byte[] calculatedChecksum = MD5.HashData(Encoding.UTF8.GetBytes(payload.GetRawText()));
+            return sentChecksum.SequenceEqual(calculatedChecksum);
+        }
+
+        private static bool RequestIsValid(WebRTCRequestPayload request)
+        {
+            if (request.Timestamp > DateTime.Now.Ticks) // TODO also check if the request is expired (older than 10 min? what threshold)
+            {
+                // request from the future ?!?
+                return false;
+            }
+
             try
             {
                 new Uri(request.Uri, UriKind.Relative);
@@ -138,6 +216,13 @@ namespace WebRTCAPIRelay
             return true;
         }
 
+        private static byte[] GetChecksum(WebRTCResponsePayload responsePayload)
+        {
+            string serializedPayload = JsonSerializer.Serialize(responsePayload, JsonOptions);
+            return  MD5.HashData(Encoding.UTF8.GetBytes(serializedPayload));
+        }
+
+
         private static async Task BadRequest(IWebRTCPeer sender)
         {
             ResponsePayload response = new ResponsePayload()
@@ -146,7 +231,7 @@ namespace WebRTCAPIRelay
                 StatusText = HttpStatusCode.BadRequest.ToString(),
                 // TODO: headers?
             };
-            await sender.SendMessageToPeer(JsonSerializer.Serialize(response, JsonOptions));
+            await sender.SendMessageToPeer(System.Text.Json.JsonSerializer.Serialize(response, JsonOptions));
         }
     }
 }

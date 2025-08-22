@@ -1,10 +1,17 @@
 ﻿namespace WebRTCAPIRelay.DTOs
 {
+    // DEBUG public
+
     public class WebRTCResponsePayload
     {
-        public int StatusCode { get; set; }
-        public string? StatusText { get; set; }
+        public required string Id { get; set; }
+
+        public required long Timestamp { get; set; }
+
+        public required int StatusCode { get; set; }
+
         public IDictionary<string, string> Headers { get; set; }
-        public string? Content { get; set; }
+
+        public byte[]? Body { get; set; }
     }
 }
