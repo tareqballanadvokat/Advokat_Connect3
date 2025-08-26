@@ -99,7 +99,10 @@ namespace WebRTCAPIRelay
             }
 
             // TODO: cache should be seperate for each connection. Currently the cache is global. Other clients can get cached responses of other clients if they get the ID.
-            //       If the current implementation stays where every connection generates it's own certificate 
+            //       If the current implementation stays where every connection generates it's own certificate the Id can only be read from the client or server, in that case
+            //       another layer of security here would be pointless.
+
+            //       Although a DTLS connection is not secured from man in the middle attacks. The certificate does not get evaluated for a CA. It is always self signed.
             WebRTCResponse? webRtcResponse = this.RequestCache.GetCachedResponse(webRtcRequest);
             if (webRtcResponse == null)
             {
