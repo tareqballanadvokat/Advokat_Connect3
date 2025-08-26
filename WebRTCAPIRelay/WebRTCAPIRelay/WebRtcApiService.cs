@@ -7,6 +7,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using WebRTCAPIRelay.Cache;
 using WebRTCAPIRelay.DTOs;
 using WebRTCClient;
 
@@ -16,6 +17,8 @@ namespace WebRTCAPIRelay
     public class WebRtcApiService
     {
         private WebRTCPeer UserAgent { get; set; }
+
+        private RequestCache RequestCache { get; set; } = new RequestCache();
 
         private IServiceProvider? Services { get; set; }
 
@@ -95,35 +98,52 @@ namespace WebRTCAPIRelay
                 return;
             }
 
-            RequestPayload? httpRequest = new RequestPayload()
+            // TODO: cache should be seperate for each connection. Currently the cache is global. Other clients can get cached responses of other clients if they get the ID.
+            //       If the current implementation stays where every connection generates it's own certificate 
+            WebRTCResponse? webRtcResponse = this.RequestCache.GetCachedResponse(webRtcRequest);
+            if (webRtcResponse == null)
             {
-                Method = webRtcRequest.Payload.Method,
-                Uri = webRtcRequest.Payload.Uri,
-                Headers = webRtcRequest.Payload.Headers,
-                Body = webRtcRequest.Payload.Body
+                WebRTCResponsePayload responsePayload = await this.GetAPIResponse(webRtcRequest.Payload);
+                webRtcResponse = new WebRTCResponse()
+                {
+                    Checksum = GetChecksum(responsePayload),
+                    Payload = responsePayload
+                };
+
+                this.RequestCache.CacheResponse(webRtcResponse);
+            }
+
+            await this.SendResponse(sender, webRtcResponse);
+        }
+
+        private async Task<WebRTCResponsePayload> GetAPIResponse(WebRTCRequestPayload request)
+        {
+            RequestPayload httpRequest = new RequestPayload()
+            {
+                Method = request.Method,
+                Uri = request.Uri,
+                Headers = request.Headers,
+                Body = request.Body
             };
 
             using var serviceScope = this.Services.CreateScope();
             IRequestHandler requestHandler = serviceScope.ServiceProvider.GetRequiredService<IRequestHandler>();
             ResponsePayload httpResponse = await requestHandler.InvokeAsync(httpRequest);
 
-            WebRTCResponsePayload responsePayload = new WebRTCResponsePayload()
+            return new WebRTCResponsePayload()
             {
-                Id = webRtcRequest.Payload.Id,
+                Id = request.Id,
                 Timestamp = DateTime.Now.Ticks,
                 StatusCode = httpResponse.StatusCode,
                 Headers = httpResponse.Headers,
                 Body = httpResponse.Content
             };
+        }
 
-            WebRTCResponse webRtcResponse = new WebRTCResponse()
-            {
-                Checksum = GetChecksum(responsePayload),
-                Payload = responsePayload
-            };
-
-            string responseString = JsonSerializer.Serialize(webRtcResponse, JsonOptions);
-            await sender.SendMessageToPeer(responseString);
+        private async Task SendResponse(IWebRTCPeer channel, WebRTCResponse response)
+        {
+            string responseString = JsonSerializer.Serialize(response, JsonOptions);
+            await channel.SendMessageToPeer(responseString);
         }
 
         private static WebRTCRequest? ParseRequest(byte[] data)
@@ -221,7 +241,6 @@ namespace WebRTCAPIRelay
             string serializedPayload = JsonSerializer.Serialize(responsePayload, JsonOptions);
             return  MD5.HashData(Encoding.UTF8.GetBytes(serializedPayload));
         }
-
 
         private static async Task BadRequest(IWebRTCPeer sender)
         {
