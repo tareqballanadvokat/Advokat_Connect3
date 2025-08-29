@@ -61,9 +61,23 @@ namespace Caller
 
             UserAgent.OnMessageReceived += async (IWebRTCPeer sender, byte[] message) =>
             {
+                // project reference to WebRtcApiRelay is only for DTOs here.
                 var responseString = Encoding.UTF8.GetString(message);
 
-                // project reference to WebRtcApiRelay is only for this DTO.
+                if (responseString.Contains("error"))
+                {
+                    var errorResponse = JsonSerializer.Deserialize<WebRTCErrorResponse>(message, new JsonSerializerOptions()
+                    {
+                        AllowTrailingCommas = true,
+                        PropertyNameCaseInsensitive = true,
+                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                        PropertyNamingPolicy = JsonNamingPolicy.KebabCaseLower
+                    });
+
+                    Console.WriteLine(Encoding.UTF8.GetString(message));
+                    return;
+                }
+
                 var response = JsonSerializer.Deserialize<WebRTCResponse>(message, new JsonSerializerOptions()
                 {
                     AllowTrailingCommas = true,
@@ -88,9 +102,11 @@ namespace Caller
             Console.WriteLine($"Enter to send GET request to {uri}");
             Console.ReadLine();
 
+            string guid = "079175de-6b75-4582-a2f8-64e776c60c44";
+            string guidChecksum = Encoding.UTF8.GetString(MD5.HashData(Encoding.UTF8.GetBytes(guid)).Take(4).ToArray());
+
             string payload = """
                 {
-                    "id": "079175de-6b75-4582-a2f8-64e776c60c44",
                     "timestamp": 1755511740818,
                     "method": "GET",
                     "uri": "/akten",
@@ -108,6 +124,7 @@ namespace Caller
             string requestString = $$"""
                 {
                   "checksum": "{{checksumString}}",
+                  "id": "{{guid}}{{guidChecksum}}",
                   "request": {{ payload}}
                 }
                 """;

@@ -24,6 +24,8 @@
 
         //public Task<SocketError> SendSIPResponse(SIPResponseStatusCodesEnum statusCode, string message, string contentType, int cSeq);
 
+        public Task Connect();
+
         public Task SendMessageToPeer(string message);
 
         public Task SendMessageToPeer(byte[] message);

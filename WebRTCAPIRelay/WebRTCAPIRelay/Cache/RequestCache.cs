@@ -3,7 +3,7 @@ using WebRTCAPIRelay.DTOs;
 
 namespace WebRTCAPIRelay.Cache
 {
-    internal class RequestCache
+    internal class RequestCache : IRequestCache
     {
         public int CacheLifetime { get; set; } = 60000; // 1 min lifetime
 
@@ -11,7 +11,7 @@ namespace WebRTCAPIRelay.Cache
 
         public WebRTCResponse? GetCachedResponse(WebRTCRequest request)
         {
-            cache.TryGetValue(request.Payload.Id, out CachedResponse? cachedResponse);
+            cache.TryGetValue(request.Id, out CachedResponse? cachedResponse);
             return cachedResponse?.Response;
         }
 
@@ -19,7 +19,7 @@ namespace WebRTCAPIRelay.Cache
         {
             CachedResponse cachedResponse = new CachedResponse(response, this.CacheLifetime, this);
 
-            bool success = cache.TryAdd(response.Payload.Id, cachedResponse);
+            bool success = cache.TryAdd(response.Id, cachedResponse);
             if (!success)
             {
                 // caching didn't work

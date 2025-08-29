@@ -36,7 +36,7 @@ namespace WebRTCAPIRelay.Cache
         {
             this.LifetimeTimer.Stop();
             this.LifetimeTimer.Dispose();
-            this.RequestCache.RemoveFromCache(this.Response.Payload.Id);
+            this.RequestCache.RemoveFromCache(this.Response.Id);
         }
     }
 }

@@ -3,13 +3,13 @@
 namespace WebRTCAPIRelay.DTOs
 {
     // DEBUG public
-    public class WebRTCResponse
+    public class WebRTCErrorResponse
     {
-        public required string Id { get; set; }
+        public string? Id { get; set; } = null;
 
         public required byte[] Checksum { get; set; }
 
         [JsonPropertyName("response")]
-        public required WebRTCResponsePayload Payload { get; set; }
+        public required WebRTCErrorResponsePayload Payload { get; set; }
     }
 }

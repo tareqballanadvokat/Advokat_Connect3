@@ -4,8 +4,6 @@
 
     public class WebRTCResponsePayload
     {
-        public required string Id { get; set; }
-
         public required long Timestamp { get; set; }
 
         public required int StatusCode { get; set; }
