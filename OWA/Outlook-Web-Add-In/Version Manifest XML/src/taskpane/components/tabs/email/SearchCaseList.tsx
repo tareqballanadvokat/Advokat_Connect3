@@ -4,7 +4,7 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { searchAktenFakeAsync, setSearchTerm, clearCases } from '../../../../store/slices/aktenSlice';
+import { aktLookUpAsync, setSearchTerm, clearCases } from '../../../../store/slices/aktenSlice';
 import { AktLookUpResponse } from '../../interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
 
@@ -42,23 +42,9 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     }
 
     try {
-      // Determine if search input is numeric (AktId) or text (Kürzel)
-      const isNumeric = /^\d+$/.test(filter);
-      const searchQuery = isNumeric 
-        ? { 
-            aktId: parseInt(filter),  // Search by AktId
-            withCausa: true,
-            count: 10 
-          }
-        : { 
-            aKurzLike: filter,        // Search by Kürzel pattern
-            withCausa: true,
-            count: 10 
-          };
-
       // Dispatch Redux action to search for cases
-      // Using fake async for testing - replace with searchAktenAsync when WebRTC is ready
-      await dispatch(searchAktenFakeAsync(searchQuery)).unwrap();
+      // Using aktLookUpAsync - includes fake response for testing when WebRTC is not ready
+      await dispatch(aktLookUpAsync(filter)).unwrap();
       
       dispatch(setSearchTerm(filter));
     } catch (error) {

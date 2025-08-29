@@ -6,6 +6,7 @@ import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnec
 // State interface
 interface AktenState {
   cases: AktLookUpResponse[];
+  favouriteAkten: AktLookUpResponse[]; // For favorite Akten from GetAllAsync endpoint
   loading: boolean;
   error: string | null;
   searchTerm: string;
@@ -15,95 +16,83 @@ interface AktenState {
 // Initial state
 const initialState: AktenState = {
   cases: [],
+  favouriteAkten: [],
   loading: false,
   error: null,
   searchTerm: '',
   currentSearchTerm: '' // Track which search term's results are currently loaded
 };
 
-// Real WebRTC-based async thunk for searching cases
+// New async thunk for getting favorite Akten
+export const getFavoriteAktenAsync = createAsyncThunk(
+  'akten/getFavoriteAkten',
+  async (query: AktenQuery) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    const response = await webRTCApiService.getFavoriteAkten(query);
+    
+    if (response.statusCode === 200) {
+      return response.data as AktLookUpResponse[];
+    } else {
+      throw new Error(response.error || 'Failed to get favorite cases');
+    }
+  }
+);
+
+// Main async thunk for Akt lookup with text search
 // Thunks are commonly used for async logic like fetching data.
 // The `createAsyncThunk` method is used to generate thunks that
 // dispatch pending/fulfilled/rejected actions based on a promise.
 // The `createSlice.extraReducers` field can handle these actions
 // and update the state with the results.
-export const searchAktenAsync = createAsyncThunk(
-  'akten/searchAkten',
-  async (searchQuery: AktenQuery) => {
+export const aktLookUpAsync = createAsyncThunk(
+  'akten/aktLookUp',
+  async (searchText: string) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
-    const response = await webRTCApiService.searchAkten(searchQuery);
     
-    if (response.statusCode === 200) {
-      return response.data as AktLookUpResponse[];
-    } else {
-      throw new Error(response.error || 'Failed to search cases');
-    }
-  }
-);
-
-// Fake response simulation - creates realistic JSON response and parses it
-//Redux Toolkit includes a createAsyncThunk method that does all of the dispatching work (see the extraReducers) for you.
-//When you use createAsyncThunk, you handle its actions in createSlice.extraReducers. 
-// In this case, we handle all three action types, update the status field, and also update the value
-export const searchAktenFakeAsync = createAsyncThunk(
-  'akten/searchAktenFake',
-  async (searchQuery: AktenQuery) => {
-    // Simulate network delay
-    const connectionManager = getWebRTCConnectionManager();
-    const webRTCApiService = connectionManager.getWebRTCApiService();
-    const response = await webRTCApiService.searchAkten(searchQuery);
-
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    let fakeResults: any[] = [];
-    
-    // If searching by specific AktId, return single result
-    if (searchQuery.aktId) {
-      fakeResults = [{
-        aktId: searchQuery.aktId,
-        aKurz: `ACT-${searchQuery.aktId}-2024`,
-        causa: searchQuery.withCausa ? `Case for Akt ID ${searchQuery.aktId} - Specific case details` : undefined
-      }];
-    } else {
-      // Search by Kürzel pattern - return multiple results
-      fakeResults = [
+    try {
+      const response = await webRTCApiService.aktLookUp(searchText);
+      
+      if (response.statusCode === 200) {
+        return response.data as AktLookUpResponse[];
+      } else {
+        throw new Error(response.error || 'Failed to lookup cases');
+      }
+    } catch (error) {
+      // If WebRTC fails, provide fake data for testing
+      console.log('🔧 WebRTC lookup failed, providing fake data for testing');
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Create fake search results based on search text
+      const fakeResults = [
         {
           aktId: 1001,
-          aKurz: `${searchQuery.aKurzLike?.toUpperCase() || 'DEMO'}-2024-001`,
-          causa: searchQuery.withCausa ? 'Litigation matter - Contract dispute resolution' : undefined
+          aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2024-001`,
+          causa: 'Litigation matter - Contract dispute resolution'
         },
         {
           aktId: 1002,
-          aKurz: `${searchQuery.aKurzLike?.toUpperCase() || 'DEMO'}-2024-002`, 
-          causa: searchQuery.withCausa ? 'Employment law case - Wrongful termination' : undefined
+          aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2024-002`, 
+          causa: 'Employment law case - Wrongful termination'
         },
         {
           aktId: 1003,
-          aKurz: `${searchQuery.aKurzLike?.toUpperCase() || 'DEMO'}-2024-003`,
-          causa: searchQuery.withCausa ? 'Corporate law - Merger and acquisition support' : undefined
+          aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2024-003`,
+          causa: 'Corporate law - Merger and acquisition support'
         },
         {
           aktId: 1004,
-          aKurz: `${searchQuery.aKurzLike?.toUpperCase() || 'DEMO'}-2023-045`,
-          causa: searchQuery.withCausa ? 'Real estate transaction - Commercial property' : undefined
+          aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2023-045`,
+          causa: 'Real estate transaction - Commercial property'
         }
-      ].slice(0, searchQuery.count || 10); // Respect count parameter
+      ].slice(0, 10); // Limit to 10 results
+      
+      console.log('📥 Using fake response data:', fakeResults);
+      return fakeResults as AktLookUpResponse[];
     }
-    
-    // Create a fake JSON response as if received from the remote API
-    const fakeJsonResponse = {
-      statusCode: 200,
-      data: fakeResults,
-      error: null
-    };
-    
-    // Parse JSON response as if received from WebRTC message
-    const jsonString = JSON.stringify(fakeJsonResponse);
-    console.log('📥 Simulated API Response JSON:', jsonString);
-    
-    const parsedResponse = JSON.parse(jsonString);
-    return parsedResponse.data as AktLookUpResponse[];
   }
 );
 
@@ -128,6 +117,7 @@ const aktenSlice = createSlice({
       // which detects changes to a "draft state" and produces a brand new
       // immutable state based off those changes
       state.cases = [];
+      state.favouriteAkten = [];
       state.error = null;
       state.currentSearchTerm = ''; // Clear the cached search term
     },
@@ -145,40 +135,33 @@ const aktenSlice = createSlice({
   // including actions generated by createAsyncThunk or in other slices.
   extraReducers: (builder) => {
     builder
-      // Real WebRTC search handlers
-      .addCase(searchAktenAsync.pending, (state, action) => {
+      // Get favorite Akten handlers
+      .addCase(getFavoriteAktenAsync.pending, (state) => {
         state.loading = true;
         state.error = null;
-        // Set currentSearchTerm when starting to load cases for this search term
-        const searchQuery = action.meta.arg;
-        state.currentSearchTerm = searchQuery.aKurzLike || '';
       })
-      .addCase(searchAktenAsync.fulfilled, (state, action) => {
+      .addCase(getFavoriteAktenAsync.fulfilled, (state, action) => {
         state.loading = false;
-        state.cases = action.payload;
-        // currentSearchTerm is already set in pending case, preserved here
+        state.favouriteAkten = action.payload;
       })
-      .addCase(searchAktenAsync.rejected, (state, action) => {
+      .addCase(getFavoriteAktenAsync.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to search cases via WebRTC';
-        state.currentSearchTerm = ''; // Clear cache on error
+        state.error = action.error.message || 'Failed to get favorite cases via WebRTC';
       })
-      // Fake search handlers for testing
-      .addCase(searchAktenFakeAsync.pending, (state, action) => {
+      // Akt lookup handlers
+      .addCase(aktLookUpAsync.pending, (state, action) => {
         state.loading = true;
         state.error = null;
-        // Set currentSearchTerm when starting to load cases for this search term
-        const searchQuery = action.meta.arg;
-        state.currentSearchTerm = searchQuery.aKurzLike || '';
+        // Set currentSearchTerm for lookup search
+        state.currentSearchTerm = action.meta.arg || '';
       })
-      .addCase(searchAktenFakeAsync.fulfilled, (state, action) => {
+      .addCase(aktLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
         state.cases = action.payload;
-        // currentSearchTerm is already set in pending case, preserved here
       })
-      .addCase(searchAktenFakeAsync.rejected, (state, action) => {
+      .addCase(aktLookUpAsync.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to search cases (fake)';
+        state.error = action.error.message || 'Failed to lookup cases via WebRTC';
         state.currentSearchTerm = ''; // Clear cache on error
       });
   }

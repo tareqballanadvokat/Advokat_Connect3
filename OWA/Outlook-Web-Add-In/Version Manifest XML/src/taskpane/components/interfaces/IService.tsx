@@ -29,25 +29,6 @@ export interface LeistungAuswahlResponse {
   AnzeigenInQuicklisteOutlook?: boolean;
 }
 
-// Legacy service interfaces (keeping for backward compatibility)
-
-// Service data model for API communication
-export interface ServiceModel {
-  caseId: number;
-  serviceAbbreviationType: string;
-  serviceSB: string;
-  serviceTime: string;
-  serviceText: string;
-  internetMessageId: string;
-  userId: number;
-}
-
-// Service component props
-export interface ServiceSectionProps {
-  selectedAktKuerzel?: string; // The Kürzel of the selected Akt
-  mode?: 'email' | 'service';  // Mode determines behavior differences
-}
-
 // Registered service item
 export interface RegisteredService {
   id: string;

@@ -3,42 +3,74 @@ import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
 import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
-import { getSavedEmailInfo, getStructureFolderApi, getStructureFolderByIdApi, Attachment } from '../../../utils/api';
-
-export interface TransferAttachmentItem {
-  id: string;
-  label: string;
-  option: number;
-  checked: boolean;
-  readonly: boolean;
-  disabled: boolean;
-  name: string;
-  type: string;
-}
-
-export interface TransferEmailItem {
-  id: string;
-  label: string;
-  option: number;
-  checked: boolean;
-  readonly: boolean;
-}
-
-// var attachmentOptions = ['Email', 'Aktenordner', 'Andere…'];
-var attachmentOptions = [
-  // { id: 1, text: 'Email' },
-  // { id: 2, text: 'Aktenordner' },
-  // { id: 3, text: 'Andere…' },
-];
+import { webRTCApiService } from '../../../services/webRTCApiService';
+import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '../../interfaces/IDocument';
 
 interface TransferAndAttachmentProps {
-  onSelectionChange?: (selected: TransferAttachmentItem[]) => void;
-  caseId?: number; 
+  aktId: number; // Selected case ID from EmailTabContent
+  onSelectionChange?: (selected: TransferAttachmentItem[]) => void; // Callback to notify parent
 }
-const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelectionChange, caseId }) => {
-  const [items, setItems] =         useState<TransferAttachmentItem[]>([]);
-  const [loading, setLoading] =     useState(true);
-  const [error, setError]     =     useState<string>();
+const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ aktId, onSelectionChange }) => {
+  const [items, setItems] = useState<TransferAttachmentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>();
+  const [folderOptions, setFolderOptions] = useState<{id: number, text: string}[]>([]);
+
+  // Helper function to get folder name from option ID
+  const getFolderNameByOption = (optionId: number): string => {
+    const folder = folderOptions.find(f => f.id === optionId);
+    return folder?.text || 'Default';
+  };
+
+  // Load folders whenever aktId changes
+  useEffect(() => {
+    const loadFolders = async () => {
+      if (aktId != null && aktId != -1) {
+        console.log('Loading folders for case:', aktId);
+        try {
+          // Check if WebRTC connection is ready
+          if (webRTCApiService.isReady()) {
+            const foldersResponse = await webRTCApiService.getAvailableFolders(aktId);
+            
+            if (foldersResponse.statusCode >= 200 && foldersResponse.statusCode < 300) {
+              // Debug: Log the actual response structure
+              console.log('Raw folders response:', foldersResponse);
+              console.log('Raw folders data:', foldersResponse.data);
+              
+              // The fake response returns data as an array of strings directly
+              // Based on webRTCApiService.ts fake response structure
+              const folderNames = Array.isArray(foldersResponse.data) 
+                ? foldersResponse.data.map(folder => String(folder))
+                : [];
+              
+              // Transform folder strings to options format
+              const newOptions = folderNames.map((folderName, index) => ({
+                id: index + 1, // Use index + 1 as ID
+                text: folderName
+              }));
+              
+              setFolderOptions(newOptions);
+              console.log('Processed folder names:', folderNames);
+              console.log('Final folder options:', newOptions);
+            } else {
+              console.warn('Failed to load folders via WebRTC:', foldersResponse.error);
+              setFolderOptions([]);
+            }
+          } else {
+            console.warn('WebRTC not ready, no fallback available');
+            setFolderOptions([]);
+          }
+        } catch (error) {
+          console.error('Error loading folders:', error);
+          setFolderOptions([]);
+        }
+      } else {
+        setFolderOptions([]);
+      }
+    };
+
+    loadFolders();
+  }, [aktId]);
 
   useEffect(() => {
     (async () => {
@@ -46,108 +78,88 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
       setError(undefined);
       
       try {
-
         const email = Office.context.mailbox.item;
         const messageId = await getInternetMessageIdAsync(email);
-        const data = await getSavedEmailInfo(messageId);
-        if (data!= null)
-        {
- 
-            const options = await getStructureFolderByIdApi(data.caseId);
-            const newOptions = options.map(o => ({
-              id: o.id,
-              text: o.name
-            }));
-            attachmentOptions = newOptions;
+        
+        // Get saved documents from Advokat via WebRTC
+        const documentsResponse = await webRTCApiService.getSavedEmailInfo(messageId, aktId);
+        let savedDocuments: DokumentResponse[] = [];
+        
+        if (documentsResponse.statusCode >= 200 && documentsResponse.statusCode < 300) {
+          savedDocuments = documentsResponse.data || [];
+        } else {
+          console.warn('Failed to get saved documents:', documentsResponse.error);
         }
-        // Step 1: Dictionaries        
-        if (caseId != null && caseId != -1)
-        {
-            console.log(caseId);
-            const options = await getStructureFolderByIdApi(caseId);
-            const newOptions = options.map(o => ({
-              id: o.id,
-              text: o.name
-            }));
-            attachmentOptions = newOptions;
-         }
-        // Step 1: Email informations
-
+        
+        // Step 1: Email information
         const emailSubject = await getEmailSubjectAsync();
         const emailAttachments = await getEmailAttachments(email);
- 
+
+        // Find saved email document (if any)
+        const savedEmailDoc = savedDocuments.find(doc => 
+          doc.dokumentArt === DokumentArt.MailEmpfangen || 
+          doc.dokumentArt === DokumentArt.MailGesendet
+        );
+
         const newEmailRow: TransferAttachmentItem = {
-            label :emailSubject,
-            name: emailSubject,
-            option:-1,
-            id: messageId, 
-            checked: false,
-            readonly: false,
-            disabled:false,
-            type: "E"
-        }
-
-        var attachmentConcatenated = emailAttachments.map(att => ({
-                id: att.id,
-                label: att.name,
-                name: att.name,
-                option:-1,    // default option
-                checked: false,     // or true, as needed
-                readonly: false,
-                disabled: false,
-                type:"A"
-            }));
-        
-        // Step 2: fetch both emailRow & attachmentRows in one POST
-     
-        if (data!= null)
-        {
-           // newEmailRow.option = data.emailFolder
-           //  const matchingFolder = attachmentOptions.find(f => f.text === data.emailFolder);
-             newEmailRow.option =  data.emailFolderId;
-           //     matchingFolder
-            //        ? matchingFolder.id
-            //        : -1; 
-
-            newEmailRow.label = data.emailName;
-            newEmailRow.id = data.internetMessageId; 
-            newEmailRow.checked = true;
-            newEmailRow.readonly = true;
-            newEmailRow.disabled = true;
-
-            if (data.attachments.length > 0)
-            {
-                data.attachments.forEach(element => {
-    
-                    const att = element as Attachment;
-                    var el = attachmentConcatenated.find(x => x.id == att.id) ;
-                    if (el != null){
-               
-                        el.label = att.fileName;
-                        el.option = att.folder;
-                        el.checked = true;
-                        el.readonly = true;
-                        el.disabled = true;
-                    }
-                }); 
-            }
-          
+          label: emailSubject,
+          name: emailSubject,
+          option: -1,
+          id: messageId, 
+          checked: false,
+          readonly: false,
+          disabled: false,
+          type: "E",
+          folderName: "Default",
+          document: savedEmailDoc
         };
 
-        // Step 3: merge into a single array, emailRow first
-        const allRows: TransferAttachmentItem[] = [
-           newEmailRow ,
-        ...attachmentConcatenated.map(att => ({
-                id: att.id,
-                label: att.name,
-                name: att.name,
-                option: att.option,    // default option
-                checked: att.checked,     // or true, as needed
-                readonly: att.readonly,
-                disabled: att.disabled,
-                type:"A"
-            }))
-        ];
+        // If email is already saved, mark it as disabled and readonly
+        if (savedEmailDoc) {
+          newEmailRow.option = 1; // Default to first folder for now
+          newEmailRow.folderName = "Default"; // We'll need to map this from the folder structure
+          newEmailRow.label = savedEmailDoc.betreff || emailSubject;
+          newEmailRow.checked = true;
+          newEmailRow.readonly = true;
+          newEmailRow.disabled = true;
+        }
+
+        // Step 2: Create attachment items
+        const attachmentItems: TransferAttachmentItem[] = emailAttachments.map(att => {
+          // Find if this attachment is already saved
+          const savedAttachmentDoc = savedDocuments.find(doc => 
+            doc.dokumentArt === DokumentArt.Keine && 
+            (doc.dateipfad?.includes(att.name) || doc.betreff?.includes(att.name))
+          );
+
+          const attachmentItem: TransferAttachmentItem = {
+            id: att.id,
+            label: att.name,
+            name: att.name,
+            option: -1,
+            checked: false,
+            readonly: false,
+            disabled: false,
+            type: "A",
+            folderName: "Default",
+            document: savedAttachmentDoc
+          };
+
+          // If attachment is already saved, mark it as disabled and readonly
+          if (savedAttachmentDoc) {
+            attachmentItem.option = 1; // Default to first folder for now
+            attachmentItem.folderName = "Default"; // We'll need to map this from the folder structure
+            attachmentItem.label = savedAttachmentDoc.betreff || att.name;
+            attachmentItem.checked = true;
+            attachmentItem.readonly = true;
+            attachmentItem.disabled = true;
+          }
+
+          return attachmentItem;
+        });
+
+        // Step 3: merge into a single array, email first
+        const allRows: TransferAttachmentItem[] = [newEmailRow, ...attachmentItems];
         setItems(allRows);
       } catch (e: any) {
         console.error(e);
@@ -156,7 +168,7 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
         setLoading(false);
       }
     })();
-  }, [caseId]);
+  }, [aktId]);
 
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;
@@ -200,12 +212,18 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
  
           <SelectBox
             stylingMode="outlined"
-            dataSource={attachmentOptions}
+            dataSource={folderOptions}
             displayExpr="text"   // the field to show
             valueExpr="id"       // the field to use as the actual value
             value={item.option}  // now this should be the numeric id
             disabled={item.readonly}
-            onValueChanged={e => updateItem(item.id, { option: e.value })}
+            onValueChanged={e => {
+              const selectedFolder = folderOptions.find(f => f.id === e.value);
+              updateItem(item.id, { 
+                option: e.value,
+                folderName: selectedFolder?.text || 'Default'
+              });
+            }}
             width={150}
           />
         </div>

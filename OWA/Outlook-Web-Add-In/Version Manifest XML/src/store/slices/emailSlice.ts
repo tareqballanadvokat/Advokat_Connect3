@@ -1,6 +1,6 @@
 // src/store/slices/emailSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { TransferAttachmentItem } from '../../taskpane/components/tabs/email/TransferAndAttachment';
+import { TransferAttachmentItem } from '../../taskpane/components/interfaces/IDocument';
 import { emailApi } from '../services/emailApi';
 
 // Define the state structure for email-related functionality

@@ -47,7 +47,7 @@ export function getEmailSubjectAsync(): Promise<string> {
   });
 }
 
-/** Pobiera Message-ID z nagłówków */
+/** Gets Message-ID from headers */
 function getInternetMessageId(item: OfficeItem): Promise<string> {
   return new Promise((resolve, reject) => {
     item.getAllInternetHeadersAsync(res => {
@@ -72,7 +72,7 @@ export function getInternetMessageIdAsync(item: any): Promise<string> {
         if (res.status === Office.AsyncResultStatus.Succeeded) {
           resolve(res.value); // Tymczasowe ID, unikalne w tej sesji
         } else {
-          reject(new Error("Nie udało się pobrać itemId w compose mode: " + res.error.message));
+          reject(new Error("Failed to get itemId in compose mode: " + res.error.message));
         }
       });
     } else {
@@ -83,10 +83,10 @@ export function getInternetMessageIdAsync(item: any): Promise<string> {
           if (match) {
             resolve(match[1].trim());
           } else {
-            reject(new Error("Brak nagłówka Message-ID."));
+            reject(new Error("Missing Message-ID header."));
           }
         } else {
-          reject(new Error("Błąd pobierania nagłówków: " + res.error.message));
+          reject(new Error("Error downloading headers: " + res.error.message));
         }
       });
     }

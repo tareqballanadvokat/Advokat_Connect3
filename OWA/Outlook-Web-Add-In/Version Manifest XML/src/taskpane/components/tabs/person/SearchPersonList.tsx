@@ -5,7 +5,7 @@ import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import type { RootState } from '../../../../store';
-import { searchPersonsFakeAsync, clearPersons, setSearchTerm } from '../../../../store/slices/personSlice';
+import { personLookUpAsync, clearPersons, setSearchTerm } from '../../../../store/slices/personSlice';
 import { PersonLookUpResponse } from '../../interfaces/IPerson';
 import notify from 'devextreme/ui/notify';
 
@@ -20,6 +20,17 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   
   const [searchValue, setSearchValue] = useState(searchTerm || '');
   const [gridVisible, setGridVisible] = useState(false);
+
+  // Helper function to create display name from person data
+  const getDisplayName = (person: PersonLookUpResponse) => {
+    const parts = [];
+    if (person.Titel) parts.push(person.Titel);
+    if (person.Vorname) parts.push(person.Vorname);
+    if (person.Name1) parts.push(person.Name1);
+    if (person.Name2) parts.push(person.Name2);
+    if (person.Name3) parts.push(person.Name3);
+    return parts.join(' ') || person.NKurz || 'Unknown Person';
+  };
 
   // Handle Redux error states
   useEffect(() => {
@@ -58,11 +69,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     dispatch(setSearchTerm(query));
     
     try {
-      await dispatch(searchPersonsFakeAsync({ 
-        nKurzLike: query,
-        name1Like: query,
-        count: 20 
-      })).unwrap();
+      await dispatch(personLookUpAsync(query)).unwrap();
       
       setGridVisible(true);
       
@@ -73,7 +80,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   };
 
   const handleAddToFavorites = (person: PersonLookUpResponse) => {
-    onPersonSelect(person.personId, person.anzeigename);
+    onPersonSelect(person.PersonId, getDisplayName(person));
   };
 
 
@@ -111,7 +118,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
       <DataGrid
         className="compact-grid"
         dataSource={persons}
-        keyExpr="personId"
+        keyExpr="PersonId"
         showBorders={false}
         visible={gridVisible && !loading}
         showColumnLines={false}
@@ -128,24 +135,24 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
           showInfo
         />
         <Column
-          dataField="personId"
+          dataField="PersonId"
           caption="Person ID"
           visible={false}
           alignment="left"
         />
         <Column
-          dataField="nKurz"
+          dataField="NKurz"
           caption="ID"
           alignment="left"
           width={100}
         />
         <Column
-          dataField="anzeigename"
           caption="Name"
           alignment="left"
+          cellRender={(data) => <span>{getDisplayName(data.data)}</span>}
         />
         <Column
-          dataField="adressdaten.ort"
+          dataField="Adresse.ort"
           caption="City"
           alignment="left"
           width={120}

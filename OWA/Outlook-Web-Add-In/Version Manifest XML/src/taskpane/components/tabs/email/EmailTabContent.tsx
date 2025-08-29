@@ -6,9 +6,10 @@ import EmailSend from './EmailSend';
 import RegisteredEmails from './RegisteredEmails';  
 // Import Service Section from shared
 import ServiceSection from '../shared/ServiceSection';
-import { getEmailAttachmentData, getEmailContentAsync } from '@hooks/useOfficeItem';
-import TransferAndAttachment, { TransferAttachmentItem } from './TransferAndAttachment';
-import { Attachment, EmailModel } from '@components/interfaces/IEmail';
+import { getEmailAttachmentData, getEmailContentAsync, IsComposeMode } from '@hooks/useOfficeItem';
+import TransferAndAttachment from './TransferAndAttachment';
+import { TransferAttachmentItem } from '@components/interfaces/IDocument';
+import { DokumentPostData, DokumentArt, getDokumentArt } from '@components/interfaces/IEmail';
 import { LeistungPostData } from '@components/interfaces/IService';
 import { webRTCApiService } from '../../../services/webRTCApiService';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
@@ -22,37 +23,6 @@ import {
   setAttachmentSelected,
   updateTransferCaseDisableState
 } from '@store/slices/emailSlice';
-import { setServiceData } from '@store/slices/serviceSlice';
-import { useGetSavedEmailQuery, useSaveEmailInfoMutation } from '@store/services/emailApi';
-
-// Helper function to map attachments
-async function mapToAttachments(
-  items: TransferAttachmentItem[]
-): Promise<Attachment[]> {
-  const selected = items.filter(i => i.checked);
-
-  // Get base64 content of each attachment
-  const results = await Promise.all(selected.map(async i => {
-    const contentBase64 = await new Promise<string>((resolve, reject) => {
-      Office.context.mailbox.item.getAttachmentContentAsync(i.id, ar => {
-        if (ar.status === Office.AsyncResultStatus.Succeeded) {
-          resolve(ar.value.content); // base64
-        } else {
-          resolve(''); // or reject(ar.error.message)
-          reject('');
-        }
-      });
-    });
-    return {
-      id: i.id,
-      originalFileName: i.name,
-      fileName: i.label,
-      contentBase64,
-      folder: i.option
-    } as Attachment;
-  }));
-  return results;
-}
 
 const EmailTabContent: React.FC = () => {
   // Get Redux dispatch function
@@ -60,6 +30,10 @@ const EmailTabContent: React.FC = () => {
   
   // Local state for transfer loading
   const [transferLoading, setTransferLoading] = useState(false);
+  
+  // Local state for available folders
+  // Remove unused state since folders are now handled in TransferAndAttachment
+  // const [availableFolders, setAvailableFolders] = useState<string[]>([]);
   
   // Get Redux state from both email and service slices
   const {
@@ -73,17 +47,8 @@ const EmailTabContent: React.FC = () => {
   // Get service state
   const { abbreviation, time, text, sb } = useAppSelector(state => state.service);
   
-  // RTK Query hooks
-  const [saveEmailInfo] = useSaveEmailInfoMutation();
-  
   // Get email message ID
   const [messageId, setMessageId] = useState<string | null>(null);
-  
-  // Use RTK Query to fetch saved email
-  const { data: savedEmail } = useGetSavedEmailQuery(messageId || '', {
-    // Skip the query if messageId is not available yet
-    skip: !messageId
-  });
 
   // Initialize component with email data
   useEffect(() => {
@@ -103,6 +68,11 @@ const EmailTabContent: React.FC = () => {
   useEffect(() => {
     dispatch(updateTransferCaseDisableState());
   }, [dispatch]);
+
+  // Helper function to get folder name from attachment item
+  const getFolderName = (item: TransferAttachmentItem): string => {
+    return item.folderName || 'Default';
+  };
 
   // Handler for case selection
   const setCaseHandler = async (id: string, name: string) => {
@@ -163,10 +133,7 @@ const EmailTabContent: React.FC = () => {
         console.log('⚠️ No service selected, skipping Leistung save');
       }
 
-      // STEP 2: Handle Email and Attachments
-      // TODO: Implement email content transfer via WebRTC API
-      // TODO: Implement attachment transfer via WebRTC API
-      
+      // STEP 2: Handle Email and Attachments via WebRTC API
       console.log('📧 Processing email and attachments...');
       
       const email = Office.context.mailbox.item;
@@ -174,62 +141,104 @@ const EmailTabContent: React.FC = () => {
       // Find selected email
       const firstE = attachmentSelected.find(i => i.checked && i.type === 'E'); // email taken
       let emailContent = '';
+      
+      // Save email as document if selected
       if (firstE != null) {
         emailContent = await getEmailContentAsync(email);
         console.log('📄 Email content extracted for transfer');
-        // TODO: Send email content via WebRTC API to save email to case
-      }
-
-      // Get selected attachments
-      const attachmentsPayload = await mapToAttachments(
-        attachmentSelected.filter(i => i.checked && i.type === 'A')
-      );
-      
-      if (attachmentsPayload.length > 0) {
-        console.log(`📎 ${attachmentsPayload.length} attachments processed for transfer`);
-        // TODO: Send attachments via WebRTC API to save documents to case
-      }
-
-      // TEMPORARY: Use existing RTK Query for now (remove when WebRTC email/attachment API is ready)
-      if (firstE || attachmentsPayload.length > 0) {
-        console.log('💾 Saving email/attachments via existing API (temporary)...');
         
-        // Create payload
-        const payload: EmailModel = firstE
-          ? {
-              caseId: selectedCaseId,
-              caseName: selectedCaseName,
-              serviceAbbreviationType: abbreviation.toString(),
-              serviceSB: sb,
-              serviceTime: time,
-              serviceText: text,
-              internetMessageId: messageId,
-              emailName: firstE.label,
-              emailFolder: firstE.option.toString(),
-              emailFolderId: firstE.option,
-              emailContent: emailContent,
-              attachments: attachmentsPayload,
-              userID: '-1'
-            }
-          : {
-              caseId: selectedCaseId,
-              caseName: selectedCaseName,
-              serviceAbbreviationType: abbreviation.toString(),
-              serviceSB: sb,
-              serviceTime: time,
-              serviceText: text,
-              internetMessageId: messageId,
-              emailName: firstE ? firstE.label : '',
-              emailFolder: '-1',
-              emailFolderId: -1,
-              emailContent: emailContent,
-              attachments: attachmentsPayload,
-              userID: '-1'
-            };
+        // Detect the correct document type (sent vs received email)
+        const isCompose = IsComposeMode();
+        const emailDokumentArt = await getDokumentArt(true, isCompose, email.from?.emailAddress);
+        
+        // Create DokumentPostData for email
+        const emailDokument: DokumentPostData = {
+          aktId: selectedCaseId,
+          betreff: email.subject || 'No Subject',
+          adresse: email.from?.emailAddress || undefined,
+          empfangenAm: email.dateTimeCreated ? new Date(email.dateTimeCreated) : new Date(),
+          memo: `Email transferred from Outlook: ${messageId}`,
+          inhalt: emailContent,
+          dokumentArt: emailDokumentArt, // Properly detected: sent vs received
+          outlookId: messageId,
+          anzahlMailAnhänge: attachmentSelected.filter(i => i.type === 'A').length,
+          dateigrößeInBytes: emailContent.length,
+          dateiName: `${email.subject || 'Email'}.eml`,
+          ordnerName: getFolderName(firstE)
+        };
+        
+        // Save email document via WebRTC
+        const emailResponse = await webRTCApiService.saveDokument(emailDokument);
+        
+        if (emailResponse.statusCode >= 200 && emailResponse.statusCode < 300) {
+          console.log('✅ Email document saved successfully');
+          notify('Email saved successfully', 'success', 3000);
+        } else {
+          throw new Error(emailResponse.error || 'Failed to save email document');
+        }
+      }
+
+      // Get selected attachments and save each as a document
+      const selectedAttachments = attachmentSelected.filter(i => i.checked && i.type === 'A');
       
-        // Use the RTK Query mutation to save email
-        await saveEmailInfo(payload).unwrap();
-        notify('Email and attachments transferred successfully', 'success', 3000);
+      if (selectedAttachments.length > 0) {
+        console.log(`� Processing ${selectedAttachments.length} attachments for transfer`);
+        
+        for (const attachment of selectedAttachments) {
+          try {
+            // Get attachment content
+            const contentBase64 = await new Promise<string>((resolve, reject) => {
+              Office.context.mailbox.item.getAttachmentContentAsync(attachment.id, ar => {
+                if (ar.status === Office.AsyncResultStatus.Succeeded) {
+                  resolve(ar.value.content);
+                } else {
+                  reject(new Error(ar.error?.message || 'Failed to get attachment content'));
+                }
+              });
+            });
+            
+            // Calculate file size from base64 (approximate)
+            const fileSizeInBytes = Math.round((contentBase64.length * 3) / 4);
+            
+            // Create DokumentPostData for attachment
+            const attachmentDokument: DokumentPostData = {
+              aktId: selectedCaseId,
+              betreff: `Attachment: ${attachment.name}`,
+              adresse: email.from?.emailAddress || undefined,
+              empfangenAm: email.dateTimeCreated ? new Date(email.dateTimeCreated) : new Date(),
+              memo: `Attachment from email: ${messageId}`,
+              inhalt: contentBase64, // Store the base64 content
+              dokumentArt: DokumentArt.Keine, // Normal attachment
+              outlookId: messageId,
+              dateigrößeInBytes: fileSizeInBytes,
+              dateiName: attachment.name,
+              ordnerName: getFolderName(attachment)
+            };
+            
+            // Save attachment document via WebRTC
+            const attachmentResponse = await webRTCApiService.saveDokument(attachmentDokument);
+            
+            if (attachmentResponse.statusCode >= 200 && attachmentResponse.statusCode < 300) {
+              console.log(`✅ Attachment '${attachment.name}' saved successfully`);
+            } else {
+              throw new Error(attachmentResponse.error || `Failed to save attachment '${attachment.name}'`);
+            }
+          } catch (attachmentError) {
+            console.error(`Failed to save attachment '${attachment.name}':`, attachmentError);
+            notify(`Failed to save attachment '${attachment.name}'`, 'warning', 4000);
+            // Continue with other attachments
+          }
+        }
+        
+        if (selectedAttachments.length > 0) {
+          notify(`${selectedAttachments.length} attachments processed`, 'success', 3000);
+        }
+      }
+
+      // Show success notification if any documents were saved
+      if (firstE || selectedAttachments.length > 0) {
+        const itemCount = (firstE ? 1 : 0) + selectedAttachments.length;
+        notify(`${itemCount} document(s) transferred successfully to case ${selectedCaseName}`, 'success', 4000);
       }
 
     } catch (error) {
@@ -280,7 +289,7 @@ const EmailTabContent: React.FC = () => {
       {/* 4) Transfer e-mail and attachments */}
       <TransferAndAttachment 
         onSelectionChange={handleAttachmentChange}
-        caseId={selectedCaseId}
+        aktId={selectedCaseId}
       />
    
       {/* 5) Registered E-Mails */}

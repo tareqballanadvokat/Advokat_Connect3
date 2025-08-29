@@ -2,8 +2,22 @@
 import { v4 as uuidv4 } from 'uuid';
 import { WebRTCApiRequest, WebRTCApiResponse, AktenQuery } from '../components/interfaces/IAkten';
 import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
-import { PersonenQuery } from '../components/interfaces/IPerson';
+import { DokumentPostData } from '../components/interfaces/IEmail';
+import { DokumentResponse, DokumenteQuery } from '../components/interfaces/IDocument';
+import { PersonenQuery, PersonResponse } from '../components/interfaces/IPerson';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
+import { 
+  CHUNKING_CONFIG,
+  calculateMessageSize,
+  calculateOverheadSize,
+  calculateMaxContentPerChunk,
+  splitDocumentContent,
+  needsChunking,
+  createChunkDelay,
+  generateGuid,
+  logChunkingInfo,
+  logChunkTransmission
+} from '../utils/chunkingUtils';
 
 /**
  * API Communication Service using WebRTC DataChannel
@@ -94,8 +108,60 @@ class WebRTCApiService {
         
         let fakeResponse: WebRTCApiResponse;
         
-        // Determine if this should be Akten or Services data based on the message
-        if (message.toLowerCase().includes('service') || message.toLowerCase().includes('leistung')) {
+        // Determine response type based on the message content
+        if (message.toLowerCase().includes('folders')) {
+          // Create fake Folders response - return array of folder names as strings
+          fakeResponse = {
+            Id: requestId,
+            Timestamp: Date.now(),
+            statusCode: 200,
+            data: [
+              "Korrespondenz",
+              "Verträge", 
+              "Gerichtsdokumente",
+              "Recherche",
+              "Klientenunterlagen"
+            ]
+          };
+        } else if (message.toLowerCase().includes('att')) {
+          // Create fake Documents/Attachments response
+          fakeResponse = {
+            Id: requestId,
+            Timestamp: Date.now(),
+            statusCode: 200,
+            data: [
+              {
+                id: 5001,
+                aKurz: "FAKE-2024-001",
+                aktId: 12345,
+                datum: new Date('2024-01-15'),
+                betreff: "Sample Email Document",
+                dokumentArt: 1, // MailEmpfangen
+                mailAdresse: "client@example.com",
+                mailZeitpunkt: new Date('2024-01-15T10:30:00'),
+                anzahlMailAnhänge: 2,
+                anhangDateiNamen: "contract.pdf;invoice.xlsx",
+                sachbearbeiterKürzel: "JD",
+                dateipfad: "/documents/email_001.msg",
+                bearbeitungsInfoErstelltVon: "System",
+                bearbeitungsInfoErstelltAm: new Date('2024-01-15T10:35:00')
+              },
+              {
+                id: 5002,
+                aKurz: "FAKE-2024-001",
+                aktId: 12345,
+                datum: new Date('2024-01-15'),
+                betreff: "Email Tab Content - old.png",
+                dokumentArt: 0, // Keine (normal attachment)
+                anzahlMailAnhänge: 0,
+                sachbearbeiterKürzel: "JD",
+                dateipfad: "/documents/attachments/Email Tab Content - old.png",
+                bearbeitungsInfoErstelltVon: "System",
+                bearbeitungsInfoErstelltAm: new Date('2024-01-15T10:36:00')
+              }
+            ]
+          };
+        } else if (message.toLowerCase().includes('service') || message.toLowerCase().includes('leistung')) {
           // Create fake Services response
           fakeResponse = {
             Id: requestId,
@@ -162,13 +228,6 @@ class WebRTCApiService {
   }
 
   /**
-   * Generate a proper GUID (UUID v4) using uuid library
-   */
-  private generateGuid(): string {
-    return uuidv4();
-  }
-
-  /**
    * Send API request through WebRTC DataChannel
    * @param request - The API request to send
    * @returns Promise with API response
@@ -187,7 +246,7 @@ class WebRTCApiService {
         return;
       }
 
-      const requestId = this.generateGuid();
+      const requestId = generateGuid();
       const requestWithId = { 
         Id: requestId,
         Timestamp: Date.now(),
@@ -209,7 +268,7 @@ class WebRTCApiService {
 
       try {
         const message = JSON.stringify(requestWithId);
-        console.log('📤 Sending API request:', message);
+        console.log('📤 Sending API request:', `Size: ${new TextEncoder().encode(message).length} bytes`);
         dataChannel.send(message);
       } catch (error) {
         this.responseHandlers.delete(requestId);
@@ -219,34 +278,47 @@ class WebRTCApiService {
   }
 
   /**
-   * Create HTTP request object for Akten lookup
-   * @param query - Search parameters
+   * Get favorite Akten (Cases) via WebRTC
+   * @param query - Search parameters with NurFavoriten=true
    */
-  private createAktenLookupRequest(query: AktenQuery): WebRTCApiRequest {
+  async getFavoriteAkten(query: AktenQuery) {
     const queryParams = new URLSearchParams();
     
-    if (query.aktId !== undefined) queryParams.append('aktId', query.aktId.toString());
-    if (query.aKurzLike) queryParams.append('aKurzLike', query.aKurzLike);
-    if (query.count) queryParams.append('count', query.count.toString());
-    if (query.withCausa !== undefined) queryParams.append('withCausa', query.withCausa.toString());
+    if (query.AktId !== undefined) queryParams.append('AktId', query.AktId.toString());
+    if (query.AKurzLike) queryParams.append('AKurzLike', query.AKurzLike);
+    if (query.Count) queryParams.append('Count', query.Count.toString());
+    if (query.NurFavoriten !== undefined) queryParams.append('NurFavoriten', query.NurFavoriten.toString());
+    if (query.Causa !== undefined) queryParams.append('Causa', query.Causa.toString());
 
-    return {
+    const request: WebRTCApiRequest = {
       method: 'GET',
-      url: `api/v1.1/akten/lookup?${queryParams.toString()}`,
+      url: `api/v1.1/akten?${queryParams.toString()}`,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
     };
+    
+    return this.sendRequest(request);
   }
 
   /**
-   * Search for Akten (Cases) via WebRTC
-   * @param query - Search parameters (Kürzel-based)
+   * Akt Lookup - search in different fields via WebRTC
+   * @param searchText - Text to search for in different fields
    */
-  async searchAkten(query: AktenQuery) {
+  async aktLookUp(searchText: string) {
+    const queryParams = new URLSearchParams();
+    queryParams.append('searchText', searchText);
+
+    const request: WebRTCApiRequest = {
+      method: 'GET',
+      url: `api/v1.1/akten/LookUp?${queryParams.toString()}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    };
     
-    const request = this.createAktenLookupRequest(query);
     return this.sendRequest(request);
   }
 
@@ -339,20 +411,191 @@ class WebRTCApiService {
     return this.sendRequest(request);
   }
 
+  /**
+   * Create HTTP request object for saving documents
+   * @param dokumentData - Document data to save
+   */
+  private createDokumentPostRequest(dokumentData: DokumentPostData): WebRTCApiRequest {
+    return {
+      method: 'POST',
+      url: 'api/v1.1/dokument',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: dokumentData
+    };
+  }
+
+  /**
+   * Save a new document via WebRTC with automatic chunking for large content
+   * @param dokumentData - Data for the new document
+   */
+  async saveDokument(dokumentData: DokumentPostData) {
+    // Create the request and check if chunking is needed
+    const request = this.createDokumentPostRequest(dokumentData);
+    
+    if (!needsChunking(request)) {
+      // Small document, send normally
+      const totalSize = calculateMessageSize(request);
+      logChunkingInfo({
+        totalSize,
+        overheadSize: 0,
+        maxContentPerChunk: 0,
+        totalChunks: 1,
+        action: 'single'
+      });
+      return this.sendRequest(request);
+    }
+    
+    // Large document, split into chunks
+    const totalSize = calculateMessageSize(request);
+    
+    // Calculate overhead size (all fields except 'inhalt')
+    const documentWithoutContent = { ...dokumentData, inhalt: '' };
+    const overheadSize = calculateOverheadSize(documentWithoutContent, this.createDokumentPostRequest.bind(this));
+    
+    // Calculate max content size per chunk
+    const maxContentPerChunk = calculateMaxContentPerChunk(overheadSize);
+    
+    const chunkingResult = splitDocumentContent(dokumentData.inhalt || '', maxContentPerChunk);
+    
+    logChunkingInfo({
+      totalSize,
+      overheadSize,
+      maxContentPerChunk,
+      totalChunks: chunkingResult.totalChunks,
+      action: 'chunked'
+    });
+    
+    // Send each chunk as a separate document request
+    const responses = [];
+    for (let i = 0; i < chunkingResult.chunks.length; i++) {
+      const chunkData: DokumentPostData = {
+        ...dokumentData,
+        inhalt: chunkingResult.chunks[i],
+        numberOfParts: chunkingResult.totalChunks,
+        partNumber: i + 1,
+        checkSum: chunkingResult.checkSum
+      };
+      
+      logChunkTransmission(i + 1, chunkingResult.totalChunks);
+      
+      try {
+        const response = await this.sendRequest(this.createDokumentPostRequest(chunkData));
+        responses.push(response);
+        
+        // Small delay between chunks
+        if (i < chunkingResult.chunks.length - 1) {
+          await createChunkDelay();
+        }
+      } catch (error) {
+        console.error(`❌ Failed to send chunk ${i + 1}/${chunkingResult.totalChunks}:`, error);
+        throw error;
+      }
+    }
+    
+    // Return the response from the last chunk (API will handle reassembly)
+    return responses[responses.length - 1];
+  }
+
+  /**
+   * Create HTTP request object for getting available folders
+   * @param aktId - The case ID to get folders for
+   */
+  private createGetFoldersRequest(aktId: number): WebRTCApiRequest {
+    return {
+      method: 'GET',
+      url: `api/v1.1/folders/${aktId}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    };
+  }
+
+  /**
+   * Get available folders for a case via WebRTC
+   * @param aktId - The case ID to get folders for
+   */
+  async getAvailableFolders(aktId: number) {
+    const request = this.createGetFoldersRequest(aktId);
+    return this.sendRequest<string[]>(request);
+  }
+
+  /**
+   * Create HTTP request object for getting saved email documents
+   * @param query - Query parameters for documents
+   */
+  private createGetDocumentsRequest(query: DokumenteQuery): WebRTCApiRequest {
+    const queryParams = new URLSearchParams();
+    
+    if (query.aktId) queryParams.append('aktId', query.aktId.toString());
+    if (query.outlookEmailId) queryParams.append('outlookEmailId', query.outlookEmailId);
+    if (query.dokumentArten) {
+      query.dokumentArten.forEach(art => queryParams.append('dokumentArten', art.toString()));
+    }
+    if (query.limit) queryParams.append('limit', query.limit.toString());
+
+    return {
+      method: 'GET',
+      url: `api/v1.1/dokument?${queryParams.toString()}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    };
+  }
+
+  /**
+   * Get saved email information for a specific email ID via WebRTC
+   * @param outlookEmailId - The Outlook email ID to search for
+   * @param aktId - Optional case ID to filter by
+   */
+  async getSavedEmailInfo(outlookEmailId: string, aktId?: number) {
+    const query: DokumenteQuery = {
+      outlookEmailId,
+      aktId
+    };
+    const request = this.createGetDocumentsRequest(query);
+    return this.sendRequest<DokumentResponse[]>(request);
+  }
+
   // ===== PERSON API METHODS =====
 
   /**
-   * Create request for person search
+   * Get favorite persons via WebRTC
+   * @param query - Search parameters with NurFavoriten=true
    */
-  private createPersonSearchRequest(query: PersonenQuery): WebRTCApiRequest {
+  async getFavoritePersons(query: PersonenQuery) {
     const queryParams = new URLSearchParams();
     
-    if (query.nKurzLike) queryParams.append('nKurzLike', query.nKurzLike);
-    if (query.name1Like) queryParams.append('name1Like', query.name1Like);
-    if (query.count) queryParams.append('count', query.count.toString());
-    if (query.nurFavoriten !== undefined) queryParams.append('nurFavoriten', query.nurFavoriten.toString());
+    if (query.NKurzLike) queryParams.append('NKurzLike', query.NKurzLike);
+    if (query.Name1Like) queryParams.append('Name1Like', query.Name1Like);
+    if (query.Count) queryParams.append('Count', query.Count.toString());
+    if (query.NurFavoriten !== undefined) queryParams.append('NurFavoriten', query.NurFavoriten.toString());
 
-    return {
+    const request: WebRTCApiRequest = {
+      method: 'GET',
+      url: `api/person?${queryParams.toString()}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    };
+    
+    return this.sendRequest(request);
+  }
+
+  /**
+   * Person Lookup - search in different fields via WebRTC
+   * @param searchText - Text to search for in different fields
+   */
+  async personLookUp(searchText: string) {
+    const queryParams = new URLSearchParams();
+    queryParams.append('searchText', searchText);
+
+    const request: WebRTCApiRequest = {
       method: 'GET',
       url: `api/person/Lookup?${queryParams.toString()}`,
       headers: {
@@ -360,6 +603,8 @@ class WebRTCApiService {
         'Accept': 'application/json'
       }
     };
+    
+    return this.sendRequest(request);
   }
 
   /**
@@ -388,14 +633,6 @@ class WebRTCApiService {
         'Accept': 'application/json'
       }
     };
-  }
-
-  /**
-   * Search for persons via WebRTC
-   */
-  async searchPersons(query: PersonenQuery) {
-    const request = this.createPersonSearchRequest(query);
-    return this.sendRequest(request);
   }
 
   /**

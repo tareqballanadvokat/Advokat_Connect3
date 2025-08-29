@@ -1,17 +1,15 @@
-// TypeScript models matching the C# API structure for Akten (Cases)
 
-// Matches AktenQuery class - search by Kürzel or AktId
 export interface AktenQuery {
-  aktId?: number;      // Search by specific Akt ID
-  aKurzLike?: string;  // Search by Kürzel pattern
-  count?: number;      // Limit number of results
-  withCausa?: boolean; // Include causa information
+  AktId?: number;        // Search by specific Akt ID
+  AKurzLike?: string;    // Search by Kürzel pattern
+  Count?: number;        // Limit number of results
+  NurFavoriten?: boolean; // Only favorites flag
+  Causa?: boolean;       // Include causa information
 }
 
-// Matches AktLookUpResponse class  
 export interface AktLookUpResponse {
   aktId: number;
-  aKurz: string;    // The Kürzel
+  aKurz: string;
   causa?: string;
 }
 

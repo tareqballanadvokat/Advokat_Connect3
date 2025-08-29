@@ -6,12 +6,12 @@ import SearchPersonList from './SearchPersonList';
 import CustomTitle from './CustomTitle';
 import CustomItem from './CustomItem';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { PersonLookUpResponse } from '../../interfaces/IPerson';
+import { PersonLookUpResponse, PersonResponse } from '../../interfaces/IPerson';
 import { 
-  searchPersonsFakeAsync, 
+  personLookUpAsync, 
   addPersonToFavoritesAsync, 
   removePersonFromFavoritesAsync,
-  loadFavoritesAsync
+  getFavoritePersonsAsync
 } from '../../../../store/slices/personSlice';
 import notify from 'devextreme/ui/notify';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus'; 
@@ -24,34 +24,38 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
   const dispatch = useAppDispatch();
   const { favorites, favoritesLoading } = useAppSelector(state => state.person);
   
-  const [expandedItems, setExpandedItems] = useState<PersonLookUpResponse[]>([]);
+  const [expandedItems, setExpandedItems] = useState<PersonResponse[]>([]);
+
+  // Helper function to create display name from person data (works for both PersonLookUpResponse and PersonResponse)
+  const getDisplayName = (person: PersonLookUpResponse | PersonResponse) => {
+    const parts = [];
+    if (person.Titel) parts.push(person.Titel);
+    if (person.Vorname) parts.push(person.Vorname);
+    if (person.Name1) parts.push(person.Name1);
+    if (person.Name2) parts.push(person.Name2);
+    if (person.Name3) parts.push(person.Name3);
+    return parts.join(' ') || person.NKurz || 'Unknown Person';
+  };
 
   // Load favorites on startup
   useEffect(() => {
-    dispatch(loadFavoritesAsync());
+    dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
   }, [dispatch]);
 
   // callback when someone in SearchPersonList adds a new person
   const handlePersonAdd = useCallback(async (personId: number, personName: string) => {
     try {
       await dispatch(addPersonToFavoritesAsync(personId)).unwrap();
-
       notify(`Added "${personName}" to favorites`, 'success', 3000);
-
-      // Find the newly added person and auto-expand it
-      const addedPerson = favorites.find(p => p.personId === personId);
-      if (addedPerson) {
-        setExpandedItems(prev => [...prev, addedPerson]);
-      }
     } catch (error) {
       console.error("Error adding person:", error);
       notify('Failed to add person to favorites', 'error', 5000);
     }
-  }, [dispatch, favorites]);
+  }, [dispatch]);
 
   // callback for opening/closing Accordion
   const handleSelectionChanged = useCallback((e: AccordionTypes.SelectionChangedEvent) => {
-    setExpandedItems(e.addedItems as PersonLookUpResponse[]);
+    setExpandedItems(e.addedItems as PersonResponse[]);
   }, []);
 
   // removing person
@@ -59,9 +63,6 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
     try {
       await dispatch(removePersonFromFavoritesAsync(personId)).unwrap();
       notify(`Removed "${personName}" from favorites`, 'success', 3000);
-      
-      // also remove from expandedItems if it was expanded
-      setExpandedItems(prev => prev.filter(p => p.personId !== personId));
     } catch (error) {
       console.error("Error removing person:", error);
       notify('Failed to remove person from favorites', 'error', 5000);
@@ -89,17 +90,17 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
         collapsible={true}
         multiple={true}
         animationDuration={500}
-        keyExpr="personId"
+        keyExpr="Id" // Use Id instead of PersonId for PersonResponse
 
         // controlled expansion state
         selectedItems={expandedItems}
         onSelectionChanged={handleSelectionChanged}
 
         // templates
-        itemTitleRender={(data: PersonLookUpResponse) => (
+        itemTitleRender={(data: PersonResponse) => (
           <CustomTitle
-            anzeigename={data.anzeigename}
-            onDelete={() => handleDelete(data.personId, data.anzeigename)}
+            anzeigename={getDisplayName(data)}
+            onDelete={() => handleDelete(data.Id, getDisplayName(data))} // Use Id instead of PersonId
           />
         )}
         itemRender={CustomItem}

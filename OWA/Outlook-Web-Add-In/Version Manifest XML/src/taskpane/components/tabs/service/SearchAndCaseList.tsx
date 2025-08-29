@@ -4,7 +4,7 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { searchAktenAsync, clearCases, setSearchTerm } from '../../../../store/slices/aktenSlice';
+import { aktLookUpAsync, clearCases, setSearchTerm } from '../../../../store/slices/aktenSlice';
 
 interface Props {
   onCaseSelect: (caseId: string) => void;
@@ -34,11 +34,7 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
     
     // Perform WebRTC-based search
     try {
-      await dispatch(searchAktenAsync({
-        aKurzLike: query,
-        withCausa: true,
-        count: 20
-      })).unwrap();
+      await dispatch(aktLookUpAsync(query)).unwrap();
     } catch (error) {
       console.error('Search failed:', error);
     }

@@ -17,7 +17,7 @@ import TreeList, {
  
 } from 'devextreme-react/tree-list';
 
-import { getMyFavoritesApi, getFileContent, addCases, removeCases } from '../../../utils/api'; // your API
+import { getMyFavoritesApi, getFileContent, addCases, removeCases} from '../../../utils/api'; // your API
 
 
 
@@ -26,16 +26,6 @@ function allowDeletingVisible()
 {
   return false;
 } 
-
-const onEditorPreparing = (e: TreeListTypes.EditorPreparingEvent) => {
-  if (e.dataField === 'Head_ID' && e.row.data.ID === 1) {
-    e.cancel = true;
-  }
-};
-
-const onInitNewRow = (e: TreeListTypes.InitNewRowEvent) => {
-  e.data.Head_ID = 1;
-};
 
 
 const CaseTabContent: React.FC = () => {
@@ -103,7 +93,7 @@ const handleSelectionAdd = useCallback(async (node: string) => {
   const handleDelete = useCallback(async (node: any) => {
     // your delete logic...
     console.log('Remove favorite', node);
-    await  removeCases(node.id);
+    // await  removeCases(node.id);
     const data = await getMyFavoritesApi(); // flatten list of folders & files
     setNodes(data);
   }, []);

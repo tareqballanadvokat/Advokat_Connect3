@@ -4,9 +4,8 @@ import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '../shared/ServiceSection';
 import SearchCaseList from '../email/SearchCaseList';
 import { setSelectedCase, updateTransferCaseDisableState } from '@store/slices/emailSlice';
-import { saveServiceInformation } from '@utils/api';
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
-import { ServiceModel, LeistungPostData } from '@components/interfaces/IService';
+import { LeistungPostData } from '@components/interfaces/IService';
 import { webRTCApiService } from '../../../services/webRTCApiService';
 import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
@@ -61,7 +60,7 @@ const ServiceTabContent: React.FC = () => {
         LeistungKurz: abbreviation.toString(),
         Datum: new Date().toISOString(), // Current date in ISO format
         Honorartext: text || undefined,
-        Memo: text || undefined,
+        Memo: undefined,
         SBZeitVerrechenbarInMinuten: time ? parseInt(time) : undefined,
         SBZeitNichtVerrechenbarInMinuten: undefined
       };

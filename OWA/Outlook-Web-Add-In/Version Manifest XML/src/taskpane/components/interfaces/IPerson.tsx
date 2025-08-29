@@ -1,9 +1,9 @@
-// TypeScript interfaces matching C# PersonLookUpResponse model
+
 export interface PersonKontaktData {
-  reihung: number; // short in C# maps to number in TypeScript
-  art: string; // required string
-  bemerkung?: string; // optional string
-  telefonnummerOderAdresse: string; // required string
+  Reihung: number;
+  Art: string;
+  Bemerkung?: string;
+  TelefonnummerOderAdresse: string;
 }
 
 export interface AdresseData {
@@ -14,19 +14,38 @@ export interface AdresseData {
 }
 
 export interface PersonLookUpResponse {
-  personId: number;
-  nKurz: string;
-  anzeigename: string;
-  adressdaten?: AdresseData;
-  kontakte: PersonKontaktData[];
+  PersonId: number;
+  NKurz: string;
+  IstFirma?: boolean;
+  Titel?: string;
+  Vorname?: string;
+  Name1?: string;
+  Name2?: string;
+  Name3?: string;
+  Adresse?: AdresseData;
+  Kontakte: PersonKontaktData[];
+}
+
+// PersonResponse for GetAllAsync endpoint (favorites)
+export interface PersonResponse {
+  Id: number;
+  NKurz: string;
+  IstFirma?: boolean;
+  Titel?: string;
+  Vorname?: string;
+  Name1?: string;
+  Name2?: string;
+  Name3?: string;
+  Adressdaten?: AdresseData;
+  Kontakte: PersonKontaktData[];
 }
 
 // Query interface for person search
 export interface PersonenQuery {
-  nKurzLike?: string;
-  name1Like?: string;
-  count?: number;
-  nurFavoriten?: boolean;
+  NKurzLike?: string;
+  Name1Like?: string;
+  Count?: number;
+  NurFavoriten?: boolean;
 }
 
  export interface Person {

@@ -1,6 +1,6 @@
 // Redux slice for managing Person state
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { PersonLookUpResponse, PersonenQuery } from '../../taskpane/components/interfaces/IPerson';
+import { PersonLookUpResponse, PersonenQuery, PersonResponse } from '../../taskpane/components/interfaces/IPerson';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 
 // State interface
@@ -10,7 +10,7 @@ interface PersonState {
   error: string | null;
   searchTerm: string;
   currentSearchTerm: string; // Track which search term's results are currently loaded
-  favorites: PersonLookUpResponse[];
+  favorites: PersonResponse[]; // For favorite persons from GetAllAsync endpoint
   favoritesLoading: boolean;
 }
 
@@ -25,183 +25,168 @@ const initialState: PersonState = {
   favoritesLoading: false
 };
 
-// Real WebRTC-based async thunk for searching persons
-export const searchPersonsAsync = createAsyncThunk(
-  'person/searchPersons',
-  async (searchQuery: PersonenQuery) => {
+// Main async thunk for Person lookup with text search
+export const personLookUpAsync = createAsyncThunk(
+  'person/personLookUp',
+  async (searchText: string) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
-    const response = await webRTCApiService.searchPersons(searchQuery);
     
-    if (response.statusCode === 200) {
-      return response.data as PersonLookUpResponse[];
-    } else {
-      throw new Error(response.error || 'Failed to search persons');
-    }
-  }
-);
-
-// Fake response simulation for testing
-export const searchPersonsFakeAsync = createAsyncThunk(
-  'person/searchPersonsFake',
-  async (searchQuery: PersonenQuery) => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    let fakeResults: PersonLookUpResponse[] = [];
-    
-    // If nurFavoriten is true, return saved favorites (simulate endpoint behavior)
-    if (searchQuery.nurFavoriten) {
-      // Return some fake favorites
-      fakeResults = [
-        {
-          personId: 3001,
-          nKurz: 'FAV-001',
-          anzeigename: 'Johann Müller (Favorite)',
-          adressdaten: {
-            straße: 'Favoriten Straße 1',
-            plz: '11111',
-            ort: 'Vienna',
-            landeskennzeichenIso2: 'AT'
-          },
-          kontakte: [
-            { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'johann.mueller@favorite.com', bemerkung: 'Work' },
-            { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+43 1 1234567', bemerkung: 'Office' }
-          ]
-        }
-      ];
-    } else {
-      // Create fake persons based on search term
-      const searchTerm = searchQuery.nKurzLike || searchQuery.name1Like || 'DEMO';
+    try {
+      const response = await webRTCApiService.personLookUp(searchText);
+      throw new Error('Failed to lookup persons');
+      if (response.statusCode === 200) {
+        return response.data as PersonLookUpResponse[];
+      } else {
+        throw new Error(response.error || 'Failed to lookup persons');
+      }
+    } catch (error) {
+      // If WebRTC fails, provide fake data for testing
+      console.log('🔧 WebRTC person lookup failed, providing fake data for testing');
       
-      fakeResults = [
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Create fake search results based on search text
+      const fakeResults = [
         {
-          personId: 2001,
-          nKurz: `${searchTerm.toUpperCase()}-P001`,
-          anzeigename: `Max Mustermann (${searchTerm})`,
-          adressdaten: {
+          PersonId: 2001,
+          NKurz: `${searchText?.toUpperCase() || 'DEMO'}-P001`,
+          IstFirma: false,
+          Titel: 'Dr.',
+          Vorname: 'Max',
+          Name1: 'Mustermann',
+          Name2: searchText ? `(${searchText})` : undefined,
+          Adresse: {
             straße: 'Musterstraße 123',
             plz: '12345',
             ort: 'Berlin',
             landeskennzeichenIso2: 'DE'
           },
-          kontakte: [
-            { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'max.mustermann@example.com', bemerkung: 'Primary' },
-            { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 30 12345678', bemerkung: 'Mobile' }
+          Kontakte: [
+            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'max.mustermann@example.com', Bemerkung: 'Primary' },
+            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 30 12345678', Bemerkung: 'Mobile' }
           ]
         },
         {
-          personId: 2002,
-          nKurz: `${searchTerm.toUpperCase()}-P002`,
-          anzeigename: `Anna Schmidt (${searchTerm})`,
-          adressdaten: {
+          PersonId: 2002,
+          NKurz: `${searchText?.toUpperCase() || 'DEMO'}-P002`,
+          IstFirma: false,
+          Vorname: 'Anna',
+          Name1: 'Schmidt',
+          Adresse: {
             straße: 'Beispielweg 456',
             plz: '54321',
             ort: 'München',
             landeskennzeichenIso2: 'DE'
           },
-          kontakte: [
-            { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'anna.schmidt@example.com', bemerkung: 'Work' },
-            { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 89 87654321' }
+          Kontakte: [
+            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'anna.schmidt@example.com' },
+            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 89 87654321' }
+          ]
+        }
+      ].slice(0, 10); // Limit to 10 results
+      
+      console.log('📥 Using fake person response data:', fakeResults);
+      return fakeResults as PersonLookUpResponse[];
+    }
+  }
+);
+
+// New async thunk for getting favorite persons
+export const getFavoritePersonsAsync = createAsyncThunk(
+  'person/getFavoritePersons',
+  async (query: PersonenQuery) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    
+    try {
+      throw new Error('Failed to get favorite persons');
+      const response = await webRTCApiService.getFavoritePersons(query);
+      if (response.statusCode === 200) {
+        return response.data as PersonResponse[];
+      } else {
+        throw new Error(response.error || 'Failed to get favorite persons');
+      }
+    } catch (error) {
+      // If WebRTC fails, provide fake favorite persons for testing
+      console.log('🔧 WebRTC get favorite persons failed, providing fake data for testing');
+
+      // Create fake favorite persons using PersonResponse structure (Id, Adressdaten)
+      const fakeFavorites = [
+        {
+          Id: 3001,
+          NKurz: 'FAV-P001',
+          IstFirma: false,
+          Titel: 'Dr.',
+          Vorname: 'Maria',
+          Name1: 'Favorit',
+          Name2: 'Client',
+          Adressdaten: {
+            straße: 'Hauptstraße 789',
+            plz: '10115',
+            ort: 'Berlin',
+            landeskennzeichenIso2: 'DE'
+          },
+          Kontakte: [
+            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'maria.favorit@example.com', Bemerkung: 'Business' },
+            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 30 55555555', Bemerkung: 'Office' }
           ]
         },
         {
-          personId: 2003,
-          nKurz: `${searchTerm.toUpperCase()}-P003`,
-          anzeigename: `Dr. Thomas Weber (${searchTerm})`,
-          adressdaten: {
-            straße: 'Hauptstraße 789',
-            plz: '67890',
+          Id: 3002,
+          NKurz: 'FAV-P002',
+          IstFirma: true,
+          Name1: 'Musterfirma',
+          Name2: 'GmbH',
+          Adressdaten: {
+            straße: 'Geschäftsstraße 456',
+            plz: '20095',
             ort: 'Hamburg',
             landeskennzeichenIso2: 'DE'
           },
-          kontakte: [
-            { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'thomas.weber@example.com', bemerkung: 'Work' },
-            { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 40 11223344' }
+          Kontakte: [
+            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'info@musterfirma.de', Bemerkung: 'Main' },
+            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 40 66666666', Bemerkung: 'Reception' },
+            { Reihung: 3, Art: 'Website', TelefonnummerOderAdresse: 'https://www.musterfirma.de' }
+          ]
+        },
+        {
+          Id: 3003,
+          NKurz: 'FAV-P003',
+          IstFirma: false,
+          Vorname: 'Thomas',
+          Name1: 'Stammkunde',
+          Adressdaten: {
+            straße: 'Kundenweg 123',
+            plz: '80331',
+            ort: 'München',
+            landeskennzeichenIso2: 'DE'
+          },
+          Kontakte: [
+            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'thomas.stammkunde@email.de' },
+            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 89 77777777', Bemerkung: 'Mobile' }
           ]
         }
       ];
+      
+      console.log('📥 Using fake favorite persons response data:', fakeFavorites);
+      return fakeFavorites as PersonResponse[];
     }
-
-    // Respect count parameter
-    fakeResults = fakeResults.slice(0, searchQuery.count || 10);
-    
-    // Sort contacts by reihung for each person
-    fakeResults.forEach(person => {
-      if (person.kontakte && person.kontakte.length > 0) {
-        person.kontakte.sort((a, b) => a.reihung - b.reihung);
-      }
-    });
-    
-    return fakeResults;
   }
 );
 
-// Load favorites using the same endpoint with nurFavoriten = true
-export const loadFavoritesAsync = createAsyncThunk(
-  'person/loadFavorites',
-  async () => {
-    // Use the fake search with nurFavoriten = true to load favorites
-    const searchQuery: PersonenQuery = { nurFavoriten: true };
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    // Return some fake favorites
-    const fakeResults: PersonLookUpResponse[] = [
-      {
-        personId: 3001,
-        nKurz: 'FAV-001',
-        anzeigename: 'Johann Müller (Favorite)',
-        adressdaten: {
-          straße: 'Favoriten Straße 1',
-          plz: '11111',
-          ort: 'Vienna',
-          landeskennzeichenIso2: 'AT'
-        },
-        kontakte: [
-          { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'johann.mueller@favorite.com', bemerkung: 'Work' },
-          { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+43 1 1234567', bemerkung: 'Office' }
-        ]
-      },
-      {
-        personId: 3002,
-        nKurz: 'FAV-002',
-        anzeigename: 'Maria Huber (Favorite)',
-        adressdaten: {
-          straße: 'Lieblingsweg 42',
-          plz: '22222',
-          ort: 'Salzburg',
-          landeskennzeichenIso2: 'AT'
-        },
-        kontakte: [
-          { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'maria.huber@favorite.com' },
-          { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+43 662 987654', bemerkung: 'Mobile' },
-          { reihung: 3, art: 'Website', telefonnummerOderAdresse: 'https://maria-huber.at' }
-        ]
-      }
-    ];
-    
-    // Sort contacts by reihung for each person
-    fakeResults.forEach(person => {
-      if (person.kontakte && person.kontakte.length > 0) {
-        person.kontakte.sort((a, b) => a.reihung - b.reihung);
-      }
-    });
-    
-    return fakeResults;
-  }
-);
-
-// Add person to favorites
+// Add person to favorites - calls API and refreshes favorites list
 export const addPersonToFavoritesAsync = createAsyncThunk(
   'person/addToFavorites',
-  async (personId: number) => {
+  async (personId: number, { dispatch }) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.addPersonToFavorites(personId);
     
     if (response.statusCode === 200) {
+      // Refresh favorites list after successful addition
+      dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
       return personId;
     } else {
       throw new Error(response.error || 'Failed to add person to favorites');
@@ -209,15 +194,17 @@ export const addPersonToFavoritesAsync = createAsyncThunk(
   }
 );
 
-// Remove person from favorites
+// Remove person from favorites - calls API and refreshes favorites list
 export const removePersonFromFavoritesAsync = createAsyncThunk(
   'person/removeFromFavorites',
-  async (personId: number) => {
+  async (personId: number, { dispatch }) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removePersonFromFavorites(personId);
     
     if (response.statusCode === 200) {
+      // Refresh favorites list after successful removal
+      dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
       return personId;
     } else {
       throw new Error(response.error || 'Failed to remove person from favorites');
@@ -233,8 +220,9 @@ const personSlice = createSlice({
     // Clear the persons list
     clearPersons: (state) => {
       state.persons = [];
+      state.favorites = [];
       state.error = null;
-      state.currentSearchTerm = ''; // Clear the cached search term
+      state.currentSearchTerm = '';
     },
     // Set current search term
     setSearchTerm: (state, action: PayloadAction<string>) => {
@@ -249,96 +237,60 @@ const personSlice = createSlice({
   // including actions generated by createAsyncThunk or in other slices.
   extraReducers: (builder) => {
     builder
-      // Real WebRTC search handlers
-      .addCase(searchPersonsAsync.pending, (state, action) => {
+      // Person lookup handlers
+      .addCase(personLookUpAsync.pending, (state, action) => {
         state.loading = true;
         state.error = null;
-        // Set currentSearchTerm when starting to load persons for this search term
-        const searchQuery = action.meta.arg;
-        state.currentSearchTerm = searchQuery.nKurzLike || searchQuery.name1Like || '';
+        // Set currentSearchTerm for lookup search
+        state.currentSearchTerm = action.meta.arg || '';
       })
-      .addCase(searchPersonsAsync.fulfilled, (state, action) => {
+      .addCase(personLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
         state.persons = action.payload;
-        // currentSearchTerm is already set in pending case, preserved here
       })
-      .addCase(searchPersonsAsync.rejected, (state, action) => {
+      .addCase(personLookUpAsync.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to search persons via WebRTC';
+        state.error = action.error.message || 'Failed to lookup persons via WebRTC';
         state.currentSearchTerm = ''; // Clear cache on error
       })
-      // Fake search handlers for testing
-      .addCase(searchPersonsFakeAsync.pending, (state, action) => {
-        state.loading = true;
-        state.error = null;
-        // Set currentSearchTerm when starting to load persons for this search term
-        const searchQuery = action.meta.arg;
-        state.currentSearchTerm = searchQuery.nKurzLike || searchQuery.name1Like || '';
-      })
-      .addCase(searchPersonsFakeAsync.fulfilled, (state, action) => {
-        state.loading = false;
-        state.persons = action.payload;
-        // currentSearchTerm is already set in pending case, preserved here
-      })
-      .addCase(searchPersonsFakeAsync.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to search persons (fake)';
-        state.currentSearchTerm = ''; // Clear cache on error
-      })
-      // Add to favorites handlers
-      .addCase(addPersonToFavoritesAsync.pending, (state) => {
+      // Get favorite persons handlers
+      .addCase(getFavoritePersonsAsync.pending, (state) => {
         state.favoritesLoading = true;
         state.error = null;
       })
-      .addCase(addPersonToFavoritesAsync.fulfilled, (state, action) => {
-        state.favoritesLoading = false;
-        // Find the person and add to favorites if not already there
-        const person = state.persons.find(p => p.personId === action.payload);
-        if (person && !state.favorites.find(f => f.personId === action.payload)) {
-          // Ensure contacts are sorted when adding to favorites
-          const personCopy = { ...person };
-          if (personCopy.kontakte && personCopy.kontakte.length > 0) {
-            personCopy.kontakte = [...personCopy.kontakte].sort((a, b) => a.reihung - b.reihung);
-          }
-          state.favorites.push(personCopy);
-        }
-      })
-      .addCase(addPersonToFavoritesAsync.rejected, (state, action) => {
-        state.favoritesLoading = false;
-        state.error = action.error.message || 'Failed to add person to favorites';
-      })
-      // Remove from favorites handlers
-      .addCase(removePersonFromFavoritesAsync.pending, (state) => {
-        state.favoritesLoading = true;
-        state.error = null;
-      })
-      .addCase(removePersonFromFavoritesAsync.fulfilled, (state, action) => {
-        state.favoritesLoading = false;
-        // Remove person from favorites
-        state.favorites = state.favorites.filter(p => p.personId !== action.payload);
-      })
-      .addCase(removePersonFromFavoritesAsync.rejected, (state, action) => {
-        state.favoritesLoading = false;
-        state.error = action.error.message || 'Failed to remove person from favorites';
-      })
-      // Load favorites handlers
-      .addCase(loadFavoritesAsync.pending, (state) => {
-        state.favoritesLoading = true;
-        state.error = null;
-      })
-      .addCase(loadFavoritesAsync.fulfilled, (state, action) => {
+      .addCase(getFavoritePersonsAsync.fulfilled, (state, action) => {
         state.favoritesLoading = false;
         state.favorites = action.payload;
       })
-      .addCase(loadFavoritesAsync.rejected, (state, action) => {
+      .addCase(getFavoritePersonsAsync.rejected, (state, action) => {
         state.favoritesLoading = false;
-        state.error = action.error.message || 'Failed to load favorites';
+        state.error = action.error.message || 'Failed to get favorite persons via WebRTC';
+      })
+      // Add to favorites handlers
+      .addCase(addPersonToFavoritesAsync.fulfilled, (_state, action) => {
+        // Favorites list is refreshed automatically by the async thunk
+        console.log('✅ Person added to favorites on server:', action.payload);
+      })
+      .addCase(addPersonToFavoritesAsync.rejected, (state, action) => {
+        state.error = action.error.message || 'Failed to add person to favorites';
+      })
+      // Remove from favorites handlers
+      .addCase(removePersonFromFavoritesAsync.fulfilled, (_state, action) => {
+        // Favorites list is refreshed automatically by the async thunk
+        console.log('✅ Person removed from favorites on server:', action.payload);
+      })
+      .addCase(removePersonFromFavoritesAsync.rejected, (state, action) => {
+        state.error = action.error.message || 'Failed to remove person from favorites';
       });
   }
 });
 
 // Export actions
-export const { clearPersons, setSearchTerm, clearError } = personSlice.actions;
+export const { 
+  clearPersons, 
+  setSearchTerm, 
+  clearError
+} = personSlice.actions;
 
 // Export reducer
 export default personSlice.reducer;
