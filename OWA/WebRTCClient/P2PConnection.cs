@@ -71,7 +71,10 @@ namespace WebRTCClient
             RTCConfiguration rtcConfig = new RTCConfiguration
             {
                 iceServers = this.IceServers,
+                // TODO: set Dtls certificate here.
             };
+
+            // TODO: threw exception "System.ApplicationException: 'Failed to create and bind RTP socket using bind address :::10004(portRange=[10000,10009],useDualMode=True,requireEvenPort=True,createControlSocket=False,protocolType=Udp).'
 
             this.PeerConnection = new RTCPeerConnection(rtcConfig, portRange: this.Config.PortRange);
             this.PeerConnection.onnegotiationneeded += () =>
@@ -117,6 +120,10 @@ namespace WebRTCClient
             //const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             //string label = new string(Enumerable.Repeat(chars, 10)
             //    .Select(s => s[rand.Next(s.Length)]).ToArray());
+
+            // TODO: pass init to createDataChannel - maxRetransmits maxPacketLifeTime and ordered should determine the DataChannelType
+            // for OWA the datachannel should be reliable
+            // is the default datachannel already reliable?
 
             this.SendingDataChannel = await this.PeerConnection.createDataChannel(label);
 

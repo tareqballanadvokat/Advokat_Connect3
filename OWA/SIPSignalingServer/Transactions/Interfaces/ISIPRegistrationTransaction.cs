@@ -9,6 +9,8 @@ namespace SIPSignalingServer.Transactions.Interfaces
 
         public event RegistrationFailedDelegate? OnRegistrationFailed;
 
+        public new ISIPDialogConfig Config {  get; set; }
+
         public bool Registered { get; }
 
         public Task Unregister();
