@@ -1,7 +1,6 @@
 // src/store/slices/emailSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { TransferAttachmentItem } from '../../taskpane/components/interfaces/IDocument';
-import { emailApi } from '../services/emailApi';
 
 // Define the state structure for email-related functionality
 interface EmailState {
@@ -49,25 +48,6 @@ const emailSlice = createSlice({
       // Get service state via selector in components instead of here
       state.transferCaseDisable = state.selectedCaseId === -1;
     },
-  },
-  // Extra reducers to handle API interactions
-  extraReducers: (builder) => {
-    // When we get a successful email fetch, update our state
-    builder.addMatcher(
-      emailApi.endpoints.getSavedEmail.matchFulfilled,
-      (state, action) => {
-        const { payload } = action;
-        if (payload) {
-          state.selectedCaseName = payload.caseName;
-          state.selectedCaseId = payload.caseId;
-          
-          // Update service data through the service slice is now handled separately
-          // This needs to be done in a component using the payload from this action
-          
-          state.transferCaseDisable = false;
-        }
-      }
-    );
   },
 });
 
