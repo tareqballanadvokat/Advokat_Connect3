@@ -1,13 +1,11 @@
 import { API_BASE } from '../../config';
-import { CaseItem } from '../components/interfaces/ISearchCase';
 import { Person } from '../components/interfaces/IPerson';
-import { EmailModel, Attachment } from '../components/interfaces/IEmail';
-import { Abbreviation, TransferData } from '../components/interfaces/ICommon';
+import { EmailModel } from '../components/interfaces/IEmail';
 import { HierarchyTree } from '../components/interfaces/ICase';
 import notify from 'devextreme/ui/notify';
 
 // Re-export interfaces for backward compatibility (can be removed later)
-export type { EmailModel, Attachment, Abbreviation, TransferData, HierarchyTree };
+export type { EmailModel, HierarchyTree };
 
 export async  function   addCases(id) {
   console.log("node Id", id);

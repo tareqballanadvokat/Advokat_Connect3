@@ -2,8 +2,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { WebRTCApiRequest, WebRTCApiResponse, AktenQuery } from '../components/interfaces/IAkten';
 import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
-import { DokumentPostData } from '../components/interfaces/IEmail';
-import { DokumentResponse, DokumenteQuery } from '../components/interfaces/IDocument';
+import { DokumentPostData, DokumentResponse, DokumenteQuery } from '../components/interfaces/IDocument';
 import { PersonenQuery, PersonResponse } from '../components/interfaces/IPerson';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { 

@@ -1,4 +1,5 @@
 // Email-related interfaces and models
+import { DokumentArt, TransferAttachmentItem } from './IDocument';
 
 export interface EmailSendProps {
   caseId: string;
@@ -35,23 +36,7 @@ export interface EmailModel {
   emailFolder: string;
   emailFolderId: number;
   userID: string;
-  attachments: Attachment[] | [];
-}
-
-// Attachment model
-export interface Attachment {
-  id: string;
-  originalFileName: string;
-  fileName: string;
-  contentBase64: string;
-  folder: number;
-}
-
-// Enum matching C# DokumentArt
-export enum DokumentArt {
-  Keine = 0,           // No specific type / Normal attachment
-  MailEmpfangen = 1,   // Received email
-  MailGesendet = 2     // Sent email
+  attachments: TransferAttachmentItem[] | [];
 }
 
 /**
@@ -103,26 +88,4 @@ export async function getDokumentArt(
   
   // Default to received email if we can't determine otherwise
   return DokumentArt.MailEmpfangen;
-}
-
-// TypeScript interface matching C# DokumentPostData model
-export interface DokumentPostData {
-  aktId: number;
-  betreff: string;
-  adresse?: string;
-  empfangenAm?: Date;
-  memo?: string;
-  inhalt: string;
-  sachbearbeiterKürzel?: string;
-  dokumentArt?: DokumentArt;
-  outlookId?: string;
-  anzahlMailAnhänge?: number;
-  dateigrößeInBytes?: number;
-  dateiName?: string;
-  ordnerName?: string;
-  
-  // Chunk parameters for large documents
-  numberOfParts?: number;    // Total number of chunks
-  partNumber?: number;       // Current part number (1-based)
-  checkSum?: string;         // Checksum of complete document
 }

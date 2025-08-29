@@ -23,6 +23,11 @@ export interface DokumentPostData {
   dateigrößeInBytes?: number;
   dateiName?: string;
   ordnerName?: string;
+  
+  // Chunk parameters for large documents
+  numberOfParts?: number;    // Total number of chunks
+  partNumber?: number;       // Current part number (1-based)
+  checkSum?: string;         // Checksum of complete document
 }
 
 // Interface for document response (corresponds to C# DokumentResponse)

@@ -8,8 +8,8 @@ import RegisteredEmails from './RegisteredEmails';
 import ServiceSection from '../shared/ServiceSection';
 import { getEmailAttachmentData, getEmailContentAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import TransferAndAttachment from './TransferAndAttachment';
-import { TransferAttachmentItem } from '@components/interfaces/IDocument';
-import { DokumentPostData, DokumentArt, getDokumentArt } from '@components/interfaces/IEmail';
+import { TransferAttachmentItem, DokumentPostData, DokumentArt } from '@components/interfaces/IDocument';
+import { getDokumentArt } from '@components/interfaces/IEmail';
 import { LeistungPostData } from '@components/interfaces/IService';
 import { webRTCApiService } from '../../../services/webRTCApiService';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
@@ -155,7 +155,7 @@ const EmailTabContent: React.FC = () => {
         const emailDokument: DokumentPostData = {
           aktId: selectedCaseId,
           betreff: email.subject || 'No Subject',
-          adresse: email.from?.emailAddress || undefined,
+          mailAdresse: email.from?.emailAddress || undefined,
           empfangenAm: email.dateTimeCreated ? new Date(email.dateTimeCreated) : new Date(),
           memo: `Email transferred from Outlook: ${messageId}`,
           inhalt: emailContent,
@@ -204,12 +204,13 @@ const EmailTabContent: React.FC = () => {
             const attachmentDokument: DokumentPostData = {
               aktId: selectedCaseId,
               betreff: `Attachment: ${attachment.name}`,
-              adresse: email.from?.emailAddress || undefined,
+              mailAdresse: email.from?.emailAddress || undefined,
               empfangenAm: email.dateTimeCreated ? new Date(email.dateTimeCreated) : new Date(),
               memo: `Attachment from email: ${messageId}`,
               inhalt: contentBase64, // Store the base64 content
               dokumentArt: DokumentArt.Keine, // Normal attachment
               outlookId: messageId,
+              anzahlMailAnhänge: 0, // This is an attachment, not an email with attachments
               dateigrößeInBytes: fileSizeInBytes,
               dateiName: attachment.name,
               ordnerName: getFolderName(attachment)
