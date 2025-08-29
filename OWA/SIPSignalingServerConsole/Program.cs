@@ -17,19 +17,13 @@ namespace SIPSignalingServer
                     //builder.AddDebug();
                 });
 
-            SignalingServer signalingServer;
+            X509Certificate2 certificate;
 
             try
             {
                 // TODO: Get certpath from appsettings? Get Password from environment / registry?
-
-                // IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 80);
-                // IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:443");
-                IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Loopback, 8009);
-                signalingServer = new SignalingServer(serverEndpoint, loggerFactory);
-
                 string certPath = Path.Combine(Directory.GetCurrentDirectory(), "127.0.0.1.pfx");
-                signalingServer.SSLCertificate = new X509Certificate2(certPath, "test");
+                certificate = new X509Certificate2(certPath, "test");
             }
             catch (CryptographicException ex)
             {
@@ -38,6 +32,16 @@ namespace SIPSignalingServer
                 return;
             }
 
+            // IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 80);
+            // IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:443");
+            IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Loopback, 8009);
+
+            SignalingServerOptions signalingServerOptions = new SignalingServerOptions()
+            {
+                SSLCertificate = certificate,
+            };
+
+            SignalingServer signalingServer = new SignalingServer(serverEndpoint, signalingServerOptions, loggerFactory);
             signalingServer.StartServer();
             
             while (true)

@@ -11,8 +11,16 @@ namespace WebRTCLibrary.SIP
 
         public int ReceiveTimeout { get; set; } = DefaultReceiveTimeout;
 
+        public virtual object Clone()
+        {
+            return new SIPConfig()
+            {
+                ReceiveTimeout = this.ReceiveTimeout,
+            };
+        }
+
         //public SIPSchemesEnum SIPScheme { get; set; } = DefaultSIPScheme;
-        
+
         //public SIPConfig(SIPSchemesEnum sipScheme)
         //{
         //    this.SIPScheme = sipScheme;

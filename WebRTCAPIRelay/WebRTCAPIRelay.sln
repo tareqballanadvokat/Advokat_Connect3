@@ -21,6 +21,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PluginDependencies", "Plugi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Advokat.Connector.Plugin", "..\..\AdvokatX\PlugIns\AdvokatConnector\Adovkat.Connector.Plugin\Advokat.Connector.Plugin.csproj", "{08CADA3B-DE45-7001-F5A4-245FB66FB7AD}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{71AEC637-BABF-4691-B90C-6CA9364727EB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRtcApiRelayTests", "WebRtcApiRelayTests\WebRtcApiRelayTests.csproj", "{9861C8BE-11C1-4EFC-B7D2-511C1EAF8911}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +55,10 @@ Global
 		{08CADA3B-DE45-7001-F5A4-245FB66FB7AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{08CADA3B-DE45-7001-F5A4-245FB66FB7AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{08CADA3B-DE45-7001-F5A4-245FB66FB7AD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9861C8BE-11C1-4EFC-B7D2-511C1EAF8911}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9861C8BE-11C1-4EFC-B7D2-511C1EAF8911}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9861C8BE-11C1-4EFC-B7D2-511C1EAF8911}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9861C8BE-11C1-4EFC-B7D2-511C1EAF8911}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -61,6 +69,7 @@ Global
 		{9996A1FD-211A-4FFA-8FF7-9DE6807A3516} = {1D003E02-714A-4DF3-A889-45DC7FF3C803}
 		{4D8FF082-FA05-4957-948A-2462225D6ED5} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{08CADA3B-DE45-7001-F5A4-245FB66FB7AD} = {4D8FF082-FA05-4957-948A-2462225D6ED5}
+		{9861C8BE-11C1-4EFC-B7D2-511C1EAF8911} = {71AEC637-BABF-4691-B90C-6CA9364727EB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {69E08E6A-0527-4861-AA26-8BD5CC45A4CA}

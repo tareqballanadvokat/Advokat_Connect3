@@ -2,7 +2,9 @@
 using SIPSorcery.SIP;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using WebRTCClient.Transactions.SIP.Interfaces;
+using WebRTCLibrary.SIP;
 using WebRTCLibrary.SIP.Interfaces;
 using WebRTCLibrary.SIP.Models;
 
@@ -20,6 +22,12 @@ namespace WebRTCClient.Transactions.SIP
         private bool UnregisteredByServer { get; set; }
 
         private bool AcceptReceived { get; set; }
+
+        public new ISIPDialogConfig Config
+        {
+            get => (ISIPDialogConfig)base.Config;
+            set => base.Config = value;
+        }
 
         public SIPRegistrationTransaction(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : base(connection, dialogParams, loggerFactory)
@@ -68,6 +76,8 @@ namespace WebRTCClient.Transactions.SIP
             SocketError result;
             int registerCseq = this.CurrentCseq;
             
+            string config = JsonSerializer.Serialize(this.Config);
+
             // increment before call. A fast response would get rejected before currentCseq is updated.
             this.CurrentCseq++;
             try
@@ -75,6 +85,8 @@ namespace WebRTCClient.Transactions.SIP
                 result = await this.Connection.SendSIPRequest(
                     SIPMethodsEnum.REGISTER,
                     this.GetHeaderParams(registerCseq),
+                    config,
+                    "text/json",
                     this.Ct
                     );
             }
@@ -120,6 +132,8 @@ namespace WebRTCClient.Transactions.SIP
 
         private async Task RegistrationAccepted(SIPResponse sipResponse)
         {
+            
+            this.TryReadConfig(sipResponse);
             this.Params.RemoteTag = sipResponse.Header.From.FromTag;
 
             this.logger.LogDebug(
@@ -257,6 +271,42 @@ namespace WebRTCClient.Transactions.SIP
             {
                 // TODO: Do something. BYE message could not be sent. Retry?
             }
+        }
+
+        private void TryReadConfig(SIPResponse response)
+        {
+            if (!(response.Header.ContentType == "text/json"
+                && response.Header.ContentLength > 0
+                && response.Body.Length > 0))
+            {
+                return;
+            }
+
+            SIPDialogConfig? serverConfig;
+
+            try
+            {
+                serverConfig = JsonSerializer.Deserialize<SIPDialogConfig>(response.Body);
+            }
+            catch (JsonException ex)
+            {
+                return;
+            }
+
+            if (serverConfig == null)
+            {
+                return;
+            }
+
+            // TODO: check what happens when an attribute is sent as null or left out in json
+            // overrides Dialog Config
+            // TODO: how to reset config when connection is not established
+            this.Config.ConnectionTimeout = serverConfig.ConnectionTimeout;
+            this.Config.RegistrationTimeout = serverConfig.RegistrationTimeout; // not used on client side - timeout for original registration timeout is already running
+                                                                                // server is using the lower of the two
+            // PeerRegistrationTimeout is left out on purpose - server uses the client side timeout
+            // TODO: maybe check for equality?
+            // ReceiveTimeout is left out on purpose - one way latency
         }
     }
 }

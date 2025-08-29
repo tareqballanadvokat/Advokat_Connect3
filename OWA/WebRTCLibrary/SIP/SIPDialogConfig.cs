@@ -34,5 +34,17 @@ namespace WebRTCLibrary.SIP
         public int? PeerRegistrationTimeout { get; set; } = defaultPeerRegistrationTimeout; // TODO: add flag if it already started - prevent setting then.
                                                                                             // TODO: Should we remove the timeout completely? let the client determine it's own timeout and stop responding after that.
                                                                                             //       If the keep alive dialog is held we keep wait for the peer indefinetly
+
+        public override object Clone()
+        {
+            SIPDialogConfig clonedConfig = new SIPDialogConfig();
+
+            clonedConfig.ReceiveTimeout = this.ReceiveTimeout;
+            clonedConfig.RegistrationTimeout = this.RegistrationTimeout;
+            clonedConfig.ConnectionTimeout = this.ConnectionTimeout;
+            clonedConfig.PeerRegistrationTimeout = this.PeerRegistrationTimeout;
+
+            return clonedConfig;
+        }
     }
 }
