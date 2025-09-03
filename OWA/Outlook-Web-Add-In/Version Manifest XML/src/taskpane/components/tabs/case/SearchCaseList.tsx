@@ -1,21 +1,44 @@
 // src/taskpane/components/tabs/case/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
+import './SearchCaseList.css'; // Import our custom CSS
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { aktLookUpAsync, clearCases, setSearchTerm } from '../../../../store/slices/aktenSlice';
+import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
 
-interface Props {
-  onCaseSelect: (caseId: string) => void;
-}
-
-const SearchCaseList: React.FC<Props> = ({ onCaseSelect }) => {
+const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { cases, loading, error, searchTerm, currentSearchTerm } = useAppSelector(state => state.akten);
+  const { cases, favouriteAkten, loading, error, searchTerm, currentSearchTerm } = useAppSelector(state => state.akten);
   
   const [searchValue, setSearchValue] = useState(searchTerm || '');
+
+  // Check if an Akt is already in favorites
+  const isInFavorites = (aktId: number): boolean => {
+    if (!favouriteAkten || !Array.isArray(favouriteAkten) || favouriteAkten.length === 0) {
+      // When no favorites are loaded, show star button (allow adding to favorites)
+      return false;
+    }
+    return favouriteAkten.some(fav => fav.Id === aktId);
+  };
+
+  // Handle adding Akt to favorites
+  const handleAddToFavorites = async (aktId: number, aKurz: string) => {
+    try {
+      await dispatch(addAktToFavoriteAsync(aktId)).unwrap();
+      notify(`Successfully added "${aKurz}" to favorites!`, 'success', 3000);
+      
+      // Reload the favorites list to include the newly added Akt
+      dispatch(getFavoriteAktenAsync({ 
+        NurFavoriten: true,
+        Count: 50 
+      }));
+    } catch (error) {
+      console.error('Failed to add to favorites:', error);
+      notify(`Failed to add "${aKurz}" to favorites: ${error}`, 'error', 5000);
+    }
+  };
 
   const handleSearch = async () => {
     const query = searchValue.trim();
@@ -35,6 +58,17 @@ const SearchCaseList: React.FC<Props> = ({ onCaseSelect }) => {
       notify('Search cases failed via WebRTC', 'error', 5000);
     }
   };
+
+  useEffect(() => {
+    // Load favorites if not already loaded (needed for button visibility)
+    if (!favouriteAkten || favouriteAkten.length === 0) {
+      console.log('🌟 Loading favorites for star button visibility');
+      dispatch(getFavoriteAktenAsync({ 
+        NurFavoriten: true,
+        Count: 50 
+      }));
+    }
+  }, [dispatch]); // Remove favouriteAkten from deps to avoid infinite loop
 
   useEffect(() => {
     // Smart caching: Only search if we don't have cached data for the current search term
@@ -127,12 +161,20 @@ const SearchCaseList: React.FC<Props> = ({ onCaseSelect }) => {
       />
       <Column
         type="buttons"
-        width={50}
+        width={80}
         buttons={[
           {
-            icon: 'arrowright',
-            hint: 'Select',
-            onClick: e => onCaseSelect(e.row.data.aKurz)
+            icon: 'favorites',
+            hint: 'Add to Favorites',
+            cssClass: 'star-button-gold',
+            visible: e => !isInFavorites(e.row.data.aktId),
+            onClick: e => handleAddToFavorites(e.row.data.aktId, e.row.data.aKurz)
+          },
+          {
+            icon: 'check',
+            hint: 'Already in Favorites',
+            visible: e => isInFavorites(e.row.data.aktId),
+            disabled: true
           }
         ]}
       />

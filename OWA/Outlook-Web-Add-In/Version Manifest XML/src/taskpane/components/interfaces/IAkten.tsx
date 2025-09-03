@@ -13,6 +13,13 @@ export interface AktLookUpResponse {
   causa?: string;
 }
 
+// New interface matching the latest API version
+export interface AktenResponse {
+  Id: number;
+  AKurz: string;
+  Causa?: string;
+}
+
 // WebRTC API request format based on the attached specification
 export interface WebRTCApiRequest {
   method: string;

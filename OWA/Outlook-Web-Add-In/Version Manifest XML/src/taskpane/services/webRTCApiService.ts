@@ -24,7 +24,7 @@ import {
  */
 class WebRTCApiService {
   private sipClient: SipClientInstance | null = null;
-  private responseHandlers: Map<string, (response: WebRTCApiResponse) => void> = new Map();
+  private pendingRequestHandlers: Map<string, (response: WebRTCApiResponse) => void> = new Map();
 
   /**
    * Initialize with SIP client instance
@@ -80,30 +80,35 @@ class WebRTCApiService {
    */
   private processMessage(message: string) {
     try {
+      throw new Error('Test error');
       const parsed = JSON.parse(message);
       
-      // Check if this is an API response with Id field
-      if (parsed.Id && this.responseHandlers.has(parsed.Id)) {
-        const handler = this.responseHandlers.get(parsed.Id);
+      // Check if this is an API response with Id field and we have a matching pending request
+      if (parsed.Id && this.pendingRequestHandlers.has(parsed.Id)) {
+        console.log('✅ Received response for request ID:', parsed.Id);
+        const handler = this.pendingRequestHandlers.get(parsed.Id);
         if (handler) {
           handler(parsed);
-          this.responseHandlers.delete(parsed.Id);
+          this.pendingRequestHandlers.delete(parsed.Id);
+          console.log('📝 Remaining pending requests:', this.pendingRequestHandlers.size);
         }
+      } else if (parsed.Id) {
+        // Response with ID but no matching pending request
+        console.warn('⚠️ Received response for unknown request ID:', parsed.Id);
       } else {
-        // Regular message - log it
-        console.log('📨 DataChannel message:', message);
+        // Regular message without ID - log it
+        console.log('📨 DataChannel message (no ID):', message);
       }
     } catch (error) {
-      
-      // Not JSON - treat as regular message and send fake response to any pending request
+      // Not JSON - could be a string response, try to match to pending requests
       console.log('📨 DataChannel message (not JSON):', message);
       
-      // If we have any pending requests, send a fake response to the first one
-      if (this.responseHandlers.size > 0) {
-        console.log('🔧 FAKE RESPONSE: Sending fake data for pending request');
+      // For testing/fake responses: if we have pending requests, try to match based on message content
+      if (this.pendingRequestHandlers.size > 0) {
+        console.log('🔧 FAKE RESPONSE: Attempting to match message to pending request');
         
-        // Get the first pending request
-        const [requestId, handler] = this.responseHandlers.entries().next().value;
+        // Get the first pending request (this is still fallback behavior for testing)
+        const [requestId, handler] = this.pendingRequestHandlers.entries().next().value;
         
         let fakeResponse: WebRTCApiResponse;
         
@@ -160,6 +165,65 @@ class WebRTCApiService {
               }
             ]
           };
+        } else if (message.toLowerCase().includes('dokument') || message.toLowerCase().includes('getaktdocuments')) {
+          // Create fake documents response for getAktDocuments
+          fakeResponse = {
+            Id: requestId,
+            Timestamp: Date.now(),
+            statusCode: 200,
+            data: [
+              {
+                id: 6001,
+                aKurz: "FAKE-001",
+                aktId: 12345,
+                datum: new Date('2024-01-15'),
+                betreff: "Contract Draft v1.0",
+                dokumentArt: 0, // Normal document
+                dateipfad: "/Korrespondenz/Verträge/contract_draft_v1.docx",
+                sachbearbeiterKürzel: "JD",
+                bearbeitungsInfoErstelltVon: "System",
+                bearbeitungsInfoErstelltAm: new Date('2024-01-15T09:00:00')
+              },
+              {
+                id: 6002,
+                aKurz: "FAKE-001",
+                aktId: 12345,
+                datum: new Date('2024-01-16'),
+                betreff: "Meeting Notes - Initial Discussion",
+                dokumentArt: 0,
+                dateipfad: "/Korrespondenz/Notizen/meeting_notes_20240116.pdf",
+                sachbearbeiterKürzel: "JD",
+                bearbeitungsInfoErstelltVon: "System",
+                bearbeitungsInfoErstelltAm: new Date('2024-01-16T14:30:00')
+              },
+              {
+                id: 6003,
+                aKurz: "FAKE-001",
+                aktId: 12345,
+                datum: new Date('2024-01-17'),
+                betreff: "Legal Research Summary",
+                dokumentArt: 0,
+                dateipfad: "/Recherche/Rechtslage/legal_research_summary.pdf",
+                sachbearbeiterKürzel: "JD",
+                bearbeitungsInfoErstelltVon: "System",
+                bearbeitungsInfoErstelltAm: new Date('2024-01-17T11:15:00')
+              },
+              {
+                id: 6004,
+                aKurz: "FAKE-2024-001",
+                aktId: 12345,
+                datum: new Date('2024-01-18'),
+                betreff: "Client Email Response",
+                dokumentArt: 1, // MailEmpfangen
+                mailAdresse: "client@example.com",
+                mailZeitpunkt: new Date('2024-01-18T08:45:00'),
+                dateipfad: "/Korrespondenz/E-Mails/client_response_20240118.msg",
+                sachbearbeiterKürzel: "JD",
+                bearbeitungsInfoErstelltVon: "System",
+                bearbeitungsInfoErstelltAm: new Date('2024-01-18T08:50:00')
+              }
+            ]
+          };
         } else if (message.toLowerCase().includes('service') || message.toLowerCase().includes('leistung')) {
           // Create fake Services response
           fakeResponse = {
@@ -193,13 +257,70 @@ class WebRTCApiService {
               }
             ]
           };
-        } else {
-          // Create fake Akten response
+        } else if (message.toLowerCase().includes('addtofavorites') || message.toLowerCase().includes('addakt')) {
+          // Create fake Add to Favorites response
+          fakeResponse = {
+            Id: requestId,
+            Timestamp: Date.now(),
+            statusCode: 200,
+            data: {
+              success: true,
+              message: "Akt successfully added to favorites"
+            }
+          };
+        } else if (message.toLowerCase().includes('removefromfavorites') || message.toLowerCase().includes('removeakt')) {
+          debugger;
+          // Create fake Remove from Favorites response
+          fakeResponse = {
+            Id: requestId,
+            Timestamp: Date.now(),
+            statusCode: 200,
+            data: {
+              success: true,
+              message: "Akt successfully removed from favorites"
+            }
+          };
+        } else if (message.toLowerCase().includes('favoriteakten') || (message.toLowerCase().includes('akten') && message.toLowerCase().includes('favoriten'))) {
+          // Create fake favorite Akten response (AktenResponse format: Id, AKurz, Causa)
           fakeResponse = {
             Id: requestId,
             Timestamp: Date.now(),
             statusCode: 200,
             data: [
+              {
+                Id: 12345,
+                AKurz: "Akt1",
+                Causa: "Sample"
+              },
+              {
+                Id: 12346,
+                AKurz: "Akt2", 
+                Causa: "Favorite"
+              },
+              {
+                Id: 12347,
+                AKurz: "Akt3",
+                Causa: "Favorite case"
+              }
+            ]
+          };
+        } else {
+          // Create fake Akten response (AktLookUpResponse format for search)
+          fakeResponse = {
+            Id: requestId,
+            Timestamp: Date.now(),
+            statusCode: 200,
+            data: [
+              {
+                aktId: 12348,
+                aKurz: "FAKE-2024-001",
+                causa: "Sample case triggered by: " + message
+              },
+              {
+                aktId: 12349,
+                aKurz: "FAKE-2024-001",
+                causa: "Sample case triggered by: " + message
+              },
               {
                 aktId: 12345,
                 aKurz: "FAKE-2024-001",
@@ -221,10 +342,11 @@ class WebRTCApiService {
         
         // Send fake response to the handler
         handler(fakeResponse);
-        this.responseHandlers.delete(requestId);
+        this.pendingRequestHandlers.delete(requestId);
       }
-    }
-  }
+    } 
+  }// Close catch block
+ // Close processMessage method
 
   /**
    * Send API request through WebRTC DataChannel
@@ -233,6 +355,7 @@ class WebRTCApiService {
    */
   private async sendRequest<T>(request: WebRTCApiRequest): Promise<WebRTCApiResponse<T>> {
     return new Promise((resolve, reject) => {
+      debugger;
       if (!this.sipClient) {
         reject(new Error('WebRTC API service not initialized'));
         return;
@@ -253,24 +376,25 @@ class WebRTCApiService {
       };
 
       // Set up response handler
-      this.responseHandlers.set(requestId, (response: WebRTCApiResponse<T>) => {
+      this.pendingRequestHandlers.set(requestId, (response: WebRTCApiResponse<T>) => {
         resolve(response);
       });
 
       // Set timeout to clean up handler if no response
       setTimeout(() => {
-        if (this.responseHandlers.has(requestId)) {
-          this.responseHandlers.delete(requestId);
+        if (this.pendingRequestHandlers.has(requestId)) {
+          this.pendingRequestHandlers.delete(requestId);
           reject(new Error('Request timeout - no response from remote'));
         }
       }, 60000);
 
       try {
+        debugger;
         const message = JSON.stringify(requestWithId);
         console.log('📤 Sending API request:', `Size: ${new TextEncoder().encode(message).length} bytes`);
         dataChannel.send(message);
       } catch (error) {
-        this.responseHandlers.delete(requestId);
+        this.pendingRequestHandlers.delete(requestId);
         reject(error);
       }
     });
@@ -555,6 +679,20 @@ class WebRTCApiService {
     const query: DokumenteQuery = {
       outlookEmailId,
       aktId
+    };
+    const request = this.createGetDocumentsRequest(query);
+    return this.sendRequest<DokumentResponse[]>(request);
+  }
+
+  /**
+   * Get documents for a specific Akt via WebRTC
+   * @param aktId - The Akt ID to get documents for
+   * @param limit - Optional limit for number of documents
+   */
+  async getAktDocuments(aktId: number, limit?: number) {
+    const query: DokumenteQuery = {
+      aktId,
+      limit
     };
     const request = this.createGetDocumentsRequest(query);
     return this.sendRequest<DokumentResponse[]>(request);

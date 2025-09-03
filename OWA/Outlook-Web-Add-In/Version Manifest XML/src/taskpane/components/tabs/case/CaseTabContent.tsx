@@ -1,11 +1,15 @@
 // src/taskpane/components/tabs/cases/CasesAccordion.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
+import './CaseTabContent.css'; // Import our custom CSS
 import SearchCaseList from './SearchCaseList';
 import {IsComposeMode, setAttachmentToItemAsync} from '../../../hooks/useOfficeItem'
 import LoadPanel from 'devextreme-react/load-panel';
 import {HierarchyTree} from '../../interfaces/ICase'
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
+import notify from 'devextreme/ui/notify';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { getFavoriteAktenAsync, getAktDokumenteAsync, clearDocuments, removeAktFromFavoriteAsync } from '../../../../store/slices/aktenSlice';
 import TreeList, {
   Column,
   Scrolling,
@@ -17,7 +21,7 @@ import TreeList, {
  
 } from 'devextreme-react/tree-list';
 
-import { getMyFavoritesApi, getFileContent, addCases, removeCases} from '../../../utils/api'; // your API
+import { getMyFavoritesApi, getFileContent } from '../../../utils/api'; // your API
 
 
 
@@ -29,98 +33,263 @@ function allowDeletingVisible()
 
 
 const CaseTabContent: React.FC = () => {
-  const [nodes, setNodes]       = useState<HierarchyTree[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [expandedKeys, setExpandedKeys] = useState<number[]>([]);
+  const dispatch = useAppDispatch();
+  const { favouriteAkten, selectedAktDocuments, loading, documentsLoading, error, documentsError } = useAppSelector(state => state.akten);
+  
+  const [nodes, setNodes] = useState<HierarchyTree[]>([]);
+  const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
   const [selectedCase, setSelectedCase] = useState('');
 
+  // Load favorite Akten automatically only on first visit (when no favorites are cached)
   useEffect(() => {
-    (async () => {
-      try {
-        const data = await getMyFavoritesApi(); // flatten list of folders & files
-        setNodes(data);
-        // auto-expand all top-level folders:
-        const roots = data.filter(n => n.rootId == null).map(n => n.id);
-        setExpandedKeys(roots);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+    if (favouriteAkten.length === 0 && !loading) {
+      dispatch(getFavoriteAktenAsync({ 
+        NurFavoriten: true,
+        Count: 50 // Limit to 50 favorite cases
+      }));
+    }
+  }, [dispatch, favouriteAkten.length, loading]);
+
+  // Transform favorite Akten and documents into HierarchyTree format with folder structure
+  useEffect(() => {
+    const transformedNodes: HierarchyTree[] = [];
+
+    // Add favorite Akten as root nodes (AktenResponse format: Id, AKurz, Causa)
+    favouriteAkten.forEach((akt) => {
+      const aktNode: HierarchyTree = {
+        id: akt.Id, // Use actual Akt ID as node ID
+        rootId: -1, // Top-level nodes have rootId = -1
+        name: `${akt.AKurz || 'Unknown'}`,
+        isStructure: true, // This is a folder (Akt)
+        hasChild: true,
+        causa: akt.Causa || '',
+        hasUrl: false,
+        url: `akt:${akt.Id}`, // Store Akt ID in URL for identification
+      };
+      transformedNodes.push(aktNode);
+    });
+
+    // Process documents and create folder structure
+    const folderMap = new Map<string, HierarchyTree>();
+    let nextId = Math.max(...favouriteAkten.map(a => a.Id), 0) + 10000; // Start IDs after Akt IDs
+
+    selectedAktDocuments.forEach((doc) => {
+      // Find the parent Akt ID
+      const parentAkt = favouriteAkten.find(akt => akt.Id === doc.aktId);
+      
+      if (parentAkt && doc.dateipfad) {
+        // Parse the file path to create folder structure
+        const pathParts = doc.dateipfad.split('/').filter(part => part.length > 0);
+        const fileName = pathParts.pop() || doc.betreff || 'Unknown File';
+        
+        let currentParentId = parentAkt.Id;
+        
+        // Create folder hierarchy
+        pathParts.forEach((folderName, index) => {
+          const folderPath = pathParts.slice(0, index + 1).join('/');
+          const folderKey = `${parentAkt.Id}:${folderPath}`;
+          
+          if (!folderMap.has(folderKey)) {
+            const folderNode: HierarchyTree = {
+              id: nextId++,
+              rootId: currentParentId,
+              name: folderName,
+              isStructure: true, // This is a folder
+              hasChild: true,
+              causa: '',
+              hasUrl: false,
+              url: '', 
+            };
+            folderMap.set(folderKey, folderNode);
+            transformedNodes.push(folderNode);
+          }
+          
+          currentParentId = folderMap.get(folderKey)!.id;
+        });
+
+        // Add the actual file
+        const fileNode: HierarchyTree = {
+          id: nextId++,
+          rootId: currentParentId, // Parent is the deepest folder or the Akt itself
+          name: fileName,
+          isStructure: false, // This is a file
+          hasChild: false,
+          causa: '',
+          hasUrl: !!doc.dateipfad,
+          url: doc.dateipfad || '',
+        };
+        transformedNodes.push(fileNode);
       }
-    })();
-  }, []);
+    });
+
+    setNodes(transformedNodes);
+  }, [favouriteAkten, selectedAktDocuments]);
 
   const onSelectionChanged = useCallback((e) => {
     // keep expandedKeys in sync
     setExpandedKeys(e.component.getSelectedRowKeys());
   }, []);
 
+  // Handle expanding nodes to load documents
+  const onExpandedRowKeysChange = useCallback((newExpandedKeys: (string | number)[]) => {
+    const previousExpandedKeys = expandedKeys;
+    setExpandedKeys(newExpandedKeys);
+    
+    // Find newly expanded keys (keys that were added)
+    const newlyExpanded = newExpandedKeys.filter(key => !previousExpandedKeys.includes(key));
+    
+    // Only process newly expanded Akten (not collapsed ones or re-expanded folders)
+    newlyExpanded.forEach((key) => {
+      const node = nodes.find(n => n.id === key);
+      
+      // Check if this is an Akt node (root level with akt: URL)
+      if (node && 
+          node.isStructure && 
+          node.url.startsWith('akt:') && 
+          node.rootId === -1) { // Ensure it's a root level Akt
+        
+        const aktId = parseInt(node.url.replace('akt:', ''));
+        
+        // Only load documents if they haven't been loaded for this Akt yet
+        const hasDocuments = nodes.some(n => n.rootId === aktId && !n.isStructure);
+        if (!hasDocuments && !documentsLoading) {
+          dispatch(getAktDokumenteAsync({ aktId, limit: 100 }));
+        }
+      }
+    });
+  }, [nodes, expandedKeys, documentsLoading, dispatch]);
 
-const handleSelectionAdd = useCallback(async (node: string) => {
-    await  addCases(node);
-    const data = await getMyFavoritesApi(); // flatten list of folders & files
-    setNodes(data);
-  }, []);
 
   const handleOpen = useCallback((node: HierarchyTree) => {
-    window.open(node.url, '_blank');
-  }, []);
+    if (node.isStructure && node.url.startsWith('akt:')) {
+      // This is an Akt node, load its documents (handled by expand event)
+      const currentExpanded = [...expandedKeys];
+      if (!currentExpanded.includes(node.id)) {
+        currentExpanded.push(node.id);
+        onExpandedRowKeysChange(currentExpanded);
+      }
+    } else if (!node.isStructure && node.url) {
+      // This is a document, open the file
+      window.open(node.url, '_blank');
+    }
+  }, [expandedKeys, onExpandedRowKeysChange]);
 
-  const handleAdd = useCallback( async (node: HierarchyTree) => {
-   // window.open(node.url, '_blank');
-    const base64 = await  getFileContent(node.id);
- //     setAttachmentToItemAsync(base64, node.name);
-  
-        await new Promise<void>((resolve, reject) => {
-          Office.context.mailbox.item.addFileAttachmentFromBase64Async(
-              base64, 
-          //   'asdsdsa',
-           //  node.name.toString() ,
-             node.name ,
-         
-            { isInline: false },
-            result => {
-              if (result.status === Office.AsyncResultStatus.Succeeded){ resolve();}
-              else{ 
-                console.log(result);
-                reject(result.error);}
+  const handleAdd = useCallback(async (node: HierarchyTree) => {
+    if (node.isStructure) return; // Can't add Akt folders as attachments
+    
+    // For documents, we need to get the file content using the dateipfad
+    try {
+      const base64 = await getFileContent(node.id); // This might need to be adapted
+      
+      await new Promise<void>((resolve, reject) => {
+        Office.context.mailbox.item.addFileAttachmentFromBase64Async(
+          base64, 
+          node.name,
+          { isInline: false },
+          result => {
+            if (result.status === Office.AsyncResultStatus.Succeeded) {
+              resolve();
+            } else { 
+              console.log(result);
+              reject(result.error);
             }
-          );
-        });
-
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Failed to add attachment:', error);
+    }
   }, []);
 
   const handleDelete = useCallback(async (node: any) => {
-    // your delete logic...
-    console.log('Remove favorite', node);
-    // await  removeCases(node.id);
-    const data = await getMyFavoritesApi(); // flatten list of folders & files
-    setNodes(data);
-  }, []);
+    try {
+      // Extract the Akt ID from the node (for top-level Akten, use the node id directly)
+      const aktId = node.id;
+      const aktName = node.name || `Akt ID ${aktId}`;
+      debugger;
+      // Use the new WebRTC Redux approach
+      await dispatch(removeAktFromFavoriteAsync(aktId)).unwrap();
+      notify(`Successfully removed "${aktName}" from favorites!`, 'success', 3000);
+      
+      // Add a small delay to ensure the delete response is fully processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      debugger;
+      // Refresh favorite Akten to remove the deleted case from the list
+      await dispatch(getFavoriteAktenAsync({ 
+        NurFavoriten: true,
+        Count: 50
+      })).unwrap();
+    } catch (error) {
+      console.error('Failed to remove from favorites:', error);
+      notify(`Failed to remove from favorites: ${error}`, 'error', 5000);
+    }
+  }, [dispatch]);
+
+  // Handler to manually reload favorite Akten (force refresh from API)
+  const handleLoadFavorites = useCallback(() => {
+    dispatch(getFavoriteAktenAsync({ 
+      NurFavoriten: true,
+      Count: 50
+    }));
+  }, [dispatch]);
 
    return (
-    <div /* … */>
+    <div /* … */ style={{ position: 'relative', overflow: 'hidden' }}>
       {/* WebRTC Connection Status */}
       <WebRTCConnectionStatus />
       
       {/* … SearchCaseList, header, LoadPanel … */}
 
-      <SearchCaseList onCaseSelect={handleSelectionAdd} />
+      <SearchCaseList />
 
-      <TreeList
-        dataSource={nodes}
-        keyExpr="id"
-        parentIdExpr="rootId"
-        rootValue={-1}           // top‐level nodes have rootId = -1
-        expandedRowKeys={expandedKeys}
-        onExpandedRowKeysChange={setExpandedKeys}
-        hasItemsExpr="hasChild"
-        showRowLines={false}
-        showBorders={false}
-        columnAutoWidth
-        wordWrapEnabled={false}
-        height={400}
-      >
+      {/* Load Favorites Button - only visible when favorites are already cached (subsequent visits) */}
+      {favouriteAkten.length > 0 && (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          margin: '10px 0',
+          padding: '5px 0'
+        }}>
+          <button
+            onClick={handleLoadFavorites}
+            disabled={loading}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: loading ? '#ccc' : '#0078d4',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            {loading ? 'Loading...' : 'Reload Favorites'}
+          </button>
+        </div>
+      )}
+
+      <div className="case-tab-treelist-container">
+        <TreeList
+          dataSource={nodes}
+          keyExpr="id"
+          parentIdExpr="rootId"
+          rootValue={-1}           // top‐level nodes have rootId = -1
+          expandedRowKeys={expandedKeys}
+          onExpandedRowKeysChange={onExpandedRowKeysChange}
+          onSelectionChanged={onSelectionChanged}
+          hasItemsExpr="hasChild"
+          showRowLines={false}
+          showBorders={false}
+          columnAutoWidth={false}  // Disable auto width to control column sizes manually
+          allowColumnResizing={true}  // Allow user to resize columns if needed
+          wordWrapEnabled={true}  // Enable word wrapping for long text
+          rowAlternationEnabled={true}  // Better visual separation for wrapped rows
+          height={400}
+        >
+        <Scrolling mode="standard" />  {/* Enable horizontal scrolling as fallback */}
+        
         {/* … Paging, Scrolling … */}
       <Editing
         allowUpdating={false}
@@ -130,50 +299,72 @@ const handleSelectionAdd = useCallback(async (node: string) => {
         <Column
           dataField="name"
           caption="Name"
+          width="calc(100% - 140px)"  // Take remaining space minus fixed button column width (with padding)
+          minWidth={200}  // Minimum width to ensure readability
+          allowResizing={true}  // Allow user to resize the name column
           cellRender={({ data }: { data: HierarchyTree }) => (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'flex-start',  // Align to top for multi-line content
+                gap: 8,
+                padding: '4px 0',  // Add some vertical padding
+                lineHeight: '1.4',  // Better line height for readability
+                wordBreak: 'break-word',  // Break long words if necessary
+                whiteSpace: 'normal'  // Allow normal text wrapping
+              }}
+              title={data.name}  // Still show full name on hover as backup
+            >
               <i
                 className={
                   data.isStructure
                     ? 'dx-icon dx-icon-folder'
                     : 'dx-icon dx-icon-file'
                 }
+                style={{ 
+                  marginTop: '2px',  // Slight adjustment to align with first line of text
+                  flexShrink: 0  // Prevent icon from shrinking
+                }}
               />
-              {data.name}
+              <span style={{ wordWrap: 'break-word' }}>
+                {data.name}
+              </span>
             </div>
           )}
         />
  
  
-      <Column type="buttons"> 
-        <Button name="delete" visible={({ row }) => {
-          return row.data.rootId === null;
-        }}
-            onClick={({ row }) => handleDelete(row.data)}/>
- 
-
+      <Column 
+        type="buttons" 
+        width={140}  // Fixed width for buttons column (enough for 3 buttons)
+        minWidth={140}  // Minimum width to prevent shrinking
+        allowResizing={false}  // Prevent user from resizing this column
+        fixed={true}  // Keep buttons column fixed/visible
+        fixedPosition="right"  // Fix to the right side
+      > 
+        {/* Open/View button - for documents */}
         <Button 
-            onClick={({ row }) => handleOpen(row.data)}
-          //  name="add"    
-            cssClass="dx-icon dx-icon-open"
-            visible={ ({ row }) => {
-              return row.data.isStructure ===false
-        }}/>
+          onClick={({ row }) => handleOpen(row.data)}
+          cssClass="dx-icon dx-icon-open"
+          visible={({ row }) => !row.data.isStructure} // Only show for documents
+        />
+        
+        {/* Add attachment button - for documents in compose mode */}
         <Button 
-            onClick={({ row }) => handleAdd(row.data)}
-          //  name="add"    
-            cssClass="dx-icon dx-icon-add"
-            visible={ ({ row }) => {
-              return IsComposeMode() && row.data.isStructure ===false
-        }}/>
+          onClick={({ row }) => handleAdd(row.data)}
+          cssClass="dx-icon dx-icon-add"
+          visible={({ row }) => IsComposeMode() && !row.data.isStructure}
+        />
+        
+        {/* Delete favorite button - only for top-level Akten */}
         <Button
           name="delete"
-          onClick={({ row }) => handleDelete(row.data.id)}
+          onClick={({ row }) => handleDelete(row.data)}
           visible={({ row }) => row.data.rootId === -1}
         />
- 
       </Column>
       </TreeList>
+      </div>
     </div>
   );
 };

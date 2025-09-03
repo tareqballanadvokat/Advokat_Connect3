@@ -1,14 +1,18 @@
 // Redux slice for managing Akten (Cases) state
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { AktLookUpResponse, AktenQuery } from '../../taskpane/components/interfaces/IAkten';
+import { AktLookUpResponse, AktenQuery, AktenResponse } from '../../taskpane/components/interfaces/IAkten';
+import { DokumentResponse } from '../../taskpane/components/interfaces/IDocument';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 
 // State interface
 interface AktenState {
-  cases: AktLookUpResponse[];
-  favouriteAkten: AktLookUpResponse[]; // For favorite Akten from GetAllAsync endpoint
+  cases: AktLookUpResponse[]; // For search results
+  favouriteAkten: AktenResponse[]; // For favorite Akten from GetAllAsync endpoint (Id, AKurz, Causa)
+  selectedAktDocuments: DokumentResponse[]; // Documents for the currently expanded Akt
   loading: boolean;
+  documentsLoading: boolean;
   error: string | null;
+  documentsError: string | null;
   searchTerm: string;
   currentSearchTerm: string; // Track which search term's results are currently loaded
 }
@@ -17,8 +21,11 @@ interface AktenState {
 const initialState: AktenState = {
   cases: [],
   favouriteAkten: [],
+  selectedAktDocuments: [],
   loading: false,
+  documentsLoading: false,
   error: null,
+  documentsError: null,
   searchTerm: '',
   currentSearchTerm: '' // Track which search term's results are currently loaded
 };
@@ -32,9 +39,57 @@ export const getFavoriteAktenAsync = createAsyncThunk(
     const response = await webRTCApiService.getFavoriteAkten(query);
     
     if (response.statusCode === 200) {
-      return response.data as AktLookUpResponse[];
+      return response.data as AktenResponse[]; // Use AktenResponse format (Id, AKurz, Causa)
     } else {
       throw new Error(response.error || 'Failed to get favorite cases');
+    }
+  }
+);
+
+// New async thunk for getting documents for a specific Akt
+export const getAktDokumenteAsync = createAsyncThunk(
+  'akten/getAktDokumente',
+  async (params: { aktId: number; limit?: number }) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    const response = await webRTCApiService.getAktDocuments(params.aktId, params.limit);
+    
+    if (response.statusCode === 200) {
+      return response.data as DokumentResponse[];
+    } else {
+      throw new Error(response.error || 'Failed to get documents for Akt');
+    }
+  }
+);
+
+// New async thunk for adding Akt to favorites
+export const addAktToFavoriteAsync = createAsyncThunk(
+  'akten/addAktToFavorite',
+  async (aktId: number) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    const response = await webRTCApiService.addAktToFavorite(aktId);
+    
+    if (response.statusCode === 200) {
+      return aktId; // Return the aktId that was added to favorites
+    } else {
+      throw new Error(response.error || 'Failed to add Akt to favorites');
+    }
+  }
+);
+
+// New async thunk for removing Akt from favorites
+export const removeAktFromFavoriteAsync = createAsyncThunk(
+  'akten/removeAktFromFavorite',
+  async (aktId: number) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    const response = await webRTCApiService.removeAktFromFavorite(aktId);
+    debugger;
+    if (response.statusCode === 200) {
+      return aktId; // Return the aktId that was removed from favorites
+    } else {
+      throw new Error(response.error || 'Failed to remove Akt from favorites');
     }
   }
 );
@@ -118,8 +173,15 @@ const aktenSlice = createSlice({
       // immutable state based off those changes
       state.cases = [];
       state.favouriteAkten = [];
+      state.selectedAktDocuments = [];
       state.error = null;
+      state.documentsError = null;
       state.currentSearchTerm = ''; // Clear the cached search term
+    },
+    // Clear documents for the selected Akt
+    clearDocuments: (state) => {
+      state.selectedAktDocuments = [];
+      state.documentsError = null;
     },
     // Set current search term
     // Use the PayloadAction type to declare the contents of `action.payload`
@@ -129,6 +191,7 @@ const aktenSlice = createSlice({
     // Clear any error state
     clearError: (state) => {
       state.error = null;
+      state.documentsError = null;
     }
   },
   // The `extraReducers` field lets the slice handle actions defined elsewhere,
@@ -147,6 +210,47 @@ const aktenSlice = createSlice({
       .addCase(getFavoriteAktenAsync.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to get favorite cases via WebRTC';
+      })
+      // Get Akt documents handlers
+      .addCase(getAktDokumenteAsync.pending, (state) => {
+        state.documentsLoading = true;
+        state.documentsError = null;
+      })
+      .addCase(getAktDokumenteAsync.fulfilled, (state, action) => {
+        state.documentsLoading = false;
+        state.selectedAktDocuments = action.payload;
+      })
+      .addCase(getAktDokumenteAsync.rejected, (state, action) => {
+        state.documentsLoading = false;
+        state.documentsError = action.error.message || 'Failed to get documents for Akt';
+      })
+      // Add Akt to favorites handlers
+      .addCase(addAktToFavoriteAsync.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(addAktToFavoriteAsync.fulfilled, (state) => {
+        state.loading = false;
+        // The aktId was successfully added to favorites
+        // We'll reload the favorites list after this action completes
+      })
+      .addCase(addAktToFavoriteAsync.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to add Akt to favorites';
+      })
+      // Remove Akt from favorites handlers
+      .addCase(removeAktFromFavoriteAsync.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(removeAktFromFavoriteAsync.fulfilled, (state) => {
+        state.loading = false;
+        // The aktId was successfully removed from favorites
+        // We'll reload the favorites list after this action completes
+      })
+      .addCase(removeAktFromFavoriteAsync.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to remove Akt from favorites';
       })
       // Akt lookup handlers
       .addCase(aktLookUpAsync.pending, (state, action) => {
@@ -168,7 +272,7 @@ const aktenSlice = createSlice({
 });
 
 // Export actions
-export const { clearCases, setSearchTerm, clearError } = aktenSlice.actions;
+export const { clearCases, clearDocuments, setSearchTerm, clearError } = aktenSlice.actions;
 
 // Export reducer
 export default aktenSlice.reducer;
