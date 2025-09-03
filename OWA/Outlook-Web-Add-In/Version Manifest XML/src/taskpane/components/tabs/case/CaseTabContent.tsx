@@ -3,57 +3,38 @@ import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
 import './CaseTabContent.css'; // Import our custom CSS
 import SearchCaseList from './SearchCaseList';
-import {IsComposeMode, setAttachmentToItemAsync} from '../../../hooks/useOfficeItem'
-import LoadPanel from 'devextreme-react/load-panel';
+import {IsComposeMode} from '../../../hooks/useOfficeItem'
 import {HierarchyTree} from '../../interfaces/ICase'
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 import notify from 'devextreme/ui/notify';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { getFavoriteAktenAsync, getAktDokumenteAsync, clearDocuments, removeAktFromFavoriteAsync } from '../../../../store/slices/aktenSlice';
+import { getFavoriteAktenAsync, getAktDokumenteAsync, removeAktFromFavoriteAsync } from '../../../../store/slices/aktenSlice';
 import TreeList, {
   Column,
   Scrolling,
-  FilterRow,
-  HeaderFilter,Editing,
-  Paging,Button, type TreeListTypes,
-  Pager,
-  // Command column for buttons
- 
+  Editing,
+  Button,
 } from 'devextreme-react/tree-list';
 
 import { getFileContent } from '../../../utils/api'; // your API
 
-
-
-const allowDeleting = (e) => e.row.data.ID !== 1;
-function allowDeletingVisible()
-{
-  return false;
-} 
+const allowDeleting = (e) => e.row.data.ID !== 1; 
 
 
 const CaseTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { favouriteAkten, selectedAktDocuments, loading, documentsLoading, error, documentsError } = useAppSelector(state => state.akten);
+  const { favouriteAkten, selectedAktDocuments, loading, documentsLoading } = useAppSelector(state => state.akten);
   
   const [nodes, setNodes] = useState<HierarchyTree[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
-  const [selectedCase, setSelectedCase] = useState('');
 
   // Load favorite Akten only once when component mounts and no data exists
-  useEffect(() => {
-    console.log(`🔍 CaseTabContent useEffect triggered: favouriteAkten.length=${favouriteAkten.length}, loading=${loading}`);
-    
+  useEffect(() => {    
     if (favouriteAkten.length === 0 && !loading) {
-      console.log('🔄 Loading favorite Akten from API (no cache found)...');
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50 // Limit to 50 favorite cases
       }));
-    } else if (favouriteAkten.length > 0) {
-      console.log(`✅ Using existing cached favorite Akten: ${favouriteAkten.length} cases`);
-    } else if (loading) {
-      console.log('⏳ Already loading favorites, skipping...');
     }
   }, [dispatch, favouriteAkten.length]); // Keep favouriteAkten.length as dependency to detect when it becomes empty
 
@@ -349,11 +330,7 @@ const CaseTabContent: React.FC = () => {
           text="open"
           hint="Open file"
           onClick={({ row }) => handleOpen(row.data)}
-          visible={({ row }) => {
-            const isVisible = !row.data.isStructure;
-            console.log(`🔍 Open button visibility for "${row.data.name}": isStructure=${row.data.isStructure}, visible=${isVisible}`);
-            return isVisible;
-          }}
+          visible={({ row }) => !row.data.isStructure}
         />
 
         {/* Add attachment button - for documents in compose mode */}

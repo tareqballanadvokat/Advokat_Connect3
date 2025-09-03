@@ -1,6 +1,7 @@
 // WebRTC API Communication Service - Integrates with SIP_Library
 import { v4 as uuidv4 } from 'uuid';
-import { WebRTCApiRequest, WebRTCApiResponse, AktenQuery } from '../components/interfaces/IAkten';
+import { AktenQuery } from '../components/interfaces/IAkten';
+import { WebRTCApiRequest, WebRTCApiResponse } from '../components/interfaces/IWebRTC';
 import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
 import { DokumentPostData, DokumentResponse, DokumenteQuery } from '../components/interfaces/IDocument';
 import { PersonenQuery, PersonResponse } from '../components/interfaces/IPerson';
@@ -15,7 +16,10 @@ import {
   createChunkDelay,
   generateGuid,
   logChunkingInfo,
-  logChunkTransmission
+  logChunkTransmission,
+  calculateChecksum,
+  createProtocolId,
+  createProtocolRequest
 } from '../utils/chunkingUtils';
 
 /**
@@ -116,226 +120,248 @@ class WebRTCApiService {
         if (message.toLowerCase().includes('folders')) {
           // Create fake Folders response - return array of folder names as strings
           fakeResponse = {
-            Id: requestId,
-            Timestamp: Date.now(),
-            statusCode: 200,
-            data: [
-              "Korrespondenz",
-              "Verträge", 
-              "Gerichtsdokumente",
-              "Recherche",
-              "Klientenunterlagen"
-            ]
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify([
+                "Korrespondenz",
+                "Verträge", 
+                "Gerichtsdokumente",
+                "Recherche",
+                "Klientenunterlagen"
+              ])
+            }
           };
         } else if (message.toLowerCase().includes('att')) {
           // Create fake Documents/Attachments response
           fakeResponse = {
-            Id: requestId,
-            Timestamp: Date.now(),
-            statusCode: 200,
-            data: [
-              {
-                id: 5001,
-                aKurz: "FAKE-2024-001",
-                aktId: 12345,
-                datum: new Date('2024-01-15'),
-                betreff: "Sample Email Document",
-                dokumentArt: 1, // MailEmpfangen
-                mailAdresse: "client@example.com",
-                mailZeitpunkt: new Date('2024-01-15T10:30:00'),
-                anzahlMailAnhänge: 2,
-                anhangDateiNamen: "contract.pdf;invoice.xlsx",
-                sachbearbeiterKürzel: "JD",
-                dateipfad: "/documents/email_001.msg",
-                bearbeitungsInfoErstelltVon: "System",
-                bearbeitungsInfoErstelltAm: new Date('2024-01-15T10:35:00')
-              },
-              {
-                id: 5002,
-                aKurz: "FAKE-2024-001",
-                aktId: 12345,
-                datum: new Date('2024-01-15'),
-                betreff: "Email Tab Content - old.png",
-                dokumentArt: 0, // Keine (normal attachment)
-                anzahlMailAnhänge: 0,
-                sachbearbeiterKürzel: "JD",
-                dateipfad: "/documents/attachments/Email Tab Content - old.png",
-                bearbeitungsInfoErstelltVon: "System",
-                bearbeitungsInfoErstelltAm: new Date('2024-01-15T10:36:00')
-              }
-            ]
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify([
+                {
+                  id: 5001,
+                  aKurz: "FAKE-2024-001",
+                  aktId: 12345,
+                  datum: new Date('2024-01-15'),
+                  betreff: "Sample Email Document",
+                  dokumentArt: 1, // MailEmpfangen
+                  mailAdresse: "client@example.com",
+                  mailZeitpunkt: new Date('2024-01-15T10:30:00'),
+                  anzahlMailAnhänge: 2,
+                  anhangDateiNamen: "contract.pdf;invoice.xlsx",
+                  sachbearbeiterKürzel: "JD",
+                  dateipfad: "/documents/email_001.msg",
+                  bearbeitungsInfoErstelltVon: "System",
+                  bearbeitungsInfoErstelltAm: new Date('2024-01-15T10:35:00')
+                },
+                {
+                  id: 5002,
+                  aKurz: "FAKE-2024-001",
+                  aktId: 12345,
+                  datum: new Date('2024-01-15'),
+                  betreff: "Email Tab Content - old.png",
+                  dokumentArt: 0, // Keine (normal attachment)
+                  anzahlMailAnhänge: 0,
+                  sachbearbeiterKürzel: "JD",
+                  dateipfad: "/documents/attachments/Email Tab Content - old.png",
+                  bearbeitungsInfoErstelltVon: "System",
+                  bearbeitungsInfoErstelltAm: new Date('2024-01-15T10:36:00')
+                }
+              ])
+            }
           };
         } else if (message.toLowerCase().includes('dokument') || message.toLowerCase().includes('getaktdocuments')) {
           // Create fake documents response for getAktDocuments
           fakeResponse = {
-            Id: requestId,
-            Timestamp: Date.now(),
-            statusCode: 200,
-            data: [
-              {
-                id: 6001,
-                aKurz: "FAKE-001",
-                aktId: 12345,
-                datum: new Date('2024-01-15'),
-                betreff: "Contract Draft v1.0",
-                dokumentArt: 0, // Normal document
-                dateipfad: "/Korrespondenz/Verträge/contract_draft_v1.docx",
-                sachbearbeiterKürzel: "JD",
-                bearbeitungsInfoErstelltVon: "System",
-                bearbeitungsInfoErstelltAm: new Date('2024-01-15T09:00:00')
-              },
-              {
-                id: 6002,
-                aKurz: "FAKE-001",
-                aktId: 12345,
-                datum: new Date('2024-01-16'),
-                betreff: "Meeting Notes - Initial Discussion",
-                dokumentArt: 0,
-                dateipfad: "/Korrespondenz/Notizen/meeting_notes_20240116.pdf",
-                sachbearbeiterKürzel: "JD",
-                bearbeitungsInfoErstelltVon: "System",
-                bearbeitungsInfoErstelltAm: new Date('2024-01-16T14:30:00')
-              },
-              {
-                id: 6003,
-                aKurz: "FAKE-001",
-                aktId: 12345,
-                datum: new Date('2024-01-17'),
-                betreff: "Legal Research Summary",
-                dokumentArt: 0,
-                dateipfad: "/Recherche/Rechtslage/legal_research_summary.pdf",
-                sachbearbeiterKürzel: "JD",
-                bearbeitungsInfoErstelltVon: "System",
-                bearbeitungsInfoErstelltAm: new Date('2024-01-17T11:15:00')
-              },
-              {
-                id: 6004,
-                aKurz: "FAKE-2024-001",
-                aktId: 12345,
-                datum: new Date('2024-01-18'),
-                betreff: "Client Email Response",
-                dokumentArt: 1, // MailEmpfangen
-                mailAdresse: "client@example.com",
-                mailZeitpunkt: new Date('2024-01-18T08:45:00'),
-                dateipfad: "/Korrespondenz/E-Mails/client_response_20240118.msg",
-                sachbearbeiterKürzel: "JD",
-                bearbeitungsInfoErstelltVon: "System",
-                bearbeitungsInfoErstelltAm: new Date('2024-01-18T08:50:00')
-              }
-            ]
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify([
+                {
+                  id: 6001,
+                  aKurz: "FAKE-001",
+                  aktId: 12345,
+                  datum: new Date('2024-01-15'),
+                  betreff: "Contract Draft v1.0",
+                  dokumentArt: 0, // Normal document
+                  dateipfad: "/Korrespondenz/Verträge/contract_draft_v1.docx",
+                  sachbearbeiterKürzel: "JD",
+                  bearbeitungsInfoErstelltVon: "System",
+                  bearbeitungsInfoErstelltAm: new Date('2024-01-15T09:00:00')
+                },
+                {
+                  id: 6002,
+                  aKurz: "FAKE-001",
+                  aktId: 12345,
+                  datum: new Date('2024-01-16'),
+                  betreff: "Meeting Notes - Initial Discussion",
+                  dokumentArt: 0,
+                  dateipfad: "/Korrespondenz/Notizen/meeting_notes_20240116.pdf",
+                  sachbearbeiterKürzel: "JD",
+                  bearbeitungsInfoErstelltVon: "System",
+                  bearbeitungsInfoErstelltAm: new Date('2024-01-16T14:30:00')
+                },
+                {
+                  id: 6003,
+                  aKurz: "FAKE-001",
+                  aktId: 12345,
+                  datum: new Date('2024-01-17'),
+                  betreff: "Legal Research Summary",
+                  dokumentArt: 0,
+                  dateipfad: "/Recherche/Rechtslage/legal_research_summary.pdf",
+                  sachbearbeiterKürzel: "JD",
+                  bearbeitungsInfoErstelltVon: "System",
+                  bearbeitungsInfoErstelltAm: new Date('2024-01-17T11:15:00')
+                },
+                {
+                  id: 6004,
+                  aKurz: "FAKE-2024-001",
+                  aktId: 12345,
+                  datum: new Date('2024-01-18'),
+                  betreff: "Client Email Response",
+                  dokumentArt: 1, // MailEmpfangen
+                  mailAdresse: "client@example.com",
+                  mailZeitpunkt: new Date('2024-01-18T08:45:00'),
+                  dateipfad: "/Korrespondenz/E-Mails/client_response_20240118.msg",
+                  sachbearbeiterKürzel: "JD",
+                  bearbeitungsInfoErstelltVon: "System",
+                  bearbeitungsInfoErstelltAm: new Date('2024-01-18T08:50:00')
+                }
+              ])
+            }
           };
         } else if (message.toLowerCase().includes('service') || message.toLowerCase().includes('leistung')) {
           // Create fake Services response
           fakeResponse = {
-            Id: requestId,
-            Timestamp: Date.now(),
-            statusCode: 200,
-            data: [
-              {
-                Id: 1001,
-                Kürzel: "FAKE-2024-001",
-                Stufe1: "Consultation",
-                Stufe2: "Initial Meeting",
-                Stufe3: "Client Interview",
-                AnzeigenInQuicklisteOutlook: true
-              },
-              {
-                Id: 1002,
-                Kürzel: "FAKE-2024-001",
-                Stufe1: "Legal Research",
-                Stufe2: "Case Analysis",
-                Stufe3: "Document Review",
-                AnzeigenInQuicklisteOutlook: true
-              },
-              {
-                Id: 1003,
-                Kürzel: "FAKE-2024-001",
-                Stufe1: "Consultation",
-                Stufe2: "Follow-up Meeting",
-                Stufe3: "Strategy Discussion",
-                AnzeigenInQuicklisteOutlook: false
-              }
-            ]
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify([
+                {
+                  Id: 1001,
+                  Kürzel: "FAKE-2024-001",
+                  Stufe1: "Consultation",
+                  Stufe2: "Initial Meeting",
+                  Stufe3: "Client Interview",
+                  AnzeigenInQuicklisteOutlook: true
+                },
+                {
+                  Id: 1002,
+                  Kürzel: "FAKE-2024-001",
+                  Stufe1: "Legal Research",
+                  Stufe2: "Case Analysis",
+                  Stufe3: "Document Review",
+                  AnzeigenInQuicklisteOutlook: true
+                },
+                {
+                  Id: 1003,
+                  Kürzel: "FAKE-2024-001",
+                  Stufe1: "Consultation",
+                  Stufe2: "Follow-up Meeting",
+                  Stufe3: "Strategy Discussion",
+                  AnzeigenInQuicklisteOutlook: false
+                }
+              ])
+            }
           };
         } else if (message.toLowerCase().includes('addtofavorites') || message.toLowerCase().includes('addakt')) {
           // Create fake Add to Favorites response
           fakeResponse = {
-            Id: requestId,
-            Timestamp: Date.now(),
-            statusCode: 200,
-            data: {
-              success: true,
-              message: "Akt successfully added to favorites"
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify({
+                success: true,
+                message: "Akt successfully added to favorites"
+              })
             }
           };
         } else if (message.toLowerCase().includes('removefromfavorites') || message.toLowerCase().includes('removeakt')) {
           // Create fake Remove from Favorites response
           fakeResponse = {
-            Id: requestId,
-            Timestamp: Date.now(),
-            statusCode: 200,
-            data: {
-              success: true,
-              message: "Akt successfully removed from favorites"
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify({
+                success: true,
+                message: "Akt successfully removed from favorites"
+              })
             }
           };
         } else if (message.toLowerCase().includes('favoriteakten') || (message.toLowerCase().includes('akten') && message.toLowerCase().includes('favoriten'))) {
           // Create fake favorite Akten response (AktenResponse format: Id, AKurz, Causa)
           fakeResponse = {
-            Id: requestId,
-            Timestamp: Date.now(),
-            statusCode: 200,
-            data: [
-              {
-                Id: 12345,
-                AKurz: "Akt1",
-                Causa: "Sample"
-              },
-              {
-                Id: 12346,
-                AKurz: "Akt2", 
-                Causa: "Favorite"
-              },
-              {
-                Id: 12347,
-                AKurz: "Akt3",
-                Causa: "Favorite case"
-              }
-            ]
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify([
+                {
+                  Id: 12345,
+                  AKurz: "Akt1",
+                  Causa: "Sample"
+                },
+                {
+                  Id: 12346,
+                  AKurz: "Akt2", 
+                  Causa: "Favorite"
+                },
+                {
+                  Id: 12347,
+                  AKurz: "Akt3",
+                  Causa: "Favorite case"
+                }
+              ])
+            }
           };
         } else {
           // Create fake Akten response (AktLookUpResponse format for search)
           fakeResponse = {
-            Id: requestId,
-            Timestamp: Date.now(),
-            statusCode: 200,
-            data: [
-              {
-                aktId: 12348,
-                aKurz: "FAKE-2024-001",
-                causa: "Sample case triggered by: " + message
-              },
-              {
-                aktId: 12349,
-                aKurz: "FAKE-2024-001",
-                causa: "Sample case triggered by: " + message
-              },
-              {
-                aktId: 12345,
-                aKurz: "FAKE-2024-001",
-                causa: "Sample case triggered by: " + message
-              },
-              {
-                aktId: 12346,
-                aKurz: "FAKE-2024-002", 
-                causa: "Another test case - Contract review"
-              },
-              {
-                aktId: 12347,
-                aKurz: "FAKE-2024-003",
-                causa: "Third test case - Legal dispute"
-              }
-            ]
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify([
+                {
+                  aktId: 12348,
+                  aKurz: "FAKE-2024-001",
+                  causa: "Sample case triggered by: " + message
+                },
+                {
+                  aktId: 12349,
+                  aKurz: "FAKE-2024-002",
+                  causa: "Second test case - Contract review"
+                },
+                {
+                  aktId: 12350,
+                  aKurz: "FAKE-2024-003",
+                  causa: "Third test case - Legal dispute"
+                }
+              ])
+            }
           };
         }
         
@@ -343,16 +369,17 @@ class WebRTCApiService {
         handler(fakeResponse);
         this.pendingRequestHandlers.delete(requestId);
       }
-    } 
-  }// Close catch block
- // Close processMessage method
-
+    }
+  }
   /**
    * Send API request through WebRTC DataChannel
-   * @param request - The API request to send
+   * @param method - HTTP method
+   * @param url - Request URL
+   * @param headers - Request headers
+   * @param body - Request body (optional)
    * @returns Promise with API response
    */
-  private async sendRequest<T>(request: WebRTCApiRequest): Promise<WebRTCApiResponse<T>> {
+  private async sendRequest(method: string, url: string, headers: Record<string, string>, body?: any): Promise<WebRTCApiResponse> {
     return new Promise((resolve, reject) => {
       if (!this.sipClient) {
         reject(new Error('WebRTC API service not initialized'));
@@ -366,32 +393,28 @@ class WebRTCApiService {
         return;
       }
 
-      const requestId = generateGuid();
-      const requestWithId = { 
-        Id: requestId,
-        Timestamp: Date.now(),
-        ...request
-      };
+      // Create full protocol request
+      const protocolRequest = createProtocolRequest(method, url, headers, body);
 
       // Set up response handler
-      this.pendingRequestHandlers.set(requestId, (response: WebRTCApiResponse<T>) => {
+      this.pendingRequestHandlers.set(protocolRequest.id, (response: WebRTCApiResponse) => {
         resolve(response);
       });
 
       // Set timeout to clean up handler if no response
       setTimeout(() => {
-        if (this.pendingRequestHandlers.has(requestId)) {
-          this.pendingRequestHandlers.delete(requestId);
+        if (this.pendingRequestHandlers.has(protocolRequest.id)) {
+          this.pendingRequestHandlers.delete(protocolRequest.id);
           reject(new Error('Request timeout - no response from remote'));
         }
       }, 60000);
 
       try {
-        const message = JSON.stringify(requestWithId);
+        const message = JSON.stringify(protocolRequest);
         console.log('📤 Sending API request:', `Size: ${new TextEncoder().encode(message).length} bytes`);
         dataChannel.send(message);
       } catch (error) {
-        this.pendingRequestHandlers.delete(requestId);
+        this.pendingRequestHandlers.delete(protocolRequest.id);
         reject(error);
       }
     });
@@ -410,16 +433,14 @@ class WebRTCApiService {
     if (query.NurFavoriten !== undefined) queryParams.append('NurFavoriten', query.NurFavoriten.toString());
     if (query.Causa !== undefined) queryParams.append('Causa', query.Causa.toString());
 
-    const request: WebRTCApiRequest = {
-      method: 'GET',
-      url: `api/v1.1/akten?${queryParams.toString()}`,
-      headers: {
+    return this.sendRequest(
+      'GET',
+      `api/v1.1/akten?${queryParams.toString()}`,
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
-    };
-    
-    return this.sendRequest(request);
+    );
   }
 
   /**
@@ -430,16 +451,14 @@ class WebRTCApiService {
     const queryParams = new URLSearchParams();
     queryParams.append('searchText', searchText);
 
-    const request: WebRTCApiRequest = {
-      method: 'GET',
-      url: `api/v1.1/akten/LookUp?${queryParams.toString()}`,
-      headers: {
+    return this.sendRequest(
+      'GET',
+      `api/v1.1/akten/LookUp?${queryParams.toString()}`,
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
-    };
-    
-    return this.sendRequest(request);
+    );
   }
 
   /**
@@ -447,16 +466,14 @@ class WebRTCApiService {
    * @param aktId - The ID of the Akt to add to favorites
    */
   async addAktToFavorite(aktId: number) {
-    const request: WebRTCApiRequest = {
-      method: 'POST',
-      url: `api/v1.1/akten/AddToFavorites/${aktId}`,
-      headers: {
+    return this.sendRequest(
+      'POST',
+      `api/v1.1/akten/AddToFavorites/${aktId}`,
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
-    };
-    
-    return this.sendRequest(request);
+    );
   }
 
   /**
@@ -464,37 +481,14 @@ class WebRTCApiService {
    * @param aktId - The ID of the Akt to remove from favorites
    */
   async removeAktFromFavorite(aktId: number) {
-    const request: WebRTCApiRequest = {
-      method: 'DELETE',
-      url: `api/v1.1/akten/RemoveFromFavorites/${aktId}`,
-      headers: {
+    return this.sendRequest(
+      'DELETE',
+      `api/v1.1/akten/RemoveFromFavorites/${aktId}`,
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
-    };
-    
-    return this.sendRequest(request);
-  }
-
-  /**
-   * Create HTTP request object for Services lookup
-   * @param query - Search parameters for services
-   */
-  private createServicesLookupRequest(query: LeistungenAuswahlQuery): WebRTCApiRequest {
-    const queryParams = new URLSearchParams();
-    
-    if (query.Kürzel) queryParams.append('Kürzel', query.Kürzel);
-    if (query.OnlyQuickListe !== undefined) queryParams.append('OnlyQuickListe', query.OnlyQuickListe.toString());
-    if (query.Limit) queryParams.append('Limit', query.Limit.toString());
-
-    return {
-      method: 'GET',
-      url: `api/v1.1/services/Aswahl?${queryParams.toString()}`,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    };
+    );
   }
 
   /**
@@ -502,24 +496,20 @@ class WebRTCApiService {
    * @param query - Search parameters for services
    */
   async loadServices(query: LeistungenAuswahlQuery) {
-    const request = this.createServicesLookupRequest(query);
-    return this.sendRequest(request);
-  }
+    const queryParams = new URLSearchParams();
+    
+    if (query.Kürzel) queryParams.append('Kürzel', query.Kürzel);
+    if (query.OnlyQuickListe !== undefined) queryParams.append('OnlyQuickListe', query.OnlyQuickListe.toString());
+    if (query.Limit) queryParams.append('Limit', query.Limit.toString());
 
-  /**
-   * Create HTTP request object for posting a new Leistung
-   * @param leistungData - Data for the new Leistung
-   */
-  private createLeistungPostRequest(leistungData: LeistungPostData): WebRTCApiRequest {
-    return {
-      method: 'POST',
-      url: 'api/v1.1/leistung',
-      headers: {
+    return this.sendRequest(
+      'GET',
+      `api/v1.1/services/Aswahl?${queryParams.toString()}`,
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      },
-      body: leistungData
-    };
+      }
+    );
   }
 
   /**
@@ -527,24 +517,31 @@ class WebRTCApiService {
    * @param leistungData - Data for the new Leistung
    */
   async saveLeistung(leistungData: LeistungPostData) {
-    const request = this.createLeistungPostRequest(leistungData);
-    return this.sendRequest(request);
-  }
-
-  /**
-   * Create HTTP request object for saving documents
-   * @param dokumentData - Document data to save
-   */
-  private createDokumentPostRequest(dokumentData: DokumentPostData): WebRTCApiRequest {
-    return {
-      method: 'POST',
-      url: 'api/v1.1/dokument',
-      headers: {
+    return this.sendRequest(
+      'POST',
+      'api/v1.1/leistung',
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: dokumentData
-    };
+      leistungData
+    );
+  }
+
+  /**
+   * Helper to create document WebRTCApiRequest for chunking utilities
+   * @param dokumentData - Document data to save
+   */
+  private createDokumentRequest(dokumentData: DokumentPostData): WebRTCApiRequest {
+    return createProtocolRequest(
+      'POST',
+      'api/v1.1/dokument',
+      {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      dokumentData
+    );
   }
 
   /**
@@ -553,11 +550,11 @@ class WebRTCApiService {
    */
   async saveDokument(dokumentData: DokumentPostData) {
     // Create the request and check if chunking is needed
-    const request = this.createDokumentPostRequest(dokumentData);
+    const protocolRequest = this.createDokumentRequest(dokumentData);
     
-    if (!needsChunking(request)) {
+    if (!needsChunking(protocolRequest)) {
       // Small document, send normally
-      const totalSize = calculateMessageSize(request);
+      const totalSize = calculateMessageSize(protocolRequest);
       logChunkingInfo({
         totalSize,
         overheadSize: 0,
@@ -565,15 +562,18 @@ class WebRTCApiService {
         totalChunks: 1,
         action: 'single'
       });
-      return this.sendRequest(request);
+      return this.sendRequest('POST', 'api/v1.1/dokument', {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }, dokumentData);
     }
     
     // Large document, split into chunks
-    const totalSize = calculateMessageSize(request);
+    const totalSize = calculateMessageSize(protocolRequest);
     
     // Calculate overhead size (all fields except 'inhalt')
     const documentWithoutContent = { ...dokumentData, inhalt: '' };
-    const overheadSize = calculateOverheadSize(documentWithoutContent, this.createDokumentPostRequest.bind(this));
+    const overheadSize = calculateOverheadSize(documentWithoutContent, this.createDokumentRequest.bind(this));
     
     // Calculate max content size per chunk
     const maxContentPerChunk = calculateMaxContentPerChunk(overheadSize);
@@ -602,7 +602,10 @@ class WebRTCApiService {
       logChunkTransmission(i + 1, chunkingResult.totalChunks);
       
       try {
-        const response = await this.sendRequest(this.createDokumentPostRequest(chunkData));
+        const response = await this.sendRequest('POST', 'api/v1.1/dokument', {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }, chunkData);
         responses.push(response);
         
         // Small delay between chunks
@@ -620,51 +623,18 @@ class WebRTCApiService {
   }
 
   /**
-   * Create HTTP request object for getting available folders
-   * @param aktId - The case ID to get folders for
-   */
-  private createGetFoldersRequest(aktId: number): WebRTCApiRequest {
-    return {
-      method: 'GET',
-      url: `api/v1.1/folders/${aktId}`,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    };
-  }
-
-  /**
    * Get available folders for a case via WebRTC
    * @param aktId - The case ID to get folders for
    */
   async getAvailableFolders(aktId: number) {
-    const request = this.createGetFoldersRequest(aktId);
-    return this.sendRequest<string[]>(request);
-  }
-
-  /**
-   * Create HTTP request object for getting saved email documents
-   * @param query - Query parameters for documents
-   */
-  private createGetDocumentsRequest(query: DokumenteQuery): WebRTCApiRequest {
-    const queryParams = new URLSearchParams();
-    
-    if (query.aktId) queryParams.append('aktId', query.aktId.toString());
-    if (query.outlookEmailId) queryParams.append('outlookEmailId', query.outlookEmailId);
-    if (query.dokumentArten) {
-      query.dokumentArten.forEach(art => queryParams.append('dokumentArten', art.toString()));
-    }
-    if (query.limit) queryParams.append('limit', query.limit.toString());
-
-    return {
-      method: 'GET',
-      url: `api/v1.1/dokument?${queryParams.toString()}`,
-      headers: {
+    return this.sendRequest(
+      'GET',
+      `api/v1.1/folders/${aktId}`,
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
-    };
+    );
   }
 
   /**
@@ -673,12 +643,19 @@ class WebRTCApiService {
    * @param aktId - Optional case ID to filter by
    */
   async getSavedEmailInfo(outlookEmailId: string, aktId?: number) {
-    const query: DokumenteQuery = {
-      outlookEmailId,
-      aktId
-    };
-    const request = this.createGetDocumentsRequest(query);
-    return this.sendRequest<DokumentResponse[]>(request);
+    const queryParams = new URLSearchParams();
+    
+    if (aktId) queryParams.append('aktId', aktId.toString());
+    queryParams.append('outlookEmailId', outlookEmailId);
+
+    return this.sendRequest(
+      'GET',
+      `api/v1.1/dokument?${queryParams.toString()}`,
+      {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    );
   }
 
   /**
@@ -687,12 +664,19 @@ class WebRTCApiService {
    * @param limit - Optional limit for number of documents
    */
   async getAktDocuments(aktId: number, limit?: number) {
-    const query: DokumenteQuery = {
-      aktId,
-      limit
-    };
-    const request = this.createGetDocumentsRequest(query);
-    return this.sendRequest<DokumentResponse[]>(request);
+    const queryParams = new URLSearchParams();
+    
+    queryParams.append('aktId', aktId.toString());
+    if (limit) queryParams.append('limit', limit.toString());
+
+    return this.sendRequest(
+      'GET',
+      `api/v1.1/dokument?${queryParams.toString()}`,
+      {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    );
   }
 
   // ===== PERSON API METHODS =====
@@ -709,16 +693,14 @@ class WebRTCApiService {
     if (query.Count) queryParams.append('Count', query.Count.toString());
     if (query.NurFavoriten !== undefined) queryParams.append('NurFavoriten', query.NurFavoriten.toString());
 
-    const request: WebRTCApiRequest = {
-      method: 'GET',
-      url: `api/person?${queryParams.toString()}`,
-      headers: {
+    return this.sendRequest(
+      'GET',
+      `api/person?${queryParams.toString()}`,
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
-    };
-    
-    return this.sendRequest(request);
+    );
   }
 
   /**
@@ -729,60 +711,42 @@ class WebRTCApiService {
     const queryParams = new URLSearchParams();
     queryParams.append('searchText', searchText);
 
-    const request: WebRTCApiRequest = {
-      method: 'GET',
-      url: `api/person/Lookup?${queryParams.toString()}`,
-      headers: {
+    return this.sendRequest(
+      'GET',
+      `api/person/Lookup?${queryParams.toString()}`,
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
-    };
-    
-    return this.sendRequest(request);
-  }
-
-  /**
-   * Create request for adding person to favorites
-   */
-  private createAddPersonToFavoritesRequest(personId: number): WebRTCApiRequest {
-    return {
-      method: 'POST',
-      url: `api/person/AddToFavorites/${personId}`,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    };
-  }
-
-  /**
-   * Create request for removing person from favorites
-   */
-  private createRemovePersonFromFavoritesRequest(personId: number): WebRTCApiRequest {
-    return {
-      method: 'DELETE',
-      url: `api/person/RemoveFromFavorites/${personId}`,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    };
+    );
   }
 
   /**
    * Add person to favorites via WebRTC
    */
   async addPersonToFavorites(personId: number) {
-    const request = this.createAddPersonToFavoritesRequest(personId);
-    return this.sendRequest(request);
+    return this.sendRequest(
+      'POST',
+      `api/person/AddToFavorites/${personId}`,
+      {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    );
   }
 
   /**
    * Remove person from favorites via WebRTC
    */
   async removePersonFromFavorites(personId: number) {
-    const request = this.createRemovePersonFromFavoritesRequest(personId);
-    return this.sendRequest(request);
+    return this.sendRequest(
+      'DELETE',
+      `api/person/RemoveFromFavorites/${personId}`,
+      {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    );
   }
 
   /**

@@ -38,10 +38,10 @@ export const loadServicesAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.loadServices(query);
     
-    if (response.statusCode === 200) {
-      return response.data as LeistungAuswahlResponse[];
+    if (response.response.statusCode === 200) {
+      return JSON.parse(response.response.body || '[]') as LeistungAuswahlResponse[];
     } else {
-      throw new Error(response.error || 'Failed to load services');
+      throw new Error('Failed to load services');
     }
   }
 );

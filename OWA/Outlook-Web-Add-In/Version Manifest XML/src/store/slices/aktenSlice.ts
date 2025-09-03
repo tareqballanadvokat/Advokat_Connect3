@@ -38,10 +38,10 @@ export const getFavoriteAktenAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.getFavoriteAkten(query);
     
-    if (response.statusCode === 200) {
-      return response.data as AktenResponse[]; // Use AktenResponse format (Id, AKurz, Causa)
+    if (response.response.statusCode === 200) {
+      return JSON.parse(response.response.body || '[]') as AktenResponse[]; // Use AktenResponse format (Id, AKurz, Causa)
     } else {
-      throw new Error(response.error || 'Failed to get favorite cases');
+      throw new Error('Failed to get favorite cases');
     }
   }
 );
@@ -54,10 +54,10 @@ export const getAktDokumenteAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.getAktDocuments(params.aktId, params.limit);
     
-    if (response.statusCode === 200) {
-      return response.data as DokumentResponse[];
+    if (response.response.statusCode === 200) {
+      return JSON.parse(response.response.body || '[]') as DokumentResponse[];
     } else {
-      throw new Error(response.error || 'Failed to get documents for Akt');
+      throw new Error('Failed to get documents for Akt');
     }
   }
 );
@@ -70,10 +70,10 @@ export const addAktToFavoriteAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.addAktToFavorite(aktId);
     
-    if (response.statusCode === 200) {
+    if (response.response.statusCode === 200) {
       return aktId; // Return the aktId that was added to favorites
     } else {
-      throw new Error(response.error || 'Failed to add Akt to favorites');
+      throw new Error('Failed to add Akt to favorites');
     }
   }
 );
@@ -85,10 +85,10 @@ export const removeAktFromFavoriteAsync = createAsyncThunk(
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removeAktFromFavorite(aktId);
-    if (response.statusCode === 200) {
+    if (response.response.statusCode === 200) {
       return aktId; // Return the aktId that was removed from favorites
     } else {
-      throw new Error(response.error || 'Failed to remove Akt from favorites');
+      throw new Error('Failed to remove Akt from favorites');
     }
   }
 );
@@ -108,10 +108,10 @@ export const aktLookUpAsync = createAsyncThunk(
     try {
       const response = await webRTCApiService.aktLookUp(searchText);
       
-      if (response.statusCode === 200) {
-        return response.data as AktLookUpResponse[];
+      if (response.response.statusCode === 200) {
+        return JSON.parse(response.response.body || '[]') as AktLookUpResponse[];
       } else {
-        throw new Error(response.error || 'Failed to lookup cases');
+        throw new Error('Failed to lookup cases');
       }
     } catch (error) {
       // If WebRTC fails, provide fake data for testing
@@ -183,15 +183,15 @@ const aktenSlice = createSlice({
       state.selectedAktDocuments = [];
       state.documentsError = null;
     },
+    // Clear favorite Akten
+    clearFavorites: (state) => {
+      state.favouriteAkten = [];
+      state.selectedAktDocuments = []; // Clear documents as they depend on favorites
+    },
     // Set current search term
     // Use the PayloadAction type to declare the contents of `action.payload`
     setSearchTerm: (state, action: PayloadAction<string>) => {
       state.searchTerm = action.payload;
-    },
-    // Clear any error state
-    clearError: (state) => {
-      state.error = null;
-      state.documentsError = null;
     }
   },
   // The `extraReducers` field lets the slice handle actions defined elsewhere,
@@ -272,7 +272,7 @@ const aktenSlice = createSlice({
 });
 
 // Export actions
-export const { clearCases, clearDocuments, setSearchTerm, clearError } = aktenSlice.actions;
+export const { clearCases, clearDocuments, clearFavorites, setSearchTerm } = aktenSlice.actions;
 
 // Export reducer
 export default aktenSlice.reducer;

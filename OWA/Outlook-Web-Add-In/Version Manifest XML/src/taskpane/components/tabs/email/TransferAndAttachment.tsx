@@ -32,15 +32,16 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ aktId, on
           if (webRTCApiService.isReady()) {
             const foldersResponse = await webRTCApiService.getAvailableFolders(aktId);
             
-            if (foldersResponse.statusCode >= 200 && foldersResponse.statusCode < 300) {
+            if (foldersResponse.response.statusCode >= 200 && foldersResponse.response.statusCode < 300) {
               // Debug: Log the actual response structure
               console.log('Raw folders response:', foldersResponse);
-              console.log('Raw folders data:', foldersResponse.data);
+              console.log('Raw folders data:', JSON.parse(foldersResponse.response.body || '[]'));
               
               // The fake response returns data as an array of strings directly
               // Based on webRTCApiService.ts fake response structure
-              const folderNames = Array.isArray(foldersResponse.data) 
-                ? foldersResponse.data.map(folder => String(folder))
+              const responseData = JSON.parse(foldersResponse.response.body || '[]');
+              const folderNames = Array.isArray(responseData) 
+                ? responseData.map(folder => String(folder))
                 : [];
               
               // Transform folder strings to options format
@@ -53,7 +54,7 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ aktId, on
               console.log('Processed folder names:', folderNames);
               console.log('Final folder options:', newOptions);
             } else {
-              console.warn('Failed to load folders via WebRTC:', foldersResponse.error);
+              console.warn('Failed to load folders via WebRTC');
               setFolderOptions([]);
             }
           } else {
@@ -85,10 +86,10 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ aktId, on
         const documentsResponse = await webRTCApiService.getSavedEmailInfo(messageId, aktId);
         let savedDocuments: DokumentResponse[] = [];
         
-        if (documentsResponse.statusCode >= 200 && documentsResponse.statusCode < 300) {
-          savedDocuments = documentsResponse.data || [];
+        if (documentsResponse.response.statusCode >= 200 && documentsResponse.response.statusCode < 300) {
+          savedDocuments = JSON.parse(documentsResponse.response.body || '[]');
         } else {
-          console.warn('Failed to get saved documents:', documentsResponse.error);
+          console.warn('Failed to get saved documents');
         }
         
         // Step 1: Email information

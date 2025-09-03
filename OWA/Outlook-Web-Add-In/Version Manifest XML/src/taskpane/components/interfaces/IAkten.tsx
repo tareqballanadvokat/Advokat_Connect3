@@ -19,20 +19,3 @@ export interface AktenResponse {
   AKurz: string;
   Causa?: string;
 }
-
-// WebRTC API request format based on the attached specification
-export interface WebRTCApiRequest {
-  method: string;
-  url: string;
-  headers: Record<string, string>;
-  body?: any;
-}
-
-// Generic WebRTC API response format
-export interface WebRTCApiResponse<T = any> {
-  Id: string;         // GUID identifier matching the request
-  Timestamp: number;  // Timestamp of the response
-  statusCode: number;
-  data: T;
-  error?: string;
-}

@@ -4,7 +4,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { WebRTCApiRequest } from '../components/interfaces/IAkten';
+import CryptoJS from 'crypto-js';
+import { WebRTCApiRequest } from '../components/interfaces/IWebRTC';
 
 /**
  * Configuration constants for chunking
@@ -35,32 +36,70 @@ export interface ChunkingResult {
 }
 
 /**
- * Calculate MD5-style checksum of a string
+ * Calculate MD5 checksum using crypto-js
  * @param data - The data to calculate checksum for
- * @returns Hexadecimal checksum string
+ * @returns Base64 encoded MD5 hash
  */
 export function calculateChecksum(data: string): string {
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(16);
+  const hash = CryptoJS.MD5(data);
+  return CryptoJS.enc.Base64.stringify(hash);
 }
 
 /**
- * Calculate the total size of a WebRTC message including all fields
- * @param request - The WebRTC request to calculate size for
+ * Create protocol ID with GUID + hash
+ * @param guid - Base GUID
+ * @returns Protocol ID format: GUID + first 4 chars of GUID's MD5 hash
+ */
+export function createProtocolId(guid?: string): string {
+  const baseGuid = guid || uuidv4();
+  const guidHash = CryptoJS.MD5(baseGuid);
+  const shortHash = guidHash.toString().substring(0, 4);
+  return `${baseGuid}${shortHash}`;
+}
+
+/**
+ * Create a WebRTC API request with complete protocol structure
+ * @param method - HTTP method
+ * @param url - Request URL
+ * @param headers - HTTP headers
+ * @param body - Request body (optional)
+ * @returns Complete WebRTC API request
+ */
+export function createProtocolRequest(method: string, url: string, headers: Record<string, string>, body?: any): WebRTCApiRequest {
+  const guid = uuidv4();
+  const timestamp = Date.now();
+  const protocolId = createProtocolId(guid);
+  
+  // Create the nested request structure
+  const requestData = {
+    timestamp,
+    totalChunks: 0,                  // Default: no chunks
+    currentChunk: 0,                 // Default: no chunks
+    method,
+    uri: url,
+    headers,
+    ...(body && { body: typeof body === 'string' ? body : JSON.stringify(body) })
+  };
+  
+  // Calculate checksum of the request data
+  const checksum = calculateChecksum(JSON.stringify(requestData));
+  
+  // Return complete protocol request
+  return {
+    checksum,
+    id: protocolId,
+    isMultipart: false,              // Default: not chunked
+    request: requestData
+  };
+}
+
+/**
+ * Calculate the total size of a complete WebRTC message
+ * @param request - The complete WebRTC request
  * @returns Size in bytes
  */
 export function calculateMessageSize(request: WebRTCApiRequest): number {
-  const messageWithId = {
-    Id: "test-guid-1234567890", // Use realistic GUID length
-    Timestamp: Date.now(),
-    ...request
-  };
-  const message = JSON.stringify(messageWithId);
+  const message = JSON.stringify(request);
   return new TextEncoder().encode(message).length;
 }
 

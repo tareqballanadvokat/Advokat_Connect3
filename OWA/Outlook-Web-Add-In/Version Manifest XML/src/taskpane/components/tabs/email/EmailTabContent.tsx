@@ -123,11 +123,11 @@ const EmailTabContent: React.FC = () => {
         // Send Leistung to API via WebRTC
         const leistungResponse = await webRTCApiService.saveLeistung(leistungPayload);
         
-        if (leistungResponse.statusCode >= 200 && leistungResponse.statusCode < 300) {
+        if (leistungResponse.response.statusCode >= 200 && leistungResponse.response.statusCode < 300) {
           console.log('✅ Leistung saved successfully');
           notify('Service saved successfully', 'success', 3000);
         } else {
-          throw new Error(leistungResponse.error || 'Failed to save service');
+          throw new Error('Failed to save service');
         }
       } else {
         console.log('⚠️ No service selected, skipping Leistung save');

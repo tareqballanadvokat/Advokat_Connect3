@@ -34,11 +34,10 @@ export const personLookUpAsync = createAsyncThunk(
     
     try {
       const response = await webRTCApiService.personLookUp(searchText);
-      throw new Error('Failed to lookup persons');
-      if (response.statusCode === 200) {
-        return response.data as PersonLookUpResponse[];
+      if (response.response.statusCode === 200) {
+        return JSON.parse(response.response.body || '[]') as PersonLookUpResponse[];
       } else {
-        throw new Error(response.error || 'Failed to lookup persons');
+        throw new Error('Failed to lookup persons');
       }
     } catch (error) {
       // If WebRTC fails, provide fake data for testing
@@ -101,12 +100,11 @@ export const getFavoritePersonsAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
     try {
-      throw new Error('Failed to get favorite persons');
       const response = await webRTCApiService.getFavoritePersons(query);
-      if (response.statusCode === 200) {
-        return response.data as PersonResponse[];
+      if (response.response.statusCode === 200) {
+        return JSON.parse(response.response.body || '[]') as PersonResponse[];
       } else {
-        throw new Error(response.error || 'Failed to get favorite persons');
+        throw new Error('Failed to get favorite persons');
       }
     } catch (error) {
       // If WebRTC fails, provide fake favorite persons for testing
@@ -184,12 +182,12 @@ export const addPersonToFavoritesAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.addPersonToFavorites(personId);
     
-    if (response.statusCode === 200) {
+    if (response.response.statusCode === 200) {
       // Refresh favorites list after successful addition
       dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
       return personId;
     } else {
-      throw new Error(response.error || 'Failed to add person to favorites');
+      throw new Error('Failed to add person to favorites');
     }
   }
 );
@@ -202,12 +200,12 @@ export const removePersonFromFavoritesAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removePersonFromFavorites(personId);
     
-    if (response.statusCode === 200) {
+    if (response.response.statusCode === 200) {
       // Refresh favorites list after successful removal
       dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
       return personId;
     } else {
-      throw new Error(response.error || 'Failed to remove person from favorites');
+      throw new Error('Failed to remove person from favorites');
     }
   }
 );
