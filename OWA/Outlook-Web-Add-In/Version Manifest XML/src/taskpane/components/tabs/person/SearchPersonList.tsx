@@ -16,7 +16,7 @@ interface Props {
 const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   const dispatch = useAppDispatch();
   const personState = useAppSelector((state: RootState) => state.person);
-  const { persons, loading, error, searchTerm, currentSearchTerm } = personState;
+  const { persons, loading, error, searchTerm, currentSearchTerm, favorites } = personState;
   
   const [searchValue, setSearchValue] = useState(searchTerm || '');
   const [gridVisible, setGridVisible] = useState(false);
@@ -30,6 +30,11 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     if (person.Name2) parts.push(person.Name2);
     if (person.Name3) parts.push(person.Name3);
     return parts.join(' ') || person.NKurz || 'Unknown Person';
+  };
+
+  // Check if person is in favorites
+  const isInFavorites = (personId: number): boolean => {
+    return favorites.some(fav => fav.Id === personId);
   };
 
   // Handle Redux error states
@@ -159,12 +164,20 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
         />
         <Column
           type="buttons"
-          width={50}
+          width={80}
           buttons={[
             {
-              icon: 'add',
+              icon: 'favorites',
               hint: 'Add to favorites',
+              cssClass: 'star-button-gold',
+              visible: e => !isInFavorites(e.row.data.PersonId),
               onClick: (e) => handleAddToFavorites(e.row.data)
+            },
+            {
+              icon: 'check',
+              hint: 'Already in favorites',
+              visible: e => isInFavorites(e.row.data.PersonId),
+              disabled: true
             }
           ]}
         />

@@ -5,7 +5,7 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
+import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync } from '../../../../store/slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
 
 const SearchCaseList: React.FC = () => {
@@ -29,11 +29,8 @@ const SearchCaseList: React.FC = () => {
       await dispatch(addAktToFavoriteAsync(aktId)).unwrap();
       notify(`Successfully added "${aKurz}" to favorites!`, 'success', 3000);
       
-      // Reload the favorites list to include the newly added Akt
-      dispatch(getFavoriteAktenAsync({ 
-        NurFavoriten: true,
-        Count: 50 
-      }));
+      // Note: No need to reload favorites here - the Redux state will be updated
+      // by the addAktToFavoriteAsync thunk automatically
     } catch (error) {
       console.error('Failed to add to favorites:', error);
       notify(`Failed to add "${aKurz}" to favorites: ${error}`, 'error', 5000);
@@ -60,15 +57,10 @@ const SearchCaseList: React.FC = () => {
   };
 
   useEffect(() => {
-    // Load favorites if not already loaded (needed for button visibility)
-    if (!favouriteAkten || favouriteAkten.length === 0) {
-      console.log('🌟 Loading favorites for star button visibility');
-      dispatch(getFavoriteAktenAsync({ 
-        NurFavoriten: true,
-        Count: 50 
-      }));
-    }
-  }, [dispatch]); // Remove favouriteAkten from deps to avoid infinite loop
+    // Note: Favorites are loaded by parent CaseTabContent component
+    // This component just uses the cached favorites from Redux for button visibility
+    console.log(`🌟 Using cached favorites for button visibility: ${favouriteAkten.length} favorites`);
+  }, [favouriteAkten.length]); // Just log when favorites change
 
   useEffect(() => {
     // Smart caching: Only search if we don't have cached data for the current search term

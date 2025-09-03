@@ -85,7 +85,6 @@ export const removeAktFromFavoriteAsync = createAsyncThunk(
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removeAktFromFavorite(aktId);
-    debugger;
     if (response.statusCode === 200) {
       return aktId; // Return the aktId that was removed from favorites
     } else {
@@ -172,7 +171,8 @@ const aktenSlice = createSlice({
       // which detects changes to a "draft state" and produces a brand new
       // immutable state based off those changes
       state.cases = [];
-      state.favouriteAkten = [];
+      // DON'T clear favouriteAkten here - it should be managed separately
+      // state.favouriteAkten = []; // ← REMOVED: This was clearing favorites unexpectedly
       state.selectedAktDocuments = [];
       state.error = null;
       state.documentsError = null;

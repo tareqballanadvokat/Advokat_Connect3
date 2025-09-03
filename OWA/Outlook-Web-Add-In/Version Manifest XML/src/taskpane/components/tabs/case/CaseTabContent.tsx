@@ -21,7 +21,7 @@ import TreeList, {
  
 } from 'devextreme-react/tree-list';
 
-import { getMyFavoritesApi, getFileContent } from '../../../utils/api'; // your API
+import { getFileContent } from '../../../utils/api'; // your API
 
 
 
@@ -40,15 +40,22 @@ const CaseTabContent: React.FC = () => {
   const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
   const [selectedCase, setSelectedCase] = useState('');
 
-  // Load favorite Akten automatically only on first visit (when no favorites are cached)
+  // Load favorite Akten only once when component mounts and no data exists
   useEffect(() => {
+    console.log(`🔍 CaseTabContent useEffect triggered: favouriteAkten.length=${favouriteAkten.length}, loading=${loading}`);
+    
     if (favouriteAkten.length === 0 && !loading) {
+      console.log('🔄 Loading favorite Akten from API (no cache found)...');
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50 // Limit to 50 favorite cases
       }));
+    } else if (favouriteAkten.length > 0) {
+      console.log(`✅ Using existing cached favorite Akten: ${favouriteAkten.length} cases`);
+    } else if (loading) {
+      console.log('⏳ Already loading favorites, skipping...');
     }
-  }, [dispatch, favouriteAkten.length, loading]);
+  }, [dispatch, favouriteAkten.length]); // Keep favouriteAkten.length as dependency to detect when it becomes empty
 
   // Transform favorite Akten and documents into HierarchyTree format with folder structure
   useEffect(() => {
@@ -170,6 +177,7 @@ const CaseTabContent: React.FC = () => {
       }
     } else if (!node.isStructure && node.url) {
       // This is a document, open the file
+      console.log(`Opening document URL: ${node.url}`);
       window.open(node.url, '_blank');
     }
   }, [expandedKeys, onExpandedRowKeysChange]);
@@ -206,20 +214,14 @@ const CaseTabContent: React.FC = () => {
       // Extract the Akt ID from the node (for top-level Akten, use the node id directly)
       const aktId = node.id;
       const aktName = node.name || `Akt ID ${aktId}`;
-      debugger;
       // Use the new WebRTC Redux approach
       await dispatch(removeAktFromFavoriteAsync(aktId)).unwrap();
       notify(`Successfully removed "${aktName}" from favorites!`, 'success', 3000);
-      
-      // Add a small delay to ensure the delete response is fully processed
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      debugger;
       // Refresh favorite Akten to remove the deleted case from the list
-      await dispatch(getFavoriteAktenAsync({ 
+      dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50
-      })).unwrap();
+      }));
     } catch (error) {
       console.error('Failed to remove from favorites:', error);
       notify(`Failed to remove from favorites: ${error}`, 'error', 5000);
@@ -338,21 +340,27 @@ const CaseTabContent: React.FC = () => {
         type="buttons" 
         width={140}  // Fixed width for buttons column (enough for 3 buttons)
         minWidth={140}  // Minimum width to prevent shrinking
-        allowResizing={false}  // Prevent user from resizing this column
+        allowResizing={true}  // Prevent user from resizing this column
         fixed={true}  // Keep buttons column fixed/visible
         fixedPosition="right"  // Fix to the right side
       > 
         {/* Open/View button - for documents */}
         <Button 
+          text="open"
+          hint="Open file"
           onClick={({ row }) => handleOpen(row.data)}
-          cssClass="dx-icon dx-icon-open"
-          visible={({ row }) => !row.data.isStructure} // Only show for documents
+          visible={({ row }) => {
+            const isVisible = !row.data.isStructure;
+            console.log(`🔍 Open button visibility for "${row.data.name}": isStructure=${row.data.isStructure}, visible=${isVisible}`);
+            return isVisible;
+          }}
         />
-        
+
         {/* Add attachment button - for documents in compose mode */}
         <Button 
+          icon="add"
+          hint="Add as attachment"
           onClick={({ row }) => handleAdd(row.data)}
-          cssClass="dx-icon dx-icon-add"
           visible={({ row }) => IsComposeMode() && !row.data.isStructure}
         />
         

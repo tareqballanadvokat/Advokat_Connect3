@@ -269,7 +269,6 @@ class WebRTCApiService {
             }
           };
         } else if (message.toLowerCase().includes('removefromfavorites') || message.toLowerCase().includes('removeakt')) {
-          debugger;
           // Create fake Remove from Favorites response
           fakeResponse = {
             Id: requestId,
@@ -355,7 +354,6 @@ class WebRTCApiService {
    */
   private async sendRequest<T>(request: WebRTCApiRequest): Promise<WebRTCApiResponse<T>> {
     return new Promise((resolve, reject) => {
-      debugger;
       if (!this.sipClient) {
         reject(new Error('WebRTC API service not initialized'));
         return;
@@ -389,7 +387,6 @@ class WebRTCApiService {
       }, 60000);
 
       try {
-        debugger;
         const message = JSON.stringify(requestWithId);
         console.log('📤 Sending API request:', `Size: ${new TextEncoder().encode(message).length} bytes`);
         dataChannel.send(message);
