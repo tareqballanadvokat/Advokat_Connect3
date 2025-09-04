@@ -19,9 +19,7 @@ import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { 
-  setSelectedCase,
   setAttachmentSelected,
-  updateTransferCaseDisableState
 } from '@store/slices/emailSlice';
 import { setSelectedAkt } from '@store/slices/aktenSlice';
 
@@ -35,14 +33,13 @@ const EmailTabContent: React.FC = () => {
   // Local state for transfer loading
   const [transferLoading, setTransferLoading] = useState(false);
   
-  // Get Redux state from both email and service slices
-  const {
-    selectedCaseName,
-    selectedCaseId,
-    selectedCaseDisable,
-    transferCaseDisable,
-    attachmentSelected
-  } = useAppSelector(state => state.email);
+  // Get Redux state from akten and email slices
+  const { selectedAkt } = useAppSelector(state => state.akten);
+  const { attachmentSelected } = useAppSelector(state => state.email);
+  
+  // Derive case values from selectedAkt
+  const selectedCaseId = selectedAkt?.aktId ?? -1;
+  const selectedCaseName = selectedAkt?.aKurz ?? '';
   
   // Get service state
   const { abbreviation, time, text, sb } = useAppSelector(state => state.service);
@@ -64,10 +61,8 @@ const EmailTabContent: React.FC = () => {
     })();
   }, []);
 
-  // Update transfer button state when related fields change
-  useEffect(() => {
-    dispatch(updateTransferCaseDisableState());
-  }, [dispatch]);
+  // No longer need to update transfer button state as it's derived from selectedAkt
+  // useEffect removed
 
   // Helper function to get folder name from attachment item
   const getFolderName = (item: TransferAttachmentItem): string => {
@@ -75,13 +70,8 @@ const EmailTabContent: React.FC = () => {
   };
 
   // Handler for case selection
-  const setCaseHandler = async (id: string, name: string) => {
-    dispatch(setSelectedCase({
-      id: Number.parseInt(id),
-      name: name
-    }));
-    
-    // Also set the selected Akt in aktenSlice for UI display
+  const setCaseHandler = async (id: string) => {
+    // Find the selected case from the cases array and set it in aktenSlice
     const selectedCase = cases.find(c => c.aktId === Number.parseInt(id));
     dispatch(setSelectedAkt(selectedCase || null));
   }
@@ -261,11 +251,10 @@ const EmailTabContent: React.FC = () => {
   // which handles its own Redux dispatching
   
   const handleCaseChange = (value: string) => {
-    dispatch({ type: 'email/setSelectedCase', payload: { id: selectedCaseId, name: value } });
-  };
-  
-  const handleAttachmentChange = (items: TransferAttachmentItem[]) => {
-    dispatch(setAttachmentSelected(items));
+    // Update the selected Akt name (aKurz) in the current selectedAkt
+    if (selectedAkt) {
+      dispatch(setSelectedAkt({ ...selectedAkt, aKurz: value }));
+    }
   };
 
   return (
@@ -283,8 +272,8 @@ const EmailTabContent: React.FC = () => {
         caseId={selectedCaseName}
         onCaseChange={handleCaseChange}
         onTransfer={sendEmailHandler}
-        caseIdDisable={selectedCaseDisable}
-        transferBtnDisable={transferCaseDisable}
+        caseIdDisable={!selectedAkt}
+        transferBtnDisable={!selectedAkt || attachmentSelected.length === 0}
         transferLoading={transferLoading}
       />
 
@@ -292,10 +281,7 @@ const EmailTabContent: React.FC = () => {
       <ServiceSection selectedAktKuerzel={selectedCaseName} mode="email" />
  
       {/* 4) Transfer e-mail and attachments */}
-      <TransferAndAttachment 
-        onSelectionChange={handleAttachmentChange}
-        aktId={selectedCaseId}
-      />
+      <TransferAndAttachment />
    
       {/* 5) Registered E-Mails */}
       <RegisteredEmails />

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '../shared/ServiceSection';
 import SearchCaseList from '../email/SearchCaseList';
-import { setSelectedCase, updateTransferCaseDisableState } from '@store/slices/emailSlice';
+import { setSelectedAkt } from '@store/slices/aktenSlice';
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 import { LeistungPostData } from '@components/interfaces/IService';
 import { webRTCApiService } from '../../../services/webRTCApiService';
@@ -20,26 +20,28 @@ const ServiceTabContent: React.FC = () => {
   
   // Get the relevant state from Redux
   const { abbreviation, time, text, sb } = useAppSelector(state => state.service);
-  const { selectedCaseId, selectedCaseName, selectedCaseDisable, transferCaseDisable } = useAppSelector(state => state.email);
+  const { selectedAkt, cases } = useAppSelector(state => state.akten);
+  
+  // Derive case values from selectedAkt
+  const selectedCaseId = selectedAkt?.aktId ?? -1;
+  const selectedCaseName = selectedAkt?.aKurz ?? '';
   
   // Refresh trigger for registered services
   const [refreshFlag, setRefreshFlag] = React.useState(0);
 
   // Handler for case selection
-  const setCaseHandler = (id: string, name: string) => {
-    dispatch(setSelectedCase({
-      id: Number.parseInt(id),
-      name: name
-    }));
-    dispatch(updateTransferCaseDisableState());
+  const setCaseHandler = (id: string) => {
+    // Find the selected case from the cases array and set it in aktenSlice
+    const selectedCase = cases.find(c => c.aktId === Number.parseInt(id));
+    dispatch(setSelectedAkt(selectedCase || null));
   };
   
   // Handler for case name change
   const handleCaseChange = (value: string) => {
-    dispatch(setSelectedCase({
-      id: selectedCaseId,
-      name: value
-    }));
+    // Update the selected Akt name (aKurz) in the current selectedAkt
+    if (selectedAkt) {
+      dispatch(setSelectedAkt({ ...selectedAkt, aKurz: value }));
+    }
   };
   
   // Handler for sending service
@@ -104,8 +106,8 @@ const ServiceTabContent: React.FC = () => {
         caseId={selectedCaseName}
         onCaseChange={handleCaseChange}
         onTransfer={sendServiceHandler}
-        caseIdDisable={selectedCaseDisable}
-        transferBtnDisable={transferCaseDisable}
+        caseIdDisable={!selectedAkt}
+        transferBtnDisable={!selectedAkt}
         transferLoading={transferLoading}
       />
       

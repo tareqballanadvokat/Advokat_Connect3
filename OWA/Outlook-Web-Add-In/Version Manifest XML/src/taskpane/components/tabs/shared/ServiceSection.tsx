@@ -4,7 +4,6 @@ import SelectBox from 'devextreme-react/select-box';
 import { LeistungAuswahlResponse } from '@components/interfaces/IService';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { setAbbreviation, setTime, setText, setSb, loadServicesAsync, clearServices } from '@store/slices/serviceSlice';
-import { updateTransferCaseDisableState } from '@store/slices/emailSlice';
 
 // Unified interface for both Email and Service tabs
 export interface ServiceSectionProps {
@@ -50,31 +49,18 @@ const ServiceSection: React.FC<ServiceSectionProps> = ({
   // Handle value changes using Redux dispatch
   const handleServiceChange = (value: number) => {
     dispatch(setAbbreviation(value));
-    // Only update transfer state in email mode (where email attachments matter)
-    if (mode === 'email') {
-      dispatch(updateTransferCaseDisableState());
-    }
   };
   
   const handleTimeChange = (value: string) => {
     dispatch(setTime(value));
-    if (mode === 'email') {
-      dispatch(updateTransferCaseDisableState());
-    }
   };
   
   const handleTextChange = (value: string) => {
     dispatch(setText(value));
-    if (mode === 'email') {
-      dispatch(updateTransferCaseDisableState());
-    }
   };
   
   const handleSbChange = (value: string) => {
     dispatch(setSb(value));
-    if (mode === 'email') {
-      dispatch(updateTransferCaseDisableState());
-    }
   };
 
   // Create display text for services dropdown

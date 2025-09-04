@@ -11,7 +11,7 @@ import SelectedAktIndicator from '../../shared/SelectedAktIndicator';
 
 // Updated interface to match the new API model
 interface SearchProps {
-  onCaseSelect: (caseId: string, caseName: string) => void;
+  onCaseSelect: (caseId: string) => void;
 }
 
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
@@ -138,7 +138,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
             {
               icon: 'arrowright',
               hint: 'Select',
-              onClick: e => onCaseSelect(e.row.data.id, e.row.data.name)
+              onClick: e => onCaseSelect(e.row.data.id)
             }
           ]}
         />

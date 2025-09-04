@@ -8,29 +8,33 @@ import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '../../int
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../../../store';
 import { getAvailableFoldersAsync, clearFolders } from '../../../../store/slices/aktenSlice';
+import { setAttachmentSelected } from '../../../../store/slices/emailSlice';
 
-interface TransferAndAttachmentProps {
-  aktId: number; // Selected case ID from EmailTabContent
-  onSelectionChange?: (selected: TransferAttachmentItem[]) => void; // Callback to notify parent
-}
-const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ aktId, onSelectionChange }) => {
+const TransferAndAttachment: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { folderOptions, foldersLoading, foldersError } = useSelector((state: RootState) => state.akten);
+  const { folderOptions, foldersLoading, foldersError, selectedAkt } = useSelector((state: RootState) => state.akten);
   
   const [items, setItems] = useState<TransferAttachmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
-  // Load folders whenever aktId changes and if there are no folders loaded
+  // Load folders whenever selectedAkt changes and if there are no folders loaded
   useEffect(() => {
-    if (aktId != null && aktId !== -1 && folderOptions.length === 0 && !foldersLoading) {
-      console.log('Loading folders for case:', aktId);
-      dispatch(getAvailableFoldersAsync(aktId));
+    if (selectedAkt?.aktId != null && selectedAkt.aktId !== -1 && folderOptions.length === 0 && !foldersLoading) {
+      console.log('Loading folders for case:', selectedAkt.aktId);
+      dispatch(getAvailableFoldersAsync(selectedAkt.aktId));
     }
-  }, [aktId, folderOptions.length, foldersLoading, dispatch]);
+  }, [selectedAkt?.aktId, folderOptions.length, foldersLoading, dispatch]);
 
   useEffect(() => {
     (async () => {
+      // Don't load anything if no case is selected
+      if (!selectedAkt?.aktId) {
+        setItems([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(undefined);
       
@@ -39,7 +43,7 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ aktId, on
         const messageId = await getInternetMessageIdAsync(email);
         
         // Get saved documents from Advokat via WebRTC
-        const documentsResponse = await webRTCApiService.getSavedEmailInfo(messageId, aktId);
+        const documentsResponse = await webRTCApiService.getSavedEmailInfo(messageId, selectedAkt.aktId);
         let savedDocuments: DokumentResponse[] = [];
         
         if (documentsResponse.response.statusCode >= 200 && documentsResponse.response.statusCode < 300) {
@@ -125,7 +129,7 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ aktId, on
         setLoading(false);
       }
     })();
-  }, [aktId]);
+  }, [selectedAkt?.aktId]);
 
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;
@@ -136,10 +140,8 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ aktId, on
  
     setItems(prev => {
       const updated = prev.map(item => item.id === id ? { ...item, ...changes } : item);
-      if (onSelectionChange) {
-        const selectedItems = updated.filter(i => i.checked);
-        onSelectionChange(selectedItems);
-      }
+      const selectedItems = updated.filter(i => i.checked);
+      dispatch(setAttachmentSelected(selectedItems));
       return updated;
     });
   };
