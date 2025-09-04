@@ -6,14 +6,7 @@ import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import { aktLookUpAsync, clearCases, setSearchTerm } from '../../../../store/slices/aktenSlice';
 import { AktLookUpResponse } from '../../interfaces/IAkten';
-
- 
-
-interface CaseItem {
-  aktId: number;
-  aKurz: string;
-  causa?: string;
-}
+import notify from 'devextreme/ui/notify';
 
 interface Props {
   onCaseSelect: (caseId: string) => void;
@@ -22,37 +15,25 @@ interface Props {
 const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
   const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
-  
-  const [searchValue, setSearchValue] = useState(searchTerm || '');
-
-  useEffect(() => {
-    // Load initial data with a default search
-    handleSearch('demo'); // Load some demo cases initially
-  }, []);
 
   const handleSearch = async (searchQuery?: string) => {
-    const query = searchQuery || searchValue.trim();
+    const query = searchQuery || searchTerm.trim();
     
     if (!query) {
       dispatch(clearCases());
       return;
     }
-
-    // Update search term in Redux
-    dispatch(setSearchTerm(query));
     
-    // Perform WebRTC-based search
     try {
       await dispatch(aktLookUpAsync(query)).unwrap();
     } catch (error) {
       console.error('Search failed:', error);
+      notify('Search failed', 'error', 5000);
     }
   };
 
-
-
-return (
-  <div>
+  return (
+    <div>
       <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
         Search Cases via WebRTC
       </h3>
@@ -63,8 +44,8 @@ return (
           width={250}
           stylingMode="outlined"
           placeholder="Search by Kürzel..."
-          value={searchValue}
-          onValueChanged={e => setSearchValue(e.value)}
+          value={searchTerm}
+          onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={() => handleSearch()}
         />
         <Button 
@@ -89,57 +70,55 @@ return (
         </div>
       )}
 
-    <DataGrid
-      className="compact-grid"
-      dataSource={cases}
-      keyExpr="aktId"
-      showBorders={false}
-      showColumnLines={false}
-      showRowLines={true}
-      columnAutoWidth={true}
-      rowAlternationEnabled={false}
-      noDataText={loading ? "Loading..." : "No cases found. Try searching for 'demo' or enter a Kürzel."}
-    >
-      <Paging defaultPageSize={5} />
-      <Pager
-        visible
-        showPageSizeSelector={false}
-        allowedPageSizes={[5]}
-        showInfo
-      />
-      
-      <Column
-        dataField="aktId"
-        caption="Akt ID"
-        visible={false}
-        alignment="left"
-      />
-      <Column
-        dataField="aKurz"
-        caption="Kürzel"
-        alignment="left"
-      />
-      <Column
-        dataField="causa"
-        caption="Causa"
-        alignment="left"
-      />
-      <Column
-        type="buttons"
-        width={50}
-        buttons={[
-          {
-            icon: 'arrowright',
-            hint: 'Select',
-            onClick: e => onCaseSelect(e.row.data.aKurz)
-          }
-        ]}
-      />
-    </DataGrid>
-  </div>
-);
-
-
+      <DataGrid
+        className="compact-grid"
+        dataSource={cases}
+        keyExpr="aktId"
+        showBorders={false}
+        showColumnLines={false}
+        showRowLines={true}
+        columnAutoWidth={true}
+        rowAlternationEnabled={false}
+        noDataText={loading ? "Loading..." : "No cases found. Enter a Kürzel."}
+      >
+        <Paging defaultPageSize={5} />
+        <Pager
+          visible
+          showPageSizeSelector={false}
+          allowedPageSizes={[5]}
+          showInfo
+        />
+        
+        <Column
+          dataField="aktId"
+          caption="Akt ID"
+          visible={false}
+          alignment="left"
+        />
+        <Column
+          dataField="aKurz"
+          caption="Kürzel"
+          alignment="left"
+        />
+        <Column
+          dataField="causa"
+          caption="Causa"
+          alignment="left"
+        />
+        <Column
+          type="buttons"
+          width={50}
+          buttons={[
+            {
+              icon: 'arrowright',
+              hint: 'Select',
+              onClick: e => onCaseSelect(e.row.data.aKurz)
+            }
+          ]}
+        />
+      </DataGrid>
+    </div>
+  );
 };
 
 export default SearchAndCaseList;

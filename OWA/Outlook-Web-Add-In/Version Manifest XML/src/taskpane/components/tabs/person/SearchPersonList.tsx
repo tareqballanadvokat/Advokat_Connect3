@@ -16,9 +16,8 @@ interface Props {
 const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   const dispatch = useAppDispatch();
   const personState = useAppSelector((state: RootState) => state.person);
-  const { persons, loading, error, searchTerm, currentSearchTerm, favorites } = personState;
+  const { persons, loading, error, searchTerm, favorites } = personState;
   
-  const [searchValue, setSearchValue] = useState(searchTerm || '');
   const [gridVisible, setGridVisible] = useState(false);
 
   // Helper function to create display name from person data
@@ -49,29 +48,14 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     setGridVisible(persons.length > 0);
   }, [persons]);
 
-  // Smart caching: Only search if we don't have cached data for the current search term
-  useEffect(() => {
-    if (searchValue.trim() && currentSearchTerm !== searchValue.trim()) {
-      console.log(`🔍 Persons cache miss - loading persons for search term: "${searchValue.trim()}" (cached: "${currentSearchTerm}")`);
-      handleSearch();
-    } else if (searchValue.trim() && currentSearchTerm === searchValue.trim()) {
-      console.log(`✅ Persons cache hit - using cached persons for search term: "${searchValue.trim()}"`);
-    } else if (!searchValue.trim() && !currentSearchTerm) {
-      // Load initial data with a default search only if no cache exists
-      console.log(`🔍 Persons initial load - no cache exists`);
-    }
-  }, []); // Only run on mount
-
   const handleSearch = async () => {
-    const query = searchValue.trim();
+    const query = searchTerm.trim();
     
     if (!query) {
       dispatch(clearPersons());
       setGridVisible(false);
       return;
     }
-
-    dispatch(setSearchTerm(query));
     
     try {
       await dispatch(personLookUpAsync(query)).unwrap();
@@ -100,8 +84,8 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
           width={250}
           stylingMode="outlined"
           placeholder="Search..."
-          value={searchValue}
-          onValueChanged={e => setSearchValue(e.value)}
+          value={searchTerm}
+          onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
           disabled={loading}
         />

@@ -13,8 +13,6 @@ interface Props {
 const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
   const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
-  
-  const [searchValue, setSearchValue] = useState(searchTerm || '');
 
   useEffect(() => {
     // Load initial data with a default search
@@ -22,17 +20,13 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
   }, []);
 
   const handleSearch = async (searchQuery?: string) => {
-    const query = searchQuery || searchValue.trim();
+    const query = searchQuery || searchTerm.trim();
     
     if (!query) {
       dispatch(clearCases());
       return;
     }
-
-    // Update search term in Redux
-    dispatch(setSearchTerm(query));
     
-    // Perform WebRTC-based search
     try {
       await dispatch(aktLookUpAsync(query)).unwrap();
     } catch (error) {
@@ -52,8 +46,8 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
           width={250}
           stylingMode="outlined"
           placeholder="Search by Kürzel..."
-          value={searchValue}
-          onValueChanged={e => setSearchValue(e.value)}
+          value={searchTerm}
+          onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={() => handleSearch()}
         />
         <Button 

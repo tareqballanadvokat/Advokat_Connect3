@@ -7,12 +7,11 @@ import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync } from '../../../../store/slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
+import SelectedAktIndicator from '../../shared/SelectedAktIndicator';
 
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { cases, favouriteAkten, loading, error, searchTerm, currentSearchTerm } = useAppSelector(state => state.akten);
-  
-  const [searchValue, setSearchValue] = useState(searchTerm || '');
+  const { cases, favouriteAkten, loading, error, searchTerm } = useAppSelector(state => state.akten);
 
   // Check if an Akt is already in favorites
   const isInFavorites = (aktId: number): boolean => {
@@ -38,16 +37,13 @@ const SearchCaseList: React.FC = () => {
   };
 
   const handleSearch = async () => {
-    const query = searchValue.trim();
+    const query = searchTerm.trim();
     
     if (!query) {
       dispatch(clearCases());
       return;
     }
 
-    // Update search term in Redux
-    dispatch(setSearchTerm(query));
-    
     try {
       await dispatch(aktLookUpAsync(query)).unwrap();
     } catch (error) {
@@ -55,27 +51,6 @@ const SearchCaseList: React.FC = () => {
       notify('Search cases failed via WebRTC', 'error', 5000);
     }
   };
-
-  useEffect(() => {
-    // Note: Favorites are loaded by parent CaseTabContent component
-    // This component just uses the cached favorites from Redux for button visibility
-    console.log(`🌟 Using cached favorites for button visibility: ${favouriteAkten.length} favorites`);
-  }, [favouriteAkten.length]); // Just log when favorites change
-
-  useEffect(() => {
-    // Smart caching: Only search if we don't have cached data for the current search term
-    // This prevents unnecessary API calls when switching between tabs
-    if (searchValue.trim() && currentSearchTerm !== searchValue.trim()) {
-      console.log(`🔍 Cases cache miss - loading cases for search term: "${searchValue.trim()}" (cached: "${currentSearchTerm}")`);
-      handleSearch();
-    } else if (searchValue.trim() && currentSearchTerm === searchValue.trim()) {
-      console.log(`✅ Cases cache hit - using cached cases for search term: "${searchValue.trim()}"`);
-    } else if (!searchValue.trim() && !currentSearchTerm) {
-      // Load initial data with a default search only if no cache exists
-      console.log(`🔍 Cases initial load - no cache exists`);
-      handleSearch();
-    }
-  }, []); // Only run on mount
 
   return (
     <div>
@@ -89,8 +64,8 @@ const SearchCaseList: React.FC = () => {
           width={250}
           stylingMode="outlined"
           placeholder="Search by Kürzel..."
-          value={searchValue}
-          onValueChanged={e => setSearchValue(e.value)}
+          value={searchTerm}
+          onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
         />
         <Button 
@@ -114,6 +89,9 @@ const SearchCaseList: React.FC = () => {
           Searching via WebRTC...
         </div>
       )}
+
+      {/* Selected Akt Indicator */}
+      <SelectedAktIndicator />
 
     <DataGrid
       className="compact-grid"

@@ -23,7 +23,7 @@ const allowDeleting = (e) => e.row.data.ID !== 1;
 
 const CaseTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { favouriteAkten, selectedAktDocuments, loading, documentsLoading } = useAppSelector(state => state.akten);
+  const { favouriteAkten, favoriteAktenDocuments, loading, documentsLoading } = useAppSelector(state => state.akten);
   
   const [nodes, setNodes] = useState<HierarchyTree[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
@@ -61,7 +61,7 @@ const CaseTabContent: React.FC = () => {
     const folderMap = new Map<string, HierarchyTree>();
     let nextId = Math.max(...favouriteAkten.map(a => a.Id), 0) + 10000; // Start IDs after Akt IDs
 
-    selectedAktDocuments.forEach((doc) => {
+    favoriteAktenDocuments.forEach((doc) => {
       // Find the parent Akt ID
       const parentAkt = favouriteAkten.find(akt => akt.Id === doc.aktId);
       
@@ -111,7 +111,7 @@ const CaseTabContent: React.FC = () => {
     });
 
     setNodes(transformedNodes);
-  }, [favouriteAkten, selectedAktDocuments]);
+  }, [favouriteAkten, favoriteAktenDocuments]);
 
   const onSelectionChanged = useCallback((e) => {
     // keep expandedKeys in sync

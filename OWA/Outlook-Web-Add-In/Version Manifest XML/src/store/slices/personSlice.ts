@@ -8,8 +8,7 @@ interface PersonState {
   persons: PersonLookUpResponse[];
   loading: boolean;
   error: string | null;
-  searchTerm: string;
-  currentSearchTerm: string; // Track which search term's results are currently loaded
+  searchTerm: string; // Current search term in the search box
   favorites: PersonResponse[]; // For favorite persons from GetAllAsync endpoint
   favoritesLoading: boolean;
 }
@@ -20,7 +19,6 @@ const initialState: PersonState = {
   loading: false,
   error: null,
   searchTerm: '',
-  currentSearchTerm: '', // Track which search term's results are currently loaded
   favorites: [],
   favoritesLoading: false
 };
@@ -220,7 +218,6 @@ const personSlice = createSlice({
       state.persons = [];
       state.favorites = [];
       state.error = null;
-      state.currentSearchTerm = '';
     },
     // Set current search term
     setSearchTerm: (state, action: PayloadAction<string>) => {
@@ -239,8 +236,8 @@ const personSlice = createSlice({
       .addCase(personLookUpAsync.pending, (state, action) => {
         state.loading = true;
         state.error = null;
-        // Set currentSearchTerm for lookup search
-        state.currentSearchTerm = action.meta.arg || '';
+        // Set searchTerm for lookup search
+        state.searchTerm = action.meta.arg || '';
       })
       .addCase(personLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
@@ -249,7 +246,6 @@ const personSlice = createSlice({
       .addCase(personLookUpAsync.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to lookup persons via WebRTC';
-        state.currentSearchTerm = ''; // Clear cache on error
       })
       // Get favorite persons handlers
       .addCase(getFavoritePersonsAsync.pending, (state) => {

@@ -23,17 +23,17 @@ import {
   setAttachmentSelected,
   updateTransferCaseDisableState
 } from '@store/slices/emailSlice';
+import { setSelectedAkt } from '@store/slices/aktenSlice';
 
 const EmailTabContent: React.FC = () => {
   // Get Redux dispatch function
   const dispatch = useAppDispatch();
   
+  // Get cases from aktenSlice to find selected case data
+  const { cases } = useAppSelector(state => state.akten);
+  
   // Local state for transfer loading
   const [transferLoading, setTransferLoading] = useState(false);
-  
-  // Local state for available folders
-  // Remove unused state since folders are now handled in TransferAndAttachment
-  // const [availableFolders, setAvailableFolders] = useState<string[]>([]);
   
   // Get Redux state from both email and service slices
   const {
@@ -80,6 +80,10 @@ const EmailTabContent: React.FC = () => {
       id: Number.parseInt(id),
       name: name
     }));
+    
+    // Also set the selected Akt in aktenSlice for UI display
+    const selectedCase = cases.find(c => c.aktId === Number.parseInt(id));
+    dispatch(setSelectedAkt(selectedCase || null));
   }
   
   // Handler for sending email

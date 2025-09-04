@@ -7,6 +7,7 @@ import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import { aktLookUpAsync, setSearchTerm, clearCases } from '../../../../store/slices/aktenSlice';
 import { AktLookUpResponse } from '../../interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
+import SelectedAktIndicator from '../../shared/SelectedAktIndicator';
 
 // Updated interface to match the new API model
 interface SearchProps {
@@ -15,9 +16,8 @@ interface SearchProps {
 
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
-  const { cases, loading, error, searchTerm, currentSearchTerm } = useAppSelector(state => state.akten);
+  const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
   
-  const [searchValue, setSearchValue] = useState('');
   const [gridVisible, setGridVisible] = useState(false);
 
   // Handle Redux error states
@@ -33,7 +33,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   }, [cases]);
 
   const handleSearch = async () => {
-    const filter = searchValue.trim();
+    const filter = searchTerm.trim();
     
     if (!filter) {
       dispatch(clearCases());
@@ -45,8 +45,6 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
       // Dispatch Redux action to search for cases
       // Using aktLookUpAsync - includes fake response for testing when WebRTC is not ready
       await dispatch(aktLookUpAsync(filter)).unwrap();
-      
-      dispatch(setSearchTerm(filter));
     } catch (error) {
       console.error('Search failed:', error);
       notify('Search cases failed', 'error', 5000);
@@ -72,8 +70,8 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
           width={250}
           stylingMode="outlined"
           placeholder="Search by AktId (123) or Kürzel (ABC)..."
-          value={searchValue}
-          onValueChanged={e => setSearchValue(e.value)}
+          value={searchTerm}
+          onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
           disabled={loading}
         />
@@ -85,6 +83,9 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
           text={loading ? "Searching..." : ""}
         />
       </div>
+
+      {/* Selected Akt Indicator */}
+      <SelectedAktIndicator />
 
       {/* Loading indicator */}
       {loading && (

@@ -5,73 +5,29 @@ import SelectBox from 'devextreme-react/select-box';
 import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
 import { webRTCApiService } from '../../../services/webRTCApiService';
 import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '../../interfaces/IDocument';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../../../../store';
+import { getAvailableFoldersAsync, clearFolders } from '../../../../store/slices/aktenSlice';
 
 interface TransferAndAttachmentProps {
   aktId: number; // Selected case ID from EmailTabContent
   onSelectionChange?: (selected: TransferAttachmentItem[]) => void; // Callback to notify parent
 }
 const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ aktId, onSelectionChange }) => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { folderOptions, foldersLoading, foldersError } = useSelector((state: RootState) => state.akten);
+  
   const [items, setItems] = useState<TransferAttachmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  const [folderOptions, setFolderOptions] = useState<{id: number, text: string}[]>([]);
 
-  // Helper function to get folder name from option ID
-  const getFolderNameByOption = (optionId: number): string => {
-    const folder = folderOptions.find(f => f.id === optionId);
-    return folder?.text || 'Default';
-  };
-
-  // Load folders whenever aktId changes
+  // Load folders whenever aktId changes and if there are no folders loaded
   useEffect(() => {
-    const loadFolders = async () => {
-      if (aktId != null && aktId != -1) {
-        console.log('Loading folders for case:', aktId);
-        try {
-          // Check if WebRTC connection is ready
-          if (webRTCApiService.isReady()) {
-            const foldersResponse = await webRTCApiService.getAvailableFolders(aktId);
-            
-            if (foldersResponse.response.statusCode >= 200 && foldersResponse.response.statusCode < 300) {
-              // Debug: Log the actual response structure
-              console.log('Raw folders response:', foldersResponse);
-              console.log('Raw folders data:', JSON.parse(foldersResponse.response.body || '[]'));
-              
-              // The fake response returns data as an array of strings directly
-              // Based on webRTCApiService.ts fake response structure
-              const responseData = JSON.parse(foldersResponse.response.body || '[]');
-              const folderNames = Array.isArray(responseData) 
-                ? responseData.map(folder => String(folder))
-                : [];
-              
-              // Transform folder strings to options format
-              const newOptions = folderNames.map((folderName, index) => ({
-                id: index + 1, // Use index + 1 as ID
-                text: folderName
-              }));
-              
-              setFolderOptions(newOptions);
-              console.log('Processed folder names:', folderNames);
-              console.log('Final folder options:', newOptions);
-            } else {
-              console.warn('Failed to load folders via WebRTC');
-              setFolderOptions([]);
-            }
-          } else {
-            console.warn('WebRTC not ready, no fallback available');
-            setFolderOptions([]);
-          }
-        } catch (error) {
-          console.error('Error loading folders:', error);
-          setFolderOptions([]);
-        }
-      } else {
-        setFolderOptions([]);
-      }
-    };
-
-    loadFolders();
-  }, [aktId]);
+    if (aktId != null && aktId !== -1 && folderOptions.length === 0 && !foldersLoading) {
+      console.log('Loading folders for case:', aktId);
+      dispatch(getAvailableFoldersAsync(aktId));
+    }
+  }, [aktId, folderOptions.length, foldersLoading, dispatch]);
 
   useEffect(() => {
     (async () => {

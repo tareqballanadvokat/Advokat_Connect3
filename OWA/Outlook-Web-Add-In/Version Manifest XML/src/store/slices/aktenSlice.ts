@@ -4,30 +4,42 @@ import { AktLookUpResponse, AktenQuery, AktenResponse } from '../../taskpane/com
 import { DokumentResponse } from '../../taskpane/components/interfaces/IDocument';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 
+// Interface for folder options
+export interface FolderOption {
+  id: number;
+  text: string;
+}
+
 // State interface
 interface AktenState {
   cases: AktLookUpResponse[]; // For search results
   favouriteAkten: AktenResponse[]; // For favorite Akten from GetAllAsync endpoint (Id, AKurz, Causa)
-  selectedAktDocuments: DokumentResponse[]; // Documents for the currently expanded Akt
+  favoriteAktenDocuments: DokumentResponse[]; // Documents for the currently expanded favorite Akten
+  folderOptions: FolderOption[]; // Available folders for the currently selected Akt
+  selectedAkt: AktLookUpResponse | null; // Currently selected Akt for operations
   loading: boolean;
   documentsLoading: boolean;
+  foldersLoading: boolean;
   error: string | null;
   documentsError: string | null;
-  searchTerm: string;
-  currentSearchTerm: string; // Track which search term's results are currently loaded
+  foldersError: string | null;
+  searchTerm: string; // Current search term in the search box
 }
 
 // Initial state
 const initialState: AktenState = {
   cases: [],
   favouriteAkten: [],
-  selectedAktDocuments: [],
+  favoriteAktenDocuments: [],
+  folderOptions: [],
+  selectedAkt: null,
   loading: false,
   documentsLoading: false,
+  foldersLoading: false,
   error: null,
   documentsError: null,
-  searchTerm: '',
-  currentSearchTerm: '' // Track which search term's results are currently loaded
+  foldersError: null,
+  searchTerm: ''
 };
 
 // New async thunk for getting favorite Akten
@@ -89,6 +101,33 @@ export const removeAktFromFavoriteAsync = createAsyncThunk(
       return aktId; // Return the aktId that was removed from favorites
     } else {
       throw new Error('Failed to remove Akt from favorites');
+    }
+  }
+);
+
+// New async thunk for loading available folders for an Akt
+export const getAvailableFoldersAsync = createAsyncThunk(
+  'akten/getAvailableFolders',
+  async (aktId: number) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    const response = await webRTCApiService.getAvailableFolders(aktId);
+    
+    if (response.response.statusCode >= 200 && response.response.statusCode < 300) {
+      const responseData = JSON.parse(response.response.body || '[]');
+      const folderNames = Array.isArray(responseData) 
+        ? responseData.map(folder => String(folder))
+        : [];
+      
+      // Transform folder strings to options format
+      const folderOptions: FolderOption[] = folderNames.map((folderName, index) => ({
+        id: index + 1, // Use index + 1 as ID
+        text: folderName
+      }));
+      
+      return folderOptions;
+    } else {
+      throw new Error('Failed to load available folders');
     }
   }
 );
@@ -173,20 +212,29 @@ const aktenSlice = createSlice({
       state.cases = [];
       // DON'T clear favouriteAkten here - it should be managed separately
       // state.favouriteAkten = []; // ← REMOVED: This was clearing favorites unexpectedly
-      state.selectedAktDocuments = [];
+      state.favoriteAktenDocuments = [];
+      state.selectedAkt = null; // Clear selected Akt when clearing search results
       state.error = null;
       state.documentsError = null;
-      state.currentSearchTerm = ''; // Clear the cached search term
     },
     // Clear documents for the selected Akt
     clearDocuments: (state) => {
-      state.selectedAktDocuments = [];
+      state.favoriteAktenDocuments = [];
       state.documentsError = null;
     },
     // Clear favorite Akten
     clearFavorites: (state) => {
       state.favouriteAkten = [];
-      state.selectedAktDocuments = []; // Clear documents as they depend on favorites
+      state.favoriteAktenDocuments = []; // Clear documents as they depend on favorites
+    },
+    // Clear folder options
+    clearFolders: (state) => {
+      state.folderOptions = [];
+      state.foldersError = null;
+    },
+    // Set selected Akt
+    setSelectedAkt: (state, action: PayloadAction<AktLookUpResponse | null>) => {
+      state.selectedAkt = action.payload;
     },
     // Set current search term
     // Use the PayloadAction type to declare the contents of `action.payload`
@@ -218,7 +266,7 @@ const aktenSlice = createSlice({
       })
       .addCase(getAktDokumenteAsync.fulfilled, (state, action) => {
         state.documentsLoading = false;
-        state.selectedAktDocuments = action.payload;
+        state.favoriteAktenDocuments = action.payload;
       })
       .addCase(getAktDokumenteAsync.rejected, (state, action) => {
         state.documentsLoading = false;
@@ -252,12 +300,26 @@ const aktenSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to remove Akt from favorites';
       })
+      // Get available folders handlers
+      .addCase(getAvailableFoldersAsync.pending, (state) => {
+        state.foldersLoading = true;
+        state.foldersError = null;
+      })
+      .addCase(getAvailableFoldersAsync.fulfilled, (state, action) => {
+        state.foldersLoading = false;
+        state.folderOptions = action.payload;
+      })
+      .addCase(getAvailableFoldersAsync.rejected, (state, action) => {
+        state.foldersLoading = false;
+        state.foldersError = action.error.message || 'Failed to load available folders';
+        state.folderOptions = [];
+      })
       // Akt lookup handlers
       .addCase(aktLookUpAsync.pending, (state, action) => {
         state.loading = true;
         state.error = null;
-        // Set currentSearchTerm for lookup search
-        state.currentSearchTerm = action.meta.arg || '';
+        // Set searchTerm for lookup search
+        state.searchTerm = action.meta.arg || '';
       })
       .addCase(aktLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
@@ -266,13 +328,12 @@ const aktenSlice = createSlice({
       .addCase(aktLookUpAsync.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to lookup cases via WebRTC';
-        state.currentSearchTerm = ''; // Clear cache on error
       });
   }
 });
 
 // Export actions
-export const { clearCases, clearDocuments, clearFavorites, setSearchTerm } = aktenSlice.actions;
+export const { clearCases, clearDocuments, clearFavorites, clearFolders, setSelectedAkt, setSearchTerm } = aktenSlice.actions;
 
 // Export reducer
 export default aktenSlice.reducer;
