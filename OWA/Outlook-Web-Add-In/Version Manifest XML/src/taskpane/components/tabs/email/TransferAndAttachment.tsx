@@ -43,7 +43,10 @@ const TransferAndAttachment: React.FC = () => {
         const messageId = await getInternetMessageIdAsync(email);
         
         // Get saved documents from Advokat via WebRTC
-        const documentsResponse = await webRTCApiService.getSavedEmailInfo(messageId, selectedAkt.aktId);
+        const documentsResponse = await webRTCApiService.GetDocuments({
+          outlookEmailId: messageId,
+          aktId: selectedAkt.aktId
+        });
         let savedDocuments: DokumentResponse[] = [];
         
         if (documentsResponse.response.statusCode >= 200 && documentsResponse.response.statusCode < 300) {

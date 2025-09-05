@@ -4,7 +4,7 @@ import { AktenQuery } from '../components/interfaces/IAkten';
 import { WebRTCApiRequest, WebRTCApiResponse } from '../components/interfaces/IWebRTC';
 import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
 import { DokumentPostData, DokumentResponse, DokumenteQuery } from '../components/interfaces/IDocument';
-import { PersonenQuery, PersonResponse } from '../components/interfaces/IPerson';
+import { PersonenQuery, PersonResponse, PersonLookUpResponse } from '../components/interfaces/IPerson';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { 
   CHUNKING_CONFIG,
@@ -177,8 +177,8 @@ class WebRTCApiService {
               ])
             }
           };
-        } else if (message.toLowerCase().includes('dokument') || message.toLowerCase().includes('getaktdocuments')) {
-          // Create fake documents response for getAktDocuments
+        } else if (message.toLowerCase().includes('dokument') || message.toLowerCase().includes('getdocuments')) {
+          // Create fake documents response for GetDocuments
           fakeResponse = {
             id: requestId,
             checksum: '',
@@ -331,6 +331,122 @@ class WebRTCApiService {
                   Id: 12347,
                   AKurz: "Akt3",
                   Causa: "Favorite case"
+                }
+              ])
+            }
+          };
+        } else if (message.toLowerCase().startsWith('person')) {
+          // Create fake Person lookup response (PersonLookUpResponse format)
+          fakeResponse = {
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify([
+                {
+                  PersonId: 2001,
+                  NKurz: `DEMO-P001`,
+                  IstFirma: false,
+                  Titel: 'Dr.',
+                  Vorname: 'Max',
+                  Name1: 'Mustermann',
+                  Name2: undefined,
+                  Adresse: {
+                    straße: 'Musterstraße 123',
+                    plz: '12345',
+                    ort: 'Berlin',
+                    landeskennzeichenIso2: 'DE'
+                  },
+                  Kontakte: [
+                    { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'max.mustermann@example.com', Bemerkung: 'Primary' },
+                    { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 30 12345678', Bemerkung: 'Mobile' }
+                  ]
+                },
+                {
+                  PersonId: 2002,
+                  NKurz: `DEMO-P002`,
+                  IstFirma: false,
+                  Vorname: 'Anna',
+                  Name1: 'Schmidt',
+                  Adresse: {
+                    straße: 'Beispielweg 456',
+                    plz: '54321',
+                    ort: 'München',
+                    landeskennzeichenIso2: 'DE'
+                  },
+                  Kontakte: [
+                    { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'anna.schmidt@example.com' },
+                    { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 89 87654321' }
+                  ]
+                }
+              ])
+            }
+          };
+        } else if (message.toLowerCase().includes('favoritepersons')) {
+          // Create fake favorite persons response (PersonResponse format)
+          fakeResponse = {
+            id: requestId,
+            checksum: '',
+            response: {
+              timestamp: Date.now(),
+              statusCode: 200,
+              headers: {},
+              body: JSON.stringify([
+                {
+                  Id: 3001,
+                  NKurz: 'FAV-P001',
+                  IstFirma: false,
+                  Titel: 'Dr.',
+                  Vorname: 'Maria',
+                  Name1: 'Favorit',
+                  Name2: 'Client',
+                  Adressdaten: {
+                    straße: 'Hauptstraße 789',
+                    plz: '10115',
+                    ort: 'Berlin',
+                    landeskennzeichenIso2: 'DE'
+                  },
+                  Kontakte: [
+                    { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'maria.favorit@example.com', Bemerkung: 'Business' },
+                    { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 30 55555555', Bemerkung: 'Office' }
+                  ]
+                },
+                {
+                  Id: 3002,
+                  NKurz: 'FAV-P002',
+                  IstFirma: true,
+                  Name1: 'Musterfirma',
+                  Name2: 'GmbH',
+                  Adressdaten: {
+                    straße: 'Geschäftsstraße 456',
+                    plz: '20095',
+                    ort: 'Hamburg',
+                    landeskennzeichenIso2: 'DE'
+                  },
+                  Kontakte: [
+                    { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'info@musterfirma.de', Bemerkung: 'Main' },
+                    { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 40 66666666', Bemerkung: 'Reception' },
+                    { Reihung: 3, Art: 'Website', TelefonnummerOderAdresse: 'https://www.musterfirma.de' }
+                  ]
+                },
+                {
+                  Id: 3003,
+                  NKurz: 'FAV-P003',
+                  IstFirma: false,
+                  Vorname: 'Thomas',
+                  Name1: 'Stammkunde',
+                  Adressdaten: {
+                    straße: 'Kundenweg 123',
+                    plz: '80331',
+                    ort: 'München',
+                    landeskennzeichenIso2: 'DE'
+                  },
+                  Kontakte: [
+                    { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'thomas.stammkunde@email.de' },
+                    { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 89 77777777', Bemerkung: 'Mobile' }
+                  ]
                 }
               ])
             }
@@ -638,36 +754,18 @@ class WebRTCApiService {
   }
 
   /**
-   * Get saved email information for a specific email ID via WebRTC
-   * @param outlookEmailId - The Outlook email ID to search for
-   * @param aktId - Optional case ID to filter by
+   * Get documents via WebRTC with flexible query parameters
+   * @param query - Query parameters including aktId, outlookEmailId, dokumentArten, and limit
    */
-  async getSavedEmailInfo(outlookEmailId: string, aktId?: number) {
+  async GetDocuments(query: DokumenteQuery) {
     const queryParams = new URLSearchParams();
     
-    if (aktId) queryParams.append('aktId', aktId.toString());
-    queryParams.append('outlookEmailId', outlookEmailId);
-
-    return this.sendRequest(
-      'GET',
-      `api/v1.1/dokument?${queryParams.toString()}`,
-      {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    );
-  }
-
-  /**
-   * Get documents for a specific Akt via WebRTC
-   * @param aktId - The Akt ID to get documents for
-   * @param limit - Optional limit for number of documents
-   */
-  async getAktDocuments(aktId: number, limit?: number) {
-    const queryParams = new URLSearchParams();
-    
-    queryParams.append('aktId', aktId.toString());
-    if (limit) queryParams.append('limit', limit.toString());
+    if (query.aktId) queryParams.append('aktId', query.aktId.toString());
+    if (query.outlookEmailId) queryParams.append('outlookEmailId', query.outlookEmailId);
+    if (query.dokumentArten && query.dokumentArten.length > 0) {
+      query.dokumentArten.forEach(art => queryParams.append('dokumentArten', art.toString()));
+    }
+    if (query.limit) queryParams.append('limit', query.limit.toString());
 
     return this.sendRequest(
       'GET',

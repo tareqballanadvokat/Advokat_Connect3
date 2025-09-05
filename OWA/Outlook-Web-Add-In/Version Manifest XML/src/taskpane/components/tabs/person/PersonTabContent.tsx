@@ -53,9 +53,26 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
     }
   }, [dispatch]);
 
-  // callback for opening/closing Accordion
+  // callback for opening/closing Accordion (based on DevExtreme sample)
   const handleSelectionChanged = useCallback((e: AccordionTypes.SelectionChangedEvent) => {
-    setExpandedItems(e.addedItems as PersonResponse[]);
+    setExpandedItems(prevItems => {
+      let newItems = [...prevItems];
+      
+      // Remove collapsed items
+      e.removedItems.forEach((item) => {
+        const index = newItems.findIndex(selectedItem => selectedItem.Id === (item as PersonResponse).Id);
+        if (index >= 0) {
+          newItems.splice(index, 1);
+        }
+      });
+      
+      // Add expanded items
+      if (e.addedItems.length) {
+        newItems = [...newItems, ...(e.addedItems as PersonResponse[])];
+      }
+      
+      return newItems;
+    });
   }, []);
 
   // removing person
@@ -100,10 +117,10 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
         itemTitleRender={(data: PersonResponse) => (
           <CustomTitle
             anzeigename={getDisplayName(data)}
-            onDelete={() => handleDelete(data.Id, getDisplayName(data))} // Use Id instead of PersonId
+            onDelete={() => handleDelete(data.Id, getDisplayName(data))}
           />
         )}
-        itemRender={CustomItem}
+        itemRender={(data: PersonResponse) => <CustomItem {...data} />}
       />
 
       {(loading || favoritesLoading) && (

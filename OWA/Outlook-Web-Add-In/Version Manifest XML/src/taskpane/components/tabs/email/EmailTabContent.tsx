@@ -18,9 +18,6 @@ import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { 
-  setAttachmentSelected,
-} from '@store/slices/emailSlice';
 import { setSelectedAkt } from '@store/slices/aktenSlice';
 
 const EmailTabContent: React.FC = () => {

@@ -64,7 +64,10 @@ export const getAktDokumenteAsync = createAsyncThunk(
   async (params: { aktId: number; limit?: number }) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
-    const response = await webRTCApiService.getAktDocuments(params.aktId, params.limit);
+    const response = await webRTCApiService.GetDocuments({
+      aktId: params.aktId,
+      limit: params.limit
+    });
     
     if (response.response.statusCode === 200) {
       return JSON.parse(response.response.body || '[]') as DokumentResponse[];

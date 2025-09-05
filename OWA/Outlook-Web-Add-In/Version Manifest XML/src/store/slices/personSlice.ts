@@ -30,62 +30,11 @@ export const personLookUpAsync = createAsyncThunk(
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
-    try {
-      const response = await webRTCApiService.personLookUp(searchText);
-      if (response.response.statusCode === 200) {
-        return JSON.parse(response.response.body || '[]') as PersonLookUpResponse[];
-      } else {
-        throw new Error('Failed to lookup persons');
-      }
-    } catch (error) {
-      // If WebRTC fails, provide fake data for testing
-      console.log('🔧 WebRTC person lookup failed, providing fake data for testing');
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Create fake search results based on search text
-      const fakeResults = [
-        {
-          PersonId: 2001,
-          NKurz: `${searchText?.toUpperCase() || 'DEMO'}-P001`,
-          IstFirma: false,
-          Titel: 'Dr.',
-          Vorname: 'Max',
-          Name1: 'Mustermann',
-          Name2: searchText ? `(${searchText})` : undefined,
-          Adresse: {
-            straße: 'Musterstraße 123',
-            plz: '12345',
-            ort: 'Berlin',
-            landeskennzeichenIso2: 'DE'
-          },
-          Kontakte: [
-            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'max.mustermann@example.com', Bemerkung: 'Primary' },
-            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 30 12345678', Bemerkung: 'Mobile' }
-          ]
-        },
-        {
-          PersonId: 2002,
-          NKurz: `${searchText?.toUpperCase() || 'DEMO'}-P002`,
-          IstFirma: false,
-          Vorname: 'Anna',
-          Name1: 'Schmidt',
-          Adresse: {
-            straße: 'Beispielweg 456',
-            plz: '54321',
-            ort: 'München',
-            landeskennzeichenIso2: 'DE'
-          },
-          Kontakte: [
-            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'anna.schmidt@example.com' },
-            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 89 87654321' }
-          ]
-        }
-      ].slice(0, 10); // Limit to 10 results
-      
-      console.log('📥 Using fake person response data:', fakeResults);
-      return fakeResults as PersonLookUpResponse[];
+    const response = await webRTCApiService.personLookUp(searchText);
+    if (response.response.statusCode === 200) {
+      return JSON.parse(response.response.body || '[]') as PersonLookUpResponse[];
+    } else {
+      throw new Error('Failed to lookup persons');
     }
   }
 );
@@ -97,77 +46,11 @@ export const getFavoritePersonsAsync = createAsyncThunk(
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
-    try {
-      const response = await webRTCApiService.getFavoritePersons(query);
-      if (response.response.statusCode === 200) {
-        return JSON.parse(response.response.body || '[]') as PersonResponse[];
-      } else {
-        throw new Error('Failed to get favorite persons');
-      }
-    } catch (error) {
-      // If WebRTC fails, provide fake favorite persons for testing
-      console.log('🔧 WebRTC get favorite persons failed, providing fake data for testing');
-
-      // Create fake favorite persons using PersonResponse structure (Id, Adressdaten)
-      const fakeFavorites = [
-        {
-          Id: 3001,
-          NKurz: 'FAV-P001',
-          IstFirma: false,
-          Titel: 'Dr.',
-          Vorname: 'Maria',
-          Name1: 'Favorit',
-          Name2: 'Client',
-          Adressdaten: {
-            straße: 'Hauptstraße 789',
-            plz: '10115',
-            ort: 'Berlin',
-            landeskennzeichenIso2: 'DE'
-          },
-          Kontakte: [
-            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'maria.favorit@example.com', Bemerkung: 'Business' },
-            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 30 55555555', Bemerkung: 'Office' }
-          ]
-        },
-        {
-          Id: 3002,
-          NKurz: 'FAV-P002',
-          IstFirma: true,
-          Name1: 'Musterfirma',
-          Name2: 'GmbH',
-          Adressdaten: {
-            straße: 'Geschäftsstraße 456',
-            plz: '20095',
-            ort: 'Hamburg',
-            landeskennzeichenIso2: 'DE'
-          },
-          Kontakte: [
-            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'info@musterfirma.de', Bemerkung: 'Main' },
-            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 40 66666666', Bemerkung: 'Reception' },
-            { Reihung: 3, Art: 'Website', TelefonnummerOderAdresse: 'https://www.musterfirma.de' }
-          ]
-        },
-        {
-          Id: 3003,
-          NKurz: 'FAV-P003',
-          IstFirma: false,
-          Vorname: 'Thomas',
-          Name1: 'Stammkunde',
-          Adressdaten: {
-            straße: 'Kundenweg 123',
-            plz: '80331',
-            ort: 'München',
-            landeskennzeichenIso2: 'DE'
-          },
-          Kontakte: [
-            { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'thomas.stammkunde@email.de' },
-            { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 89 77777777', Bemerkung: 'Mobile' }
-          ]
-        }
-      ];
-      
-      console.log('📥 Using fake favorite persons response data:', fakeFavorites);
-      return fakeFavorites as PersonResponse[];
+    const response = await webRTCApiService.getFavoritePersons(query);
+    if (response.response.statusCode === 200) {
+      return JSON.parse(response.response.body || '[]') as PersonResponse[];
+    } else {
+      throw new Error('Failed to get favorite persons');
     }
   }
 );
