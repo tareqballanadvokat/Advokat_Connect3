@@ -84,9 +84,10 @@ class WebRTCApiService {
    */
   private processMessage(message: string) {
     try {
-      throw new Error('Test error');
       const parsed = JSON.parse(message);
+      console.log("parsed maessage: ", parsed);
       
+      throw new Error('Test error to check debugger');
       // Check if this is an API response with Id field and we have a matching pending request
       if (parsed.Id && this.pendingRequestHandlers.has(parsed.Id)) {
         console.log('✅ Received response for request ID:', parsed.Id);
@@ -94,7 +95,7 @@ class WebRTCApiService {
         if (handler) {
           handler(parsed);
           this.pendingRequestHandlers.delete(parsed.Id);
-          console.log('📝 Remaining pending requests:', this.pendingRequestHandlers.size);
+          console.log('📝 Pending requests after response:', this.pendingRequestHandlers.size);
         }
       } else if (parsed.Id) {
         // Response with ID but no matching pending request
@@ -218,7 +219,7 @@ class WebRTCApiService {
                   datum: new Date('2024-01-17'),
                   betreff: "Legal Research Summary",
                   dokumentArt: 0,
-                  dateipfad: "/Recherche/Rechtslage/legal_research_summary.pdf",
+                  dateipfad: "/Recherche/Rechtslage/legal_research_summary.pdf.pdf",
                   sachbearbeiterKürzel: "JD",
                   bearbeitungsInfoErstelltVon: "System",
                   bearbeitungsInfoErstelltAm: new Date('2024-01-17T11:15:00')
@@ -484,6 +485,7 @@ class WebRTCApiService {
         // Send fake response to the handler
         handler(fakeResponse);
         this.pendingRequestHandlers.delete(requestId);
+        console.log('📝 Pending requests after fake response:', this.pendingRequestHandlers.size);
       }
     }
   }
@@ -516,11 +518,13 @@ class WebRTCApiService {
       this.pendingRequestHandlers.set(protocolRequest.id, (response: WebRTCApiResponse) => {
         resolve(response);
       });
+      console.log('📝 Pending requests after new request added:', this.pendingRequestHandlers.size);
 
       // Set timeout to clean up handler if no response
       setTimeout(() => {
         if (this.pendingRequestHandlers.has(protocolRequest.id)) {
           this.pendingRequestHandlers.delete(protocolRequest.id);
+          console.log('📝 Pending requests after timeout:', this.pendingRequestHandlers.size);
           reject(new Error('Request timeout - no response from remote'));
         }
       }, 60000);
@@ -531,6 +535,7 @@ class WebRTCApiService {
         dataChannel.send(message);
       } catch (error) {
         this.pendingRequestHandlers.delete(protocolRequest.id);
+        console.log('📝 Pending requests after error:', this.pendingRequestHandlers.size);
         reject(error);
       }
     });
