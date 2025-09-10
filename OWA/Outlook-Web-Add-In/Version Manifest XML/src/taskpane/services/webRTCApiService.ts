@@ -17,9 +17,7 @@ import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { 
   CHUNKING_CONFIG,
   calculateMessageSize,
-  calculateOverheadSize,
-  calculateMaxContentPerChunk,
-  splitDocumentContent,
+  chunkRequest,
   needsChunking,
   createChunkDelay,
   generateGuid,
@@ -27,7 +25,8 @@ import {
   logChunkTransmission,
   calculateChecksum,
   createProtocolId,
-  createProtocolRequest
+  createProtocolRequest,
+  sendRequestWithChunking
 } from '../utils/chunkingUtils';
 
 // Pending request information
@@ -567,7 +566,7 @@ class WebRTCApiService {
    * @returns Promise with API response
    */
   private async sendRequest(messageType: string, method: string, url: string, headers: Record<string, string>, body?: any): Promise<WebRTCApiResponse> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (!this.sipClient) {
         reject(new Error('WebRTC API service not initialized'));
         return;
@@ -621,17 +620,24 @@ class WebRTCApiService {
       // Store pending request
       this.pendingRequests.set(protocolRequest.id, pendingRequest);
       
-      console.log('📤 Sending request for messageType:', messageType);
+      console.log('📤 Preparing request for messageType:', messageType);
       console.log('📝 Pending requests after new request added:', this.pendingRequests.size);
 
       try {
-        const message = JSON.stringify(requestWithMessageType);
-        console.log('📤 Sending API request:', `Size: ${new TextEncoder().encode(message).length} bytes`);
-        dataChannel.send(message);
+        // Use generic chunking system to send the request
+        await sendRequestWithChunking(requestWithMessageType, (chunk) => {
+          const message = JSON.stringify(chunk);
+          console.log(`📤 Sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
+          dataChannel.send(message);
+        });
+        
       } catch (error) {
         // Clean up on send error
-        clearTimeout(pendingRequest.timeoutHandle);
-        this.pendingRequests.delete(protocolRequest.id);
+        const pendingReq = this.pendingRequests.get(protocolRequest.id);
+        if (pendingReq) {
+          clearTimeout(pendingReq.timeoutHandle);
+          this.pendingRequests.delete(protocolRequest.id);
+        }
         console.log('📝 Pending requests after error:', this.pendingRequests.size);
         reject(error);
       }
@@ -791,109 +797,22 @@ class WebRTCApiService {
   }
 
   /**
-   * Helper to create document WebRTCApiRequest for chunking utilities
-   * @param dokumentData - Document data to save
-   */
-  private createDokumentRequest(dokumentData: DokumentPostData): WebRTCApiRequest {
-    return createProtocolRequest(
-      'POST',
-      'api/v1.1/dokument',
-      {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      dokumentData
-    );
-  }
-
-  /**
    * Save a new document via WebRTC with automatic chunking for large content
    * @param dokumentData - Data for the new document
    */
   async saveDokument(dokumentData: DokumentPostData) {
-    // Create the request and check if chunking is needed
-    const protocolRequest = this.createDokumentRequest(dokumentData);
-    
-    if (!needsChunking(protocolRequest)) {
-      // Small document, send normally
-      const totalSize = calculateMessageSize(protocolRequest);
-      logChunkingInfo({
-        totalSize,
-        overheadSize: 0,
-        maxContentPerChunk: 0,
-        totalChunks: 1,
-        action: 'single'
-      });
-      return this.sendRequest(
-        'dokument.saveDokument',
-        'POST', 
-        'api/v1.1/dokument', 
-        {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }, 
-        dokumentData
-      );
-    }
-    
-    // Large document, split into chunks
-    const totalSize = calculateMessageSize(protocolRequest);
-    
-    // Calculate overhead size (all fields except 'inhalt')
-    const documentWithoutContent = { ...dokumentData, inhalt: '' };
-    const overheadSize = calculateOverheadSize(documentWithoutContent, this.createDokumentRequest.bind(this));
-    
-    // Calculate max content size per chunk
-    const maxContentPerChunk = calculateMaxContentPerChunk(overheadSize);
-    
-    const chunkingResult = splitDocumentContent(dokumentData.inhalt || '', maxContentPerChunk);
-    
-    logChunkingInfo({
-      totalSize,
-      overheadSize,
-      maxContentPerChunk,
-      totalChunks: chunkingResult.totalChunks,
-      action: 'chunked'
-    });
-    
-    // Send each chunk as a separate document request
-    const responses = [];
-    for (let i = 0; i < chunkingResult.chunks.length; i++) {
-      const chunkData: DokumentPostData = {
-        ...dokumentData,
-        inhalt: chunkingResult.chunks[i],
-        numberOfParts: chunkingResult.totalChunks,
-        partNumber: i + 1,
-        checkSum: chunkingResult.checkSum
-      };
-      
-      logChunkTransmission(i + 1, chunkingResult.totalChunks);
-      
-      try {
-        const response = await this.sendRequest(
-          `dokument.saveDokument.chunk.${i + 1}`,
-          'POST', 
-          'api/v1.1/dokument', 
-          {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }, 
-          chunkData
-        );
-        responses.push(response);
-        
-        // Small delay between chunks
-        if (i < chunkingResult.chunks.length - 1) {
-          await createChunkDelay();
-        }
-      } catch (error) {
-        console.error(`❌ Failed to send chunk ${i + 1}/${chunkingResult.totalChunks}:`, error);
-        throw error;
-      }
-    }
-    
-    // Return the response from the last chunk (API will handle reassembly)
-    return responses[responses.length - 1];
+    // The generic sendRequest method now handles all chunking automatically
+    // No need for document-specific chunking logic
+    return this.sendRequest(
+      'dokument.saveDokument',
+      'POST', 
+      'api/v1.1/dokument', 
+      {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }, 
+      dokumentData
+    );
   }
 
   /**
