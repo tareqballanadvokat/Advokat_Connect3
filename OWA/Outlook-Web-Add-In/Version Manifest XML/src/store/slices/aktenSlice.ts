@@ -1,4 +1,4 @@
-// Redux slice for managing Akten (Cases) state
+﻿// Redux slice for managing Akten (Cases) state
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { AktLookUpResponse, AktenQuery, AktenResponse } from '../../taskpane/components/interfaces/IAkten';
 import { DokumentResponse } from '../../taskpane/components/interfaces/IDocument';

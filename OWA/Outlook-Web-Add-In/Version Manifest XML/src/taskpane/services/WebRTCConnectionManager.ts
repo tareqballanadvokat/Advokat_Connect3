@@ -34,7 +34,7 @@ export interface ConnectionManagerConfig {
 const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
   maxReconnectAttempts: 5,
   reconnectDelay: 3000, // 3 seconds
-  healthCheckInterval: 5000, // 5 seconds
+  healthCheckInterval: 10000, // 10 seconds
   connectionTimeout: 30000, // 30 seconds
   enableAutoReconnect: true
 };
