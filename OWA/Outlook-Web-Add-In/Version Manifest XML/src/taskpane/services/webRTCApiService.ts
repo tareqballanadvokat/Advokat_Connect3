@@ -7,6 +7,9 @@
 // - Provides methods to check pending request status for loading states
 // - Fire-and-forget pattern: send message, wait for response via message handlers
 //
+// - Provides methods to check pending request status for loading states
+// - Fire-and-forget pattern: send message, wait for response via message handlers
+//
 import { v4 as uuidv4 } from 'uuid';
 import { AktenQuery } from '../components/interfaces/IAkten';
 import { WebRTCApiRequest, WebRTCApiResponse } from '../components/interfaces/IWebRTC';
@@ -37,6 +40,18 @@ interface PendingRequest {
   timeoutHandle: NodeJS.Timeout;
   resolve: (response: WebRTCApiResponse) => void;
   reject: (error: Error) => void;
+  // Response chunking support
+  expectedChunks?: number;           // Total chunks expected for response
+  receivedChunks?: Map<number, WebRTCApiResponse>; // Map of chunk number to chunk data
+  retryCount?: number;               // Number of retries attempted
+  // Original request data for retries
+  originalRequest?: WebRTCApiRequest; // Store original request for retries
+}
+
+// Configuration for response chunking and retries
+interface ChunkingConfig {
+  maxRetries: number;
+  retryTimeoutMs: number;
 }
 
 /**
@@ -47,7 +62,13 @@ interface PendingRequest {
 class WebRTCApiService {
   private sipClient: SipClientInstance | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map(); // Map by ID only
-  private readonly REQUEST_TIMEOUT = 10000; // 6 seconds timeout
+  private readonly REQUEST_TIMEOUT = 10000; // 10 seconds timeout
+  
+  // Response chunking configuration
+  private readonly CHUNKING_CONFIG: ChunkingConfig = {
+    maxRetries: 3,
+    retryTimeoutMs: 8000 // 8 seconds for chunk assembly timeout
+  };
 
   /**
    * Initialize with SIP client instance
@@ -113,16 +134,13 @@ class WebRTCApiService {
         if (pendingRequest) {
           console.log('✅ Received response for request ID:', parsed.id, 'MessageType:', pendingRequest.messageType);
           
-          // Clear timeout
-          clearTimeout(pendingRequest.timeoutHandle);
-          
-          // Remove from pending requests
-          this.pendingRequests.delete(parsed.id);
-          
-          // Resolve the promise
-          pendingRequest.resolve(parsed);
-          
-          console.log('📝 Pending requests after response:', this.pendingRequests.size);
+          // Check if this is a chunked response
+          if (parsed.isMultipart && parsed.response.totalChunks > 1) {
+            this.handleChunkedResponse(parsed, pendingRequest);
+          } else {
+            // Single response - validate checksum
+            this.validateAndCompleteResponse(parsed, pendingRequest);
+          }
         } else {
           console.warn('⚠️ Received response for unknown request ID:', parsed.id);
         }
@@ -180,29 +198,41 @@ class WebRTCApiService {
           // Determine response type based on the message content
           if (message.toLowerCase().includes('folders')) {
             // Create fake Folders response - return array of folder names as strings
+            const fakeBodyData = [
+              "Korrespondenz",
+              "Verträge", 
+              "Gerichtsdokumente",
+              "Recherche",
+              "Klientenunterlagen"
+            ];
+            const fakeBodyString = JSON.stringify(fakeBodyData);
+            const calculatedChecksum = calculateChecksum(fakeBodyString);
+            
             fakeResponse = {
               id: targetPendingRequest.id,
-              checksum: '',
+              checksum: calculatedChecksum,
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
-                body: JSON.stringify([
-                  "Korrespondenz",
-                  "Verträge", 
-                  "Gerichtsdokumente",
-                  "Recherche",
-                  "Klientenunterlagen"
-                ])
+                body: fakeBodyString
               }
             };
+            
+            console.log(`📋 Generated fake folders response with checksum: ${calculatedChecksum.substring(0, 8)}...`);
           } else if (message.toLowerCase().includes('att')) {
             // Create fake Documents/Attachments response
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
                 body: JSON.stringify([
@@ -243,8 +273,11 @@ class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
                 body: JSON.stringify([
@@ -306,8 +339,11 @@ class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
                 body: JSON.stringify([
@@ -343,8 +379,11 @@ class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
                 body: JSON.stringify({
@@ -358,8 +397,11 @@ class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
                 body: JSON.stringify({
@@ -373,8 +415,11 @@ class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
                 body: JSON.stringify([
@@ -401,8 +446,11 @@ class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
                 body: JSON.stringify([
@@ -450,8 +498,11 @@ class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
                 body: JSON.stringify([
@@ -517,8 +568,11 @@ class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
+              isMultipart: false,
               response: {
                 timestamp: Date.now(),
+                totalChunks: 0,
+                currentChunk: 0,
                 statusCode: 200,
                 headers: {},
                 body: JSON.stringify([
@@ -553,6 +607,266 @@ class WebRTCApiService {
           console.log('📝 Pending requests after fake response:', this.pendingRequests.size);
         }
       }
+    }
+  }
+
+  /**
+   * Handle chunked response assembly
+   */
+  private handleChunkedResponse(chunk: WebRTCApiResponse, pendingRequest: PendingRequest) {
+    const totalChunks = chunk.response.totalChunks;
+    const currentChunk = chunk.response.currentChunk;
+    
+    console.log(`📦 Received chunk ${currentChunk}/${totalChunks} for request:`, pendingRequest.messageType);
+    
+    // Validate chunk number is within expected range
+    if (currentChunk < 1 || currentChunk > totalChunks) {
+      console.error(`❌ Invalid chunk number ${currentChunk} (expected 1-${totalChunks}) for request:`, pendingRequest.messageType);
+      this.handleChecksumFailure(pendingRequest);
+      return;
+    }
+    
+    // Initialize chunking data if not exists
+    if (!pendingRequest.expectedChunks) {
+      pendingRequest.expectedChunks = totalChunks;
+      pendingRequest.receivedChunks = new Map();
+      
+      // Extend timeout for chunk assembly
+      clearTimeout(pendingRequest.timeoutHandle);
+      pendingRequest.timeoutHandle = setTimeout(() => {
+        this.handleChunkTimeout(pendingRequest);
+      }, this.CHUNKING_CONFIG.retryTimeoutMs);
+      
+      console.log(`🔄 Expecting ${totalChunks} chunks for request:`, pendingRequest.messageType);
+    } else if (pendingRequest.expectedChunks !== totalChunks) {
+      // Sanity check: all chunks should report the same total
+      console.error(`❌ Inconsistent totalChunks: expected ${pendingRequest.expectedChunks}, got ${totalChunks} for request:`, pendingRequest.messageType);
+      this.handleChecksumFailure(pendingRequest);
+      return;
+    }
+    
+    // Check for duplicate chunks
+    if (pendingRequest.receivedChunks!.has(currentChunk)) {
+      console.warn(`⚠️ Duplicate chunk ${currentChunk} received for request ${pendingRequest.messageType}, ignoring`);
+      return;
+    }
+    
+    // Store the chunk (order-independent storage)
+    pendingRequest.receivedChunks!.set(currentChunk, chunk);
+    
+    const receivedCount = pendingRequest.receivedChunks!.size;
+    console.log(`📊 Progress: ${receivedCount}/${totalChunks} chunks received for request:`, pendingRequest.messageType);
+    
+    // Check if we have all chunks
+    if (receivedCount === totalChunks) {
+      console.log('✅ All chunks received, assembling response for:', pendingRequest.messageType);
+      this.assembleAndCompleteResponse(pendingRequest);
+    }
+  }
+
+  /**
+   * Re-send the original request for retry scenarios
+   */
+  private async resendOriginalRequest(pendingRequest: PendingRequest): Promise<void> {
+    if (!pendingRequest.originalRequest) {
+      console.error(`❌ Cannot retry ${pendingRequest.messageType}: no original request stored`);
+      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: original request not available'));
+      return;
+    }
+
+    const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
+    if (!dataChannel || dataChannel.readyState !== 'open') {
+      console.error(`❌ Cannot retry ${pendingRequest.messageType}: DataChannel not available`);
+      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: DataChannel not available'));
+      return;
+    }
+
+    try {
+      console.log(`🔄 Re-sending original request for ${pendingRequest.messageType}`);
+      
+      // Use generic chunking system to re-send the request
+      await sendRequestWithChunking(pendingRequest.originalRequest, (chunk) => {
+        const message = JSON.stringify(chunk);
+        console.log(`📤 Re-sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
+        dataChannel.send(message);
+      });
+      
+      console.log(`✅ Successfully re-sent request for ${pendingRequest.messageType}`);
+      
+    } catch (error) {
+      console.error(`❌ Failed to re-send request for ${pendingRequest.messageType}:`, error);
+      this.completeRequest(pendingRequest, undefined, new Error(`Retry failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+    }
+  }
+
+  /**
+   * Handle chunk assembly timeout - retry the request
+   */
+  private handleChunkTimeout(pendingRequest: PendingRequest) {
+    const retryCount = (pendingRequest.retryCount || 0) + 1;
+    
+    if (retryCount <= this.CHUNKING_CONFIG.maxRetries) {
+      console.log(`⏰ Chunk assembly timeout for ${pendingRequest.messageType}, retrying (${retryCount}/${this.CHUNKING_CONFIG.maxRetries})`);
+      
+      // Reset chunking data for retry
+      pendingRequest.expectedChunks = undefined;
+      pendingRequest.receivedChunks = undefined;
+      pendingRequest.retryCount = retryCount;
+      
+      // Clear existing timeout and set new timeout
+      clearTimeout(pendingRequest.timeoutHandle);
+      pendingRequest.timeoutHandle = setTimeout(() => {
+        this.handleChunkTimeout(pendingRequest);
+      }, this.CHUNKING_CONFIG.retryTimeoutMs);
+      
+      // Re-send the original request
+      this.resendOriginalRequest(pendingRequest);
+      
+    } else {
+      console.log(`❌ Max retries exceeded for ${pendingRequest.messageType}, failing request`);
+      this.completeRequest(pendingRequest, undefined, new Error(`Chunk assembly timeout after ${retryCount} retries`));
+    }
+  }
+
+  /**
+   * Handle checksum failure - retry the request due to data corruption
+   */
+  private handleChecksumFailure(pendingRequest: PendingRequest) {
+    const retryCount = (pendingRequest.retryCount || 0) + 1;
+    
+    if (retryCount <= this.CHUNKING_CONFIG.maxRetries) {
+      console.log(`🔄 Checksum validation failed for ${pendingRequest.messageType}, retrying (${retryCount}/${this.CHUNKING_CONFIG.maxRetries})`);
+      
+      // Reset chunking data for retry
+      pendingRequest.expectedChunks = undefined;
+      pendingRequest.receivedChunks = undefined;
+      pendingRequest.retryCount = retryCount;
+      
+      // Clear existing timeout and set new timeout
+      clearTimeout(pendingRequest.timeoutHandle);
+      pendingRequest.timeoutHandle = setTimeout(() => {
+        this.handleChunkTimeout(pendingRequest);
+      }, this.CHUNKING_CONFIG.retryTimeoutMs);
+      
+      // Re-send the original request
+      this.resendOriginalRequest(pendingRequest);
+      
+    } else {
+      console.log(`❌ Max retries exceeded for ${pendingRequest.messageType} due to checksum failures, failing request`);
+      this.completeRequest(pendingRequest, undefined, new Error(`Checksum validation failed after ${retryCount} retries - data corruption detected`));
+    }
+  }
+
+  /**
+   * Validate checksum for single responses and complete the request
+   */
+  private validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
+    const responseBody = response.response.body || '';
+    const expectedChecksum = response.checksum;
+    
+    // Only validate checksum if it's provided
+    if (expectedChecksum) {
+      const actualChecksum = calculateChecksum(responseBody);
+      
+      if (actualChecksum !== expectedChecksum) {
+        console.error(`❌ Checksum mismatch for single response ${pendingRequest.messageType}`);
+        console.error(`Expected: ${expectedChecksum}, Actual: ${actualChecksum}`);
+        console.error(`Response corrupted during transmission, retrying...`);
+        
+        // Treat as corruption and retry the request
+        this.handleChecksumFailure(pendingRequest);
+        return;
+      }
+      
+      console.log(`✅ Checksum validation passed for single response ${pendingRequest.messageType}`);
+    } else {
+      console.log(`ℹ️ No checksum provided for ${pendingRequest.messageType}, skipping validation`);
+    }
+    
+    // Checksum valid or not provided - complete the request
+    this.completeRequest(pendingRequest, response);
+  }
+
+  /**
+   * Assemble chunks into final response
+   */
+  private assembleAndCompleteResponse(pendingRequest: PendingRequest) {
+    const chunks = pendingRequest.receivedChunks!;
+    const totalChunks = pendingRequest.expectedChunks!;
+    
+    // Sort chunks by chunk number and concatenate bodies
+    const sortedChunks: WebRTCApiResponse[] = [];
+    const chunkSequence: number[] = [];
+    
+    for (let i = 1; i <= totalChunks; i++) {
+      const chunk = chunks.get(i);
+      if (!chunk) {
+        console.error(`❌ Missing chunk ${i} for request:`, pendingRequest.messageType);
+        console.error(`❌ Available chunks: ${Array.from(chunks.keys()).sort((a, b) => a - b).join(', ')}`);
+        this.completeRequest(pendingRequest, undefined, new Error(`Missing chunk ${i}/${totalChunks}`));
+        return;
+      }
+      sortedChunks.push(chunk);
+      chunkSequence.push(i);
+    }
+    
+    console.log(`🔄 Assembling chunks in correct sequence: ${chunkSequence.join(' → ')} for request:`, pendingRequest.messageType);
+    
+    // Concatenate all chunk bodies
+    const assembledBody = sortedChunks.map(chunk => chunk.response.body || '').join('');
+    
+    // Create final response using the first chunk as template
+    const firstChunk = sortedChunks[0];
+    
+    // Validate checksum to ensure data integrity
+    const expectedChecksum = firstChunk.checksum;
+    const actualChecksum = calculateChecksum(assembledBody);
+    
+    if (expectedChecksum && actualChecksum !== expectedChecksum) {
+      console.error(`❌ Checksum mismatch for request ${pendingRequest.messageType}`);
+      console.error(`Expected: ${expectedChecksum}, Actual: ${actualChecksum}`);
+      console.error(`Response corrupted during transmission, retrying...`);
+      
+      // Treat as corruption and retry the request
+      this.handleChecksumFailure(pendingRequest);
+      return;
+    }
+    
+    console.log(`✅ Checksum validation passed for ${pendingRequest.messageType}`);
+    
+    const finalResponse: WebRTCApiResponse = {
+      ...firstChunk,
+      isMultipart: false, // Mark as assembled
+      response: {
+        ...firstChunk.response,
+        totalChunks: 0,
+        currentChunk: 0,
+        body: assembledBody
+      }
+    };
+
+    console.log(`✅ Response assembled from ${totalChunks} chunks, total size: ${assembledBody.length} chars`);
+    this.completeRequest(pendingRequest, finalResponse);
+  }
+
+  /**
+   * Complete a request (success or failure)
+   */
+  private completeRequest(pendingRequest: PendingRequest, response?: WebRTCApiResponse, error?: Error) {
+    // Clear timeout
+    clearTimeout(pendingRequest.timeoutHandle);
+    
+    // Remove from pending requests
+    this.pendingRequests.delete(pendingRequest.id);
+    
+    console.log('📝 Pending requests after completion:', this.pendingRequests.size);
+    
+    if (error) {
+      pendingRequest.reject(error);
+    } else if (response) {
+      pendingRequest.resolve(response);
+    } else {
+      pendingRequest.reject(new Error('Request completed without response or error'));
     }
   }
 
@@ -614,7 +928,8 @@ class WebRTCApiService {
           reject(new Error(`Request timeout - no response from remote for ${messageType}`));
         }, this.REQUEST_TIMEOUT),
         resolve: resolve,
-        reject: reject
+        reject: reject,
+        originalRequest: protocolRequest  // Store original request for retries
       };
 
       // Store pending request
