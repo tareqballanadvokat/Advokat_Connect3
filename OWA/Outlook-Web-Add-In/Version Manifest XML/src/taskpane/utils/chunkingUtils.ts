@@ -191,14 +191,6 @@ export function createChunkDelay(delayMs: number = CHUNKING_CONFIG.CHUNK_DELAY_M
 }
 
 /**
- * Generate a proper GUID (UUID v4) for chunk identification
- * @returns UUID v4 string
- */
-export function generateGuid(): string {
-  return uuidv4();
-}
-
-/**
  * Log chunking information for debugging
  * @param info - Chunking information to log
  */

@@ -1,10 +1,10 @@
 
 export interface AktenQuery {
-  AktId?: number;        // Search by specific Akt ID
-  AKurzLike?: string;    // Search by Kürzel pattern
-  Count?: number;        // Limit number of results
-  NurFavoriten?: boolean; // Only favorites flag
-  Causa?: boolean;       // Include causa information
+  AktId?: number;
+  AKurzLike?: string;
+  Count?: number;
+  NurFavoriten?: boolean;
+  Causa?: boolean;
 }
 
 export interface AktLookUpResponse {

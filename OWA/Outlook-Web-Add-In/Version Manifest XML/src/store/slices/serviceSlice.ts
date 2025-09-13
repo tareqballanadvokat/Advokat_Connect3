@@ -3,9 +3,7 @@ import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { LeistungenAuswahlQuery, LeistungAuswahlResponse } from '../../taskpane/components/interfaces/IService';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 
-// Define the state structure for service-related functionality
 interface ServiceState {
-  // Service section data
   abbreviation: number;
   time: string;
   text: string;
@@ -30,7 +28,6 @@ const initialState: ServiceState = {
   currentAktKuerzel: null,
 };
 
-// Async thunk for loading services
 export const loadServicesAsync = createAsyncThunk(
   'service/loadServices',
   async (query: LeistungenAuswahlQuery) => {
@@ -46,12 +43,10 @@ export const loadServicesAsync = createAsyncThunk(
   }
 );
 
-// Create the service slice
 const serviceSlice = createSlice({
   name: 'service',
   initialState,
   reducers: {
-    // Service section actions
     setAbbreviation: (state, action: PayloadAction<number>) => {
       state.abbreviation = action.payload;
     },
@@ -83,7 +78,6 @@ const serviceSlice = createSlice({
       state.text = action.payload.text;
       state.sb = action.payload.sb;
     },
-    // Clear services
     clearServices: (state) => {
       state.services = [];
       state.servicesError = null;
@@ -109,13 +103,11 @@ const serviceSlice = createSlice({
       .addCase(loadServicesAsync.rejected, (state, action) => {
         state.servicesLoading = false;
         state.servicesError = action.error.message || 'Failed to load services';
-        // Clear currentAktKuerzel on error
         state.currentAktKuerzel = null;
       });
   },
 });
 
-// Export actions and reducer
 export const { 
   setAbbreviation,
   setTime,

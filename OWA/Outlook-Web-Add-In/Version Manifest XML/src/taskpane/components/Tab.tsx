@@ -1,9 +1,6 @@
 import React, { useState, Suspense, lazy, useEffect, useRef } from 'react';
 import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
-// import  { Person } from './tabs/person/PersonTabContent'; 
-//  import {SipClient} from "./tabs/SipClient"; 
-import { sipClientService } from '../services/sipClientService';
 // lazy-import
 const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));
 const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
@@ -12,25 +9,6 @@ const CaseTabContent = lazy(() => import('./tabs/case/CaseTabContent'));
 
 const DevTabs: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const sipRef = useRef(null);
-// useEffect(() => {
-//     SipClient(); // uruchomienie kodu SIP
-//   }, []);
-
-  // Removed duplicate SIP initialization - now handled by singleton service
-  // useEffect(() => {
-  //   sipRef.current = initializeSipClient();
-  // }, []);
-
-
-  const handleDelete = (_id: string) => {
-    // TODO: Implement delete functionality
-  };
-
-  const handleAdd = (_id: string) => {
-    // TODO: Implement add functionality
-  };
 
   const renderContent = () => {
     switch (selectedIndex) {
