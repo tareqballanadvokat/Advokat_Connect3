@@ -1,38 +1,18 @@
-// WebRTC API Communication Service - Integrates with SIP_Library
-// 
-// REFACTORED TO IMPLEMENT FIRE-AND-FORGET MESSAGING:
-// - Uses messageType pattern "sliceName.actionName" for request deduplication
-// - Prevents duplicate requests of the same type from being sent
-// - Implements 6-second timeout for all requests
-// - Provides methods to check pending request status for loading states
-// - Fire-and-forget pattern: send message, wait for response via message handlers
-//
-// - Provides methods to check pending request status for loading states
-// - Fire-and-forget pattern: send message, wait for response via message handlers
-//
-import { v4 as uuidv4 } from 'uuid';
 import { AktenQuery } from '../components/interfaces/IAkten';
 import { WebRTCApiRequest, WebRTCApiResponse } from '../components/interfaces/IWebRTC';
 import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
-import { DokumentPostData, DokumentResponse, DokumenteQuery } from '../components/interfaces/IDocument';
-import { PersonenQuery, PersonResponse, PersonLookUpResponse } from '../components/interfaces/IPerson';
+import { DokumentPostData, DokumenteQuery } from '../components/interfaces/IDocument';
+import { PersonenQuery } from '../components/interfaces/IPerson';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
-import { 
-  CHUNKING_CONFIG,
-  calculateMessageSize,
-  chunkRequest,
-  needsChunking,
-  createChunkDelay,
-  generateGuid,
-  logChunkingInfo,
-  logChunkTransmission,
+import {
   calculateChecksum,
-  createProtocolId,
   createProtocolRequest,
   sendRequestWithChunking
 } from '../utils/chunkingUtils';
 
-// Pending request information
+/**
+ * Tracks pending WebRTC requests with chunking support and retry logic
+ */
 interface PendingRequest {
   id: string;
   messageType: string;
@@ -40,12 +20,10 @@ interface PendingRequest {
   timeoutHandle: NodeJS.Timeout;
   resolve: (response: WebRTCApiResponse) => void;
   reject: (error: Error) => void;
-  // Response chunking support
-  expectedChunks?: number;           // Total chunks expected for response
-  receivedChunks?: Map<number, WebRTCApiResponse>; // Map of chunk number to chunk data
-  retryCount?: number;               // Number of retries attempted
-  // Original request data for retries
-  originalRequest?: WebRTCApiRequest; // Store original request for retries
+  expectedChunks?: number;
+  receivedChunks?: Map<number, WebRTCApiResponse>;
+  retryCount?: number;
+  originalRequest?: WebRTCApiRequest;
 }
 
 // Configuration for response chunking and retries
@@ -55,19 +33,18 @@ interface ChunkingConfig {
 }
 
 /**
- * API Communication Service using WebRTC DataChannel
+ * WebRTC API Service for handling fire-and-forget messaging with chunking support
+ * Provides reliable communication over WebRTC data channels with automatic retry logic
  * Leverages existing SIP_Library for WebRTC connection management
- * Implements fire-and-forget messaging with message type based request deduplication
  */
 class WebRTCApiService {
   private sipClient: SipClientInstance | null = null;
-  private pendingRequests: Map<string, PendingRequest> = new Map(); // Map by ID only
-  private readonly REQUEST_TIMEOUT = 10000; // 10 seconds timeout
+  private pendingRequests: Map<string, PendingRequest> = new Map();
+  private readonly REQUEST_TIMEOUT = 10000;
   
-  // Response chunking configuration
   private readonly CHUNKING_CONFIG: ChunkingConfig = {
     maxRetries: 3,
-    retryTimeoutMs: 8000 // 8 seconds for chunk assembly timeout
+    retryTimeoutMs: 8000
   };
 
   /**
@@ -81,19 +58,17 @@ class WebRTCApiService {
 
   /**
    * Set up listener for incoming API responses via DataChannel
+   * Monitors data channel availability and registers message handlers
    */
   private setupDataChannelListener() {
     if (!this.sipClient) return;
-    // Monitor data channel availability and register message handler
     const checkDataChannel = () => {
       const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
       if (dataChannel && dataChannel.readyState === 'open') {
-        // Register our message handler with the Peer2PeerConnection
         this.sipClient.peer2peer.addMessageHandler((event) => {
           this.handleDataChannelMessage(event);
         });
       } else {
-        // Retry checking for data channel
         setTimeout(checkDataChannel, 1000);
       }
     };
@@ -103,7 +78,7 @@ class WebRTCApiService {
 
   /**
    * Handle incoming messages from DataChannel
-   * Distinguishes between API responses and other messages
+   * Processes different data types (Blob, ArrayBuffer, string) and routes to message processor
    */
   private handleDataChannelMessage(event: MessageEvent) {
     let data: string;
@@ -121,48 +96,39 @@ class WebRTCApiService {
 
   /**
    * Process message and check if it's an API response
+   * Handles chunked responses and resolves pending requests
    */
   private processMessage(message: string) {
     try {
       const parsed = JSON.parse(message) as WebRTCApiResponse;
       console.log("📨 Received message:", parsed);
       throw new Error('Test error to check debugger');
-      // Check if this is an API response with ID
       if (parsed.id) {
-        // Look up pending request by ID
         const pendingRequest = this.pendingRequests.get(parsed.id);
         if (pendingRequest) {
           console.log('✅ Received response for request ID:', parsed.id, 'MessageType:', pendingRequest.messageType);
           
-          // Check if this is a chunked response
           if (parsed.isMultipart && parsed.response.totalChunks > 1) {
             this.handleChunkedResponse(parsed, pendingRequest);
           } else {
-            // Single response - validate checksum
             this.validateAndCompleteResponse(parsed, pendingRequest);
           }
         } else {
           console.warn('⚠️ Received response for unknown request ID:', parsed.id);
         }
       } else {
-        // Regular message without ID - log it
         console.log('📨 DataChannel message (no ID):', message);
       }
     } catch (error) {
-      // Not JSON - could be a string response, try to match to pending requests for testing
       console.log('📨 DataChannel message (not JSON):', message);
       
-      // For testing/fake responses: if we have pending requests, try to find the right one
       if (this.pendingRequests.size > 0) {
         console.log('🔧 FAKE RESPONSE: Attempting to match message to pending request');
         
-        // Try to find a suitable pending request based on the message content
         let targetPendingRequest: PendingRequest | undefined;
         
-        // Search through pending requests to find the most appropriate one
         const requestEntries = Array.from(this.pendingRequests.entries());
         for (const [id, pendingRequest] of requestEntries) {
-          // Try to match based on message content and request type
           if (message.toLowerCase().includes('folders') && pendingRequest.messageType.includes('getAvailableFolders')) {
             targetPendingRequest = pendingRequest;
             break;
@@ -187,7 +153,6 @@ class WebRTCApiService {
           }
         }
         
-        // If no specific match found, get the first pending request (fallback)
         if (!targetPendingRequest && this.pendingRequests.size > 0) {
           targetPendingRequest = this.pendingRequests.values().next().value;
         }
@@ -195,9 +160,7 @@ class WebRTCApiService {
         if (targetPendingRequest) {
           let fakeResponse: WebRTCApiResponse;
           
-          // Determine response type based on the message content
           if (message.toLowerCase().includes('folders')) {
-            // Create fake Folders response - return array of folder names as strings
             const fakeBodyData = [
               "Korrespondenz",
               "Verträge", 
@@ -224,7 +187,6 @@ class WebRTCApiService {
             
             console.log(`📋 Generated fake folders response with checksum: ${calculatedChecksum.substring(0, 8)}...`);
           } else if (message.toLowerCase().includes('att')) {
-            // Create fake Documents/Attachments response
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
@@ -612,6 +574,7 @@ class WebRTCApiService {
 
   /**
    * Handle chunked response assembly
+   * Assembles multi-part responses by collecting chunks and validating completeness
    */
   private handleChunkedResponse(chunk: WebRTCApiResponse, pendingRequest: PendingRequest) {
     const totalChunks = chunk.response.totalChunks;
@@ -619,19 +582,16 @@ class WebRTCApiService {
     
     console.log(`📦 Received chunk ${currentChunk}/${totalChunks} for request:`, pendingRequest.messageType);
     
-    // Validate chunk number is within expected range
     if (currentChunk < 1 || currentChunk > totalChunks) {
       console.error(`❌ Invalid chunk number ${currentChunk} (expected 1-${totalChunks}) for request:`, pendingRequest.messageType);
       this.handleChecksumFailure(pendingRequest);
       return;
     }
     
-    // Initialize chunking data if not exists
     if (!pendingRequest.expectedChunks) {
       pendingRequest.expectedChunks = totalChunks;
       pendingRequest.receivedChunks = new Map();
       
-      // Extend timeout for chunk assembly
       clearTimeout(pendingRequest.timeoutHandle);
       pendingRequest.timeoutHandle = setTimeout(() => {
         this.handleChunkTimeout(pendingRequest);
@@ -639,13 +599,11 @@ class WebRTCApiService {
       
       console.log(`🔄 Expecting ${totalChunks} chunks for request:`, pendingRequest.messageType);
     } else if (pendingRequest.expectedChunks !== totalChunks) {
-      // Sanity check: all chunks should report the same total
       console.error(`❌ Inconsistent totalChunks: expected ${pendingRequest.expectedChunks}, got ${totalChunks} for request:`, pendingRequest.messageType);
       this.handleChecksumFailure(pendingRequest);
       return;
     }
     
-    // Check for duplicate chunks
     if (pendingRequest.receivedChunks!.has(currentChunk)) {
       console.warn(`⚠️ Duplicate chunk ${currentChunk} received for request ${pendingRequest.messageType}, ignoring`);
       return;
@@ -657,7 +615,6 @@ class WebRTCApiService {
     const receivedCount = pendingRequest.receivedChunks!.size;
     console.log(`📊 Progress: ${receivedCount}/${totalChunks} chunks received for request:`, pendingRequest.messageType);
     
-    // Check if we have all chunks
     if (receivedCount === totalChunks) {
       console.log('✅ All chunks received, assembling response for:', pendingRequest.messageType);
       this.assembleAndCompleteResponse(pendingRequest);
@@ -666,6 +623,7 @@ class WebRTCApiService {
 
   /**
    * Re-send the original request for retry scenarios
+   * Uses chunking system to reliably transmit the retry request
    */
   private async resendOriginalRequest(pendingRequest: PendingRequest): Promise<void> {
     if (!pendingRequest.originalRequest) {
@@ -684,7 +642,6 @@ class WebRTCApiService {
     try {
       console.log(`🔄 Re-sending original request for ${pendingRequest.messageType}`);
       
-      // Use generic chunking system to re-send the request
       await sendRequestWithChunking(pendingRequest.originalRequest, (chunk) => {
         const message = JSON.stringify(chunk);
         console.log(`📤 Re-sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
@@ -701,6 +658,7 @@ class WebRTCApiService {
 
   /**
    * Handle chunk assembly timeout - retry the request
+   * Implements exponential backoff with configurable retry limits
    */
   private handleChunkTimeout(pendingRequest: PendingRequest) {
     const retryCount = (pendingRequest.retryCount || 0) + 1;
@@ -730,6 +688,7 @@ class WebRTCApiService {
 
   /**
    * Handle checksum failure - retry the request due to data corruption
+   * Resets chunking state and attempts to resend the original request
    */
   private handleChecksumFailure(pendingRequest: PendingRequest) {
     const retryCount = (pendingRequest.retryCount || 0) + 1;
@@ -737,18 +696,15 @@ class WebRTCApiService {
     if (retryCount <= this.CHUNKING_CONFIG.maxRetries) {
       console.log(`🔄 Checksum validation failed for ${pendingRequest.messageType}, retrying (${retryCount}/${this.CHUNKING_CONFIG.maxRetries})`);
       
-      // Reset chunking data for retry
       pendingRequest.expectedChunks = undefined;
       pendingRequest.receivedChunks = undefined;
       pendingRequest.retryCount = retryCount;
       
-      // Clear existing timeout and set new timeout
       clearTimeout(pendingRequest.timeoutHandle);
       pendingRequest.timeoutHandle = setTimeout(() => {
         this.handleChunkTimeout(pendingRequest);
       }, this.CHUNKING_CONFIG.retryTimeoutMs);
       
-      // Re-send the original request
       this.resendOriginalRequest(pendingRequest);
       
     } else {
@@ -759,12 +715,12 @@ class WebRTCApiService {
 
   /**
    * Validate checksum for single responses and complete the request
+   * Performs integrity check and handles corruption by triggering retry
    */
   private validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
     const responseBody = response.response.body || '';
     const expectedChecksum = response.checksum;
     
-    // Only validate checksum if it's provided
     if (expectedChecksum) {
       const actualChecksum = calculateChecksum(responseBody);
       
@@ -773,7 +729,6 @@ class WebRTCApiService {
         console.error(`Expected: ${expectedChecksum}, Actual: ${actualChecksum}`);
         console.error(`Response corrupted during transmission, retrying...`);
         
-        // Treat as corruption and retry the request
         this.handleChecksumFailure(pendingRequest);
         return;
       }
@@ -783,18 +738,17 @@ class WebRTCApiService {
       console.log(`ℹ️ No checksum provided for ${pendingRequest.messageType}, skipping validation`);
     }
     
-    // Checksum valid or not provided - complete the request
     this.completeRequest(pendingRequest, response);
   }
 
   /**
    * Assemble chunks into final response
+   * Reconstructs complete response from ordered chunks with integrity validation
    */
   private assembleAndCompleteResponse(pendingRequest: PendingRequest) {
     const chunks = pendingRequest.receivedChunks!;
     const totalChunks = pendingRequest.expectedChunks!;
     
-    // Sort chunks by chunk number and concatenate bodies
     const sortedChunks: WebRTCApiResponse[] = [];
     const chunkSequence: number[] = [];
     
@@ -812,10 +766,8 @@ class WebRTCApiService {
     
     console.log(`🔄 Assembling chunks in correct sequence: ${chunkSequence.join(' → ')} for request:`, pendingRequest.messageType);
     
-    // Concatenate all chunk bodies
     const assembledBody = sortedChunks.map(chunk => chunk.response.body || '').join('');
     
-    // Create final response using the first chunk as template
     const firstChunk = sortedChunks[0];
     
     // Validate checksum to ensure data integrity
@@ -1000,6 +952,10 @@ class WebRTCApiService {
   /**
    * Get favorite Akten (Cases) via WebRTC
    * @param query - Search parameters with NurFavoriten=true
+  /**
+   * Get favorite Akten with filtering options
+   * @param query - Filter parameters for Akten search
+   * @returns Promise resolving to Akten list matching the criteria
    */
   async getFavoriteAkten(query: AktenQuery) {
     const queryParams = new URLSearchParams();
@@ -1024,6 +980,7 @@ class WebRTCApiService {
   /**
    * Akt Lookup - search in different fields via WebRTC
    * @param searchText - Text to search for in different fields
+   * @returns Promise resolving to matching Akten entries
    */
   async aktLookUp(searchText: string) {
     const queryParams = new URLSearchParams();
@@ -1059,6 +1016,7 @@ class WebRTCApiService {
   /**
    * Remove Akt from favorites
    * @param aktId - The ID of the Akt to remove from favorites
+   * @returns Promise resolving when the removal is complete
    */
   async removeAktFromFavorite(aktId: number) {
     return this.sendRequest(
@@ -1075,6 +1033,7 @@ class WebRTCApiService {
   /**
    * Load Services for a specific Akt via WebRTC
    * @param query - Search parameters for services
+   * @returns Promise resolving to available services for the Akt
    */
   async loadServices(query: LeistungenAuswahlQuery) {
     const queryParams = new URLSearchParams();
@@ -1247,6 +1206,7 @@ class WebRTCApiService {
 
   /**
    * Check if WebRTC connection is ready for API calls
+   * @returns True if data channel is open and ready for communication
    */
   isReady(): boolean {
     const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
