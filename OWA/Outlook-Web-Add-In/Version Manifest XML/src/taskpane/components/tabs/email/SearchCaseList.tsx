@@ -53,7 +53,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
 
   // Transform AktLookUpResponse to match the grid expected format
   const transformedCases = cases.map((aktCase: AktLookUpResponse) => ({
-    id: aktCase.aktId.toString(),
+    id: aktCase.Id.toString(),
     name: aktCase.aKurz,
     causa: aktCase.causa || 'No causa provided'
   }));

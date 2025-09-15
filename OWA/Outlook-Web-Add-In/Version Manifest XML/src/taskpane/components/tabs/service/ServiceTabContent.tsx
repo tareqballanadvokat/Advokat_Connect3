@@ -23,7 +23,7 @@ const ServiceTabContent: React.FC = () => {
   const { selectedAkt, cases } = useAppSelector(state => state.akten);
   
   // Derive case values from selectedAkt
-  const selectedCaseId = selectedAkt?.aktId ?? -1;
+  const selectedCaseId = selectedAkt?.Id ?? -1;
   const selectedCaseName = selectedAkt?.aKurz ?? '';
   
   // Refresh trigger for registered services
@@ -32,7 +32,7 @@ const ServiceTabContent: React.FC = () => {
   // Handler for case selection
   const setCaseHandler = (id: string) => {
     // Find the selected case from the cases array and set it in aktenSlice
-    const selectedCase = cases.find(c => c.aktId === Number.parseInt(id));
+    const selectedCase = cases.find(c => c.Id === Number.parseInt(id));
     dispatch(setSelectedAkt(selectedCase || null));
   };
   

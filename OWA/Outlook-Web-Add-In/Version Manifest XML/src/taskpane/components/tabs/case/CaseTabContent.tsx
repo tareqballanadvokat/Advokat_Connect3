@@ -141,7 +141,7 @@ const CaseTabContent: React.FC = () => {
         // Only load documents if they haven't been loaded for this Akt yet
         const hasDocuments = nodes.some(n => n.rootId === aktId && !n.isStructure);
         if (!hasDocuments && !documentsLoading) {
-          dispatch(getAktDokumenteAsync({ aktId, limit: 100 }));
+          dispatch(getAktDokumenteAsync({ aktId, Count: 100 }));
         }
       }
     });

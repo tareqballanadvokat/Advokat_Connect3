@@ -35,7 +35,7 @@ const EmailTabContent: React.FC = () => {
   const { attachmentSelected } = useAppSelector(state => state.email);
   
   // Derive case values from selectedAkt
-  const selectedCaseId = selectedAkt?.aktId ?? -1;
+  const selectedCaseId = selectedAkt?.Id ?? -1;
   const selectedCaseName = selectedAkt?.aKurz ?? '';
   
   // Get service state
@@ -69,7 +69,7 @@ const EmailTabContent: React.FC = () => {
   // Handler for case selection
   const setCaseHandler = async (id: string) => {
     // Find the selected case from the cases array and set it in aktenSlice
-    const selectedCase = cases.find(c => c.aktId === Number.parseInt(id));
+    const selectedCase = cases.find(c => c.Id === Number.parseInt(id));
     dispatch(setSelectedAkt(selectedCase || null));
   }
   
@@ -153,7 +153,6 @@ const EmailTabContent: React.FC = () => {
           dokumentArt: emailDokumentArt, // Properly detected: sent vs received
           outlookId: messageId,
           anzahlMailAnhänge: attachmentSelected.filter(i => i.type === 'A').length,
-          dateigrößeInBytes: emailContent.length,
           dateiName: `${email.subject || 'Email'}.eml`,
           ordnerName: getFolderName(firstE)
         };
@@ -202,7 +201,6 @@ const EmailTabContent: React.FC = () => {
               dokumentArt: DokumentArt.Keine, // Normal attachment
               outlookId: messageId,
               anzahlMailAnhänge: 0, // This is an attachment, not an email with attachments
-              dateigrößeInBytes: fileSizeInBytes,
               dateiName: attachment.name,
               ordnerName: getFolderName(attachment)
             };

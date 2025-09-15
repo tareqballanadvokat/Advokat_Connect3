@@ -4,11 +4,10 @@ export interface AktenQuery {
   AKurzLike?: string;
   Count?: number;
   NurFavoriten?: boolean;
-  Causa?: boolean;
 }
 
 export interface AktLookUpResponse {
-  aktId: number;
+  Id: number;
   aKurz: string;
   causa?: string;
 }

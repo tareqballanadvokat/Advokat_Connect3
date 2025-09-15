@@ -20,16 +20,16 @@ const TransferAndAttachment: React.FC = () => {
 
   // Load folders whenever selectedAkt changes and if there are no folders loaded
   useEffect(() => {
-    if (selectedAkt?.aktId != null && selectedAkt.aktId !== -1 && folderOptions.length === 0 && !foldersLoading) {
-      console.log('Loading folders for case:', selectedAkt.aktId);
-      dispatch(getAvailableFoldersAsync(selectedAkt.aktId));
+    if (selectedAkt?.Id != null && selectedAkt.Id !== -1 && folderOptions.length === 0 && !foldersLoading) {
+      console.log('Loading folders for case:', selectedAkt.Id);
+      dispatch(getAvailableFoldersAsync(selectedAkt.Id));
     }
-  }, [selectedAkt?.aktId, folderOptions.length, foldersLoading, dispatch]);
+  }, [selectedAkt?.Id, folderOptions.length, foldersLoading, dispatch]);
 
   useEffect(() => {
     (async () => {
       // Don't load anything if no case is selected
-      if (!selectedAkt?.aktId) {
+      if (!selectedAkt?.Id) {
         setItems([]);
         setLoading(false);
         return;
@@ -45,7 +45,7 @@ const TransferAndAttachment: React.FC = () => {
         // Get saved documents from Advokat via WebRTC
         const documentsResponse = await webRTCApiService.GetDocuments({
           outlookEmailId: messageId,
-          aktId: selectedAkt.aktId
+          aktId: selectedAkt.Id
         });
         let savedDocuments: DokumentResponse[] = [];
         
@@ -132,7 +132,7 @@ const TransferAndAttachment: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, [selectedAkt?.aktId]);
+  }, [selectedAkt?.Id]);
 
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;

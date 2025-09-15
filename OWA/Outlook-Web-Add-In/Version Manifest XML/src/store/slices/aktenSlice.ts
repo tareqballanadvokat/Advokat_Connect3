@@ -61,12 +61,12 @@ export const getFavoriteAktenAsync = createAsyncThunk(
 // New async thunk for getting documents for a specific Akt
 export const getAktDokumenteAsync = createAsyncThunk(
   'akten/getAktDokumente',
-  async (params: { aktId: number; limit?: number }) => {
+  async (params: { aktId: number; Count?: number }) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.GetDocuments({
       aktId: params.aktId,
-      limit: params.limit
+      Count: params.Count
     });
     
     if (response.response.statusCode === 200) {
@@ -165,22 +165,22 @@ export const aktLookUpAsync = createAsyncThunk(
       // Create fake search results based on search text
       const fakeResults = [
         {
-          aktId: 1001,
+          Id: 1001,
           aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2024-001`,
           causa: 'Litigation matter - Contract dispute resolution'
         },
         {
-          aktId: 1002,
+          Id: 1002,
           aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2024-002`, 
           causa: 'Employment law case - Wrongful termination'
         },
         {
-          aktId: 1003,
+          Id: 1003,
           aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2024-003`,
           causa: 'Corporate law - Merger and acquisition support'
         },
         {
-          aktId: 1004,
+          Id: 1004,
           aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2023-045`,
           causa: 'Real estate transaction - Commercial property'
         }

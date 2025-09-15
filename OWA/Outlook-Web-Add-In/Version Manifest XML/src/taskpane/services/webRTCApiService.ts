@@ -417,7 +417,7 @@ class WebRTCApiService {
                 headers: {},
                 body: JSON.stringify([
                   {
-                    PersonId: 2001,
+                    Id: 2001,
                     NKurz: `DEMO-P001`,
                     IstFirma: false,
                     Titel: 'Dr.',
@@ -436,7 +436,7 @@ class WebRTCApiService {
                     ]
                   },
                   {
-                    PersonId: 2002,
+                    Id: 2002,
                     NKurz: `DEMO-P002`,
                     IstFirma: false,
                     Vorname: 'Anna',
@@ -964,7 +964,6 @@ class WebRTCApiService {
     if (query.AKurzLike) queryParams.append('AKurzLike', query.AKurzLike);
     if (query.Count) queryParams.append('Count', query.Count.toString());
     if (query.NurFavoriten !== undefined) queryParams.append('NurFavoriten', query.NurFavoriten.toString());
-    if (query.Causa !== undefined) queryParams.append('Causa', query.Causa.toString());
 
     return this.sendRequest(
       'akten.getFavoriteAkten',
@@ -1117,7 +1116,7 @@ class WebRTCApiService {
     if (query.dokumentArten && query.dokumentArten.length > 0) {
       query.dokumentArten.forEach(art => queryParams.append('dokumentArten', art.toString()));
     }
-    if (query.limit) queryParams.append('limit', query.limit.toString());
+    if (query.Count) queryParams.append('Count', query.Count.toString());
 
     return this.sendRequest(
       'dokument.getDocuments',

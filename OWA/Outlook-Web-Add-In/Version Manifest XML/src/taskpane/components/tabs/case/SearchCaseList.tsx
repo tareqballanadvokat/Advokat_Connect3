@@ -137,13 +137,13 @@ const SearchCaseList: React.FC = () => {
             icon: 'favorites',
             hint: 'Add to Favorites',
             cssClass: 'star-button-gold',
-            visible: e => !isInFavorites(e.row.data.aktId),
-            onClick: e => handleAddToFavorites(e.row.data.aktId, e.row.data.aKurz)
+            visible: e => !isInFavorites(e.row.data.Id),
+            onClick: e => handleAddToFavorites(e.row.data.Id, e.row.data.aKurz)
           },
           {
             icon: 'check',
             hint: 'Already in Favorites',
-            visible: e => isInFavorites(e.row.data.aktId),
+            visible: e => isInFavorites(e.row.data.Id),
             disabled: true
           }
         ]}

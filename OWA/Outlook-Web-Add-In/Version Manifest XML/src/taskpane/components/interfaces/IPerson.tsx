@@ -14,7 +14,7 @@ export interface AdresseData {
 }
 
 export interface PersonLookUpResponse {
-  PersonId: number;
+  Id: number;
   NKurz: string;
   IstFirma?: boolean;
   Titel?: string;

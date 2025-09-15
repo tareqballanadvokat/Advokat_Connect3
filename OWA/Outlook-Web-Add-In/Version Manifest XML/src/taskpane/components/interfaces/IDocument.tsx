@@ -20,7 +20,6 @@ export interface DokumentPostData {
   dokumentArt: DokumentArt;
   outlookId?: string;
   anzahlMailAnhänge: number;
-  dateigrößeInBytes?: number;
   dateiName?: string;
   ordnerName?: string;
   
@@ -57,7 +56,7 @@ export interface DokumenteQuery {
   aktId?: number;
   outlookEmailId?: string;
   dokumentArten?: DokumentArt[];
-  limit?: number;
+  Count?: number;
 }
 
 // Interface for transfer attachment items with document information

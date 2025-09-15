@@ -69,7 +69,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   };
 
   const handleAddToFavorites = (person: PersonLookUpResponse) => {
-    onPersonSelect(person.PersonId, getDisplayName(person));
+    onPersonSelect(person.Id, getDisplayName(person));
   };
 
 
@@ -124,7 +124,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
           showInfo
         />
         <Column
-          dataField="PersonId"
+          dataField="Id"
           caption="Person ID"
           visible={false}
           alignment="left"
@@ -154,13 +154,13 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
               icon: 'favorites',
               hint: 'Add to favorites',
               cssClass: 'star-button-gold',
-              visible: e => !isInFavorites(e.row.data.PersonId),
+              visible: e => !isInFavorites(e.row.data.Id),
               onClick: (e) => handleAddToFavorites(e.row.data)
             },
             {
               icon: 'check',
               hint: 'Already in favorites',
-              visible: e => isInFavorites(e.row.data.PersonId),
+              visible: e => isInFavorites(e.row.data.Id),
               disabled: true
             }
           ]}
