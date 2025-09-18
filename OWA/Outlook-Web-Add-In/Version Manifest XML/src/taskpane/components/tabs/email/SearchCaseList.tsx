@@ -51,13 +51,6 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     }
   };
 
-  // Transform AktLookUpResponse to match the grid expected format
-  const transformedCases = cases.map((aktCase: AktLookUpResponse) => ({
-    id: aktCase.Id.toString(),
-    name: aktCase.aKurz,
-    causa: aktCase.causa || 'No causa provided'
-  }));
-
   return (
     <div>
       <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -97,7 +90,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
       {/* Results grid */}
       <DataGrid
         className="compact-grid"
-        dataSource={transformedCases}
+        dataSource={cases}
         keyExpr="id"               
         showBorders={false}
         visible={gridVisible && !loading}
@@ -122,8 +115,8 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
           alignment="left"
         />
         <Column
-          dataField="name"
-          caption="Name"
+          dataField="aKurz"
+          caption="Kürzel"
           alignment="left"
         />
         <Column

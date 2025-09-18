@@ -70,6 +70,22 @@ export function createProtocolRequest(method: string, url: string, headers: Reco
   const timestamp = Date.now();
   const protocolId = createProtocolId(guid);
   
+  let processedBody: string | undefined;
+  
+  // Process body if it exists
+  if (body) {
+    // Convert body to string first if it's not already
+    const bodyString = typeof body === 'string' ? body : JSON.stringify(body);
+    console.log("📤 Original request body:", bodyString);
+    // Base64 encode the body for POST requests
+    if (method.toUpperCase() === 'POST') {
+      processedBody = btoa(bodyString); // Base64 encode for POST requests
+      console.log('📤 POST request body base64 encoded (length: original=' + bodyString.length + ', encoded=' + processedBody.length + ')');
+    } else {
+      processedBody = bodyString;
+    }
+  }
+  
   // Create the nested request structure
   const requestData = {
     timestamp,
@@ -78,7 +94,7 @@ export function createProtocolRequest(method: string, url: string, headers: Reco
     method,
     uri: url,
     headers,
-    ...(body && { body: typeof body === 'string' ? body : JSON.stringify(body) })
+    ...(processedBody && { body: processedBody })
   };
   
   // Calculate checksum of the request data

@@ -2,6 +2,14 @@
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { sipClientService } from './sipClientService';
 import { webRTCApiService } from './webRTCApiService';
+import { store } from '../../store';
+import { 
+  startAuthentication, 
+  authenticationSuccess, 
+  authenticationFailure, 
+  selectAuthCredentials,
+  selectIsAuthenticated 
+} from '../../store/slices/authSlice';
 
 export interface ConnectionState {
   isConnected: boolean;
@@ -10,6 +18,8 @@ export interface ConnectionState {
   isConnectionEstablished: boolean;
   isPeerConnected: boolean;
   isDataChannelOpen: boolean;
+  isAuthenticated: boolean;
+  isAuthenticating: boolean;
   connectionStatus: string;
   lastError?: string;
   reconnectAttempts: number;
@@ -74,6 +84,8 @@ export class WebRTCConnectionManager {
       isConnectionEstablished: false,
       isPeerConnected: false,
       isDataChannelOpen: false,
+      isAuthenticated: false,
+      isAuthenticating: false,
       connectionStatus: 'Initializing...',
       reconnectAttempts: 0
     };
@@ -128,7 +140,9 @@ export class WebRTCConnectionManager {
       this.sipClient = await sipClientService.initialize();
       
       // Initialize WebRTC API service
-      webRTCApiService.initialize(this.sipClient);
+      if (this.sipClient) {
+        webRTCApiService.initialize(this.sipClient);
+      }
       
       // Wait for full connection establishment
       await this.waitForFullConnection();
@@ -139,7 +153,10 @@ export class WebRTCConnectionManager {
         reconnectAttempts: 0,
         lastSuccessfulConnection: new Date()
       });
-      this.updateConnectionStatus('Connected and ready for API calls');
+      this.updateConnectionStatus('Connected - authenticating with API...');
+      
+      // Automatically authenticate after connection is established
+      await this.performAuthentication();
       
       // Clear any existing reconnect timer
       this.clearReconnectTimer();
@@ -183,6 +200,8 @@ export class WebRTCConnectionManager {
       isConnectionEstablished: false,
       isPeerConnected: false,
       isDataChannelOpen: false,
+      isAuthenticated: false,
+      isAuthenticating: false,
       reconnectAttempts: 0
     });
     this.updateConnectionStatus('Disconnected');
@@ -304,6 +323,68 @@ export class WebRTCConnectionManager {
   }
 
   /**
+   * Perform authentication with the remote API
+   * This is automatically called after the WebRTC connection is established
+   */
+  private async performAuthentication(): Promise<void> {
+    try {
+      this.updateConnectionState({ isAuthenticating: true });
+      store.dispatch(startAuthentication());
+
+      // Wait a moment for the data channel to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Get credentials from Redux store
+      const credentials = selectAuthCredentials(store.getState());
+      
+      console.log('🔐 Attempting authentication with credentials:', {
+        grant_type: credentials.grant_type,
+        client_id: credentials.client_id,
+        username: credentials.username,
+        hasPassword: !!credentials.password
+      });
+
+      // Prepare authentication request
+      const authRequest = {
+        grant_type: credentials.grant_type,
+        client_id: credentials.client_id,
+        client_secret: credentials.client_secret,
+        username: credentials.username,
+        password: credentials.password
+      };
+
+      // Send authentication request via WebRTC
+      const authResponse = await webRTCApiService.authenticate(authRequest);
+      
+      // Update Redux store with authentication success
+      store.dispatch(authenticationSuccess(authResponse));
+      
+      this.updateConnectionState({ 
+        isAuthenticated: true, 
+        isAuthenticating: false 
+      });
+      this.updateConnectionStatus('Connected and authenticated - ready for API calls');
+      
+      console.log('✅ Authentication successful');
+      
+    } catch (error) {
+      console.error('❌ Authentication failed:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+      store.dispatch(authenticationFailure(errorMessage));
+      
+      this.updateConnectionState({ 
+        isAuthenticated: false, 
+        isAuthenticating: false,
+        lastError: errorMessage
+      });
+      this.updateConnectionStatus(`Connected but authentication failed: ${errorMessage}`);
+      
+      throw error;
+    }
+  }
+
+  /**
    * Get current connection state
    */
   getConnectionState(): ConnectionState {
@@ -337,6 +418,7 @@ export class WebRTCConnectionManager {
   isReady(): boolean {
     return this.connectionState.isConnected && 
            this.connectionState.isDataChannelOpen && 
+           this.connectionState.isAuthenticated &&
            this.connectionHealth.isHealthy;
   }
 

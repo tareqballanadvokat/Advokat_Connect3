@@ -50,6 +50,8 @@ export const useWebRTCConnectionManager = (
     isConnectionEstablished: false,
     isPeerConnected: false,
     isDataChannelOpen: false,
+    isAuthenticated: false,
+    isAuthenticating: false,
     connectionStatus: 'Initializing...',
     reconnectAttempts: 0
   });

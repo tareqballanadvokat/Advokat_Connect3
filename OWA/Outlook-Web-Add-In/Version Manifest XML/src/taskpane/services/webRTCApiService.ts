@@ -3,7 +3,10 @@ import { WebRTCApiRequest, WebRTCApiResponse } from '../components/interfaces/IW
 import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
 import { DokumentPostData, DokumenteQuery } from '../components/interfaces/IDocument';
 import { PersonenQuery } from '../components/interfaces/IPerson';
+import { IAuthRequest, IAuthResponse } from '../components/interfaces/IAuth';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
+import { store } from '../../store';
+import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlice';
 import {
   calculateChecksum,
   createProtocolRequest,
@@ -37,15 +40,93 @@ interface ChunkingConfig {
  * Provides reliable communication over WebRTC data channels with automatic retry logic
  * Leverages existing SIP_Library for WebRTC connection management
  */
-class WebRTCApiService {
+export class WebRTCApiService {
   private sipClient: SipClientInstance | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map();
-  private readonly REQUEST_TIMEOUT = 10000;
+  private readonly REQUEST_TIMEOUT = 100000;
   
   private readonly CHUNKING_CONFIG: ChunkingConfig = {
     maxRetries: 3,
-    retryTimeoutMs: 8000
+    retryTimeoutMs: 80000
   };
+
+  /**
+   * Decode base64 response body with comprehensive logging
+   * @param body - Base64 encoded response body
+   * @param messageType - Message type for logging context
+   * @returns Decoded response body or original if not base64
+   */
+  private decodeResponseBody(body: string | undefined, messageType: string): string {
+    if (!body) {
+      console.log(`📥 Response body is empty for ${messageType}`);
+      return '';
+    }
+
+    console.log(`📥 Raw response body received for ${messageType} (length: ${body.length})`);
+    console.log(`📥 Raw response body content: "${body}"`);
+
+    try {
+      // Attempt to decode base64
+      const decoded = atob(body);
+      console.log(`✅ Successfully decoded base64 response for ${messageType} (decoded length: ${decoded.length})`);
+      console.log(`📥 Decoded response content: "${decoded}"`);
+      return decoded;
+    } catch (error) {
+      console.log(`ℹ️ Response body is not base64 encoded for ${messageType}, using as-is`);
+      console.log(`📥 Non-base64 response content: "${body}"`);
+      return body;
+    }
+  }
+
+  /**
+   * Create form data string from authentication request
+   * @param authRequest - Authentication request data
+   * @returns Form data string in URL-encoded format
+   */
+  private createFormData(authRequest: IAuthRequest): string {
+    // Create URL-encoded form data in the exact format requested
+    const formParams = [
+      `client_id=${encodeURIComponent(authRequest.client_id)}`,
+      `client_secret=${encodeURIComponent(authRequest.client_secret || '')}`,
+      `grant_type=${encodeURIComponent(authRequest.grant_type)}`,
+      `username=${encodeURIComponent(authRequest.username || '')}`,
+      `password=${encodeURIComponent(authRequest.password || '')}`
+    ];
+    
+    const formData = formParams.join('&');
+
+    console.log(`📤 Created URL-encoded form data:`);
+    console.log(`📤 Form data content: ${formData}`);
+
+    return formData;
+  }
+
+  /**
+   * Create headers for WebRTC requests with automatic authorization
+   * @param baseHeaders - Base headers to include
+   * @param messageType - Message type to determine if authorization is needed
+   * @returns Headers object with authorization if needed
+   */
+  private createRequestHeaders(baseHeaders: Record<string, string>, messageType: string): Record<string, string> {
+    const requestHeaders = { ...baseHeaders };
+    
+    // Add Authorization header for all non-authentication requests
+    if (!messageType.includes('auth.')) {
+      const state = store.getState();
+      const token = selectAuthToken(state);
+      const isTokenValid = selectIsTokenValid(state);
+      
+      if (token && isTokenValid) {
+        requestHeaders['Authorization'] = `Bearer ${token}`;
+        console.log('🔑 Added Authorization header to request:', messageType);
+      } else {
+        console.warn('⚠️ No valid token available for authenticated request:', messageType);
+        // You might want to trigger token refresh or reject the request here
+      }
+    }
+    
+    return requestHeaders;
+  }
 
   /**
    * Initialize with SIP client instance
@@ -101,8 +182,8 @@ class WebRTCApiService {
   private processMessage(message: string) {
     try {
       const parsed = JSON.parse(message) as WebRTCApiResponse;
-      console.log("📨 Received message:", parsed);
-      throw new Error('Test error to check debugger');
+      console.log("📨 Received message (processMessage method):", parsed);
+      debugger;
       if (parsed.id) {
         const pendingRequest = this.pendingRequests.get(parsed.id);
         if (pendingRequest) {
@@ -147,7 +228,7 @@ class WebRTCApiService {
           } else if (message.toLowerCase().includes('favoritepersons') && pendingRequest.messageType.includes('getFavoritePersons')) {
             targetPendingRequest = pendingRequest;
             break;
-          } else if (message.toLowerCase().startsWith('person') && pendingRequest.messageType.includes('person')) {
+          } else if (message.toLowerCase().startsWith('akten')) {
             targetPendingRequest = pendingRequest;
             break;
           }
@@ -539,17 +620,17 @@ class WebRTCApiService {
                 headers: {},
                 body: JSON.stringify([
                   {
-                    aktId: 12348,
+                    Id: 12348,
                     aKurz: "FAKE-2024-001",
                     causa: "Sample case triggered by: " + message
                   },
                   {
-                    aktId: 12349,
+                    Id: 12349,
                     aKurz: "FAKE-2024-002",
                     causa: "Second test case - Contract review"
                   },
                   {
-                    aktId: 12350,
+                    Id: 12350,
                     aKurz: "FAKE-2024-003",
                     causa: "Third test case - Legal dispute"
                   }
@@ -718,15 +799,22 @@ class WebRTCApiService {
    * Performs integrity check and handles corruption by triggering retry
    */
   private validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
-    const responseBody = response.response.body || '';
+    const rawResponseBody = response.response.body || '';
+    console.log(`📥 Processing single response for ${pendingRequest.messageType}`);
+    
+    // Decode base64 response body
+    const decodedBody = this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
+    
     const expectedChecksum = response.checksum;
     
     if (expectedChecksum) {
-      const actualChecksum = calculateChecksum(responseBody);
+      // Calculate checksum using the original response object with base64-encoded body
+      const actualChecksum = calculateChecksum(JSON.stringify(response.response));
       
       if (actualChecksum !== expectedChecksum) {
         console.error(`❌ Checksum mismatch for single response ${pendingRequest.messageType}`);
         console.error(`Expected: ${expectedChecksum}, Actual: ${actualChecksum}`);
+        console.error(`Response object used for checksum:`, response.response);
         console.error(`Response corrupted during transmission, retrying...`);
         
         this.handleChecksumFailure(pendingRequest);
@@ -738,7 +826,16 @@ class WebRTCApiService {
       console.log(`ℹ️ No checksum provided for ${pendingRequest.messageType}, skipping validation`);
     }
     
-    this.completeRequest(pendingRequest, response);
+    // Create response with decoded body
+    const processedResponse: WebRTCApiResponse = {
+      ...response,
+      response: {
+        ...response.response,
+        body: decodedBody
+      }
+    };
+    
+    this.completeRequest(pendingRequest, processedResponse);
   }
 
   /**
@@ -767,16 +864,29 @@ class WebRTCApiService {
     console.log(`🔄 Assembling chunks in correct sequence: ${chunkSequence.join(' → ')} for request:`, pendingRequest.messageType);
     
     const assembledBody = sortedChunks.map(chunk => chunk.response.body || '').join('');
+    console.log(`📥 Raw assembled body for ${pendingRequest.messageType} (length: ${assembledBody.length})`);
+    
+    // Decode base64 response body after assembly
+    const decodedBody = this.decodeResponseBody(assembledBody, pendingRequest.messageType);
     
     const firstChunk = sortedChunks[0];
     
-    // Validate checksum to ensure data integrity
+    // Create the complete response object with assembled base64 body for checksum calculation
+    const assembledResponseForChecksum = {
+      ...firstChunk.response,
+      totalChunks: 0,     // Reset to 0 for assembled response
+      currentChunk: 0,    // Reset to 0 for assembled response
+      body: assembledBody  // Use base64-encoded assembled body for checksum
+    };
+    
+    // Validate checksum to ensure data integrity (using entire response object with base64 body)
     const expectedChecksum = firstChunk.checksum;
-    const actualChecksum = calculateChecksum(assembledBody);
+    const actualChecksum = calculateChecksum(JSON.stringify(assembledResponseForChecksum));
     
     if (expectedChecksum && actualChecksum !== expectedChecksum) {
       console.error(`❌ Checksum mismatch for request ${pendingRequest.messageType}`);
       console.error(`Expected: ${expectedChecksum}, Actual: ${actualChecksum}`);
+      console.error(`Response object used for checksum:`, assembledResponseForChecksum);
       console.error(`Response corrupted during transmission, retrying...`);
       
       // Treat as corruption and retry the request
@@ -793,11 +903,11 @@ class WebRTCApiService {
         ...firstChunk.response,
         totalChunks: 0,
         currentChunk: 0,
-        body: assembledBody
+        body: decodedBody
       }
     };
 
-    console.log(`✅ Response assembled from ${totalChunks} chunks, total size: ${assembledBody.length} chars`);
+    console.log(`✅ Response assembled from ${totalChunks} chunks, final decoded size: ${decodedBody.length} chars`);
     this.completeRequest(pendingRequest, finalResponse);
   }
 
@@ -858,8 +968,12 @@ class WebRTCApiService {
         }
       }
 
+      // Create headers with automatic authorization
+      const requestHeaders = this.createRequestHeaders(headers, messageType);
+
       // Create full protocol request
-      const protocolRequest = createProtocolRequest(method, url, headers, body);
+      const protocolRequest = createProtocolRequest(method, url, requestHeaders, body);
+      console.log('📝 Created protocol request:', protocolRequest);
       
       // Add messageType to the request
       const requestWithMessageType = {
@@ -1201,6 +1315,69 @@ class WebRTCApiService {
         'Accept': 'application/json'
       }
     );
+  }
+
+  /**
+   * Authenticate with API through WebRTC
+   * This should be the first call made to establish authentication with the remote API
+   * @param authRequest - Authentication request containing credentials
+   * @returns Promise with authentication response containing token and expiration
+   */
+  async authenticate(authRequest: IAuthRequest): Promise<IAuthResponse> {
+    console.log('🔐 Starting authentication via WebRTC...');
+    console.log('🔐 Authentication request:', authRequest);
+    
+    // Create form data for authentication
+    const formData = this.createFormData(authRequest);
+    
+    const response = await this.sendRequest(
+      'auth.authenticate',
+      'POST',
+      'connect/token',
+      {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      formData
+    );
+
+    console.log('🔐 Authentication response received');
+    
+    // Parse the response body to get authentication details
+    if (response.response?.body && typeof response.response.body === 'string') {
+      try {
+        const authData = JSON.parse(response.response.body) as IAuthResponse;
+        console.log('✅ Authentication successful - token received');
+        return authData;
+      } catch (error) {
+        console.error('❌ Failed to parse authentication response:', error);
+        throw new Error('Invalid authentication response format');
+      }
+    } else if (response.response?.body && typeof response.response.body === 'object') {
+      // Response body is already an object
+      console.log('✅ Authentication successful - token received');
+      return response.response.body as IAuthResponse;
+    } else {
+      console.error('❌ Authentication failed - no token in response');
+      throw new Error('Authentication failed - no token received');
+    }
+  }
+
+  /**
+   * Refresh authentication token
+   * @param refreshToken - Refresh token from previous authentication
+   * @returns Promise with new authentication response
+   */
+  async refreshToken(refreshToken: string): Promise<IAuthResponse> {
+    console.log('🔄 Refreshing authentication token via WebRTC...');
+    
+    const refreshRequest: IAuthRequest = {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: 'advokat.client.web'
+    };
+
+    return this.authenticate(refreshRequest);
   }
 
   /**
