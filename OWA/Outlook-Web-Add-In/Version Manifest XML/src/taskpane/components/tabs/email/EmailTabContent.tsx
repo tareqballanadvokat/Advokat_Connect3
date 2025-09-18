@@ -1,6 +1,6 @@
 // src/taskpane/components/tabs/email/EmailTabContent.tsx
 import React, { useEffect, useState } from 'react';
-import SearchCaseList from './SearchCaseList'; 
+import SearchCaseList from '../shared/SearchCaseList'; 
 import notify from 'devextreme/ui/notify';
 import EmailSend from './EmailSend'; 
 import RegisteredEmails from './RegisteredEmails';  
@@ -10,6 +10,7 @@ import { getEmailAttachmentData, getEmailContentAsync, IsComposeMode } from '@ho
 import TransferAndAttachment from './TransferAndAttachment';
 import { TransferAttachmentItem, DokumentPostData, DokumentArt } from '@components/interfaces/IDocument';
 import { getDokumentArt } from '@components/interfaces/IEmail';
+import { AktLookUpResponse } from '@components/interfaces/IAkten';
 import { LeistungPostData } from '@components/interfaces/IService';
 import { webRTCApiService } from '../../../services/webRTCApiService';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
@@ -67,10 +68,9 @@ const EmailTabContent: React.FC = () => {
   };
 
   // Handler for case selection
-  const setCaseHandler = async (id: string) => {
-    // Find the selected case from the cases array and set it in aktenSlice
-    const selectedCase = cases.find(c => c.Id === Number.parseInt(id));
-    dispatch(setSelectedAkt(selectedCase || null));
+  const setCaseHandler = async (selectedCase: AktLookUpResponse) => {
+    // Set the selected case object directly in aktenSlice
+    dispatch(setSelectedAkt(selectedCase));
   }
   
   // Handler for sending email

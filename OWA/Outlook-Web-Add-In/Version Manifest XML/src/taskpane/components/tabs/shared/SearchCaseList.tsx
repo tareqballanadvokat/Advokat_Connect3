@@ -1,41 +1,60 @@
-// src/taskpane/components/tabs/email/SearchAndCaseList.tsx
+// src/taskpane/components/tabs/email/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { aktLookUpAsync, clearCases, setSearchTerm } from '../../../../store/slices/aktenSlice';
+import { aktLookUpAsync, setSearchTerm, clearCases } from '../../../../store/slices/aktenSlice';
 import { AktLookUpResponse } from '../../interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
+import SelectedAktIndicator from '../../shared/SelectedAktIndicator';
 
-interface Props {
-  onCaseSelect: (caseId: string) => void;
+// Updated interface to match the new API model
+interface SearchProps {
+  onCaseSelect: (selectedCase: AktLookUpResponse) => void;
 }
 
-const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
+const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
   const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
+  
+  const [gridVisible, setGridVisible] = useState(false);
 
-  const handleSearch = async (searchQuery?: string) => {
-    const query = searchQuery || searchTerm.trim();
+  // Handle Redux error states
+  useEffect(() => {
+    if (error) {
+      notify(error, 'error', 5000);
+    }
+  }, [error]);
+
+  // Update grid visibility when cases change
+  useEffect(() => {
+    setGridVisible(cases.length > 0);
+  }, [cases]);
+
+  const handleSearch = async () => {
+    const filter = searchTerm.trim();
     
-    if (!query) {
+    if (!filter) {
       dispatch(clearCases());
+      setGridVisible(false);
       return;
     }
-    
+
     try {
-      await dispatch(aktLookUpAsync(query)).unwrap();
+      // Dispatch Redux action to search for cases
+      // Using aktLookUpAsync - includes fake response for testing when WebRTC is not ready
+      await dispatch(aktLookUpAsync(filter)).unwrap();
     } catch (error) {
       console.error('Search failed:', error);
-      notify('Search failed', 'error', 5000);
+      notify('Search cases failed', 'error', 5000);
     }
   };
 
   return (
     <div>
       <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        Search Cases via WebRTC
+        Search Cases
       </h3>
 
       {/* Search panel */}
@@ -43,43 +62,43 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
         <TextBox
           width={250}
           stylingMode="outlined"
-          placeholder="Search by Kürzel..."
+          placeholder="Search by AktId (123) or Kürzel (ABC)..."
           value={searchTerm}
           onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
-          onEnterKey={() => handleSearch()}
+          onEnterKey={handleSearch}
+          disabled={loading}
         />
         <Button 
           icon="search" 
           stylingMode="contained" 
-          onClick={() => handleSearch()}
+          onClick={handleSearch}
           disabled={loading}
+          text={loading ? "Searching..." : ""}
         />
       </div>
 
-      {/* Error message */}
-      {error && (
-        <div style={{ color: 'red', marginBottom: 16, padding: 8, backgroundColor: '#fee' }}>
-          Error: {error}
-        </div>
-      )}
+      {/* Selected Akt Indicator */}
+      <SelectedAktIndicator />
 
       {/* Loading indicator */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: 16 }}>
-          Searching via WebRTC...
+        <div style={{ textAlign: 'center', padding: '10px' }}>
+          <span>Searching cases...</span>
         </div>
       )}
 
+      {/* Results grid */}
       <DataGrid
         className="compact-grid"
         dataSource={cases}
-        keyExpr="aktId"
+        keyExpr="Id"               
         showBorders={false}
+        visible={gridVisible && !loading}
         showColumnLines={false}
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText={loading ? "Loading..." : "No cases found. Enter a Kürzel."}
+        noDataText="No cases found. Try a different search term."
       >
         <Paging defaultPageSize={5} />
         <Pager
@@ -88,11 +107,11 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
           allowedPageSizes={[5]}
           showInfo
         />
-        
+        {/* -------------------------------- */}
         <Column
-          dataField="aktId"
-          caption="Akt ID"
-          visible={false}
+          dataField="Id"
+          caption="Case ID"
+          visible={false} 
           alignment="left"
         />
         <Column
@@ -112,7 +131,10 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
             {
               icon: 'arrowright',
               hint: 'Select',
-              onClick: e => onCaseSelect(e.row.data.aKurz)
+              onClick: e => {
+                const selectedCase = e.row.data as AktLookUpResponse;
+                 onCaseSelect(selectedCase);
+              }
             }
           ]}
         />
@@ -121,4 +143,4 @@ const SearchAndCaseList: React.FC<Props> = ({ onCaseSelect }) => {
   );
 };
 
-export default SearchAndCaseList;
+export default SearchCaseList;

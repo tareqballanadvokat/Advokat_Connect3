@@ -2,10 +2,11 @@
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '../shared/ServiceSection';
-import SearchCaseList from '../email/SearchCaseList';
+import SearchCaseList from '../shared/SearchCaseList';
 import { setSelectedAkt } from '@store/slices/aktenSlice';
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 import { LeistungPostData } from '@components/interfaces/IService';
+import { AktLookUpResponse } from '@components/interfaces/IAkten';
 import { webRTCApiService } from '../../../services/webRTCApiService';
 import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
@@ -30,10 +31,9 @@ const ServiceTabContent: React.FC = () => {
   const [refreshFlag, setRefreshFlag] = React.useState(0);
 
   // Handler for case selection
-  const setCaseHandler = (id: string) => {
-    // Find the selected case from the cases array and set it in aktenSlice
-    const selectedCase = cases.find(c => c.Id === Number.parseInt(id));
-    dispatch(setSelectedAkt(selectedCase || null));
+  const setCaseHandler = (selectedCase: AktLookUpResponse) => {
+    // Dispatch the entire selected case object to aktenSlice
+    dispatch(setSelectedAkt(selectedCase));
   };
   
   // Handler for case name change
