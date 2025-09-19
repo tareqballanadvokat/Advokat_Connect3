@@ -13,7 +13,6 @@ interface ServiceState {
   services: LeistungAuswahlResponse[];
   servicesLoading: boolean;
   servicesError: string | null;
-  currentAktKuerzel: string | null; // Track which Akt's services are currently loaded
 }
 
 // Initial state
@@ -25,7 +24,6 @@ const initialState: ServiceState = {
   services: [],
   servicesLoading: false,
   servicesError: null,
-  currentAktKuerzel: null,
 };
 
 export const loadServicesAsync = createAsyncThunk(
@@ -81,29 +79,23 @@ const serviceSlice = createSlice({
     clearServices: (state) => {
       state.services = [];
       state.servicesError = null;
-      state.currentAktKuerzel = null;
       state.abbreviation = 0; // Also clear selected service
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(loadServicesAsync.pending, (state, action) => {
+      .addCase(loadServicesAsync.pending, (state) => {
         state.servicesLoading = true;
         state.servicesError = null;
-        // Store which Akt we're loading services for
-        state.currentAktKuerzel = action.meta.arg.Kürzel || null;
       })
       .addCase(loadServicesAsync.fulfilled, (state, action) => {
         state.servicesLoading = false;
         state.services = action.payload;
         state.servicesError = null;
-        // Keep the currentAktKuerzel to track which Akt's services we have
-        // (it was already set in the pending case, so we just leave it as is)
       })
       .addCase(loadServicesAsync.rejected, (state, action) => {
         state.servicesLoading = false;
         state.servicesError = action.error.message || 'Failed to load services';
-        state.currentAktKuerzel = null;
       });
   },
 });

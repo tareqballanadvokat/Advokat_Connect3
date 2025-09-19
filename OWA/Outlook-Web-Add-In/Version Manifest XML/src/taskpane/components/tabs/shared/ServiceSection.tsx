@@ -1,50 +1,51 @@
 // src/taskpane/components/tabs/shared/ServiceSection.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import SelectBox from 'devextreme-react/select-box';
 import { LeistungAuswahlResponse } from '@components/interfaces/IService';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { setAbbreviation, setTime, setText, setSb, loadServicesAsync, clearServices } from '@store/slices/serviceSlice';
 
 // Unified interface for both Email and Service tabs
-export interface ServiceSectionProps {
-  selectedAktKuerzel?: string; // The Kürzel of the selected Akt
-  mode?: 'email' | 'service';  // Mode determines behavior differences
-}
+export interface ServiceSectionProps {}
 
-const ServiceSection: React.FC<ServiceSectionProps> = ({ 
-  selectedAktKuerzel, 
-  mode = 'service' 
-}) => {
+const ServiceSection: React.FC<ServiceSectionProps> = () => {
   // Get Redux dispatch function
   const dispatch = useAppDispatch();
   
   // Get the service state from Redux store
   const serviceState = useAppSelector(state => state.service);
   
-  // Load services when selectedAktKuerzel changes (but only if needed)
+  // Get selected Akt from aktenSlice
+  const selectedAkt = useAppSelector(state => state.akten.selectedAkt);
+  const selectedAktKuerzel = selectedAkt?.aKurz;
+  
+  // Track previous Kürzel so we only reload when the Akt actually changes
+  const prevKuerzelRef = useRef<string | null>(null);
+
+  // Load services when selectedAktKuerzel changes OR when there are no services yet
   useEffect(() => {
+    const servicesEmpty = serviceState.services.length === 0;
+    const aktChanged = prevKuerzelRef.current !== null && prevKuerzelRef.current !== selectedAktKuerzel;
+
     if (selectedAktKuerzel) {
-      // Only load services if we don't have them for this Akt already
-      if (serviceState.currentAktKuerzel !== selectedAktKuerzel) {
-        console.log(`Loading services for Akt: ${selectedAktKuerzel} (${mode} mode) - not cached`);
-        // Clear current service selection when Akt changes
+      if (aktChanged || servicesEmpty) {
+        console.log(`Loading services for Akt: ${selectedAktKuerzel}`);
         dispatch(setAbbreviation(0));
-        // Load new services
         dispatch(loadServicesAsync({
-          Kürzel: selectedAktKuerzel,
-          OnlyQuickListe: true, // Only show services marked for quick list
-          Limit: 50 // Reasonable limit for dropdown
+          Kürzel: null,
+          OnlyQuickListe: true,
+          Limit: null
         }));
+        prevKuerzelRef.current = selectedAktKuerzel;
       } else {
-        console.log(`Using cached services for Akt: ${selectedAktKuerzel} (${mode} mode)`);
-        // Still clear service selection when switching tabs/modes for same Akt
-        dispatch(setAbbreviation(0));
+        // Use cached services - nothing to do
+        // console.log(`Using cached services for Akt: ${selectedAktKuerzel}`);
       }
     } else {
-      // Clear services when no Akt is selected
       dispatch(clearServices());
+      prevKuerzelRef.current = null;
     }
-  }, [selectedAktKuerzel, dispatch, mode, serviceState.currentAktKuerzel]);
+  }, [selectedAktKuerzel, dispatch, serviceState.services.length]);
   
   // Handle value changes using Redux dispatch
   const handleServiceChange = (value: number) => {
@@ -66,10 +67,9 @@ const ServiceSection: React.FC<ServiceSectionProps> = ({
   // Create display text for services dropdown
   const getServiceDisplayText = (service: LeistungAuswahlResponse): string => {
     if (!service) return '';
-    const parts = [service.Stufe1, service.Stufe2, service.Stufe3].filter(Boolean);
-    return parts.length > 0 ? parts.join(' > ') : `Service ${service.Id}`;
+    const parts = [service.stufe1, service.stufe2, service.stufe3].filter(Boolean);
+    return parts.length > 0 ? parts.join(' > ') : `Service ${service.id}`;
   };
-
   // Transform services data to include display text
   const servicesWithDisplayText = serviceState.services.map(service => ({
     ...service,
@@ -78,7 +78,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = ({
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <h3>Services {mode === 'email' ? '(with Email Transfer)' : ''}</h3>
+  <h3>Services</h3>
       {!selectedAktKuerzel ? (
         <div style={{ color: '#666', fontStyle: 'italic' }}>
           Please select an Akt to load services
@@ -154,17 +154,10 @@ const ServiceSection: React.FC<ServiceSectionProps> = ({
             />
           </div>
           
-          {/* Show additional info based on mode */}
-          {mode === 'email' && (
-            <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-              Service will be transferred with email and attachments
-            </div>
-          )}
-          {mode === 'service' && (
-            <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-              Service will be registered without email attachments
-            </div>
-          )}
+          {/* Show additional info */}
+          <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+            Select a service. It will be handled according to the current context (email or service).
+          </div>
         </>
       )}
     </div>

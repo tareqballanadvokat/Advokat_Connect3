@@ -21,12 +21,12 @@ export interface LeistungenAuswahlQuery {
 
 // Matches LeistungAuswahlResponse class - service information
 export interface LeistungAuswahlResponse {
-  Id: number;
-  Kürzel: string;
-  Stufe1?: string;
-  Stufe2?: string;
-  Stufe3?: string;
-  AnzeigenInQuicklisteOutlook?: boolean;
+  id: number;
+  kürzel: string;
+  stufe1?: string;
+  stufe2?: string;
+  stufe3?: string;
+  anzeigenInQuicklisteOutlook?: boolean;
 }
 
 // Registered service item

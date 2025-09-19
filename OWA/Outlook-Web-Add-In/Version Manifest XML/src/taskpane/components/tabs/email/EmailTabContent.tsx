@@ -273,7 +273,8 @@ const EmailTabContent: React.FC = () => {
       />
 
       {/* Use the shared ServiceSection component in email mode */}
-      <ServiceSection selectedAktKuerzel={selectedCaseName} mode="email" />
+        {/* Service Section */}
+        <ServiceSection />
  
       {/* 4) Transfer e-mail and attachments */}
       <TransferAndAttachment />

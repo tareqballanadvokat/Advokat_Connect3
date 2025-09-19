@@ -91,7 +91,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
       <DataGrid
         className="compact-grid"
         dataSource={cases}
-        keyExpr="Id"               
+        keyExpr="id"               
         showBorders={false}
         visible={gridVisible && !loading}
         showColumnLines={false}
@@ -109,7 +109,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         />
         {/* -------------------------------- */}
         <Column
-          dataField="Id"
+          dataField="id"
           caption="Case ID"
           visible={false} 
           alignment="left"

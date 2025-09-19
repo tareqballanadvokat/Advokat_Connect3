@@ -1151,14 +1151,14 @@ export class WebRTCApiService {
   async loadServices(query: LeistungenAuswahlQuery) {
     const queryParams = new URLSearchParams();
     
-    if (query.Kürzel) queryParams.append('Kürzel', query.Kürzel);
+    if (query.Kürzel != null && query.Kürzel != undefined) queryParams.append('Kürzel', query.Kürzel);
     if (query.OnlyQuickListe !== undefined) queryParams.append('OnlyQuickListe', query.OnlyQuickListe.toString());
-    if (query.Limit) queryParams.append('Limit', query.Limit.toString());
+    if (query.Limit != null && query.Limit != undefined) queryParams.append('Limit', query.Limit.toString());
 
     return this.sendRequest(
       'service.loadServices',
       'GET',
-      `api/v1.1/services/Aswahl?${queryParams.toString()}`,
+      `api/v1.1/leistungen/Auswahl?${queryParams.toString()}`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'

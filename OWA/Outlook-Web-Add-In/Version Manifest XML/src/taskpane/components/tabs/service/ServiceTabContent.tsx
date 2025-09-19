@@ -111,8 +111,8 @@ const ServiceTabContent: React.FC = () => {
         transferLoading={transferLoading}
       />
       
-      {/* Service Section in service mode (no email attachments) */}
-      <ServiceSection selectedAktKuerzel={selectedCaseName} mode="service" />
+  {/* Service Section */}
+  <ServiceSection />
       
       {/* Registered Services */}
       <RegisteredService refreshTrigger={refreshFlag} />
