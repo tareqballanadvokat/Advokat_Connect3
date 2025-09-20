@@ -183,7 +183,6 @@ export class WebRTCApiService {
     try {
       const parsed = JSON.parse(message) as WebRTCApiResponse;
       console.log("📨 Received message (processMessage method):", parsed);
-      debugger;
       if (parsed.id) {
         const pendingRequest = this.pendingRequests.get(parsed.id);
         if (pendingRequest) {
@@ -498,39 +497,39 @@ export class WebRTCApiService {
                 headers: {},
                 body: JSON.stringify([
                   {
-                    Id: 2001,
-                    NKurz: `DEMO-P001`,
-                    IstFirma: false,
-                    Titel: 'Dr.',
-                    Vorname: 'Max',
-                    Name1: 'Mustermann',
-                    Name2: undefined,
-                    Adresse: {
+                    id: 2001,
+                    nKurz: `DEMO-P001`,
+                    istFirma: false,
+                    titel: 'Dr.',
+                    vorname: 'Max',
+                    name1: 'Mustermann',
+                    name2: undefined,
+                    adresse: {
                       straße: 'Musterstraße 123',
                       plz: '12345',
                       ort: 'Berlin',
                       landeskennzeichenIso2: 'DE'
                     },
-                    Kontakte: [
-                      { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'max.mustermann@example.com', Bemerkung: 'Primary' },
-                      { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 30 12345678', Bemerkung: 'Mobile' }
+                    kontakte: [
+                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'max.mustermann@example.com', bemerkung: 'Primary' },
+                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 30 12345678', bemerkung: 'Mobile' }
                     ]
                   },
                   {
-                    Id: 2002,
-                    NKurz: `DEMO-P002`,
-                    IstFirma: false,
-                    Vorname: 'Anna',
-                    Name1: 'Schmidt',
-                    Adresse: {
+                    id: 2002,
+                    nKurz: `DEMO-P002`,
+                    istFirma: false,
+                    vorname: 'Anna',
+                    name1: 'Schmidt',
+                    adresse: {
                       straße: 'Beispielweg 456',
                       plz: '54321',
                       ort: 'München',
                       landeskennzeichenIso2: 'DE'
                     },
-                    Kontakte: [
-                      { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'anna.schmidt@example.com' },
-                      { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 89 87654321' }
+                    kontakte: [
+                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'anna.schmidt@example.com' },
+                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 89 87654321' }
                     ]
                   }
                 ])
@@ -550,57 +549,57 @@ export class WebRTCApiService {
                 headers: {},
                 body: JSON.stringify([
                   {
-                    Id: 3001,
-                    NKurz: 'FAV-P001',
-                    IstFirma: false,
-                    Titel: 'Dr.',
-                    Vorname: 'Maria',
-                    Name1: 'Favorit',
-                    Name2: 'Client',
-                    Adressdaten: {
+                    id: 3001,
+                    nKurz: 'FAV-P001',
+                    istFirma: false,
+                    titel: 'Dr.',
+                    vorname: 'Maria',
+                    name1: 'Favorit',
+                    name2: 'Client',
+                    adressdaten: {
                       straße: 'Hauptstraße 789',
                       plz: '10115',
                       ort: 'Berlin',
                       landeskennzeichenIso2: 'DE'
                     },
-                    Kontakte: [
-                      { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'maria.favorit@example.com', Bemerkung: 'Business' },
-                      { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 30 55555555', Bemerkung: 'Office' }
+                    kontakte: [
+                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'maria.favorit@example.com', bemerkung: 'Business' },
+                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 30 55555555', bemerkung: 'Office' }
                     ]
                   },
                   {
-                    Id: 3002,
-                    NKurz: 'FAV-P002',
-                    IstFirma: true,
-                    Name1: 'Musterfirma',
-                    Name2: 'GmbH',
-                    Adressdaten: {
+                    id: 3002,
+                    nKurz: 'FAV-P002',
+                    istFirma: true,
+                    name1: 'Musterfirma',
+                    name2: 'GmbH',
+                    adressdaten: {
                       straße: 'Geschäftsstraße 456',
                       plz: '20095',
                       ort: 'Hamburg',
                       landeskennzeichenIso2: 'DE'
                     },
-                    Kontakte: [
-                      { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'info@musterfirma.de', Bemerkung: 'Main' },
-                      { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 40 66666666', Bemerkung: 'Reception' },
-                      { Reihung: 3, Art: 'Website', TelefonnummerOderAdresse: 'https://www.musterfirma.de' }
+                    kontakte: [
+                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'info@musterfirma.de', bemerkung: 'Main' },
+                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 40 66666666', bemerkung: 'Reception' },
+                      { reihung: 3, art: 'Website', telefonnummerOderAdresse: 'https://www.musterfirma.de' }
                     ]
                   },
                   {
-                    Id: 3003,
-                    NKurz: 'FAV-P003',
-                    IstFirma: false,
-                    Vorname: 'Thomas',
-                    Name1: 'Stammkunde',
-                    Adressdaten: {
+                    id: 3003,
+                    nKurz: 'FAV-P003',
+                    istFirma: false,
+                    vorname: 'Thomas',
+                    name1: 'Stammkunde',
+                    adressdaten: {
                       straße: 'Kundenweg 123',
                       plz: '80331',
                       ort: 'München',
                       landeskennzeichenIso2: 'DE'
                     },
-                    Kontakte: [
-                      { Reihung: 1, Art: 'Email', TelefonnummerOderAdresse: 'thomas.stammkunde@email.de' },
-                      { Reihung: 2, Art: 'Telefon', TelefonnummerOderAdresse: '+49 89 77777777', Bemerkung: 'Mobile' }
+                    kontakte: [
+                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'thomas.stammkunde@email.de' },
+                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 89 77777777', bemerkung: 'Mobile' }
                     ]
                   }
                 ])
@@ -1235,7 +1234,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'dokument.getDocuments',
       'GET',
-      `api/v1.1/dokument?${queryParams.toString()}`,
+      `api/v1.1/dokumente?${queryParams.toString()}`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -1260,7 +1259,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'person.getFavoritePersons',
       'GET',
-      `api/person?${queryParams.toString()}`,
+      `api/v1.1/personen?${queryParams.toString()}`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -1279,7 +1278,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'person.personLookUp',
       'GET',
-      `api/person/Lookup?${queryParams.toString()}`,
+      `api/v1.1/personen/Lookup?${queryParams.toString()}`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -1294,7 +1293,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'person.addPersonToFavorites',
       'POST',
-      `api/person/AddToFavorites/${personId}`,
+      `api/v1.1/personen/AddToFavorites/${personId}`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -1309,7 +1308,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'person.removePersonFromFavorites',
       'DELETE',
-      `api/person/RemoveFromFavorites/${personId}`,
+      `api/v1.1/personen/RemoveFromFavorites/${personId}`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'

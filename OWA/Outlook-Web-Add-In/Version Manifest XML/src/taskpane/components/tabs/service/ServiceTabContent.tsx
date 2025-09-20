@@ -24,7 +24,7 @@ const ServiceTabContent: React.FC = () => {
   const { selectedAkt, cases } = useAppSelector(state => state.akten);
   
   // Derive case values from selectedAkt
-  const selectedCaseId = selectedAkt?.Id ?? -1;
+  const selectedCaseId = selectedAkt?.id ?? -1;
   const selectedCaseName = selectedAkt?.aKurz ?? '';
   
   // Refresh trigger for registered services

@@ -8,7 +8,7 @@ import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync } from '../../../../store/slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
 import SelectedAktIndicator from '../../shared/SelectedAktIndicator';
-
+import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
   const { cases, favouriteAkten, loading, error, searchTerm } = useAppSelector(state => state.akten);
@@ -19,17 +19,18 @@ const SearchCaseList: React.FC = () => {
       // When no favorites are loaded, show star button (allow adding to favorites)
       return false;
     }
-    return favouriteAkten.some(fav => fav.Id === aktId);
+    return favouriteAkten.some(fav => fav.id === aktId);
   };
 
   // Handle adding Akt to favorites
   const handleAddToFavorites = async (aktId: number, aKurz: string) => {
     try {
       await dispatch(addAktToFavoriteAsync(aktId)).unwrap();
-      notify(`Successfully added "${aKurz}" to favorites!`, 'success', 3000);
-      
-      // Note: No need to reload favorites here - the Redux state will be updated
-      // by the addAktToFavoriteAsync thunk automatically
+      await dispatch(getFavoriteAktenAsync({ 
+              NurFavoriten: true,
+              Count: 50
+            })).unwrap();
+    notify(`Successfully added "${aKurz}" to favorites!`, 'success', 3000);
     } catch (error) {
       console.error('Failed to add to favorites:', error);
       notify(`Failed to add "${aKurz}" to favorites: ${error}`, 'error', 5000);
@@ -96,7 +97,7 @@ const SearchCaseList: React.FC = () => {
     <DataGrid
       className="compact-grid"
       dataSource={cases}
-      keyExpr="aktId"
+      keyExpr="id"
       showBorders={false}
       visible={cases.length > 0 || loading}
       showColumnLines={false}
@@ -114,7 +115,7 @@ const SearchCaseList: React.FC = () => {
       />
       
       <Column
-        dataField="aktId"
+        dataField="id"
         caption="Akt ID"
         visible={false}
         alignment="left"
@@ -137,13 +138,13 @@ const SearchCaseList: React.FC = () => {
             icon: 'favorites',
             hint: 'Add to Favorites',
             cssClass: 'star-button-gold',
-            visible: e => !isInFavorites(e.row.data.Id),
-            onClick: e => handleAddToFavorites(e.row.data.Id, e.row.data.aKurz)
+            visible: e => !isInFavorites(e.row.data.id),
+            onClick: e => handleAddToFavorites(e.row.data.id, e.row.data.aKurz)
           },
           {
             icon: 'check',
             hint: 'Already in Favorites',
-            visible: e => isInFavorites(e.row.data.Id),
+            visible: e => isInFavorites(e.row.data.id),
             disabled: true
           }
         ]}

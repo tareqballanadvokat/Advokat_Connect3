@@ -36,7 +36,7 @@ const EmailTabContent: React.FC = () => {
   const { attachmentSelected } = useAppSelector(state => state.email);
   
   // Derive case values from selectedAkt
-  const selectedCaseId = selectedAkt?.Id ?? -1;
+  const selectedCaseId = selectedAkt?.id ?? -1;
   const selectedCaseName = selectedAkt?.aKurz ?? '';
   
   // Get service state

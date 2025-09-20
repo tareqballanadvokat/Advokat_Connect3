@@ -29,12 +29,12 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
   // Helper function to create display name from person data (works for both PersonLookUpResponse and PersonResponse)
   const getDisplayName = (person: PersonLookUpResponse | PersonResponse) => {
     const parts = [];
-    if (person.Titel) parts.push(person.Titel);
-    if (person.Vorname) parts.push(person.Vorname);
-    if (person.Name1) parts.push(person.Name1);
-    if (person.Name2) parts.push(person.Name2);
-    if (person.Name3) parts.push(person.Name3);
-    return parts.join(' ') || person.NKurz || 'Unknown Person';
+    if (person.titel) parts.push(person.titel);
+    if (person.vorname) parts.push(person.vorname);
+    if (person.name1) parts.push(person.name1);
+    if (person.name2) parts.push(person.name2);
+    if (person.name3) parts.push(person.name3);
+    return parts.join(' ') || person.nKurz || 'Unknown Person';
   };
 
   // Load favorites on startup
@@ -60,7 +60,7 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
       
       // Remove collapsed items
       e.removedItems.forEach((item) => {
-        const index = newItems.findIndex(selectedItem => selectedItem.Id === (item as PersonResponse).Id);
+        const index = newItems.findIndex(selectedItem => selectedItem.id === (item as PersonResponse).id);
         if (index >= 0) {
           newItems.splice(index, 1);
         }
@@ -117,7 +117,7 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
         itemTitleRender={(data: PersonResponse) => (
           <CustomTitle
             anzeigename={getDisplayName(data)}
-            onDelete={() => handleDelete(data.Id, getDisplayName(data))}
+            onDelete={() => handleDelete(data.id, getDisplayName(data))}
           />
         )}
         itemRender={(data: PersonResponse) => <CustomItem {...data} />}

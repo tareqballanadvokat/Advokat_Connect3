@@ -33,7 +33,7 @@ const CaseTabContent: React.FC = () => {
     if (favouriteAkten.length === 0 && !loading) {
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
-        Count: 50 // Limit to 50 favorite cases
+        Count: 50
       }));
     }
   }, [dispatch, favouriteAkten.length]); // Keep favouriteAkten.length as dependency to detect when it becomes empty
@@ -41,41 +41,40 @@ const CaseTabContent: React.FC = () => {
   // Transform favorite Akten and documents into HierarchyTree format with folder structure
   useEffect(() => {
     const transformedNodes: HierarchyTree[] = [];
-
     // Add favorite Akten as root nodes (AktenResponse format: Id, AKurz, Causa)
     favouriteAkten.forEach((akt) => {
       const aktNode: HierarchyTree = {
-        id: akt.Id, // Use actual Akt ID as node ID
+        id: akt.id, // Use actual Akt ID as node ID
         rootId: -1, // Top-level nodes have rootId = -1
-        name: `${akt.AKurz || 'Unknown'}`,
+        name: `${akt.aKurz || 'Unknown'}`,
         isStructure: true, // This is a folder (Akt)
         hasChild: true,
-        causa: akt.Causa || '',
+        causa: akt.causa || '',
         hasUrl: false,
-        url: `akt:${akt.Id}`, // Store Akt ID in URL for identification
+        url: `akt:${akt.id}`, // Store Akt ID in URL for identification
       };
       transformedNodes.push(aktNode);
     });
 
     // Process documents and create folder structure
     const folderMap = new Map<string, HierarchyTree>();
-    let nextId = Math.max(...favouriteAkten.map(a => a.Id), 0) + 10000; // Start IDs after Akt IDs
+    let nextId = Math.max(...favouriteAkten.map(a => a.id), 0) + 10000; // Start IDs after Akt IDs
 
     favoriteAktenDocuments.forEach((doc) => {
       // Find the parent Akt ID
-      const parentAkt = favouriteAkten.find(akt => akt.Id === doc.aktId);
+      const parentAkt = favouriteAkten.find(akt => akt.id === doc.aktId);
       
       if (parentAkt && doc.dateipfad) {
         // Parse the file path to create folder structure
         const pathParts = doc.dateipfad.split('/').filter(part => part.length > 0);
         const fileName = pathParts.pop() || doc.betreff || 'Unknown File';
         
-        let currentParentId = parentAkt.Id;
+        let currentParentId = parentAkt.id;
         
         // Create folder hierarchy
         pathParts.forEach((folderName, index) => {
           const folderPath = pathParts.slice(0, index + 1).join('/');
-          const folderKey = `${parentAkt.Id}:${folderPath}`;
+          const folderKey = `${parentAkt.id}:${folderPath}`;
           
           if (!folderMap.has(folderKey)) {
             const folderNode: HierarchyTree = {

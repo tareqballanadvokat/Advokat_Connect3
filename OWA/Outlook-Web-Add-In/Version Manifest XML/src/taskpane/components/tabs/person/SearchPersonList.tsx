@@ -23,17 +23,17 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   // Helper function to create display name from person data
   const getDisplayName = (person: PersonLookUpResponse) => {
     const parts = [];
-    if (person.Titel) parts.push(person.Titel);
-    if (person.Vorname) parts.push(person.Vorname);
-    if (person.Name1) parts.push(person.Name1);
-    if (person.Name2) parts.push(person.Name2);
-    if (person.Name3) parts.push(person.Name3);
-    return parts.join(' ') || person.NKurz || 'Unknown Person';
+    if (person.titel) parts.push(person.titel);
+    if (person.vorname) parts.push(person.vorname);
+    if (person.name1) parts.push(person.name1);
+    if (person.name2) parts.push(person.name2);
+    if (person.name3) parts.push(person.name3);
+    return parts.join(' ') || person.nKurz || 'Unknown Person';
   };
 
   // Check if person is in favorites
   const isInFavorites = (personId: number): boolean => {
-    return favorites.some(fav => fav.Id === personId);
+    return favorites.some(fav => fav.id === personId);
   };
 
   // Handle Redux error states
@@ -69,7 +69,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   };
 
   const handleAddToFavorites = (person: PersonLookUpResponse) => {
-    onPersonSelect(person.Id, getDisplayName(person));
+    onPersonSelect(person.id, getDisplayName(person));
   };
 
 
@@ -107,7 +107,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
       <DataGrid
         className="compact-grid"
         dataSource={persons}
-        keyExpr="PersonId"
+        keyExpr="id"
         showBorders={false}
         visible={gridVisible && !loading}
         showColumnLines={false}
@@ -124,14 +124,14 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
           showInfo
         />
         <Column
-          dataField="Id"
+          dataField="id"
           caption="Person ID"
           visible={false}
           alignment="left"
         />
         <Column
-          dataField="NKurz"
-          caption="ID"
+          dataField="nKurz"
+          caption="Kürzl"
           alignment="left"
           width={100}
         />
@@ -141,7 +141,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
           cellRender={(data) => <span>{getDisplayName(data.data)}</span>}
         />
         <Column
-          dataField="Adresse.ort"
+          dataField="adresse.ort"
           caption="City"
           alignment="left"
           width={120}
@@ -154,13 +154,13 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
               icon: 'favorites',
               hint: 'Add to favorites',
               cssClass: 'star-button-gold',
-              visible: e => !isInFavorites(e.row.data.Id),
+              visible: e => !isInFavorites(e.row.data.id),
               onClick: (e) => handleAddToFavorites(e.row.data)
             },
             {
               icon: 'check',
               hint: 'Already in favorites',
-              visible: e => isInFavorites(e.row.data.Id),
+              visible: e => isInFavorites(e.row.data.id),
               disabled: true
             }
           ]}

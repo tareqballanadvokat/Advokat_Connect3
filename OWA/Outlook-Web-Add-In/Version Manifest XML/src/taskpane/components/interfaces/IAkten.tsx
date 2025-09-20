@@ -7,14 +7,13 @@ export interface AktenQuery {
 }
 
 export interface AktLookUpResponse {
-  Id: number;
+  id: number;
   aKurz: string;
   causa?: string;
 }
 
-// New interface matching the latest API version
 export interface AktenResponse {
-  Id: number;
-  AKurz: string;
-  Causa?: string;
+  id: number;
+  aKurz: string;
+  causa?: string;
 }

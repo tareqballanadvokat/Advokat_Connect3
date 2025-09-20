@@ -1,9 +1,9 @@
 
 export interface PersonKontaktData {
-  Reihung: number;
-  Art: string;
-  Bemerkung?: string;
-  TelefonnummerOderAdresse: string;
+  reihung: number;
+  art: string;
+  bemerkung?: string;
+  telefonnummerOderAdresse: string;
 }
 
 export interface AdresseData {
@@ -14,30 +14,30 @@ export interface AdresseData {
 }
 
 export interface PersonLookUpResponse {
-  Id: number;
-  NKurz: string;
-  IstFirma?: boolean;
-  Titel?: string;
-  Vorname?: string;
-  Name1?: string;
-  Name2?: string;
-  Name3?: string;
-  Adresse?: AdresseData;
-  Kontakte: PersonKontaktData[];
+  id: number;
+  nKurz: string;
+  istFirma?: boolean;
+  titel?: string;
+  vorname?: string;
+  name1?: string;
+  name2?: string;
+  name3?: string;
+  adresse?: AdresseData;
+  kontakte: PersonKontaktData[];
 }
 
 // PersonResponse for GetAllAsync endpoint (favorites)
 export interface PersonResponse {
-  Id: number;
-  NKurz: string;
-  IstFirma?: boolean;
-  Titel?: string;
-  Vorname?: string;
-  Name1?: string;
-  Name2?: string;
-  Name3?: string;
-  Adressdaten?: AdresseData;
-  Kontakte: PersonKontaktData[];
+  id: number;
+  nKurz: string;
+  istFirma?: boolean;
+  titel?: string;
+  vorname?: string;
+  name1?: string;
+  name2?: string;
+  name3?: string;
+  adressdaten?: AdresseData;
+  kontakte: PersonKontaktData[];
 }
 
 // Query interface for person search
