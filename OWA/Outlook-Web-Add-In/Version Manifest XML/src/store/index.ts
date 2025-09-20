@@ -4,6 +4,7 @@ import emailReducer from './slices/emailSlice';
 import serviceReducer from './slices/serviceSlice';
 import aktenReducer from './slices/aktenSlice';
 import personReducer from './slices/personSlice';
+import authReducer from './slices/authSlice';
 
 // Configure the Redux store
 export const store = configureStore({
@@ -12,6 +13,7 @@ export const store = configureStore({
     service: serviceReducer,
     akten: aktenReducer,
     person: personReducer,
+    auth: authReducer,
     // Add other reducers here as your application grows
   },
   // Use default middleware since we no longer need RTK Query
