@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
 import './CaseTabContent.css'; // Import our custom CSS
 import SearchCaseList from './SearchCaseList';
-import {IsComposeMode} from '../../../hooks/useOfficeItem'
+import {IsComposeMode} from '../../../hooks/useOfficeItem';
 import {HierarchyTree} from '../../interfaces/ICase'
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 import notify from 'devextreme/ui/notify';
@@ -23,7 +23,15 @@ const allowDeleting = (e) => e.row.data.ID !== 1;
 
 const CaseTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { favouriteAkten, favoriteAktenDocuments, loading, documentsLoading } = useAppSelector(state => state.akten);
+  const { 
+    favouriteAkten, 
+    favoriteAktenDocuments, 
+    loading, 
+    documentsLoading, 
+    loadingDokumentForAktId,
+    removeFromFavoriteLoading,
+    removingFromFavoriteAktId
+  } = useAppSelector(state => state.akten);
   
   const [nodes, setNodes] = useState<HierarchyTree[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
@@ -65,34 +73,54 @@ const CaseTabContent: React.FC = () => {
       const parentAkt = favouriteAkten.find(akt => akt.id === doc.aktId);
       
       if (parentAkt && doc.dateipfad) {
-        // Parse the file path to create folder structure
-        const pathParts = doc.dateipfad.split('/').filter(part => part.length > 0);
+        // Parse the Windows-style file path to create folder structure
+        // Example: "C:\ADVOKAT\Daten\WINWORD\ADVOKAT\TEST-1\Email\email 31_07_2025 12_49.msg"
+        // We want to extract just the relative folder structure after the case folder
+        
+        let relativePath = doc.dateipfad;
+        
+        // Try to find the case folder (aKurz) in the path to extract relative structure
+        if (parentAkt.aKurz) {
+          const caseIndex = relativePath.indexOf(parentAkt.aKurz);
+          if (caseIndex !== -1) {
+            // Extract everything after the case folder
+            const afterCase = relativePath.substring(caseIndex + parentAkt.aKurz.length);
+            if (afterCase.startsWith('\\') || afterCase.startsWith('/')) {
+              relativePath = afterCase.substring(1); // Remove leading slash
+            }
+          }
+        }
+        
+        // Split the path by backslashes or forward slashes
+        const pathParts = relativePath.split(/[\\\/]/).filter(part => part.length > 0);
         const fileName = pathParts.pop() || doc.betreff || 'Unknown File';
         
         let currentParentId = parentAkt.id;
         
-        // Create folder hierarchy
-        pathParts.forEach((folderName, index) => {
-          const folderPath = pathParts.slice(0, index + 1).join('/');
-          const folderKey = `${parentAkt.id}:${folderPath}`;
-          
-          if (!folderMap.has(folderKey)) {
-            const folderNode: HierarchyTree = {
-              id: nextId++,
-              rootId: currentParentId,
-              name: folderName,
-              isStructure: true, // This is a folder
-              hasChild: true,
-              causa: '',
-              hasUrl: false,
-              url: '', 
-            };
-            folderMap.set(folderKey, folderNode);
-            transformedNodes.push(folderNode);
-          }
-          
-          currentParentId = folderMap.get(folderKey)!.id;
-        });
+        // Create folder hierarchy only if there are folder parts
+        if (pathParts.length > 0) {
+          pathParts.forEach((folderName, index) => {
+            const folderPath = pathParts.slice(0, index + 1).join('\\');
+            const folderKey = `${parentAkt.id}:${folderPath}`;
+            
+            if (!folderMap.has(folderKey)) {
+              const folderNode: HierarchyTree = {
+                id: nextId++,
+                rootId: currentParentId,
+                name: folderName,
+                isStructure: true, // This is a folder
+                hasChild: true,
+                causa: '',
+                hasUrl: false,
+                url: '', 
+              };
+              folderMap.set(folderKey, folderNode);
+              transformedNodes.push(folderNode);
+            }
+            
+            currentParentId = folderMap.get(folderKey)!.id;
+          });
+        }
 
         // Add the actual file
         const fileNode: HierarchyTree = {
@@ -101,7 +129,7 @@ const CaseTabContent: React.FC = () => {
           name: fileName,
           isStructure: false, // This is a file
           hasChild: false,
-          causa: '',
+          causa: doc.betreff || '', // Show document subject as causa
           hasUrl: !!doc.dateipfad,
           url: doc.dateipfad || '',
         };
@@ -266,9 +294,10 @@ const CaseTabContent: React.FC = () => {
           showBorders={false}
           columnAutoWidth={false}  // Disable auto width to control column sizes manually
           allowColumnResizing={true}  // Allow user to resize columns if needed
-          wordWrapEnabled={true}  // Enable word wrapping for long text
-          rowAlternationEnabled={true}  // Better visual separation for wrapped rows
+          wordWrapEnabled={false}  // Disable word wrapping to keep rows compact
+          rowAlternationEnabled={true}  // Better visual separation for rows
           height={400}
+          noDataText="No documents found. Expand a case to load documents."
         >
         <Scrolling mode="standard" />  {/* Enable horizontal scrolling as fallback */}
         
@@ -281,37 +310,84 @@ const CaseTabContent: React.FC = () => {
         <Column
           dataField="name"
           caption="Name"
-          width="calc(100% - 140px)"  // Take remaining space minus fixed button column width (with padding)
+          width="50%"  // Share space between name and description
           minWidth={200}  // Minimum width to ensure readability
           allowResizing={true}  // Allow user to resize the name column
           cellRender={({ data }: { data: HierarchyTree }) => (
             <div 
               style={{ 
                 display: 'flex', 
-                alignItems: 'flex-start',  // Align to top for multi-line content
-                gap: 8,
-                padding: '4px 0',  // Add some vertical padding
-                lineHeight: '1.4',  // Better line height for readability
-                wordBreak: 'break-word',  // Break long words if necessary
-                whiteSpace: 'normal'  // Allow normal text wrapping
+                alignItems: 'center',  // Center align for compact display
+                gap: 6,
+                padding: '2px 0',  // Minimal vertical padding
+                lineHeight: '1.2',  // Compact line height
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'  // Keep text on single line
               }}
-              title={data.name}  // Still show full name on hover as backup
+              title={data.name}  // Show full name on hover
             >
-              <i
-                className={
-                  data.isStructure
-                    ? 'dx-icon dx-icon-folder'
-                    : 'dx-icon dx-icon-file'
-                }
-                style={{ 
-                  marginTop: '2px',  // Slight adjustment to align with first line of text
-                  flexShrink: 0  // Prevent icon from shrinking
-                }}
-              />
-              <span style={{ wordWrap: 'break-word' }}>
+              {/* Show loading icon for Akt folders when documents are being loaded */}
+              {data.isStructure && data.url.startsWith('akt:') && 
+               documentsLoading && loadingDokumentForAktId === parseInt(data.url.replace('akt:', '')) ? (
+                <i
+                  className="dx-icon dx-icon-refresh"
+                  style={{ 
+                    flexShrink: 0,
+                    fontSize: '14px',
+                    animation: 'spin 1s linear infinite'
+                  }}
+                />
+              ) : (
+                <i
+                  className={
+                    data.isStructure
+                      ? 'dx-icon dx-icon-folder'
+                      : 'dx-icon dx-icon-file'
+                  }
+                  style={{ 
+                    flexShrink: 0,  // Prevent icon from shrinking
+                    fontSize: '14px'  // Smaller icon size
+                  }}
+                />
+              )}
+              <span style={{ 
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                opacity: data.isStructure && data.url.startsWith('akt:') && 
+                         documentsLoading && loadingDokumentForAktId === parseInt(data.url.replace('akt:', '')) ? 0.7 : 1
+              }}>
                 {data.name}
+                {data.isStructure && data.url.startsWith('akt:') && 
+                 documentsLoading && loadingDokumentForAktId === parseInt(data.url.replace('akt:', '')) && ' (Loading...)'}
               </span>
             </div>
+          )}
+        />
+        
+        <Column
+          dataField="causa"
+          caption="Description"
+          width="calc(50% - 140px)"  // Take remaining space minus fixed button column width
+          minWidth={150}  // Minimum width to ensure readability
+          allowResizing={true}
+          visible={true}
+          cellRender={({ data }: { data: HierarchyTree }) => (
+            <span 
+              style={{ 
+                fontSize: '11px',
+                color: '#666',
+                fontStyle: data.isStructure ? 'italic' : 'normal',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                lineHeight: '1.2'
+              }}
+              title={data.causa}
+            >
+              {data.causa || (data.isStructure ? 'Folder' : 'Document')}
+            </span>
           )}
         />
  
@@ -342,8 +418,28 @@ const CaseTabContent: React.FC = () => {
         
         {/* Delete favorite button - only for top-level Akten */}
         <Button
-          name="delete"
-          onClick={({ row }) => handleDelete(row.data)}
+          render={({ data }) => {
+            const aktId = data.id;
+            const isLoading = removeFromFavoriteLoading && removingFromFavoriteAktId === aktId;
+            return (
+              <button
+                className={`dx-button dx-button-normal dx-button-mode-contained ${isLoading ? 'loading-button' : ''}`}
+                onClick={() => handleDelete(data)}
+                disabled={isLoading}
+                title={isLoading ? 'Removing from favorites...' : 'Remove from favorites'}
+                style={{
+                  backgroundColor: isLoading ? '#f5f5f5' : '#d32f2f',
+                  color: isLoading ? '#666' : 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  padding: '4px 8px',
+                  cursor: isLoading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <i className={`dx-icon dx-icon-${isLoading ? 'refresh' : 'trash'}`} />
+              </button>
+            );
+          }}
           visible={({ row }) => row.data.rootId === -1}
         />
       </Column>

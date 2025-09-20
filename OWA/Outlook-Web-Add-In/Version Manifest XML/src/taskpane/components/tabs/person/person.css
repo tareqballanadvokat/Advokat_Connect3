@@ -5,3 +5,47 @@
 .dx-accordion-item-title::before{
     position: left;
 }
+
+/* Gold star button styling for SearchPersonList */
+.star-button-gold {
+  color: #ffd700 !important; /* Gold color */
+}
+
+.star-button-gold:hover {
+  color: #ffed4e !important; /* Lighter gold on hover */
+  background-color: rgba(255, 215, 0, 0.1) !important; /* Light gold background on hover */
+}
+
+/* Make sure the star icon is visible and properly sized */
+.star-button-gold .dx-icon {
+  color: #ffd700 !important;
+  font-size: 16px !important;
+}
+
+.star-button-gold:hover .dx-icon {
+  color: #ffed4e !important;
+}
+
+/* Ensure button container is visible */
+.dx-datagrid-rowsview .dx-command-column .dx-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Loading button styling with spinning animation */
+.loading-button .dx-icon,
+.dx-button.loading-button .dx-icon,
+.dx-datagrid .loading-button .dx-icon {
+  animation: spin 1s linear infinite !important;
+}
+
+/* Spinning animation for loading icons */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

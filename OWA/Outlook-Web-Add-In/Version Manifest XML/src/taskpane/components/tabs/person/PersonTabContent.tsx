@@ -1,5 +1,6 @@
 // src/taskpane/components/tabs/person/PersonTabContent.tsx
 import 'devextreme/dist/css/dx.light.css';
+import './person.css'; // Import our custom CSS for animations
 import React, { useState, useEffect, useCallback } from 'react';
 import Accordion, { type AccordionTypes } from 'devextreme-react/accordion';
 import SearchPersonList from './SearchPersonList';
@@ -22,7 +23,7 @@ interface Props {
 
 const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
   const dispatch = useAppDispatch();
-  const { favorites, favoritesLoading } = useAppSelector(state => state.person);
+  const { favorites, favoritesLoading, removeFromFavoriteLoading, removingFromFavoritePersonId } = useAppSelector(state => state.person);
   
   const [expandedItems, setExpandedItems] = useState<PersonResponse[]>([]);
 
@@ -75,6 +76,11 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
 
   // removing person
   const handleDelete = useCallback(async (personId: number, personName: string) => {
+    // Prevent duplicate requests
+    if (removeFromFavoriteLoading && removingFromFavoritePersonId === personId) {
+      return;
+    }
+
     try {
       await dispatch(removePersonFromFavoritesAsync(personId)).unwrap();
       notify(`Removed "${personName}" from favorites`, 'success', 3000);
@@ -82,7 +88,7 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
       console.error("Error removing person:", error);
       notify('Failed to remove person from favorites', 'error', 5000);
     }
-  }, [dispatch]);
+  }, [dispatch, removeFromFavoriteLoading, removingFromFavoritePersonId]);
 
 
 
@@ -115,6 +121,7 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
         itemTitleRender={(data: PersonResponse) => (
           <CustomTitle
             anzeigename={getDisplayName(data)}
+            isDeleting={removeFromFavoriteLoading && removingFromFavoritePersonId === data.id}
             onDelete={() => handleDelete(data.id, getDisplayName(data))}
           />
         )}

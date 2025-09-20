@@ -20,7 +20,10 @@ interface AktenState {
   loading: boolean;
   addToFavoriteLoading: boolean;
   addingToFavoriteAktId: number | null; // Track which akt is being added to favorites
+  removeFromFavoriteLoading: boolean;
+  removingFromFavoriteAktId: number | null; // Track which akt is being removed from favorites
   documentsLoading: boolean;
+  loadingDokumentForAktId: number | null; // Track which akt is loading documents
   foldersLoading: boolean;
   error: string | null;
   documentsError: string | null;
@@ -38,7 +41,10 @@ const initialState: AktenState = {
   loading: false,
   addToFavoriteLoading: false,
   addingToFavoriteAktId: null,
+  removeFromFavoriteLoading: false,
+  removingFromFavoriteAktId: null,
   documentsLoading: false,
+  loadingDokumentForAktId: null,
   foldersLoading: false,
   error: null,
   documentsError: null,
@@ -232,16 +238,19 @@ const aktenSlice = createSlice({
         state.error = action.error.message || 'Failed to get favorite cases via WebRTC';
       })
       // Get Akt documents handlers
-      .addCase(getAktDokumenteAsync.pending, (state) => {
+      .addCase(getAktDokumenteAsync.pending, (state, action) => {
         state.documentsLoading = true;
+        state.loadingDokumentForAktId = action.meta.arg.aktId; // Track which akt is loading documents
         state.documentsError = null;
       })
       .addCase(getAktDokumenteAsync.fulfilled, (state, action) => {
         state.documentsLoading = false;
+        state.loadingDokumentForAktId = null;
         state.favoriteAktenDocuments = action.payload;
       })
       .addCase(getAktDokumenteAsync.rejected, (state, action) => {
         state.documentsLoading = false;
+        state.loadingDokumentForAktId = null;
         state.documentsError = action.error.message || 'Failed to get documents for Akt';
       })
       // Add Akt to favorites handlers
@@ -263,19 +272,19 @@ const aktenSlice = createSlice({
       })
       // Remove Akt from favorites handlers
       .addCase(removeAktFromFavoriteAsync.pending, (state, action) => {
-        state.addToFavoriteLoading = true;
-        state.addingToFavoriteAktId = action.meta.arg; // Store the akt ID being removed
+        state.removeFromFavoriteLoading = true;
+        state.removingFromFavoriteAktId = action.meta.arg; // Store the akt ID being removed
         state.error = null;
       })
       .addCase(removeAktFromFavoriteAsync.fulfilled, (state) => {
-        state.addToFavoriteLoading = false;
-        state.addingToFavoriteAktId = null;
+        state.removeFromFavoriteLoading = false;
+        state.removingFromFavoriteAktId = null;
         // The aktId was successfully removed from favorites
         // We'll reload the favorites list after this action completes
       })
       .addCase(removeAktFromFavoriteAsync.rejected, (state, action) => {
-        state.addToFavoriteLoading = false;
-        state.addingToFavoriteAktId = null;
+        state.removeFromFavoriteLoading = false;
+        state.removingFromFavoriteAktId = null;
         state.error = action.error.message || 'Failed to remove Akt from favorites';
       })
       // Get available folders handlers

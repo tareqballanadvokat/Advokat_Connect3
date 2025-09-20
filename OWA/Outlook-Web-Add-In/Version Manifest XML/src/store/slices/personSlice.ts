@@ -9,6 +9,8 @@ interface PersonState {
   loading: boolean;
   addToFavoriteLoading: boolean;
   addingToFavoritePersonId: number | null; // Track which person is being added to favorites
+  removeFromFavoriteLoading: boolean;
+  removingFromFavoritePersonId: number | null; // Track which person is being removed from favorites
   error: string | null;
   searchTerm: string;
   favorites: PersonResponse[];
@@ -20,6 +22,8 @@ const initialState: PersonState = {
   loading: false,
   addToFavoriteLoading: false,
   addingToFavoritePersonId: null,
+  removeFromFavoriteLoading: false,
+  removingFromFavoritePersonId: null,
   error: null,
   searchTerm: '',
   favorites: [],
@@ -150,11 +154,20 @@ const personSlice = createSlice({
         state.addingToFavoritePersonId = null;
         state.error = action.error.message || 'Failed to add person to favorites';
       })
-      .addCase(removePersonFromFavoritesAsync.fulfilled, (_state, action) => {
+      .addCase(removePersonFromFavoritesAsync.pending, (state, action) => {
+        state.removeFromFavoriteLoading = true;
+        state.removingFromFavoritePersonId = action.meta.arg; // Store the person ID being removed
+        state.error = null;
+      })
+      .addCase(removePersonFromFavoritesAsync.fulfilled, (state, action) => {
+        state.removeFromFavoriteLoading = false;
+        state.removingFromFavoritePersonId = null;
         // Favorites list is refreshed automatically by the async thunk
         console.log('✅ Person removed from favorites on server:', action.payload);
       })
       .addCase(removePersonFromFavoritesAsync.rejected, (state, action) => {
+        state.removeFromFavoriteLoading = false;
+        state.removingFromFavoritePersonId = null;
         state.error = action.error.message || 'Failed to remove person from favorites';
       });
   }

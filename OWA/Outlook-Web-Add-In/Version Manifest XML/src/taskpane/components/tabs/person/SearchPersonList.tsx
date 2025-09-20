@@ -1,5 +1,6 @@
 // src/taskpane/components/tabs/person/SearchPersonList.tsx
 import React, { useState, useEffect } from 'react';
+import './person.css'; // Import our custom CSS for star button styling
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';

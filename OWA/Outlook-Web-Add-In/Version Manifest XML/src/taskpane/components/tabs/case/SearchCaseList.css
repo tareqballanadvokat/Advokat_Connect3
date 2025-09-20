@@ -33,3 +33,20 @@
 .dx-icon-check {
   color: #28a745 !important; /* Green check mark */
 }
+
+/* Loading button styling with spinning animation */
+.loading-button .dx-icon,
+.dx-button.loading-button .dx-icon,
+.dx-datagrid .loading-button .dx-icon {
+  animation: spin 1s linear infinite !important;
+}
+
+/* Spinning animation for loading icons */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

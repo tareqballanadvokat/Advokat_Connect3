@@ -7,6 +7,33 @@
   overflow: hidden;
 }
 
+/* Spinning animation for loading icons */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reduce row height and padding for more compact display */
+.case-tab-treelist-container .dx-treelist .dx-row {
+  height: 32px !important;
+  min-height: 32px !important;
+}
+
+.case-tab-treelist-container .dx-treelist .dx-treelist-cell {
+  padding: 4px 8px !important;
+  line-height: 1.2 !important;
+}
+
+/* Reduce spacing in the tree hierarchy */
+.case-tab-treelist-container .dx-treelist .dx-treelist-expanded-icon,
+.case-tab-treelist-container .dx-treelist .dx-treelist-collapsed-icon {
+  margin-right: 4px !important;
+}
+
 /* Ensure buttons column stays visible and doesn't shrink */
 .case-tab-treelist-container .dx-treelist .dx-command-column {
   min-width: 140px !important;
