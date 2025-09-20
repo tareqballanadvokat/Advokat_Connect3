@@ -18,6 +18,8 @@ interface AktenState {
   folderOptions: FolderOption[]; // Available folders for the currently selected Akt
   selectedAkt: AktLookUpResponse | null; // Currently selected Akt for operations
   loading: boolean;
+  addToFavoriteLoading: boolean;
+  addingToFavoriteAktId: number | null; // Track which akt is being added to favorites
   documentsLoading: boolean;
   foldersLoading: boolean;
   error: string | null;
@@ -34,6 +36,8 @@ const initialState: AktenState = {
   folderOptions: [],
   selectedAkt: null,
   loading: false,
+  addToFavoriteLoading: false,
+  addingToFavoriteAktId: null,
   documentsLoading: false,
   foldersLoading: false,
   error: null,
@@ -147,47 +151,12 @@ export const aktLookUpAsync = createAsyncThunk(
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
-    try {
-      const response = await webRTCApiService.aktLookUp(searchText);
-      
-      if (response.response.statusCode === 200) {
-        return JSON.parse(response.response.body || '[]') as AktLookUpResponse[];
-      } else {
-        throw new Error('Failed to lookup cases');
-      }
-    } catch (error) {
-      // If WebRTC fails, provide fake data for testing
-      console.log('🔧 WebRTC lookup failed, providing fake data for testing');
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Create fake search results based on search text
-      const fakeResults = [
-        {
-          Id: 1001,
-          aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2024-001`,
-          causa: 'Litigation matter - Contract dispute resolution'
-        },
-        {
-          Id: 1002,
-          aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2024-002`, 
-          causa: 'Employment law case - Wrongful termination'
-        },
-        {
-          Id: 1003,
-          aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2024-003`,
-          causa: 'Corporate law - Merger and acquisition support'
-        },
-        {
-          Id: 1004,
-          aKurz: `${searchText?.toUpperCase() || 'DEMO'}-2023-045`,
-          causa: 'Real estate transaction - Commercial property'
-        }
-      ].slice(0, 10); // Limit to 10 results
-      
-      console.log('📥 Using fake response data:', fakeResults);
-      return fakeResults as AktLookUpResponse[];
+    const response = await webRTCApiService.aktLookUp(searchText);
+    
+    if (response.response.statusCode === 200) {
+      return JSON.parse(response.response.body || '[]') as AktLookUpResponse[];
+    } else {
+      throw new Error('Failed to lookup cases');
     }
   }
 );
@@ -276,31 +245,37 @@ const aktenSlice = createSlice({
         state.documentsError = action.error.message || 'Failed to get documents for Akt';
       })
       // Add Akt to favorites handlers
-      .addCase(addAktToFavoriteAsync.pending, (state) => {
-        state.loading = true;
+      .addCase(addAktToFavoriteAsync.pending, (state, action) => {
+        state.addToFavoriteLoading = true;
+        state.addingToFavoriteAktId = action.meta.arg; // Store the akt ID being added
         state.error = null;
       })
       .addCase(addAktToFavoriteAsync.fulfilled, (state) => {
-        state.loading = false;
+        state.addToFavoriteLoading = false;
+        state.addingToFavoriteAktId = null;
         // The aktId was successfully added to favorites
         // We'll reload the favorites list after this action completes
       })
       .addCase(addAktToFavoriteAsync.rejected, (state, action) => {
-        state.loading = false;
+        state.addToFavoriteLoading = false;
+        state.addingToFavoriteAktId = null;
         state.error = action.error.message || 'Failed to add Akt to favorites';
       })
       // Remove Akt from favorites handlers
-      .addCase(removeAktFromFavoriteAsync.pending, (state) => {
-        state.loading = true;
+      .addCase(removeAktFromFavoriteAsync.pending, (state, action) => {
+        state.addToFavoriteLoading = true;
+        state.addingToFavoriteAktId = action.meta.arg; // Store the akt ID being removed
         state.error = null;
       })
       .addCase(removeAktFromFavoriteAsync.fulfilled, (state) => {
-        state.loading = false;
+        state.addToFavoriteLoading = false;
+        state.addingToFavoriteAktId = null;
         // The aktId was successfully removed from favorites
         // We'll reload the favorites list after this action completes
       })
       .addCase(removeAktFromFavoriteAsync.rejected, (state, action) => {
-        state.loading = false;
+        state.addToFavoriteLoading = false;
+        state.addingToFavoriteAktId = null;
         state.error = action.error.message || 'Failed to remove Akt from favorites';
       })
       // Get available folders handlers

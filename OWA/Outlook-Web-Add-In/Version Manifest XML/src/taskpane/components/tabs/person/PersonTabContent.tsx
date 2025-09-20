@@ -55,25 +55,23 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
 
   // callback for opening/closing Accordion (based on DevExtreme sample)
   const handleSelectionChanged = useCallback((e: AccordionTypes.SelectionChangedEvent) => {
-    setExpandedItems(prevItems => {
-      let newItems = [...prevItems];
-      
-      // Remove collapsed items
-      e.removedItems.forEach((item) => {
-        const index = newItems.findIndex(selectedItem => selectedItem.id === (item as PersonResponse).id);
-        if (index >= 0) {
-          newItems.splice(index, 1);
-        }
-      });
-      
-      // Add expanded items
-      if (e.addedItems.length) {
-        newItems = [...newItems, ...(e.addedItems as PersonResponse[])];
+    let newItems = [...expandedItems];
+    
+    // Remove collapsed items
+    e.removedItems.forEach((item) => {
+      const index = newItems.indexOf(item as PersonResponse);
+      if (index >= 0) {
+        newItems.splice(index, 1);
       }
-      
-      return newItems;
     });
-  }, []);
+    
+    // Add expanded items
+    if (e.addedItems.length) {
+      newItems = [...newItems, ...(e.addedItems as PersonResponse[])];
+    }
+    
+    setExpandedItems(newItems);
+  }, [expandedItems]);
 
   // removing person
   const handleDelete = useCallback(async (personId: number, personName: string) => {
@@ -107,7 +105,7 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
         collapsible={true}
         multiple={true}
         animationDuration={500}
-        keyExpr="Id" // Use Id instead of PersonId for PersonResponse
+        keyExpr="id" // Use lowercase 'id' to match PersonResponse interface
 
         // controlled expansion state
         selectedItems={expandedItems}

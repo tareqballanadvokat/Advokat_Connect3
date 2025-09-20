@@ -16,7 +16,7 @@ interface Props {
 const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   const dispatch = useAppDispatch();
   const personState = useAppSelector((state: RootState) => state.person);
-  const { persons, loading, error, searchTerm, favorites } = personState;
+  const { persons, loading, addToFavoriteLoading, addingToFavoritePersonId, error, searchTerm, favorites } = personState;
   
   const [gridVisible, setGridVisible] = useState(false);
 
@@ -68,8 +68,23 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     }
   };
 
-  const handleAddToFavorites = (person: PersonLookUpResponse) => {
-    onPersonSelect(person.id, getDisplayName(person));
+  // Check if person is being added to favorites
+  const isAddingToFavorites = (personId: number): boolean => {
+    return addToFavoriteLoading && addingToFavoritePersonId === personId;
+  };
+
+  const handleAddToFavorites = async (person: PersonLookUpResponse) => {
+    // Prevent duplicate requests
+    if (addToFavoriteLoading && addingToFavoritePersonId === person.id) {
+      return;
+    }
+
+    try {
+      await onPersonSelect(person.id, getDisplayName(person));
+    } catch (error) {
+      console.error('Failed to add person to favorites:', error);
+      notify('Failed to add person to favorites', 'error', 3000);
+    }
   };
 
 
@@ -154,8 +169,15 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
               icon: 'favorites',
               hint: 'Add to favorites',
               cssClass: 'star-button-gold',
-              visible: e => !isInFavorites(e.row.data.id),
+              visible: e => !isInFavorites(e.row.data.id) && !isAddingToFavorites(e.row.data.id),
               onClick: (e) => handleAddToFavorites(e.row.data)
+            },
+            {
+              icon: 'refresh',
+              hint: 'Adding to favorites...',
+              cssClass: 'loading-button',
+              visible: e => isAddingToFavorites(e.row.data.id),
+              disabled: true
             },
             {
               icon: 'check',

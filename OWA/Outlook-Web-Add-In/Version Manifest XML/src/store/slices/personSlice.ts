@@ -7,6 +7,8 @@ import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnec
 interface PersonState {
   persons: PersonLookUpResponse[];
   loading: boolean;
+  addToFavoriteLoading: boolean;
+  addingToFavoritePersonId: number | null; // Track which person is being added to favorites
   error: string | null;
   searchTerm: string;
   favorites: PersonResponse[];
@@ -16,6 +18,8 @@ interface PersonState {
 const initialState: PersonState = {
   persons: [],
   loading: false,
+  addToFavoriteLoading: false,
+  addingToFavoritePersonId: null,
   error: null,
   searchTerm: '',
   favorites: [],
@@ -130,11 +134,20 @@ const personSlice = createSlice({
         state.favoritesLoading = false;
         state.error = action.error.message || 'Failed to get favorite persons via WebRTC';
       })
-      .addCase(addPersonToFavoritesAsync.fulfilled, (_state, action) => {
+      .addCase(addPersonToFavoritesAsync.pending, (state, action) => {
+        state.addToFavoriteLoading = true;
+        state.addingToFavoritePersonId = action.meta.arg; // Store the person ID being added
+        state.error = null;
+      })
+      .addCase(addPersonToFavoritesAsync.fulfilled, (state, action) => {
+        state.addToFavoriteLoading = false;
+        state.addingToFavoritePersonId = null;
         // Favorites list is refreshed automatically by the async thunk
         console.log('✅ Person added to favorites on server:', action.payload);
       })
       .addCase(addPersonToFavoritesAsync.rejected, (state, action) => {
+        state.addToFavoriteLoading = false;
+        state.addingToFavoritePersonId = null;
         state.error = action.error.message || 'Failed to add person to favorites';
       })
       .addCase(removePersonFromFavoritesAsync.fulfilled, (_state, action) => {

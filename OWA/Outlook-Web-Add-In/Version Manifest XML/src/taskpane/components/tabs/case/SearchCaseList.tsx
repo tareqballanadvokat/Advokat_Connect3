@@ -11,7 +11,7 @@ import SelectedAktIndicator from '../../shared/SelectedAktIndicator';
 import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { cases, favouriteAkten, loading, error, searchTerm } = useAppSelector(state => state.akten);
+  const { cases, favouriteAkten, loading, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
 
   // Check if an Akt is already in favorites
   const isInFavorites = (aktId: number): boolean => {
@@ -22,15 +22,25 @@ const SearchCaseList: React.FC = () => {
     return favouriteAkten.some(fav => fav.id === aktId);
   };
 
+  // Check if case is being added to favorites
+  const isAddingToFavorites = (aktId: number): boolean => {
+    return addToFavoriteLoading && addingToFavoriteAktId === aktId;
+  };
+
   // Handle adding Akt to favorites
   const handleAddToFavorites = async (aktId: number, aKurz: string) => {
+    // Prevent duplicate requests
+    if (addToFavoriteLoading && addingToFavoriteAktId === aktId) {
+      return;
+    }
+
     try {
       await dispatch(addAktToFavoriteAsync(aktId)).unwrap();
       await dispatch(getFavoriteAktenAsync({ 
               NurFavoriten: true,
               Count: 50
             })).unwrap();
-    notify(`Successfully added "${aKurz}" to favorites!`, 'success', 3000);
+      notify(`Successfully added "${aKurz}" to favorites!`, 'success', 3000);
     } catch (error) {
       console.error('Failed to add to favorites:', error);
       notify(`Failed to add "${aKurz}" to favorites: ${error}`, 'error', 5000);
@@ -138,8 +148,15 @@ const SearchCaseList: React.FC = () => {
             icon: 'favorites',
             hint: 'Add to Favorites',
             cssClass: 'star-button-gold',
-            visible: e => !isInFavorites(e.row.data.id),
+            visible: e => !isInFavorites(e.row.data.id) && !isAddingToFavorites(e.row.data.id),
             onClick: e => handleAddToFavorites(e.row.data.id, e.row.data.aKurz)
+          },
+          {
+            icon: 'refresh',
+            hint: 'Adding to favorites...',
+            cssClass: 'loading-button',
+            visible: e => isAddingToFavorites(e.row.data.id),
+            disabled: true
           },
           {
             icon: 'check',
