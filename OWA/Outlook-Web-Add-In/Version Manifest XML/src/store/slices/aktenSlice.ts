@@ -10,6 +10,13 @@ export interface FolderOption {
   text: string;
 }
 
+// Interface for cached documents with metadata
+export interface CachedAktDocuments {
+  aktId: number;
+  documents: DokumentResponse[];
+  loadedAt: number; // Timestamp for LRU management
+}
+
 // State interface
 interface AktenState {
   // Search and lookup state
@@ -26,12 +33,19 @@ interface AktenState {
   removeFromFavoriteLoading: boolean;
   removingFromFavoriteAktId: number | null; // Track which akt is being removed from favorites
 
-  // Documents state
-  favoriteAktenDocuments: DokumentResponse[]; // Documents for the currently expanded favorite Akten
-  documentsLoadedForAktId: number | null; // Track which Akt ID the current documents were loaded for (for email tab)
-  documentsLoading: boolean;
-  loadingDokumentForAktId: number | null; // Track which akt is loading documents
-  documentsError: string | null;
+  // Case Tab Documents state (cached for multiple Akts)
+  caseDocumentsCache: CachedAktDocuments[]; // Cache documents for up to 5 Akts
+  caseDocumentsLoading: boolean;
+  loadingCaseDocumentsForAktId: number | null; // Track which akt is loading documents in case tab
+  caseDocumentsError: string | null;
+
+  // Email Tab Documents state (for single selected Akt)
+  emailDocuments: DokumentResponse[]; // Documents for the currently selected Akt in email tab
+  emailDocumentsLoadedForAktId: number | null; // Track which Akt ID the email documents were loaded for
+  emailDocumentsLoadedForEmailId: string | null; // Track which email ID the documents were loaded for
+  emailDocumentsLoading: boolean;
+  loadingEmailDocumentsForAktId: number | null; // Track which akt is loading documents in email tab
+  emailDocumentsError: string | null;
 
   // Folders state
   folderOptions: FolderOption[]; // Available folders for the currently selected Akt
@@ -56,12 +70,19 @@ const initialState: AktenState = {
   removeFromFavoriteLoading: false,
   removingFromFavoriteAktId: null,
 
-  // Documents state
-  favoriteAktenDocuments: [],
-  documentsLoadedForAktId: null,
-  documentsLoading: false,
-  loadingDokumentForAktId: null,
-  documentsError: null,
+  // Case Tab Documents state (cached for multiple Akts)
+  caseDocumentsCache: [],
+  caseDocumentsLoading: false,
+  loadingCaseDocumentsForAktId: null,
+  caseDocumentsError: null,
+
+  // Email Tab Documents state (for single selected Akt)
+  emailDocuments: [],
+  emailDocumentsLoadedForAktId: null,
+  emailDocumentsLoadedForEmailId: null,
+  emailDocumentsLoading: false,
+  loadingEmailDocumentsForAktId: null,
+  emailDocumentsError: null,
 
   // Folders state
   folderOptions: [],
@@ -86,10 +107,24 @@ export const getFavoriteAktenAsync = createAsyncThunk(
   }
 );
 
-// New async thunk for getting documents for a specific Akt
-export const getAktDokumenteAsync = createAsyncThunk(
-  'akten/getAktDokumente',
-  async (params: { aktId: number; Count?: number }) => {
+// Async thunk for getting documents for case tab (with caching)
+export const getCaseDocumentsAsync = createAsyncThunk(
+  'akten/getCaseDocuments',
+  async (params: { aktId: number; Count?: number }, { getState }) => {
+    const state = getState() as { akten: AktenState };
+    
+    // Check if documents are already cached for this aktId
+    const existingCache = state.akten.caseDocumentsCache.find(cache => cache.aktId === params.aktId);
+    if (existingCache) {
+      // Update the timestamp to mark as recently accessed (LRU)
+      return {
+        aktId: params.aktId,
+        documents: existingCache.documents,
+        fromCache: true
+      };
+    }
+    
+    // If not cached, fetch from API
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.GetDocuments({
@@ -98,23 +133,31 @@ export const getAktDokumenteAsync = createAsyncThunk(
     });
     
     if (response.response.statusCode === 200) {
-      return JSON.parse(response.response.body || '[]') as DokumentResponse[];
+      return {
+        aktId: params.aktId,
+        documents: JSON.parse(response.response.body || '[]') as DokumentResponse[],
+        fromCache: false
+      };
     } else {
       throw new Error('Failed to get documents for Akt');
     }
   }
 );
 
-// New async thunk for getting documents for email context (includes outlookEmailId)
+// Async thunk for getting documents for email context (includes outlookEmailId)
 export const getEmailDocumentsAsync = createAsyncThunk(
   'akten/getEmailDocuments',
-  async (params: { aktId: number; outlookEmailId: string }) => {
+  async (params: { aktId: number; outlookEmailId?: string }) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
-    const response = await webRTCApiService.GetDocuments({
-      outlookEmailId: params.outlookEmailId,
-      aktId: params.aktId
-    });
+    
+    // Only include outlookEmailId if it's provided and not empty
+    const requestParams: any = { aktId: params.aktId };
+    if (params.outlookEmailId) {
+      requestParams.outlookEmailId = params.outlookEmailId;
+    }
+    
+    const response = await webRTCApiService.GetDocuments(requestParams);
     
     if (response.response.statusCode >= 200 && response.response.statusCode < 300) {
       return JSON.parse(response.response.body || '[]') as DokumentResponse[];
@@ -227,21 +270,27 @@ const aktenSlice = createSlice({
       state.cases = [];
       // DON'T clear favouriteAkten here - it should be managed separately
       // state.favouriteAkten = []; // ← REMOVED: This was clearing favorites unexpectedly
-      state.favoriteAktenDocuments = [];
+      state.caseDocumentsCache = [];
       state.selectedAkt = null; // Clear selected Akt when clearing search results
       state.error = null;
-      state.documentsError = null;
+      state.caseDocumentsError = null;
     },
-    // Clear documents for the selected Akt
-    clearDocuments: (state) => {
-      state.favoriteAktenDocuments = [];
-      state.documentsLoadedForAktId = null;
-      state.documentsError = null;
+    // Clear documents for the selected Akt in email tab
+    clearEmailDocuments: (state) => {
+      state.emailDocuments = [];
+      state.emailDocumentsLoadedForAktId = null;
+      state.emailDocumentsLoadedForEmailId = null;
+      state.emailDocumentsError = null;
+    },
+    // Clear case documents cache
+    clearCaseDocuments: (state) => {
+      state.caseDocumentsCache = [];
+      state.caseDocumentsError = null;
     },
     // Clear favorite Akten
     clearFavorites: (state) => {
       state.favouriteAkten = [];
-      state.favoriteAktenDocuments = []; // Clear documents as they depend on favorites
+      state.caseDocumentsCache = []; // Clear documents cache as they depend on favorites
     },
     // Clear folder options
     clearFolders: (state) => {
@@ -276,41 +325,62 @@ const aktenSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to get favorite cases via WebRTC';
       })
-      // Get Akt documents handlers
-      .addCase(getAktDokumenteAsync.pending, (state, action) => {
-        state.documentsLoading = true;
-        state.loadingDokumentForAktId = action.meta.arg.aktId; // Track which akt is loading documents
-        state.documentsError = null;
+      // Get case documents handlers (with caching)
+      .addCase(getCaseDocumentsAsync.pending, (state, action) => {
+        state.caseDocumentsLoading = true;
+        state.loadingCaseDocumentsForAktId = action.meta.arg.aktId;
+        state.caseDocumentsError = null;
       })
-      .addCase(getAktDokumenteAsync.fulfilled, (state, action) => {
-        state.documentsLoading = false;
-        state.loadingDokumentForAktId = null;
-        state.favoriteAktenDocuments = action.payload;
-        state.documentsLoadedForAktId = action.meta.arg.aktId; // Track which Akt ID these documents are for
+      .addCase(getCaseDocumentsAsync.fulfilled, (state, action) => {
+        state.caseDocumentsLoading = false;
+        state.loadingCaseDocumentsForAktId = null;
+        
+        const { aktId, documents, fromCache } = action.payload;
+        const timestamp = Date.now();
+        
+        // Remove existing entry for this aktId (if any)
+        state.caseDocumentsCache = state.caseDocumentsCache.filter(cache => cache.aktId !== aktId);
+        
+        // Add new entry (or update timestamp for cached entry)
+        state.caseDocumentsCache.push({
+          aktId,
+          documents,
+          loadedAt: timestamp
+        });
+        
+        // Implement LRU: Keep only the 5 most recently used entries
+        if (state.caseDocumentsCache.length > 5) {
+          // Sort by loadedAt and keep the 5 most recent ones
+          state.caseDocumentsCache.sort((a, b) => b.loadedAt - a.loadedAt);
+          state.caseDocumentsCache = state.caseDocumentsCache.slice(0, 5);
+        }
+        
+        console.log(`📄 Case documents ${fromCache ? 'retrieved from cache' : 'loaded from API'} for Akt ${aktId}: ${documents.length} documents`);
       })
-      .addCase(getAktDokumenteAsync.rejected, (state, action) => {
-        state.documentsLoading = false;
-        state.loadingDokumentForAktId = null;
-        state.documentsError = action.error.message || 'Failed to get documents for Akt';
-        state.documentsLoadedForAktId = null;
+      .addCase(getCaseDocumentsAsync.rejected, (state, action) => {
+        state.caseDocumentsLoading = false;
+        state.loadingCaseDocumentsForAktId = null;
+        state.caseDocumentsError = action.error.message || 'Failed to get documents for Akt';
       })
-      // Get email documents handlers
+      // Get email documents handlers (single Akt, clears when Akt changes)
       .addCase(getEmailDocumentsAsync.pending, (state, action) => {
-        state.documentsLoading = true;
-        state.loadingDokumentForAktId = action.meta.arg.aktId; // Track which akt is loading documents
-        state.documentsError = null;
+        state.emailDocumentsLoading = true;
+        state.loadingEmailDocumentsForAktId = action.meta.arg.aktId;
+        state.emailDocumentsError = null;
       })
       .addCase(getEmailDocumentsAsync.fulfilled, (state, action) => {
-        state.documentsLoading = false;
-        state.loadingDokumentForAktId = null;
-        state.favoriteAktenDocuments = action.payload;
-        state.documentsLoadedForAktId = action.meta.arg.aktId; // Track which Akt ID these documents are for
+        state.emailDocumentsLoading = false;
+        state.loadingEmailDocumentsForAktId = null;
+        state.emailDocuments = action.payload;
+        state.emailDocumentsLoadedForAktId = action.meta.arg.aktId;
+        state.emailDocumentsLoadedForEmailId = action.meta.arg.outlookEmailId;
       })
       .addCase(getEmailDocumentsAsync.rejected, (state, action) => {
-        state.documentsLoading = false;
-        state.loadingDokumentForAktId = null;
-        state.documentsError = action.error.message || 'Failed to get documents for email';
-        state.documentsLoadedForAktId = null;
+        state.emailDocumentsLoading = false;
+        state.loadingEmailDocumentsForAktId = null;
+        state.emailDocumentsError = action.error.message || 'Failed to get documents for email';
+        state.emailDocumentsLoadedForAktId = null;
+        state.emailDocumentsLoadedForEmailId = null;
       })
       // Add Akt to favorites handlers
       .addCase(addAktToFavoriteAsync.pending, (state, action) => {
@@ -381,7 +451,28 @@ const aktenSlice = createSlice({
 });
 
 // Export actions
-export const { clearCases, clearDocuments, clearFavorites, clearFolders, setSelectedAkt, setSearchTerm } = aktenSlice.actions;
+export const { clearCases, clearEmailDocuments, clearCaseDocuments, clearFavorites, clearFolders, setSelectedAkt, setSearchTerm } = aktenSlice.actions;
+
+// Selectors for easy access to cached documents
+export const selectCachedDocumentsForAkt = (state: { akten: AktenState }, aktId: number): DokumentResponse[] => {
+  const cachedEntry = state.akten.caseDocumentsCache.find(cache => cache.aktId === aktId);
+  return cachedEntry ? cachedEntry.documents : [];
+};
+
+export const selectHasCachedDocumentsForAkt = (state: { akten: AktenState }, aktId: number): boolean => {
+  return state.akten.caseDocumentsCache.some(cache => cache.aktId === aktId);
+};
+
+export const selectEmailDocuments = (state: { akten: AktenState }) => state.akten.emailDocuments;
+
+export const selectEmailDocumentsForAktAndEmail = (state: { akten: AktenState }, aktId: number, emailId?: string): DokumentResponse[] => {
+  // Check if the current email documents match the requested aktId and emailId
+  if (state.akten.emailDocumentsLoadedForAktId === aktId && 
+      (!emailId || state.akten.emailDocumentsLoadedForEmailId === emailId)) {
+    return state.akten.emailDocuments;
+  }
+  return [];
+};
 
 // Export reducer
 export default aktenSlice.reducer;

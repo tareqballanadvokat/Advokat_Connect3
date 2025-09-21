@@ -4,11 +4,19 @@ import 'devextreme/dist/css/dx.light.css';
 import './CaseTabContent.css'; // Import our custom CSS
 import SearchCaseList from './SearchCaseList';
 import {IsComposeMode} from '../../../hooks/useOfficeItem';
-import {HierarchyTree} from '../../interfaces/ICase'
+import {HierarchyTree} from '../../interfaces/ICase';
+import { DokumentResponse } from '../../interfaces/IDocument';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 import notify from 'devextreme/ui/notify';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { getFavoriteAktenAsync, getAktDokumenteAsync, removeAktFromFavoriteAsync } from '../../../../store/slices/aktenSlice';
+import { createSelector } from '@reduxjs/toolkit';
+import { 
+  getFavoriteAktenAsync, 
+  getCaseDocumentsAsync, 
+  removeAktFromFavoriteAsync,
+  selectCachedDocumentsForAkt,
+  selectHasCachedDocumentsForAkt
+} from '../../../../store/slices/aktenSlice';
 import TreeList, {
   Column,
   Scrolling,
@@ -20,15 +28,25 @@ import { getFileContent } from '../../../utils/api'; // your API
 
 const allowDeleting = (e) => e.row.data.ID !== 1; 
 
+// Memoized selector for all cached documents to prevent unnecessary rerenders
+const selectAllCachedDocuments = createSelector(
+  [(state) => state.akten.caseDocumentsCache],
+  (caseDocumentsCache) => {
+    const allDocs: DokumentResponse[] = [];
+    caseDocumentsCache.forEach(cache => {
+      allDocs.push(...cache.documents);
+    });
+    return allDocs;
+  }
+);
 
 const CaseTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
   const { 
-    favouriteAkten, 
-    favoriteAktenDocuments, 
+    favouriteAkten,
     loading, 
-    documentsLoading, 
-    loadingDokumentForAktId,
+    caseDocumentsLoading, 
+    loadingCaseDocumentsForAktId,
     removeFromFavoriteLoading,
     removingFromFavoriteAktId
   } = useAppSelector(state => state.akten);
@@ -46,7 +64,10 @@ const CaseTabContent: React.FC = () => {
     }
   }, [dispatch, favouriteAkten.length]); // Keep favouriteAkten.length as dependency to detect when it becomes empty
 
-  // Transform favorite Akten and documents into HierarchyTree format with folder structure
+  // Get all cached documents for display using memoized selector
+  const allCachedDocuments = useAppSelector(selectAllCachedDocuments);
+
+  // Transform favorite Akten and cached documents into HierarchyTree format with folder structure
   useEffect(() => {
     const transformedNodes: HierarchyTree[] = [];
     // Add favorite Akten as root nodes (AktenResponse format: Id, AKurz, Causa)
@@ -68,10 +89,8 @@ const CaseTabContent: React.FC = () => {
     const folderMap = new Map<string, HierarchyTree>();
     let nextId = Math.max(...favouriteAkten.map(a => a.id), 0) + 10000; // Start IDs after Akt IDs
 
-    // Ensure favoriteAktenDocuments is treated as an array
-    const documentsArray = Array.isArray(favoriteAktenDocuments) ? favoriteAktenDocuments : [];
-    
-    documentsArray.forEach((doc) => {
+    // Use all cached documents
+    allCachedDocuments.forEach((doc) => {
       // Find the parent Akt ID
       const parentAkt = favouriteAkten.find(akt => akt.id === doc.aktId);
       
@@ -141,14 +160,17 @@ const CaseTabContent: React.FC = () => {
     });
 
     setNodes(transformedNodes);
-  }, [favouriteAkten, favoriteAktenDocuments]);
+  }, [favouriteAkten, allCachedDocuments]);
 
   const onSelectionChanged = useCallback((e) => {
     // keep expandedKeys in sync
     setExpandedKeys(e.component.getSelectedRowKeys());
   }, []);
 
-  // Handle expanding nodes to load documents
+  // Get cache state for checking
+  const caseDocumentsCache = useAppSelector(state => state.akten.caseDocumentsCache);
+
+  // Handle expanding nodes to load documents with caching
   const onExpandedRowKeysChange = useCallback((newExpandedKeys: (string | number)[]) => {
     const previousExpandedKeys = expandedKeys;
     setExpandedKeys(newExpandedKeys);
@@ -168,14 +190,24 @@ const CaseTabContent: React.FC = () => {
         
         const aktId = parseInt(node.url.replace('akt:', ''));
         
-        // Only load documents if they haven't been loaded for this Akt yet
-        const hasDocuments = nodes.some(n => n.rootId === aktId && !n.isStructure);
-        if (!hasDocuments && !documentsLoading) {
-          dispatch(getAktDokumenteAsync({ aktId, Count: 100 }));
+        // Check if documents are already cached for this Akt
+        const hasCachedDocuments = caseDocumentsCache.some(cache => cache.aktId === aktId);
+        
+        // Only load documents if:
+        // 1. They're not already cached
+        // 2. We're not currently loading for this specific Akt
+        // 3. We're not already loading something else
+        if (!hasCachedDocuments && 
+            loadingCaseDocumentsForAktId !== aktId && 
+            !caseDocumentsLoading) {
+          console.log(`📄 Loading documents for Akt ${aktId} (not cached)`);
+          dispatch(getCaseDocumentsAsync({ aktId, Count: 100 }));
+        } else if (hasCachedDocuments) {
+          console.log(`📄 Documents for Akt ${aktId} already cached, skipping API call`);
         }
       }
     });
-  }, [nodes, expandedKeys, documentsLoading, dispatch]);
+  }, [nodes, expandedKeys, caseDocumentsLoading, loadingCaseDocumentsForAktId, caseDocumentsCache, dispatch]);
 
 
   const handleOpen = useCallback((node: HierarchyTree) => {
@@ -332,7 +364,7 @@ const CaseTabContent: React.FC = () => {
             >
               {/* Show loading icon for Akt folders when documents are being loaded */}
               {data.isStructure && data.url.startsWith('akt:') && 
-               documentsLoading && loadingDokumentForAktId === parseInt(data.url.replace('akt:', '')) ? (
+               caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? (
                 <i
                   className="dx-icon dx-icon-refresh"
                   style={{ 
@@ -359,11 +391,11 @@ const CaseTabContent: React.FC = () => {
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 opacity: data.isStructure && data.url.startsWith('akt:') && 
-                         documentsLoading && loadingDokumentForAktId === parseInt(data.url.replace('akt:', '')) ? 0.7 : 1
+                         caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? 0.7 : 1
               }}>
                 {data.name}
                 {data.isStructure && data.url.startsWith('akt:') && 
-                 documentsLoading && loadingDokumentForAktId === parseInt(data.url.replace('akt:', '')) && ' (Loading...)'}
+                 caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) && ' (Loading...)'}
               </span>
             </div>
           )}

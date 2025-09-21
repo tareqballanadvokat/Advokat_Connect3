@@ -6,7 +6,7 @@ import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmai
 import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '../../interfaces/IDocument';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../../../store';
-import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearDocuments } from '../../../../store/slices/aktenSlice';
+import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEmailDocuments, selectEmailDocuments } from '../../../../store/slices/aktenSlice';
 import { setAttachmentSelected } from '../../../../store/slices/emailSlice';
 
 const TransferAndAttachment: React.FC = () => {
@@ -15,9 +15,9 @@ const TransferAndAttachment: React.FC = () => {
     folderOptions, 
     foldersLoading, 
     foldersError, 
-    foldersLoadedForAktId, 
-    favoriteAktenDocuments,
-    documentsLoadedForAktId,
+    foldersLoadedForAktId,
+    emailDocuments,
+    emailDocumentsLoadedForAktId,
     selectedAkt 
   } = useSelector((state: RootState) => state.akten);
   
@@ -39,19 +39,19 @@ const TransferAndAttachment: React.FC = () => {
     }
   }, [selectedAkt?.id, foldersLoadedForAktId, dispatch]);
 
-  // Clear documents ONLY when selectedAkt actually changes
+  // Clear email documents ONLY when selectedAkt actually changes
   useEffect(() => {
     const currentAktId = selectedAkt?.id;
     
     // Only clear if documents were loaded for a different Akt ID
-    if (documentsLoadedForAktId !== null && 
-        documentsLoadedForAktId !== currentAktId && 
+    if (emailDocumentsLoadedForAktId !== null && 
+        emailDocumentsLoadedForAktId !== currentAktId && 
         currentAktId != null && 
         currentAktId !== -1) {
-      console.log('Akt changed, clearing documents. Previous:', documentsLoadedForAktId, 'Current:', currentAktId);
-      dispatch(clearDocuments());
+      console.log('Akt changed, clearing email documents. Previous:', emailDocumentsLoadedForAktId, 'Current:', currentAktId);
+      dispatch(clearEmailDocuments());
     }
-  }, [selectedAkt?.id, documentsLoadedForAktId, dispatch]);
+  }, [selectedAkt?.id, emailDocumentsLoadedForAktId, dispatch]);
 
   // Load folders only if they haven't been loaded for the current Akt
   useEffect(() => {
@@ -65,28 +65,33 @@ const TransferAndAttachment: React.FC = () => {
     }
   }, [selectedAkt?.id, foldersLoadedForAktId, foldersLoading, foldersError, dispatch]);
 
-  // Load documents only if they haven't been loaded for the current Akt
+  // Load email documents only if they haven't been loaded for the current Akt
   useEffect(() => {
     const loadDocuments = async () => {
       if (selectedAkt?.id != null && 
           selectedAkt.id !== -1 && 
-          documentsLoadedForAktId !== selectedAkt.id) {
+          emailDocumentsLoadedForAktId !== selectedAkt.id) {
         try {
           const email = Office.context.mailbox.item;
           const messageId = await getInternetMessageIdAsync(email);
           console.log('Loading documents for case:', selectedAkt.id, 'and email:', messageId);
           dispatch(getEmailDocumentsAsync({ 
             aktId: selectedAkt.id, 
-            outlookEmailId: messageId 
+            outlookEmailId: messageId || undefined // Handle missing messageId gracefully
           }));
         } catch (error) {
           console.error('Failed to get message ID for document loading:', error);
+          // Still attempt to load documents without email ID
+          dispatch(getEmailDocumentsAsync({ 
+            aktId: selectedAkt.id, 
+            outlookEmailId: undefined 
+          }));
         }
       }
     };
 
     loadDocuments();
-  }, [selectedAkt?.id, documentsLoadedForAktId, dispatch]);
+  }, [selectedAkt?.id, emailDocumentsLoadedForAktId, dispatch]);
 
   useEffect(() => {
     (async () => {
@@ -97,8 +102,8 @@ const TransferAndAttachment: React.FC = () => {
         return;
       }
 
-      // Wait for documents to be loaded via Redux
-      if (documentsLoadedForAktId !== selectedAkt.id) {
+      // Wait for email documents to be loaded via Redux
+      if (emailDocumentsLoadedForAktId !== selectedAkt.id) {
         // Documents are still loading or not loaded yet
         setLoading(true);
         return;
@@ -110,8 +115,8 @@ const TransferAndAttachment: React.FC = () => {
       try {
         const email = Office.context.mailbox.item;
         
-        // Use documents from Redux state instead of loading manually
-        const savedDocuments = favoriteAktenDocuments;
+        // Use email documents from Redux state instead of loading manually
+        const savedDocuments = emailDocuments;
         
         // Step 1: Email information
         const emailSubject = await getEmailSubjectAsync();
@@ -193,7 +198,7 @@ const TransferAndAttachment: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, [selectedAkt?.id, documentsLoadedForAktId, favoriteAktenDocuments]);
+  }, [selectedAkt?.id, emailDocumentsLoadedForAktId, emailDocuments]);
 
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;
