@@ -68,7 +68,10 @@ const CaseTabContent: React.FC = () => {
     const folderMap = new Map<string, HierarchyTree>();
     let nextId = Math.max(...favouriteAkten.map(a => a.id), 0) + 10000; // Start IDs after Akt IDs
 
-    favoriteAktenDocuments.forEach((doc) => {
+    // Ensure favoriteAktenDocuments is treated as an array
+    const documentsArray = Array.isArray(favoriteAktenDocuments) ? favoriteAktenDocuments : [];
+    
+    documentsArray.forEach((doc) => {
       // Find the parent Akt ID
       const parentAkt = favouriteAkten.find(akt => akt.id === doc.aktId);
       

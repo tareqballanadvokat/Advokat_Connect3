@@ -3,28 +3,90 @@ import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
 import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
-import { webRTCApiService } from '../../../services/webRTCApiService';
 import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '../../interfaces/IDocument';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../../../store';
-import { getAvailableFoldersAsync, clearFolders } from '../../../../store/slices/aktenSlice';
+import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearDocuments } from '../../../../store/slices/aktenSlice';
 import { setAttachmentSelected } from '../../../../store/slices/emailSlice';
 
 const TransferAndAttachment: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { folderOptions, foldersLoading, foldersError, selectedAkt } = useSelector((state: RootState) => state.akten);
+  const { 
+    folderOptions, 
+    foldersLoading, 
+    foldersError, 
+    foldersLoadedForAktId, 
+    favoriteAktenDocuments,
+    documentsLoadedForAktId,
+    selectedAkt 
+  } = useSelector((state: RootState) => state.akten);
   
   const [items, setItems] = useState<TransferAttachmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
-  // Load folders whenever selectedAkt changes and if there are no folders loaded
+  // Clear folders and errors ONLY when selectedAkt actually changes
   useEffect(() => {
-    if (selectedAkt?.id != null && selectedAkt.id !== -1 && folderOptions.length === 0 && !foldersLoading) {
+    const currentAktId = selectedAkt?.id;
+    
+    // Only clear if folders were loaded for a different Akt ID
+    if (foldersLoadedForAktId !== null && 
+        foldersLoadedForAktId !== currentAktId && 
+        currentAktId != null && 
+        currentAktId !== -1) {
+      console.log('Akt changed, clearing folders. Previous:', foldersLoadedForAktId, 'Current:', currentAktId);
+      dispatch(clearFolders());
+    }
+  }, [selectedAkt?.id, foldersLoadedForAktId, dispatch]);
+
+  // Clear documents ONLY when selectedAkt actually changes
+  useEffect(() => {
+    const currentAktId = selectedAkt?.id;
+    
+    // Only clear if documents were loaded for a different Akt ID
+    if (documentsLoadedForAktId !== null && 
+        documentsLoadedForAktId !== currentAktId && 
+        currentAktId != null && 
+        currentAktId !== -1) {
+      console.log('Akt changed, clearing documents. Previous:', documentsLoadedForAktId, 'Current:', currentAktId);
+      dispatch(clearDocuments());
+    }
+  }, [selectedAkt?.id, documentsLoadedForAktId, dispatch]);
+
+  // Load folders only if they haven't been loaded for the current Akt
+  useEffect(() => {
+    if (selectedAkt?.id != null && 
+        selectedAkt.id !== -1 && 
+        foldersLoadedForAktId !== selectedAkt.id && // Only load if not already loaded for this Akt
+        !foldersLoading && 
+        !foldersError) { // Don't retry if there's already an error
       console.log('Loading folders for case:', selectedAkt.id);
       dispatch(getAvailableFoldersAsync(selectedAkt.id));
     }
-  }, [selectedAkt?.id, folderOptions.length, foldersLoading, dispatch]);
+  }, [selectedAkt?.id, foldersLoadedForAktId, foldersLoading, foldersError, dispatch]);
+
+  // Load documents only if they haven't been loaded for the current Akt
+  useEffect(() => {
+    const loadDocuments = async () => {
+      if (selectedAkt?.id != null && 
+          selectedAkt.id !== -1 && 
+          documentsLoadedForAktId !== selectedAkt.id) {
+        try {
+          const email = Office.context.mailbox.item;
+          const messageId = await getInternetMessageIdAsync(email);
+          console.log('Loading documents for case:', selectedAkt.id, 'and email:', messageId);
+          dispatch(getEmailDocumentsAsync({ 
+            aktId: selectedAkt.id, 
+            outlookEmailId: messageId 
+          }));
+        } catch (error) {
+          console.error('Failed to get message ID for document loading:', error);
+        }
+      }
+    };
+
+    loadDocuments();
+  }, [selectedAkt?.id, documentsLoadedForAktId, dispatch]);
 
   useEffect(() => {
     (async () => {
@@ -35,29 +97,28 @@ const TransferAndAttachment: React.FC = () => {
         return;
       }
 
+      // Wait for documents to be loaded via Redux
+      if (documentsLoadedForAktId !== selectedAkt.id) {
+        // Documents are still loading or not loaded yet
+        setLoading(true);
+        return;
+      }
+
       setLoading(true);
       setError(undefined);
       
       try {
         const email = Office.context.mailbox.item;
-        const messageId = await getInternetMessageIdAsync(email);
         
-        // Get saved documents from Advokat via WebRTC
-        const documentsResponse = await webRTCApiService.GetDocuments({
-          outlookEmailId: messageId,
-          aktId: selectedAkt.id
-        });
-        let savedDocuments: DokumentResponse[] = [];
-        
-        if (documentsResponse.response.statusCode >= 200 && documentsResponse.response.statusCode < 300) {
-          savedDocuments = JSON.parse(documentsResponse.response.body || '[]');
-        } else {
-          console.warn('Failed to get saved documents');
-        }
+        // Use documents from Redux state instead of loading manually
+        const savedDocuments = favoriteAktenDocuments;
         
         // Step 1: Email information
         const emailSubject = await getEmailSubjectAsync();
         const emailAttachments = await getEmailAttachments(email);
+
+        // Get messageId for email row
+        const messageId = await getInternetMessageIdAsync(email);
 
         // Find saved email document (if any)
         const savedEmailDoc = savedDocuments.find(doc => 
@@ -132,7 +193,7 @@ const TransferAndAttachment: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, [selectedAkt?.id]);
+  }, [selectedAkt?.id, documentsLoadedForAktId, favoriteAktenDocuments]);
 
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;

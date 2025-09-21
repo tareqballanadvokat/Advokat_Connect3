@@ -7,8 +7,7 @@
 export interface WebRTCApiRequest {
   checksum: string;                    // MD5 hash of request property (base64 encoded)
   id: string;                         // GUID + first 4 chars of GUID's MD5 hash
-  isMultipart: boolean;               // true if chunking is used, false otherwise
-  messageType?: string;               // Format: "sliceName.actionName" (optional for backward compatibility)
+  messageType: string;                // Format: "sliceName.actionName"
   request: {
     timestamp: number;                // Unix timestamp
     totalChunks: number;              // Total number of chunks (0 if not chunked)

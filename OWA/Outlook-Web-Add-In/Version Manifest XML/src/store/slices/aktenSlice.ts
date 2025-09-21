@@ -12,44 +12,62 @@ export interface FolderOption {
 
 // State interface
 interface AktenState {
+  // Search and lookup state
   cases: AktLookUpResponse[]; // For search results
-  favouriteAkten: AktenResponse[]; // For favorite Akten from GetAllAsync endpoint (Id, AKurz, Causa)
-  favoriteAktenDocuments: DokumentResponse[]; // Documents for the currently expanded favorite Akten
-  folderOptions: FolderOption[]; // Available folders for the currently selected Akt
+  searchTerm: string; // Current search term in the search box
   selectedAkt: AktLookUpResponse | null; // Currently selected Akt for operations
   loading: boolean;
+  error: string | null;
+
+  // Favorites state
+  favouriteAkten: AktenResponse[]; // For favorite Akten from GetAllAsync endpoint (Id, AKurz, Causa)
   addToFavoriteLoading: boolean;
   addingToFavoriteAktId: number | null; // Track which akt is being added to favorites
   removeFromFavoriteLoading: boolean;
   removingFromFavoriteAktId: number | null; // Track which akt is being removed from favorites
+
+  // Documents state
+  favoriteAktenDocuments: DokumentResponse[]; // Documents for the currently expanded favorite Akten
+  documentsLoadedForAktId: number | null; // Track which Akt ID the current documents were loaded for (for email tab)
   documentsLoading: boolean;
   loadingDokumentForAktId: number | null; // Track which akt is loading documents
-  foldersLoading: boolean;
-  error: string | null;
   documentsError: string | null;
+
+  // Folders state
+  folderOptions: FolderOption[]; // Available folders for the currently selected Akt
+  foldersLoadedForAktId: number | null; // Track which Akt ID the current folders were loaded for
+  foldersLoading: boolean;
   foldersError: string | null;
-  searchTerm: string; // Current search term in the search box
 }
 
 // Initial state
 const initialState: AktenState = {
+  // Search and lookup state
   cases: [],
-  favouriteAkten: [],
-  favoriteAktenDocuments: [],
-  folderOptions: [],
+  searchTerm: '',
   selectedAkt: null,
   loading: false,
+  error: null,
+
+  // Favorites state
+  favouriteAkten: [],
   addToFavoriteLoading: false,
   addingToFavoriteAktId: null,
   removeFromFavoriteLoading: false,
   removingFromFavoriteAktId: null,
+
+  // Documents state
+  favoriteAktenDocuments: [],
+  documentsLoadedForAktId: null,
   documentsLoading: false,
   loadingDokumentForAktId: null,
-  foldersLoading: false,
-  error: null,
   documentsError: null,
-  foldersError: null,
-  searchTerm: ''
+
+  // Folders state
+  folderOptions: [],
+  foldersLoadedForAktId: null,
+  foldersLoading: false,
+  foldersError: null
 };
 
 // New async thunk for getting favorite Akten
@@ -83,6 +101,25 @@ export const getAktDokumenteAsync = createAsyncThunk(
       return JSON.parse(response.response.body || '[]') as DokumentResponse[];
     } else {
       throw new Error('Failed to get documents for Akt');
+    }
+  }
+);
+
+// New async thunk for getting documents for email context (includes outlookEmailId)
+export const getEmailDocumentsAsync = createAsyncThunk(
+  'akten/getEmailDocuments',
+  async (params: { aktId: number; outlookEmailId: string }) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    const response = await webRTCApiService.GetDocuments({
+      outlookEmailId: params.outlookEmailId,
+      aktId: params.aktId
+    });
+    
+    if (response.response.statusCode >= 200 && response.response.statusCode < 300) {
+      return JSON.parse(response.response.body || '[]') as DokumentResponse[];
+    } else {
+      throw new Error('Failed to get documents for email');
     }
   }
 );
@@ -198,6 +235,7 @@ const aktenSlice = createSlice({
     // Clear documents for the selected Akt
     clearDocuments: (state) => {
       state.favoriteAktenDocuments = [];
+      state.documentsLoadedForAktId = null;
       state.documentsError = null;
     },
     // Clear favorite Akten
@@ -208,6 +246,7 @@ const aktenSlice = createSlice({
     // Clear folder options
     clearFolders: (state) => {
       state.folderOptions = [];
+      state.foldersLoadedForAktId = null;
       state.foldersError = null;
     },
     // Set selected Akt
@@ -247,11 +286,31 @@ const aktenSlice = createSlice({
         state.documentsLoading = false;
         state.loadingDokumentForAktId = null;
         state.favoriteAktenDocuments = action.payload;
+        state.documentsLoadedForAktId = action.meta.arg.aktId; // Track which Akt ID these documents are for
       })
       .addCase(getAktDokumenteAsync.rejected, (state, action) => {
         state.documentsLoading = false;
         state.loadingDokumentForAktId = null;
         state.documentsError = action.error.message || 'Failed to get documents for Akt';
+        state.documentsLoadedForAktId = null;
+      })
+      // Get email documents handlers
+      .addCase(getEmailDocumentsAsync.pending, (state, action) => {
+        state.documentsLoading = true;
+        state.loadingDokumentForAktId = action.meta.arg.aktId; // Track which akt is loading documents
+        state.documentsError = null;
+      })
+      .addCase(getEmailDocumentsAsync.fulfilled, (state, action) => {
+        state.documentsLoading = false;
+        state.loadingDokumentForAktId = null;
+        state.favoriteAktenDocuments = action.payload;
+        state.documentsLoadedForAktId = action.meta.arg.aktId; // Track which Akt ID these documents are for
+      })
+      .addCase(getEmailDocumentsAsync.rejected, (state, action) => {
+        state.documentsLoading = false;
+        state.loadingDokumentForAktId = null;
+        state.documentsError = action.error.message || 'Failed to get documents for email';
+        state.documentsLoadedForAktId = null;
       })
       // Add Akt to favorites handlers
       .addCase(addAktToFavoriteAsync.pending, (state, action) => {
@@ -295,11 +354,13 @@ const aktenSlice = createSlice({
       .addCase(getAvailableFoldersAsync.fulfilled, (state, action) => {
         state.foldersLoading = false;
         state.folderOptions = action.payload;
+        state.foldersLoadedForAktId = action.meta.arg; // Track which Akt ID these folders are for
       })
       .addCase(getAvailableFoldersAsync.rejected, (state, action) => {
         state.foldersLoading = false;
         state.foldersError = action.error.message || 'Failed to load available folders';
         state.folderOptions = [];
+        state.foldersLoadedForAktId = null;
       })
       // Akt lookup handlers
       .addCase(aktLookUpAsync.pending, (state, action) => {

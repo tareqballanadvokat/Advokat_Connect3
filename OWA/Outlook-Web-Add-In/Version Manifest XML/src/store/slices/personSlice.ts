@@ -5,29 +5,35 @@ import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnec
 
 // State interface
 interface PersonState {
+  // Search and lookup state
   persons: PersonLookUpResponse[];
+  searchTerm: string;
   loading: boolean;
+  error: string | null;
+
+  // Favorites state
+  favorites: PersonResponse[];
+  favoritesLoading: boolean;
   addToFavoriteLoading: boolean;
   addingToFavoritePersonId: number | null; // Track which person is being added to favorites
   removeFromFavoriteLoading: boolean;
   removingFromFavoritePersonId: number | null; // Track which person is being removed from favorites
-  error: string | null;
-  searchTerm: string;
-  favorites: PersonResponse[];
-  favoritesLoading: boolean;
 }
 
 const initialState: PersonState = {
+  // Search and lookup state
   persons: [],
+  searchTerm: '',
   loading: false,
+  error: null,
+
+  // Favorites state
+  favorites: [],
+  favoritesLoading: false,
   addToFavoriteLoading: false,
   addingToFavoritePersonId: null,
   removeFromFavoriteLoading: false,
-  removingFromFavoritePersonId: null,
-  error: null,
-  searchTerm: '',
-  favorites: [],
-  favoritesLoading: false
+  removingFromFavoritePersonId: null
 };
 
 export const personLookUpAsync = createAsyncThunk(

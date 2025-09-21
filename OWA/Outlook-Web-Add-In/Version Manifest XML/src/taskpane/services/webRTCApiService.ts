@@ -740,7 +740,14 @@ export class WebRTCApiService {
    * Handle chunk assembly timeout - retry the request
    * Implements exponential backoff with configurable retry limits
    */
-  private handleChunkTimeout(pendingRequest: PendingRequest) {
+  private async handleChunkTimeout(pendingRequest: PendingRequest) {
+    debugger;
+    // Check if request still exists (might have been completed or cancelled)
+    if (!this.pendingRequests.has(pendingRequest.id)) {
+      console.log(`ℹ️ Request ${pendingRequest.messageType} already completed, skipping timeout handling`);
+      return;
+    }
+    
     const retryCount = (pendingRequest.retryCount || 0) + 1;
     
     if (retryCount <= this.CHUNKING_CONFIG.maxRetries) {
@@ -751,18 +758,31 @@ export class WebRTCApiService {
       pendingRequest.receivedChunks = undefined;
       pendingRequest.retryCount = retryCount;
       
-      // Clear existing timeout and set new timeout
+      // Clear existing timeout
       clearTimeout(pendingRequest.timeoutHandle);
-      pendingRequest.timeoutHandle = setTimeout(() => {
-        this.handleChunkTimeout(pendingRequest);
-      }, this.CHUNKING_CONFIG.retryTimeoutMs);
       
-      // Re-send the original request
-      this.resendOriginalRequest(pendingRequest);
+      // Re-send the original request first
+      try {
+        await this.resendOriginalRequest(pendingRequest);
+        
+        // Only set new timeout if resend was successful and request is still pending
+        if (this.pendingRequests.has(pendingRequest.id)) {
+          pendingRequest.timeoutHandle = setTimeout(() => {
+            this.handleChunkTimeout(pendingRequest);
+          }, this.CHUNKING_CONFIG.retryTimeoutMs);
+        }
+      } catch (error) {
+        // resendOriginalRequest already handled the error and completed the request
+        console.log(`❌ Retry failed for ${pendingRequest.messageType}, request completed with error`);
+      }
       
     } else {
       console.log(`❌ Max retries exceeded for ${pendingRequest.messageType}, failing request`);
-      this.completeRequest(pendingRequest, undefined, new Error(`Chunk assembly timeout after ${retryCount} retries`));
+      // Ensure we clear any remaining timeout and complete the request
+      clearTimeout(pendingRequest.timeoutHandle);
+      if (this.pendingRequests.has(pendingRequest.id)) {
+        this.completeRequest(pendingRequest, undefined, new Error(`Chunk assembly timeout after ${retryCount} retries`));
+      }
     }
   }
 
@@ -770,7 +790,13 @@ export class WebRTCApiService {
    * Handle checksum failure - retry the request due to data corruption
    * Resets chunking state and attempts to resend the original request
    */
-  private handleChecksumFailure(pendingRequest: PendingRequest) {
+  private async handleChecksumFailure(pendingRequest: PendingRequest) {
+    // Check if request still exists (might have been completed or cancelled)
+    if (!this.pendingRequests.has(pendingRequest.id)) {
+      console.log(`ℹ️ Request ${pendingRequest.messageType} already completed, skipping checksum failure handling`);
+      return;
+    }
+    
     const retryCount = (pendingRequest.retryCount || 0) + 1;
     
     if (retryCount <= this.CHUNKING_CONFIG.maxRetries) {
@@ -781,15 +807,29 @@ export class WebRTCApiService {
       pendingRequest.retryCount = retryCount;
       
       clearTimeout(pendingRequest.timeoutHandle);
-      pendingRequest.timeoutHandle = setTimeout(() => {
-        this.handleChunkTimeout(pendingRequest);
-      }, this.CHUNKING_CONFIG.retryTimeoutMs);
       
-      this.resendOriginalRequest(pendingRequest);
+      // Re-send the original request first
+      try {
+        await this.resendOriginalRequest(pendingRequest);
+        
+        // Only set new timeout if resend was successful and request is still pending
+        if (this.pendingRequests.has(pendingRequest.id)) {
+          pendingRequest.timeoutHandle = setTimeout(() => {
+            this.handleChunkTimeout(pendingRequest);
+          }, this.CHUNKING_CONFIG.retryTimeoutMs);
+        }
+      } catch (error) {
+        // resendOriginalRequest already handled the error and completed the request
+        console.log(`❌ Checksum retry failed for ${pendingRequest.messageType}, request completed with error`);
+      }
       
     } else {
       console.log(`❌ Max retries exceeded for ${pendingRequest.messageType} due to checksum failures, failing request`);
-      this.completeRequest(pendingRequest, undefined, new Error(`Checksum validation failed after ${retryCount} retries - data corruption detected`));
+      // Ensure we clear any remaining timeout and complete the request
+      clearTimeout(pendingRequest.timeoutHandle);
+      if (this.pendingRequests.has(pendingRequest.id)) {
+        this.completeRequest(pendingRequest, undefined, new Error(`Checksum validation failed after ${retryCount} retries - data corruption detected`));
+      }
     }
   }
 
@@ -800,6 +840,32 @@ export class WebRTCApiService {
   private validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
     const rawResponseBody = response.response.body || '';
     console.log(`📥 Processing single response for ${pendingRequest.messageType}`);
+    
+    // Check HTTP status code first
+    const statusCode = response.response.statusCode;
+    if (statusCode >= 400) {
+      console.error(`❌ HTTP error ${statusCode} for ${pendingRequest.messageType}`);
+      
+      // For certain error codes, we want to retry (temporary errors)
+      // For others, we want to fail immediately (permanent errors)
+      const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
+      const permanentErrors = [400, 401, 403, 404]; // Client errors, authorization, not found
+      
+      if (retryableErrors.includes(statusCode)) {
+        console.log(`🔄 HTTP ${statusCode} is retryable, attempting retry for ${pendingRequest.messageType}`);
+        this.handleChecksumFailure(pendingRequest); // Reuse the retry logic
+        return;
+      } else if (permanentErrors.includes(statusCode)) {
+        console.log(`❌ HTTP ${statusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${rawResponseBody || 'Request failed'}`));
+        return;
+      } else {
+        // Unknown error code, treat as permanent
+        console.log(`❌ HTTP ${statusCode} is unknown error, failing request for ${pendingRequest.messageType}`);
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${rawResponseBody || 'Request failed'}`));
+        return;
+      }
+    }
     
     // Decode base64 response body
     const decodedBody = this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
@@ -865,10 +931,33 @@ export class WebRTCApiService {
     const assembledBody = sortedChunks.map(chunk => chunk.response.body || '').join('');
     console.log(`📥 Raw assembled body for ${pendingRequest.messageType} (length: ${assembledBody.length})`);
     
+    const firstChunk = sortedChunks[0];
+    
+    // Check HTTP status code first (use first chunk's status)
+    const statusCode = firstChunk.response.statusCode;
+    if (statusCode >= 400) {
+      console.error(`❌ HTTP error ${statusCode} for chunked response ${pendingRequest.messageType}`);
+      
+      // For certain error codes, we want to retry (temporary errors)
+      // For others, we want to fail immediately (permanent errors)
+      const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
+      const permanentErrors = [400, 401, 403, 404]; // Client errors, authorization, not found
+      
+      if (retryableErrors.includes(statusCode)) {
+        console.log(`🔄 HTTP ${statusCode} is retryable, attempting retry for ${pendingRequest.messageType}`);
+        this.handleChecksumFailure(pendingRequest); // Reuse the retry logic
+        return;
+      } else {
+        // Permanent errors or unknown errors
+        console.log(`❌ HTTP ${statusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
+        const decodedErrorBody = this.decodeResponseBody(assembledBody, pendingRequest.messageType);
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${decodedErrorBody || 'Request failed'}`));
+        return;
+      }
+    }
+    
     // Decode base64 response body after assembly
     const decodedBody = this.decodeResponseBody(assembledBody, pendingRequest.messageType);
-    
-    const firstChunk = sortedChunks[0];
     
     // Create the complete response object with assembled base64 body for checksum calculation
     const assembledResponseForChecksum = {
@@ -970,15 +1059,9 @@ export class WebRTCApiService {
       // Create headers with automatic authorization
       const requestHeaders = this.createRequestHeaders(headers, messageType);
 
-      // Create full protocol request
-      const protocolRequest = createProtocolRequest(method, url, requestHeaders, body);
+      // Create full protocol request with messageType
+      const protocolRequest = createProtocolRequest(method, url, requestHeaders, body, messageType);
       console.log('📝 Created protocol request:', protocolRequest);
-      
-      // Add messageType to the request
-      const requestWithMessageType = {
-        ...protocolRequest,
-        messageType: messageType
-      };
 
       // Create pending request object
       const pendingRequest: PendingRequest = {
@@ -1005,7 +1088,7 @@ export class WebRTCApiService {
 
       try {
         // Use generic chunking system to send the request
-        await sendRequestWithChunking(requestWithMessageType, (chunk) => {
+        await sendRequestWithChunking(protocolRequest, (chunk) => {
           const message = JSON.stringify(chunk);
           console.log(`📤 Sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
           dataChannel.send(message);
@@ -1209,7 +1292,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'dokument.getAvailableFolders',
       'GET',
-      `api/v1.1/folders/${aktId}`,
+      `api/v1.1/dokumente/folders/${aktId}`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'

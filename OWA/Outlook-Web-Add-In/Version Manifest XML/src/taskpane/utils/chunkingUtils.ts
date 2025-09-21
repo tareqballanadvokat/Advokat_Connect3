@@ -63,9 +63,10 @@ export function createProtocolId(guid?: string): string {
  * @param url - Request URL
  * @param headers - HTTP headers
  * @param body - Request body (optional)
+ * @param messageType - Message type in format "sliceName.actionName"
  * @returns Complete WebRTC API request
  */
-export function createProtocolRequest(method: string, url: string, headers: Record<string, string>, body?: any): WebRTCApiRequest {
+export function createProtocolRequest(method: string, url: string, headers: Record<string, string>, body?: any, messageType?: string): WebRTCApiRequest {
   const guid = uuidv4();
   const timestamp = Date.now();
   const protocolId = createProtocolId(guid);
@@ -104,7 +105,7 @@ export function createProtocolRequest(method: string, url: string, headers: Reco
   return {
     checksum,
     id: protocolId,
-    isMultipart: false,              // Default: not chunked
+    messageType: messageType || 'unknown.action',  // Use provided messageType or default
     request: requestData
   };
 }
@@ -176,7 +177,6 @@ export function chunkRequest(request: WebRTCApiRequest): ChunkingResult {
     const chunkRequest: WebRTCApiRequest = {
       checksum: originalChecksum, // All chunks share the same checksum
       id: request.id,             // All chunks share the same ID
-      isMultipart: true,          // Mark as chunked
       messageType: request.messageType,
       request: {
         ...request.request,

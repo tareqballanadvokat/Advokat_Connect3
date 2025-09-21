@@ -4,6 +4,7 @@ import { LeistungenAuswahlQuery, LeistungAuswahlResponse } from '../../taskpane/
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 
 interface ServiceState {
+  // Service form data
   abbreviation: number;
   time: string;
   text: string;
@@ -17,10 +18,13 @@ interface ServiceState {
 
 // Initial state
 const initialState: ServiceState = {
+  // Service form data
   abbreviation: 0,
   time: '',
   text: '',
   sb: '',
+
+  // Services dropdown data
   services: [],
   servicesLoading: false,
   servicesError: null,
