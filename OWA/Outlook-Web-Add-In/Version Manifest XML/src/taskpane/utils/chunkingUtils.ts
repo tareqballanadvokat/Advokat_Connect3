@@ -1,14 +1,20 @@
 /**
- * Utility functions for WebRTC message chunking
- * Generic chunking system for all requests that exceed the 256KB UDP limit
+ * Utility functions for WebRTC message chunking with ACK-based retry strategy
+ * Implements reliable chunking for requests that exceed the 256KB UDP limit
  */
 
 import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
-import { WebRTCApiRequest } from '../components/interfaces/IWebRTC';
+import { 
+  WebRTCApiRequest, 
+  WebRTCAckResponse, 
+  ChunkInfo, 
+  PendingRequest, 
+  ChunkingResult 
+} from '../components/interfaces/IWebRTC';
 
 /**
- * Configuration constants for chunking
+ * Configuration constants for chunking and ACK handling
  */
 export const CHUNKING_CONFIG = {
   /** Maximum WebRTC DataChannel message size (256 KB) */
@@ -17,23 +23,30 @@ export const CHUNKING_CONFIG = {
   /** Estimated size for chunk metadata overhead in JSON structure */
   CHUNK_METADATA_OVERHEAD: 200,
   
-  /** Delay between chunk transmissions in milliseconds */
-  CHUNK_DELAY_MS: 100
+  /** Exponential backoff multiplier for retry timeouts */
+  BACKOFF_MULTIPLIER: 1.5,
+  
+  /** Chunk-level configuration for individual chunk ACK handling */
+  CHUNK: {
+    /** Base timeout period for individual chunk ACKs in milliseconds */
+    ACK_TIMEOUT_MS: 2000,
+    
+    /** Maximum timeout period after exponential backoff in milliseconds */
+    MAX_ACK_TIMEOUT_MS: 10000,
+    
+    /** Maximum number of retry attempts for unacknowledged chunks */
+    MAX_RETRY_ATTEMPTS: 3
+  },
+  
+  /** Request-level configuration for overall pending request handling */
+  REQUEST: {
+    /** Maximum timeout for the entire chunked request in milliseconds */
+    MAX_TIMEOUT_MS: 30000,
+    
+    /** Maximum number of retry attempts for failed requests */
+    MAX_RETRY_ATTEMPTS: 2
+  }
 } as const;
-
-/**
- * Result of generic request chunking operation
- */
-export interface ChunkingResult {
-  /** Array of chunked requests ready to send */
-  chunks: WebRTCApiRequest[];
-  /** MD5-style checksum of the original request */
-  checksum: string;
-  /** Total number of chunks created */
-  totalChunks: number;
-  /** Base request ID (same for all chunks) */
-  baseId: string;
-}
 
 /**
  * Calculate MD5 checksum using crypto-js
@@ -87,11 +100,11 @@ export function createProtocolRequest(method: string, url: string, headers: Reco
     }
   }
   
-  // Create the nested request structure
+  // Create the nested request structure with proper chunk defaults
   const requestData = {
     timestamp,
-    totalChunks: 0,                  // Default: no chunks
-    currentChunk: 0,                 // Default: no chunks
+    totalChunks: 1,                  // Default: single chunk
+    currentChunk: 1,                 // Default: single chunk  
     method,
     uri: url,
     headers,
@@ -139,11 +152,27 @@ export function chunkRequest(request: WebRTCApiRequest): ChunkingResult {
   // Calculate checksum of the original request
   const originalChecksum = calculateChecksum(JSON.stringify(request));
   
-  // If request doesn't need chunking, return as single chunk
+  // If request doesn't need chunking, return as single chunk with proper metadata
   if (!needsChunking(request)) {
+    // Ensure single chunk has correct totalChunks and currentChunk values
+    const singleChunkRequestData = {
+      ...request.request,
+      totalChunks: 1,
+      currentChunk: 1
+    };
+    
+    // Calculate checksum for the single chunk's request data
+    const singleChunkChecksum = calculateChecksum(JSON.stringify(singleChunkRequestData));
+    
+    const singleChunkRequest: WebRTCApiRequest = {
+      ...request,
+      checksum: singleChunkChecksum,
+      request: singleChunkRequestData
+    };
+    
     return {
-      chunks: [request],
-      checksum: originalChecksum,
+      chunks: [singleChunkRequest],
+      checksum: singleChunkChecksum,  // Use the recalculated checksum
       totalChunks: 1,
       baseId: request.id
     };
@@ -174,16 +203,21 @@ export function chunkRequest(request: WebRTCApiRequest): ChunkingResult {
     const chunkBody = new TextDecoder().decode(chunkBodyBytes);
     
     // Create chunked request with updated metadata
+    const chunkRequestData = {
+      ...request.request,
+      totalChunks: totalChunks,
+      currentChunk: i + 1,      // 1-based chunk numbering
+      body: chunkBody
+    };
+    
+    // Calculate checksum for this specific chunk's request data
+    const chunkChecksum = calculateChecksum(JSON.stringify(chunkRequestData));
+    
     const chunkRequest: WebRTCApiRequest = {
-      checksum: originalChecksum, // All chunks share the same checksum
+      checksum: chunkChecksum,    // Each chunk has its own checksum
       id: request.id,             // All chunks share the same ID
       messageType: request.messageType,
-      request: {
-        ...request.request,
-        totalChunks: totalChunks,
-        currentChunk: i + 1,      // 1-based chunk numbering
-        body: chunkBody
-      }
+      request: chunkRequestData
     };
     
     chunks.push(chunkRequest);
@@ -195,15 +229,6 @@ export function chunkRequest(request: WebRTCApiRequest): ChunkingResult {
     totalChunks,
     baseId: request.id
   };
-}
-
-/**
- * Create a delay between chunk transmissions
- * @param delayMs - Delay in milliseconds (optional, uses default)
- * @returns Promise that resolves after the delay
- */
-export function createChunkDelay(delayMs: number = CHUNKING_CONFIG.CHUNK_DELAY_MS): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, delayMs));
 }
 
 /**
@@ -236,38 +261,122 @@ export function logChunkTransmission(chunkNumber: number, totalChunks: number, m
 }
 
 /**
- * Send a request with automatic chunking if needed
- * @param request - The request to send
- * @param sendFunction - Function to actually send each chunk
- * @returns Promise that resolves when all chunks are sent
+ * Calculate exponential backoff timeout for retry attempts
+ * @param retryCount - Current retry attempt number
+ * @param baseTimeout - Base timeout in milliseconds
+ * @returns Calculated timeout with exponential backoff
  */
-export async function sendRequestWithChunking(
+export function calculateBackoffTimeout(retryCount: number, baseTimeout: number): number {
+  const timeout = baseTimeout * Math.pow(CHUNKING_CONFIG.BACKOFF_MULTIPLIER, retryCount);
+  return Math.min(timeout, CHUNKING_CONFIG.CHUNK.MAX_ACK_TIMEOUT_MS);
+}
+
+/**
+ * Prepare a request for chunked sending - returns chunking information only
+ * @param request - The request to chunk
+ * @param messageType - Message type for logging
+ * @returns Chunking result with chunks array and metadata
+ */
+export function prepareChunkedRequest(
   request: WebRTCApiRequest,
-  sendFunction: (chunk: WebRTCApiRequest) => Promise<void> | void
-): Promise<void> {
+  messageType?: string
+): ChunkingResult {
   const chunkingResult = chunkRequest(request);
   
   // Log chunking decision
   logChunkingInfo({
     totalSize: calculateMessageSize(request),
     totalChunks: chunkingResult.totalChunks,
-    messageType: request.messageType,
+    messageType: messageType || request.messageType,
     action: chunkingResult.totalChunks > 1 ? 'chunked' : 'single'
   });
   
-  // Send each chunk with delay between them
+  return chunkingResult;
+}
+
+/**
+ * Create a pending request for chunk tracking (structure only - no timeout handling)
+ * @param request - The original request
+ * @param chunkingResult - The chunking result
+ * @param messageType - Message type
+ * @param resolve - Promise resolve function
+ * @param reject - Promise reject function
+ * @returns PendingRequest object ready for tracking
+ */
+export function createPendingRequest(
+  request: WebRTCApiRequest,
+  chunkingResult: ChunkingResult,
+  messageType: string,
+  resolve: (value?: any) => void,
+  reject: (reason?: any) => void
+): PendingRequest {
+  const startTime = Date.now();
+  
+  const pendingRequest: PendingRequest = {
+    id: request.id,
+    messageType: messageType,
+    chunks: new Map(),
+    receivedAcks: new Map(),
+    totalChunks: chunkingResult.totalChunks,
+    startTime,
+    resolve,
+    reject
+  };
+  
+  // Create chunk info for each chunk
   for (let i = 0; i < chunkingResult.chunks.length; i++) {
     const chunk = chunkingResult.chunks[i];
+    const chunkNumber = i + 1;
     
-    if (chunkingResult.totalChunks > 1) {
-      logChunkTransmission(i + 1, chunkingResult.totalChunks, request.messageType);
-    }
+    const chunkInfo: ChunkInfo = {
+      chunkRequest: chunk,
+      chunkNumber,
+      retryCount: 0,
+      lastSentAt: Date.now(),
+      acknowledged: false
+    };
     
-    await sendFunction(chunk);
-    
-    // Add delay between chunks (except for the last one)
-    if (i < chunkingResult.chunks.length - 1) {
-      await createChunkDelay();
-    }
+    pendingRequest.chunks.set(chunkNumber, chunkInfo);
   }
+  
+  return pendingRequest;
+}
+
+/**
+ * Send a request with automatic chunking (LEGACY - for retries only)
+ * @param request - The request to send
+ * @param sendFunction - Function to actually send each chunk
+ * @param messageType - Message type for logging
+ * @returns Promise that resolves when all chunks are sent
+ */
+export async function sendRequestWithChunking(
+  request: WebRTCApiRequest,
+  sendFunction: (chunk: WebRTCApiRequest) => Promise<void> | void,
+  messageType?: string
+): Promise<void> {
+  console.warn('⚠️ Using legacy sendRequestWithChunking - should only be used for retries');
+  
+  const chunkingResult = chunkRequest(request);
+  
+  // Log chunking decision
+  logChunkingInfo({
+    totalSize: calculateMessageSize(request),
+    totalChunks: chunkingResult.totalChunks,
+    messageType: messageType || request.messageType,
+    action: chunkingResult.totalChunks > 1 ? 'chunked' : 'single'
+  });
+  
+  // This is for retries - just send chunks without creating new pending request
+  const sendPromises = chunkingResult.chunks.map(async (chunk, index) => {
+    const chunkNumber = index + 1;
+    logChunkTransmission(chunkNumber, chunkingResult.totalChunks, messageType);
+    
+    try {
+      await sendFunction(chunk);
+    } catch (error) {
+      throw new Error(`Failed to send chunk ${chunkNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
+  
+  await Promise.all(sendPromises);
 }

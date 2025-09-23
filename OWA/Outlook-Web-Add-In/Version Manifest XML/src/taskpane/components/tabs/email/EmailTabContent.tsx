@@ -167,6 +167,9 @@ const EmailTabContent: React.FC = () => {
           throw new Error(emailResponse.response.body || 'Failed to save email document');
         }
       }
+      else {
+        console.log('⚠️ No email selected, skipping Email save');
+      }
 
       // Get selected attachments and save each as a document
       const selectedAttachments = attachmentSelected.filter(i => i.checked && i.type === 'A');

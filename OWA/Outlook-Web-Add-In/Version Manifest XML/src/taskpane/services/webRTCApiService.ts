@@ -1,5 +1,5 @@
 import { AktenQuery } from '../components/interfaces/IAkten';
-import { WebRTCApiRequest, WebRTCApiResponse } from '../components/interfaces/IWebRTC';
+import { WebRTCApiRequest, WebRTCApiResponse, PendingRequest, WebRTCAckResponse, ChunkInfo } from '../components/interfaces/IWebRTC';
 import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
 import { DokumentPostData, DokumenteQuery } from '../components/interfaces/IDocument';
 import { PersonenQuery } from '../components/interfaces/IPerson';
@@ -10,30 +10,13 @@ import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlic
 import {
   calculateChecksum,
   createProtocolRequest,
-  sendRequestWithChunking
+  prepareChunkedRequest,
+  createPendingRequest,
+  logChunkTransmission,
+  sendRequestWithChunking,
+  calculateBackoffTimeout,
+  CHUNKING_CONFIG
 } from '../utils/chunkingUtils';
-
-/**
- * Tracks pending WebRTC requests with chunking support and retry logic
- */
-interface PendingRequest {
-  id: string;
-  messageType: string;
-  timestamp: number;
-  timeoutHandle: NodeJS.Timeout;
-  resolve: (response: WebRTCApiResponse) => void;
-  reject: (error: Error) => void;
-  expectedChunks?: number;
-  receivedChunks?: Map<number, WebRTCApiResponse>;
-  retryCount?: number;
-  originalRequest?: WebRTCApiRequest;
-}
-
-// Configuration for response chunking and retries
-interface ChunkingConfig {
-  maxRetries: number;
-  retryTimeoutMs: number;
-}
 
 /**
  * WebRTC API Service for handling fire-and-forget messaging with chunking support
@@ -44,11 +27,8 @@ export class WebRTCApiService {
   private sipClient: SipClientInstance | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map();
   private readonly REQUEST_TIMEOUT = 100000;
-  
-  private readonly CHUNKING_CONFIG: ChunkingConfig = {
-    maxRetries: 3,
-    retryTimeoutMs: 80000
-  };
+  private chunkMonitorTimer: NodeJS.Timeout | null = null;
+  private readonly CHUNK_MONITOR_INTERVAL = 500; // 500ms interval for chunk monitoring
 
   /**
    * Decode base64 response body with comprehensive logging
@@ -176,25 +156,32 @@ export class WebRTCApiService {
   }
 
   /**
-   * Process message and check if it's an API response
-   * Handles chunked responses and resolves pending requests
+   * Process message and check if it's an API response or ACK
+   * Handles chunked responses, ACKs, and resolves pending requests
    */
   private processMessage(message: string) {
     try {
-      const parsed = JSON.parse(message) as WebRTCApiResponse;
+      const parsed = JSON.parse(message);
       console.log("📨 Received message (processMessage method):", parsed);
-      if (parsed.id) {
-        const pendingRequest = this.pendingRequests.get(parsed.id);
+      // Check if this is an ACK message
+      if (this.isAckMessage(parsed)) {
+        const ack = parsed as WebRTCAckResponse;
+        console.log('📨 Detected ACK message for chunk:', ack.body.chunk);
+        this.processAckMessage(ack);
+        return;
+      }
+      
+      // Handle normal API response
+      const apiResponse = parsed as WebRTCApiResponse;
+      if (apiResponse.id) {
+        const pendingRequest = this.pendingRequests.get(apiResponse.id);
         if (pendingRequest) {
-          console.log('✅ Received response for request ID:', parsed.id, 'MessageType:', pendingRequest.messageType);
+          console.log('✅ Received response for request ID:', apiResponse.id, 'MessageType:', pendingRequest.messageType);
           
-          if (parsed.isMultipart && parsed.response.totalChunks > 1) {
-            this.handleChunkedResponse(parsed, pendingRequest);
-          } else {
-            this.validateAndCompleteResponse(parsed, pendingRequest);
-          }
+          // All responses are handled as single responses now
+          this.validateAndCompleteResponse(apiResponse, pendingRequest);
         } else {
-          console.warn('⚠️ Received response for unknown request ID:', parsed.id);
+          console.warn('⚠️ Received response for unknown request ID:', apiResponse.id);
         }
       } else {
         console.log('📨 DataChannel message (no ID):', message);
@@ -254,7 +241,6 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: calculatedChecksum,
-              isMultipart: false,
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -270,7 +256,6 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
-              isMultipart: false,
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -315,7 +300,6 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
-              isMultipart: false,
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -381,7 +365,7 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
-              isMultipart: false,
+
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -421,7 +405,7 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
-              isMultipart: false,
+
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -439,7 +423,7 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
-              isMultipart: false,
+
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -457,7 +441,7 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
-              isMultipart: false,
+
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -488,7 +472,7 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
-              isMultipart: false,
+
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -540,7 +524,7 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
-              isMultipart: false,
+
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -610,7 +594,7 @@ export class WebRTCApiService {
             fakeResponse = {
               id: targetPendingRequest.id,
               checksum: '',
-              isMultipart: false,
+
               response: {
                 timestamp: Date.now(),
                 totalChunks: 0,
@@ -638,67 +622,72 @@ export class WebRTCApiService {
             };
           }
           
-          // Clear timeout
-          clearTimeout(targetPendingRequest.timeoutHandle);
-          
-          // Remove from pending requests
-          this.pendingRequests.delete(targetPendingRequest.id);
-          
-          // Send fake response to the resolve function
-          targetPendingRequest.resolve(fakeResponse);
-          console.log('📝 Pending requests after fake response:', this.pendingRequests.size);
+          // Complete the request properly with cleanup
+          this.completeRequest(targetPendingRequest, fakeResponse);
         }
       }
     }
   }
 
   /**
-   * Handle chunked response assembly
-   * Assembles multi-part responses by collecting chunks and validating completeness
+   * Check if a parsed message is an ACK response
+   * @param message - The parsed JSON message
+   * @returns True if the message is an ACK
    */
-  private handleChunkedResponse(chunk: WebRTCApiResponse, pendingRequest: PendingRequest) {
-    const totalChunks = chunk.response.totalChunks;
-    const currentChunk = chunk.response.currentChunk;
-    
-    console.log(`📦 Received chunk ${currentChunk}/${totalChunks} for request:`, pendingRequest.messageType);
-    
-    if (currentChunk < 1 || currentChunk > totalChunks) {
-      console.error(`❌ Invalid chunk number ${currentChunk} (expected 1-${totalChunks}) for request:`, pendingRequest.messageType);
-      this.handleChecksumFailure(pendingRequest);
-      return;
+  private isAckMessage(message: any): message is WebRTCAckResponse {
+    return (
+      message &&
+      typeof message.checksum === 'string' &&
+      typeof message.id === 'string' &&
+      message.body &&
+      typeof message.body.timestamp === 'number' &&
+      typeof message.body.chunk === 'number' &&
+      // ACK messages have body.timestamp and body.chunk (not response.timestamp)
+      // API responses have response.timestamp, response.statusCode, etc.
+      !message.response
+    );
+  }
+
+  /**
+   * Process received ACK message
+   * @param ack - The received ACK response
+   * @returns True if ACK was processed, false if no matching chunk found
+   */
+  private processAckMessage(ack: WebRTCAckResponse): boolean {
+    const pendingRequest = this.pendingRequests.get(ack.id);
+    if (!pendingRequest) {
+      console.warn(`📨 Received ACK for unknown request: ${ack.id} chunk ${ack.body.chunk}`);
+      return false;
     }
     
-    if (!pendingRequest.expectedChunks) {
-      pendingRequest.expectedChunks = totalChunks;
-      pendingRequest.receivedChunks = new Map();
-      
-      clearTimeout(pendingRequest.timeoutHandle);
-      pendingRequest.timeoutHandle = setTimeout(() => {
-        this.handleChunkTimeout(pendingRequest);
-      }, this.CHUNKING_CONFIG.retryTimeoutMs);
-      
-      console.log(`🔄 Expecting ${totalChunks} chunks for request:`, pendingRequest.messageType);
-    } else if (pendingRequest.expectedChunks !== totalChunks) {
-      console.error(`❌ Inconsistent totalChunks: expected ${pendingRequest.expectedChunks}, got ${totalChunks} for request:`, pendingRequest.messageType);
-      this.handleChecksumFailure(pendingRequest);
-      return;
+    const chunkInfo = pendingRequest.chunks?.get(ack.body.chunk);
+    if (!chunkInfo) {
+      console.warn(`📨 Received ACK for unknown chunk: ${ack.id} chunk ${ack.body.chunk}`);
+      return false;
     }
     
-    if (pendingRequest.receivedChunks!.has(currentChunk)) {
-      console.warn(`⚠️ Duplicate chunk ${currentChunk} received for request ${pendingRequest.messageType}, ignoring`);
-      return;
+    // Validate ACK checksum against the chunk's request data
+    const expectedChecksum = calculateChecksum(JSON.stringify(ack.body));
+    if (ack.checksum !== expectedChecksum) {
+      console.error(`📨 Invalid ACK checksum for chunk ${ack.body.chunk}: expected ${expectedChecksum}, got ${ack.checksum}`);
+      return false;
     }
     
-    // Store the chunk (order-independent storage)
-    pendingRequest.receivedChunks!.set(currentChunk, chunk);
+    console.log(`📨 ACK received for chunk ${ack.body.chunk} of request ${ack.id}`);
     
-    const receivedCount = pendingRequest.receivedChunks!.size;
-    console.log(`📊 Progress: ${receivedCount}/${totalChunks} chunks received for request:`, pendingRequest.messageType);
+    // Mark chunk as acknowledged
+    chunkInfo.acknowledged = true;
+    pendingRequest.receivedAcks?.set(ack.body.chunk, ack);
     
-    if (receivedCount === totalChunks) {
-      console.log('✅ All chunks received, assembling response for:', pendingRequest.messageType);
-      this.assembleAndCompleteResponse(pendingRequest);
+    // Check if all chunks are acknowledged
+    const allAcknowledged = Array.from(pendingRequest.chunks?.values() || []).every(chunk => chunk.acknowledged);
+    if (allAcknowledged) {
+      console.log(`✅ All chunks ACK'd for request ${ack.id}, waiting for API response`);
+      // Note: We DON'T call completeRequest here anymore - that's only for API responses
+      // The request stays in pendingRequests until we get the actual API response
     }
+    
+    return true;
   }
 
   /**
@@ -726,7 +715,7 @@ export class WebRTCApiService {
         const message = JSON.stringify(chunk);
         console.log(`📤 Re-sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
         dataChannel.send(message);
-      });
+      }, pendingRequest.messageType);
       
       console.log(`✅ Successfully re-sent request for ${pendingRequest.messageType}`);
       
@@ -750,16 +739,19 @@ export class WebRTCApiService {
     
     const retryCount = (pendingRequest.retryCount || 0) + 1;
     
-    if (retryCount <= this.CHUNKING_CONFIG.maxRetries) {
-      console.log(`⏰ Chunk assembly timeout for ${pendingRequest.messageType}, retrying (${retryCount}/${this.CHUNKING_CONFIG.maxRetries})`);
+    if (retryCount <= CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS) {
+      console.log(`⏰ Request timeout for ${pendingRequest.messageType}, retrying (${retryCount}/${CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS})`);
       
-      // Reset chunking data for retry
-      pendingRequest.expectedChunks = undefined;
-      pendingRequest.receivedChunks = undefined;
+      // Reset ALL chunk tracking state for retry
+      pendingRequest.receivedAcks = undefined;
+      pendingRequest.totalChunksSent = undefined;
+      pendingRequest.chunks = undefined; // Clear the chunks map to stop monitoring stale chunks
       pendingRequest.retryCount = retryCount;
       
-      // Clear existing timeout
-      clearTimeout(pendingRequest.timeoutHandle);
+      // Clear existing timeout if it exists
+      if (pendingRequest.timeoutHandle) {
+        clearTimeout(pendingRequest.timeoutHandle);
+      }
       
       // Re-send the original request first
       try {
@@ -769,7 +761,7 @@ export class WebRTCApiService {
         if (this.pendingRequests.has(pendingRequest.id)) {
           pendingRequest.timeoutHandle = setTimeout(() => {
             this.handleChunkTimeout(pendingRequest);
-          }, this.CHUNKING_CONFIG.retryTimeoutMs);
+          }, CHUNKING_CONFIG.REQUEST.MAX_TIMEOUT_MS);
         }
       } catch (error) {
         // resendOriginalRequest already handled the error and completed the request
@@ -779,16 +771,18 @@ export class WebRTCApiService {
     } else {
       console.log(`❌ Max retries exceeded for ${pendingRequest.messageType}, failing request`);
       // Ensure we clear any remaining timeout and complete the request
-      clearTimeout(pendingRequest.timeoutHandle);
+      if (pendingRequest.timeoutHandle) {
+        clearTimeout(pendingRequest.timeoutHandle);
+      }
       if (this.pendingRequests.has(pendingRequest.id)) {
-        this.completeRequest(pendingRequest, undefined, new Error(`Chunk assembly timeout after ${retryCount} retries`));
+        this.completeRequest(pendingRequest, undefined, new Error(`Request timeout after ${retryCount} retries`));
       }
     }
   }
 
   /**
    * Handle checksum failure - retry the request due to data corruption
-   * Resets chunking state and attempts to resend the original request
+   * Resets ACK tracking state and attempts to resend the original request
    */
   private async handleChecksumFailure(pendingRequest: PendingRequest) {
     // Check if request still exists (might have been completed or cancelled)
@@ -799,14 +793,18 @@ export class WebRTCApiService {
     
     const retryCount = (pendingRequest.retryCount || 0) + 1;
     
-    if (retryCount <= this.CHUNKING_CONFIG.maxRetries) {
-      console.log(`🔄 Checksum validation failed for ${pendingRequest.messageType}, retrying (${retryCount}/${this.CHUNKING_CONFIG.maxRetries})`);
+    if (retryCount <= CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS) {
+      console.log(`🔄 Checksum validation failed for ${pendingRequest.messageType}, retrying (${retryCount}/${CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS})`);
       
-      pendingRequest.expectedChunks = undefined;
-      pendingRequest.receivedChunks = undefined;
+      // Reset ALL chunk tracking state for retry
+      pendingRequest.receivedAcks = undefined;
+      pendingRequest.totalChunksSent = undefined;
+      pendingRequest.chunks = undefined; // Clear the chunks map to stop monitoring stale chunks
       pendingRequest.retryCount = retryCount;
       
-      clearTimeout(pendingRequest.timeoutHandle);
+      if (pendingRequest.timeoutHandle) {
+        clearTimeout(pendingRequest.timeoutHandle);
+      }
       
       // Re-send the original request first
       try {
@@ -816,7 +814,7 @@ export class WebRTCApiService {
         if (this.pendingRequests.has(pendingRequest.id)) {
           pendingRequest.timeoutHandle = setTimeout(() => {
             this.handleChunkTimeout(pendingRequest);
-          }, this.CHUNKING_CONFIG.retryTimeoutMs);
+          }, CHUNKING_CONFIG.REQUEST.MAX_TIMEOUT_MS);
         }
       } catch (error) {
         // resendOriginalRequest already handled the error and completed the request
@@ -826,7 +824,9 @@ export class WebRTCApiService {
     } else {
       console.log(`❌ Max retries exceeded for ${pendingRequest.messageType} due to checksum failures, failing request`);
       // Ensure we clear any remaining timeout and complete the request
-      clearTimeout(pendingRequest.timeoutHandle);
+      if (pendingRequest.timeoutHandle) {
+        clearTimeout(pendingRequest.timeoutHandle);
+      }
       if (this.pendingRequests.has(pendingRequest.id)) {
         this.completeRequest(pendingRequest, undefined, new Error(`Checksum validation failed after ${retryCount} retries - data corruption detected`));
       }
@@ -904,118 +904,35 @@ export class WebRTCApiService {
   }
 
   /**
-   * Assemble chunks into final response
-   * Reconstructs complete response from ordered chunks with integrity validation
-   */
-  private assembleAndCompleteResponse(pendingRequest: PendingRequest) {
-    const chunks = pendingRequest.receivedChunks!;
-    const totalChunks = pendingRequest.expectedChunks!;
-    
-    const sortedChunks: WebRTCApiResponse[] = [];
-    const chunkSequence: number[] = [];
-    
-    for (let i = 1; i <= totalChunks; i++) {
-      const chunk = chunks.get(i);
-      if (!chunk) {
-        console.error(`❌ Missing chunk ${i} for request:`, pendingRequest.messageType);
-        console.error(`❌ Available chunks: ${Array.from(chunks.keys()).sort((a, b) => a - b).join(', ')}`);
-        this.completeRequest(pendingRequest, undefined, new Error(`Missing chunk ${i}/${totalChunks}`));
-        return;
-      }
-      sortedChunks.push(chunk);
-      chunkSequence.push(i);
-    }
-    
-    console.log(`🔄 Assembling chunks in correct sequence: ${chunkSequence.join(' → ')} for request:`, pendingRequest.messageType);
-    
-    const assembledBody = sortedChunks.map(chunk => chunk.response.body || '').join('');
-    console.log(`📥 Raw assembled body for ${pendingRequest.messageType} (length: ${assembledBody.length})`);
-    
-    const firstChunk = sortedChunks[0];
-    
-    // Check HTTP status code first (use first chunk's status)
-    const statusCode = firstChunk.response.statusCode;
-    if (statusCode >= 400) {
-      console.error(`❌ HTTP error ${statusCode} for chunked response ${pendingRequest.messageType}`);
-      
-      // For certain error codes, we want to retry (temporary errors)
-      // For others, we want to fail immediately (permanent errors)
-      const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
-      const permanentErrors = [400, 401, 403, 404]; // Client errors, authorization, not found
-      
-      if (retryableErrors.includes(statusCode)) {
-        console.log(`🔄 HTTP ${statusCode} is retryable, attempting retry for ${pendingRequest.messageType}`);
-        this.handleChecksumFailure(pendingRequest); // Reuse the retry logic
-        return;
-      } else {
-        // Permanent errors or unknown errors
-        console.log(`❌ HTTP ${statusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
-        const decodedErrorBody = this.decodeResponseBody(assembledBody, pendingRequest.messageType);
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${decodedErrorBody || 'Request failed'}`));
-        return;
-      }
-    }
-    
-    // Decode base64 response body after assembly
-    const decodedBody = this.decodeResponseBody(assembledBody, pendingRequest.messageType);
-    
-    // Create the complete response object with assembled base64 body for checksum calculation
-    const assembledResponseForChecksum = {
-      ...firstChunk.response,
-      totalChunks: 0,     // Reset to 0 for assembled response
-      currentChunk: 0,    // Reset to 0 for assembled response
-      body: assembledBody  // Use base64-encoded assembled body for checksum
-    };
-    
-    // Validate checksum to ensure data integrity (using entire response object with base64 body)
-    const expectedChecksum = firstChunk.checksum;
-    const actualChecksum = calculateChecksum(JSON.stringify(assembledResponseForChecksum));
-    
-    if (expectedChecksum && actualChecksum !== expectedChecksum) {
-      console.error(`❌ Checksum mismatch for request ${pendingRequest.messageType}`);
-      console.error(`Expected: ${expectedChecksum}, Actual: ${actualChecksum}`);
-      console.error(`Response object used for checksum:`, assembledResponseForChecksum);
-      console.error(`Response corrupted during transmission, retrying...`);
-      
-      // Treat as corruption and retry the request
-      this.handleChecksumFailure(pendingRequest);
-      return;
-    }
-    
-    console.log(`✅ Checksum validation passed for ${pendingRequest.messageType}`);
-    
-    const finalResponse: WebRTCApiResponse = {
-      ...firstChunk,
-      isMultipart: false, // Mark as assembled
-      response: {
-        ...firstChunk.response,
-        totalChunks: 0,
-        currentChunk: 0,
-        body: decodedBody
-      }
-    };
-
-    console.log(`✅ Response assembled from ${totalChunks} chunks, final decoded size: ${decodedBody.length} chars`);
-    this.completeRequest(pendingRequest, finalResponse);
-  }
-
-  /**
-   * Complete a request (success or failure)
+   * Complete a request (success or failure) and clean up all associated state
+   * @param pendingRequest - The request to complete
+   * @param response - The successful response (if any)
+   * @param error - The error that occurred (if any)
    */
   private completeRequest(pendingRequest: PendingRequest, response?: WebRTCApiResponse, error?: Error) {
-    // Clear timeout
-    clearTimeout(pendingRequest.timeoutHandle);
+    // Clear timeout if it exists
+    if (pendingRequest.timeoutHandle) {
+      clearTimeout(pendingRequest.timeoutHandle);
+    }
     
-    // Remove from pending requests
+    // Clear chunk-related state for garbage collection
+    pendingRequest.chunks = undefined;
+    pendingRequest.receivedAcks = undefined;
+    
+    // Remove from pending requests (this will also stop chunk monitoring for this request)
     this.pendingRequests.delete(pendingRequest.id);
     
     console.log('📝 Pending requests after completion:', this.pendingRequests.size);
     
+    // Complete the promise based on the outcome
     if (error) {
+      console.error(`❌ Request ${pendingRequest.id} failed:`, error.message);
       pendingRequest.reject(error);
     } else if (response) {
+      console.log(`✅ Request ${pendingRequest.id} completed successfully`);
       pendingRequest.resolve(response);
     } else {
+      console.error(`❌ Request ${pendingRequest.id} completed without response or error`);
       pendingRequest.reject(new Error('Request completed without response or error'));
     }
   }
@@ -1058,51 +975,72 @@ export class WebRTCApiService {
 
       // Create headers with automatic authorization
       const requestHeaders = this.createRequestHeaders(headers, messageType);
-
       // Create full protocol request with messageType
       const protocolRequest = createProtocolRequest(method, url, requestHeaders, body, messageType);
       console.log('📝 Created protocol request:', protocolRequest);
 
-      // Create pending request object
-      const pendingRequest: PendingRequest = {
-        id: protocolRequest.id,
-        messageType: messageType,
-        timestamp: Date.now(),
-        timeoutHandle: setTimeout(() => {
-          // Remove from pending requests on timeout
-          this.pendingRequests.delete(protocolRequest.id);
-          console.log('⏰ Request timeout for messageType:', messageType);
-          console.log('📝 Pending requests after timeout:', this.pendingRequests.size);
-          reject(new Error(`Request timeout - no response from remote for ${messageType}`));
-        }, this.REQUEST_TIMEOUT),
-        resolve: resolve,
-        reject: reject,
-        originalRequest: protocolRequest  // Store original request for retries
-      };
-
-      // Store pending request
-      this.pendingRequests.set(protocolRequest.id, pendingRequest);
-      
       console.log('📤 Preparing request for messageType:', messageType);
-      console.log('📝 Pending requests after new request added:', this.pendingRequests.size);
+      console.log('📝 Pending requests before sending:', this.pendingRequests.size);
+      
+      const startTime = Date.now();
 
       try {
-        // Use generic chunking system to send the request
-        await sendRequestWithChunking(protocolRequest, (chunk) => {
-          const message = JSON.stringify(chunk);
-          console.log(`📤 Sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
-          dataChannel.send(message);
+        // Step 1: Prepare chunking (ChunkingUtils responsibility)
+        const chunkingResult = prepareChunkedRequest(protocolRequest, messageType);
+        
+        // Step 2: Create and store pending request (WebRTCApiService responsibility)
+        const pendingRequest = createPendingRequest(protocolRequest, chunkingResult, messageType, resolve, reject);
+        
+        // Add timeout handling (WebRTCApiService responsibility)
+        pendingRequest.timeoutHandle = setTimeout(() => {
+          this.handleChunkTimeout(pendingRequest);
+        }, CHUNKING_CONFIG.REQUEST.MAX_TIMEOUT_MS);
+        
+        this.pendingRequests.set(protocolRequest.id, pendingRequest);
+        
+        // Step 3: Start chunk monitoring (WebRTCApiService responsibility)
+        this.startChunkMonitoring();
+        
+        // Step 4: Send all chunks (WebRTCApiService responsibility)
+        for (let i = 0; i < chunkingResult.chunks.length; i++) {
+          const chunk = chunkingResult.chunks[i];
+          const chunkNumber = i + 1;
+          
+          logChunkTransmission(chunkNumber, chunkingResult.totalChunks, messageType);
+          
+          try {
+            const message = JSON.stringify(chunk);
+            console.log(`📤 Sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
+            dataChannel.send(message);
+            
+            // Update chunk send time for retry tracking
+            const chunkInfo = pendingRequest.chunks?.get(chunkNumber);
+            if (chunkInfo) {
+              chunkInfo.lastSentAt = Date.now();
+            }
+          } catch (error) {
+            const sendError = new Error(`Failed to send chunk ${chunkNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            // Clean up pending request properly
+            this.completeRequest(pendingRequest, undefined, sendError);
+            return;
+          }
+        }
+        
+        // Log pending requests content after sending
+        console.log(`📝 Pending requests after sending ${messageType}:`, this.pendingRequests.size);
+        Array.from(this.pendingRequests.entries()).forEach(([requestId, request]) => {
+          console.log(`  - ID: ${requestId}, MessageType: ${request.messageType}, TotalChunks: ${request.totalChunks}, AcksReceived: ${request.receivedAcks?.size || 0}`);
         });
         
       } catch (error) {
         // Clean up on send error
         const pendingReq = this.pendingRequests.get(protocolRequest.id);
         if (pendingReq) {
-          clearTimeout(pendingReq.timeoutHandle);
-          this.pendingRequests.delete(protocolRequest.id);
+          this.completeRequest(pendingReq, undefined, error instanceof Error ? error : new Error('Unknown error'));
+        } else {
+          // Request not found, reject directly
+          reject(error);
         }
-        console.log('📝 Pending requests after error:', this.pendingRequests.size);
-        reject(error);
       }
     });
   }
@@ -1275,7 +1213,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'dokument.saveDokument',
       'POST', 
-      'api/v1.1/dokument', 
+      'api/v1.1/dokumente', 
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -1460,6 +1398,94 @@ export class WebRTCApiService {
     };
 
     return this.authenticate(refreshRequest);
+  }
+
+  /**
+   * Start chunk monitoring for ACK timeouts and retries
+   */
+  private startChunkMonitoring(): void {
+    if (this.chunkMonitorTimer) {
+      return; // Already running
+    }
+    
+    console.log('🕒 Starting chunk retry monitoring');
+    this.chunkMonitorTimer = setInterval(() => {
+      this.monitorPendingChunks();
+    }, this.CHUNK_MONITOR_INTERVAL);
+  }
+
+  /**
+   * Stop chunk monitoring
+   */
+  private stopChunkMonitoring(): void {
+    if (this.chunkMonitorTimer) {
+      console.log('🕒 Stopping chunk retry monitoring');
+      clearInterval(this.chunkMonitorTimer);
+      this.chunkMonitorTimer = null;
+    }
+  }
+
+  /**
+   * Monitor all pending chunks and retry unacknowledged ones that have timed out
+   */
+  private monitorPendingChunks(): void {
+    const currentTime = Date.now();
+    
+    for (const [requestId, pendingRequest] of Array.from(this.pendingRequests.entries())) {
+      if (!pendingRequest.chunks) continue; // Skip requests without chunking
+      
+      for (const [chunkNumber, chunkInfo] of Array.from(pendingRequest.chunks.entries())) {
+        if (chunkInfo.acknowledged) {
+          continue; // Skip acknowledged chunks
+        }
+        
+        // Calculate timeout for this chunk based on retry count
+        const timeout = calculateBackoffTimeout(chunkInfo.retryCount, CHUNKING_CONFIG.CHUNK.ACK_TIMEOUT_MS);
+        const timeSinceLastSend = currentTime - chunkInfo.lastSentAt;
+        
+        if (timeSinceLastSend >= timeout) {
+          // Chunk has timed out, retry if under limit
+          if (chunkInfo.retryCount < CHUNKING_CONFIG.CHUNK.MAX_RETRY_ATTEMPTS) {
+            this.retryChunk(pendingRequest, chunkInfo);
+          } else {
+            // Max retries exceeded, fail the entire request
+            const error = new Error(`Chunk ${chunkNumber} failed after ${CHUNKING_CONFIG.CHUNK.MAX_RETRY_ATTEMPTS} retries`);
+            this.completeRequest(pendingRequest, undefined, error);
+            return;
+          }
+        }
+      }
+    }
+    
+    // Stop monitoring if no pending requests
+    if (this.pendingRequests.size === 0) {
+      this.stopChunkMonitoring();
+    }
+  }
+
+  /**
+   * Retry a specific chunk
+   */
+  private async retryChunk(pendingRequest: PendingRequest, chunkInfo: ChunkInfo): Promise<void> {
+    chunkInfo.retryCount++;
+    chunkInfo.lastSentAt = Date.now();
+    
+    console.log(`🔄 Retrying chunk ${chunkInfo.chunkNumber} (attempt ${chunkInfo.retryCount}/${CHUNKING_CONFIG.CHUNK.MAX_RETRY_ATTEMPTS})`);
+    
+    try {
+      const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
+      if (dataChannel && dataChannel.readyState === 'open') {
+        const message = JSON.stringify(chunkInfo.chunkRequest);
+        console.log(`📤 Retrying chunk: Size ${new TextEncoder().encode(message).length} bytes`);
+        dataChannel.send(message);
+      } else {
+        throw new Error('DataChannel not available for retry');
+      }
+    } catch (error) {
+      console.error(`❌ Failed to retry chunk ${chunkInfo.chunkNumber}:`, error);
+      const retryError = new Error(`Failed to retry chunk ${chunkInfo.chunkNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.completeRequest(pendingRequest, undefined, retryError);
+    }
   }
 
   /**
