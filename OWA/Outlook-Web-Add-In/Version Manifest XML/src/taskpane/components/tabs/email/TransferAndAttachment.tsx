@@ -39,20 +39,6 @@ const TransferAndAttachment: React.FC = () => {
     }
   }, [selectedAkt?.id, foldersLoadedForAktId, dispatch]);
 
-  // Clear email documents ONLY when selectedAkt actually changes
-  useEffect(() => {
-    const currentAktId = selectedAkt?.id;
-    
-    // Only clear if documents were loaded for a different Akt ID
-    if (emailDocumentsLoadedForAktId !== null && 
-        emailDocumentsLoadedForAktId !== currentAktId && 
-        currentAktId != null && 
-        currentAktId !== -1) {
-      console.log('Akt changed, clearing email documents. Previous:', emailDocumentsLoadedForAktId, 'Current:', currentAktId);
-      dispatch(clearEmailDocuments());
-    }
-  }, [selectedAkt?.id, emailDocumentsLoadedForAktId, dispatch]);
-
   // Load folders only if they haven't been loaded for the current Akt
   useEffect(() => {
     if (selectedAkt?.id != null && 
@@ -65,25 +51,37 @@ const TransferAndAttachment: React.FC = () => {
     }
   }, [selectedAkt?.id, foldersLoadedForAktId, foldersLoading, foldersError, dispatch]);
 
-  // Load email documents only if they haven't been loaded for the current Akt
+  // Clear email documents when Akt changes and load documents for the current Akt
   useEffect(() => {
     const loadDocuments = async () => {
-      if (selectedAkt?.id != null && 
-          selectedAkt.id !== -1 && 
-          emailDocumentsLoadedForAktId !== selectedAkt.id) {
+      const currentAktId = selectedAkt?.id;
+      
+      // Clear documents if they were loaded for a different Akt ID
+      if (emailDocumentsLoadedForAktId !== null && 
+          emailDocumentsLoadedForAktId !== currentAktId && 
+          currentAktId != null && 
+          currentAktId !== -1) {
+        console.log('Akt changed, clearing email documents. Previous:', emailDocumentsLoadedForAktId, 'Current:', currentAktId);
+        dispatch(clearEmailDocuments());
+      }
+      
+      // Load documents if they haven't been loaded for the current Akt
+      if (currentAktId != null && 
+          currentAktId !== -1 && 
+          emailDocumentsLoadedForAktId !== currentAktId) {
         try {
           const email = Office.context.mailbox.item;
           const messageId = await getInternetMessageIdAsync(email);
-          console.log('Loading documents for case:', selectedAkt.id, 'and email:', messageId);
+          console.log('Loading documents for case:', currentAktId, 'and email:', messageId);
           dispatch(getEmailDocumentsAsync({ 
-            aktId: selectedAkt.id, 
+            aktId: currentAktId, 
             outlookEmailId: messageId || undefined // Handle missing messageId gracefully
           }));
         } catch (error) {
           console.error('Failed to get message ID for document loading:', error);
           // Still attempt to load documents without email ID
           dispatch(getEmailDocumentsAsync({ 
-            aktId: selectedAkt.id, 
+            aktId: currentAktId, 
             outlookEmailId: undefined 
           }));
         }
@@ -124,7 +122,7 @@ const TransferAndAttachment: React.FC = () => {
 
         // Get messageId for email row
         const messageId = await getInternetMessageIdAsync(email);
-
+        console.log('saved docs', savedDocuments);
         // Find saved email document (if any)
         const savedEmailDoc = savedDocuments.find(doc => 
           doc.dokumentArt === DokumentArt.MailEmpfangen || 
@@ -202,8 +200,6 @@ const TransferAndAttachment: React.FC = () => {
 
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;
-
- 
 
   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
  

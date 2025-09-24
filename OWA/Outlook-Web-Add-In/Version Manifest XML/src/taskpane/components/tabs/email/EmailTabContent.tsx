@@ -196,7 +196,7 @@ const EmailTabContent: React.FC = () => {
             // Create DokumentPostData for attachment
             const attachmentDokument: DokumentPostData = {
               aktId: selectedCaseId,
-              betreff: `Attachment: ${attachment.name}`,
+              betreff: attachment.name,
               mailAdresse: email.from?.emailAddress || undefined,
               empfangenAm: email.dateTimeCreated ? new Date(email.dateTimeCreated) : new Date(),
               memo: `Attachment from email: ${messageId}`,

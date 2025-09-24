@@ -13,7 +13,7 @@ const useStyles = makeStyles({
   },
 });
 
-const App: React.FC<AppProps> =() =>{
+const App: React.FC<AppProps> = () => {
   const styles = useStyles();
  
 
