@@ -7,7 +7,6 @@ import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import { aktLookUpAsync, setSearchTerm, clearCases } from '../../../../store/slices/aktenSlice';
 import { AktLookUpResponse } from '../../interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
-import SelectedAktIndicator from '../../shared/SelectedAktIndicator';
 
 // Updated interface to match the new API model
 interface SearchProps {
@@ -76,9 +75,6 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
           text={loading ? "Searching..." : ""}
         />
       </div>
-
-      {/* Selected Akt Indicator */}
-      <SelectedAktIndicator />
 
       {/* Loading indicator */}
       {loading && (

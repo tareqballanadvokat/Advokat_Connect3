@@ -7,7 +7,6 @@ import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync } from '../../../../store/slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
-import SelectedAktIndicator from '../../shared/SelectedAktIndicator';
 import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -100,9 +99,6 @@ const SearchCaseList: React.FC = () => {
           Searching via WebRTC...
         </div>
       )}
-
-      {/* Selected Akt Indicator */}
-      <SelectedAktIndicator />
 
     <DataGrid
       className="compact-grid"

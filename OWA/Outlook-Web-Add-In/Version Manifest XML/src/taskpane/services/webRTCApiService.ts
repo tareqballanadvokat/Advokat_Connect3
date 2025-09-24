@@ -13,7 +13,6 @@ import {
   prepareChunkedRequest,
   createPendingRequest,
   logChunkTransmission,
-  sendRequestWithChunking,
   calculateBackoffTimeout,
   CHUNKING_CONFIG
 } from '../utils/chunkingUtils';
@@ -97,43 +96,6 @@ export class WebRTCApiService {
 
     console.log(`📤 Created URL-encoded form data:`);
     console.log(`📤 Form data content: ${formData}`);
-
-    return formData;
-  }
-
-  /**
-   * Create form data string from Leistung request
-   * @param leistungData - Leistung request data
-   * @returns Form data string in URL-encoded format
-   */
-  private createLeistungFormData(leistungData: LeistungPostData): string {
-    const formParams: string[] = [];
-    
-    if (leistungData.aktId !== null) {
-      formParams.push(`aktId=${encodeURIComponent(leistungData.aktId?.toString() || '')}`);
-    }
-    if (leistungData.aKurz !== null) {
-      formParams.push(`aKurz=${encodeURIComponent(leistungData.aKurz || '')}`);
-    }
-    formParams.push(`leistungKurz=${encodeURIComponent(leistungData.leistungKurz)}`);
-    formParams.push(`datum=${encodeURIComponent(leistungData.datum)}`);
-    if (leistungData.honorartext !== null) {
-      formParams.push(`honorartext=${encodeURIComponent(leistungData.honorartext || '')}`);
-    }
-    if (leistungData.memo !== null) {
-      formParams.push(`memo=${encodeURIComponent(leistungData.memo || '')}`);
-    }
-    if (leistungData.sbZeitVerrechenbarInMinuten !== null) {
-      formParams.push(`sbZeitVerrechenbarInMinuten=${encodeURIComponent(leistungData.sbZeitVerrechenbarInMinuten?.toString() || '')}`);
-    }
-    if (leistungData.sbZeitNichtVerrechenbarInMinuten !== null) {
-      formParams.push(`sbZeitNichtVerrechenbarInMinuten=${encodeURIComponent(leistungData.sbZeitNichtVerrechenbarInMinuten?.toString() || '')}`);
-    }
-    
-    const formData = formParams.join('&');
-
-    console.log(`📤 Created Leistung URL-encoded form data:`);
-    console.log(`📤 Leistung form data content: ${formData}`);
 
     return formData;
   }
@@ -749,7 +711,7 @@ export class WebRTCApiService {
 
   /**
    * Re-send the original request for retry scenarios
-   * Uses chunking system to reliably transmit the retry request
+   * Handles chunking and sending logic internally within WebRTCApiService
    */
   private async resendOriginalRequest(pendingRequest: PendingRequest): Promise<void> {
     if (!pendingRequest.originalRequest) {
@@ -768,13 +730,26 @@ export class WebRTCApiService {
     try {
       console.log(`🔄 Re-sending original request for ${pendingRequest.messageType}`);
       
-      await sendRequestWithChunking(pendingRequest.originalRequest, (chunk) => {
-        const message = JSON.stringify(chunk);
-        console.log(`📤 Re-sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
-        dataChannel.send(message);
-      }, pendingRequest.messageType);
+      // Step 1: Prepare chunking (using ChunkingUtils for pure chunking logic)
+      const chunkingResult = prepareChunkedRequest(pendingRequest.originalRequest, pendingRequest.messageType);
       
-      console.log(`✅ Successfully re-sent request for ${pendingRequest.messageType}`);
+      // Step 2: Send all chunks (WebRTCApiService responsibility)
+      for (let i = 0; i < chunkingResult.chunks.length; i++) {
+        const chunk = chunkingResult.chunks[i];
+        const chunkNumber = i + 1;
+        
+        logChunkTransmission(chunkNumber, chunkingResult.totalChunks, pendingRequest.messageType);
+        
+        try {
+          const message = JSON.stringify(chunk);
+          console.log(`📤 Re-sending chunk ${chunkNumber}/${chunkingResult.totalChunks}: Size ${new TextEncoder().encode(message).length} bytes`);
+          dataChannel.send(message);
+        } catch (error) {
+          throw new Error(`Failed to re-send chunk ${chunkNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+      
+      console.log(`✅ Successfully re-sent ${chunkingResult.totalChunks} chunk(s) for ${pendingRequest.messageType}`);
       
     } catch (error) {
       console.error(`❌ Failed to re-send request for ${pendingRequest.messageType}:`, error);
