@@ -320,7 +320,8 @@ export function createPendingRequest(
     totalChunks: chunkingResult.totalChunks,
     startTime,
     resolve,
-    reject
+    reject,
+    originalRequest: request // Store the original request for retry scenarios
   };
   
   // Create chunk info for each chunk

@@ -40,7 +40,7 @@ const EmailTabContent: React.FC = () => {
   const selectedCaseName = selectedAkt?.aKurz ?? '';
   
   // Get service state
-  const { abbreviation, time, text, sb } = useAppSelector(state => state.service);
+  const { selectedServiceId, time, text, sb, services } = useAppSelector(state => state.service);
   
   // Get email message ID
   const [messageId, setMessageId] = useState<string | null>(null);
@@ -90,19 +90,23 @@ const EmailTabContent: React.FC = () => {
 
     try {
       // STEP 1: Save Leistung first (if service is selected)
-      if (abbreviation && abbreviation > 0) {
+      if (selectedServiceId && selectedServiceId > 0) {
         console.log('📤 Saving Leistung via WebRTC...');
+        
+        // Find the selected service to get its kürzel
+        const selectedService = services.find(service => service.id === selectedServiceId);
+        const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
         
         // Create payload using LeistungPostData interface matching C# model
         const leistungPayload: LeistungPostData = {
-          AktId: selectedCaseId,
-          AKurz: selectedCaseName,
-          LeistungKurz: abbreviation.toString(),
-          Datum: new Date().toISOString(), // Current date in ISO format
-          Honorartext: text || undefined,
-          Memo: text || undefined,
-          SBZeitVerrechenbarInMinuten: time ? parseInt(time) : undefined,
-          SBZeitNichtVerrechenbarInMinuten: undefined
+          aktId: selectedCaseId !== -1 ? selectedCaseId : null,
+          aKurz: selectedCaseName || null,
+          leistungKurz: serviceKuerzel,
+          datum: new Date().toISOString(), // Current date in ISO format
+          honorartext: text || null,
+          memo: text || null,
+          sbZeitVerrechenbarInMinuten: time ? parseInt(time) : null,
+          sbZeitNichtVerrechenbarInMinuten: 0
         };
         
         // Check if WebRTC connection is ready

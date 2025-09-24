@@ -2,14 +2,14 @@
 
 // Matches LeistungPostData class - data for creating a new service
 export interface LeistungPostData {
-  AktId?: number;
-  AKurz?: string;
-  LeistungKurz: string;         // Required
-  Datum: string;                // Required - ISO date string
-  Honorartext?: string;
-  Memo?: string;
-  SBZeitVerrechenbarInMinuten?: number;
-  SBZeitNichtVerrechenbarInMinuten?: number;
+  aktId: number | null;                           // Always send, use null if not set
+  aKurz: string | null;                          // Always send, use null if not set
+  leistungKurz: string;                          // Required
+  datum: string;                                 // Required - ISO date string
+  honorartext: string | null;                    // Always send, use null if not set
+  memo: string | null;                           // Always send, use null if not set
+  sbZeitVerrechenbarInMinuten: number | null;    // Always send, use null if not set
+  sbZeitNichtVerrechenbarInMinuten: number | null; // Always send, use null if not set
 }
 
 // Matches LeistungenAuswahlQuery class - search for services

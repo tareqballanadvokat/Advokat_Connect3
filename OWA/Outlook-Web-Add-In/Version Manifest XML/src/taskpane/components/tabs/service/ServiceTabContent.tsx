@@ -20,7 +20,7 @@ const ServiceTabContent: React.FC = () => {
   const [transferLoading, setTransferLoading] = useState(false);
   
   // Get the relevant state from Redux
-  const { abbreviation, time, text, sb } = useAppSelector(state => state.service);
+  const { selectedServiceId, time, text, sb, services } = useAppSelector(state => state.service);
   const { selectedAkt, cases } = useAppSelector(state => state.akten);
   
   // Derive case values from selectedAkt
@@ -55,16 +55,20 @@ const ServiceTabContent: React.FC = () => {
     setTransferLoading(true);
     
     try {
+      // Find the selected service to get its kürzel
+      const selectedService = services.find(service => service.id === selectedServiceId);
+      const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
+      
       // Create payload using LeistungPostData interface matching C# model
       const payload: LeistungPostData = {
-        AktId: selectedCaseId,
-        AKurz: selectedCaseName,
-        LeistungKurz: abbreviation.toString(),
-        Datum: new Date().toISOString(), // Current date in ISO format
-        Honorartext: text || undefined,
-        Memo: undefined,
-        SBZeitVerrechenbarInMinuten: time ? parseInt(time) : undefined,
-        SBZeitNichtVerrechenbarInMinuten: undefined
+        aktId: selectedCaseId !== -1 ? selectedCaseId : null,
+        aKurz: selectedCaseName || null,
+        leistungKurz: serviceKuerzel,
+        datum: new Date().toISOString(), // Current date in ISO format
+        honorartext: text || null,
+        memo: null,
+        sbZeitVerrechenbarInMinuten: time ? parseInt(time) : null,
+        sbZeitNichtVerrechenbarInMinuten: 0
       };
       
       // Check if WebRTC connection is ready

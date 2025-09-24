@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import SelectBox from 'devextreme-react/select-box';
 import { LeistungAuswahlResponse } from '@components/interfaces/IService';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { setAbbreviation, setTime, setText, setSb, loadServicesAsync, clearServices } from '@store/slices/serviceSlice';
+import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@store/slices/serviceSlice';
 
 // Unified interface for both Email and Service tabs
 export interface ServiceSectionProps {}
@@ -30,7 +30,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
     if (selectedAktKuerzel) {
       if (aktChanged || servicesEmpty) {
         console.log(`Loading services for Akt: ${selectedAktKuerzel}`);
-        dispatch(setAbbreviation(0));
+        dispatch(setSelectedServiceId(0));
         dispatch(loadServicesAsync({
           Kürzel: null,
           OnlyQuickListe: true,
@@ -49,7 +49,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   
   // Handle value changes using Redux dispatch
   const handleServiceChange = (value: number) => {
-    dispatch(setAbbreviation(value));
+    dispatch(setSelectedServiceId(value));
   };
   
   const handleTimeChange = (value: string) => {
@@ -94,8 +94,8 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
             <SelectBox
               stylingMode="outlined"
               dataSource={servicesWithDisplayText}
-              value={serviceState.services.length > 0 ? serviceState.abbreviation : null}
-              valueExpr="Id"
+              value={serviceState.services.length > 0 ? serviceState.selectedServiceId : null}
+              valueExpr="id"
               displayExpr="displayText"
               placeholder={serviceState.services.length > 0 ? "Select Service" : "No services available"}
               onValueChanged={e => handleServiceChange(e.value)}

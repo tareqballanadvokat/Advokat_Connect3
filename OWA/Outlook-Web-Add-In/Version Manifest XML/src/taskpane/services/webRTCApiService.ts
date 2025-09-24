@@ -82,6 +82,43 @@ export class WebRTCApiService {
   }
 
   /**
+   * Create form data string from Leistung request
+   * @param leistungData - Leistung request data
+   * @returns Form data string in URL-encoded format
+   */
+  private createLeistungFormData(leistungData: LeistungPostData): string {
+    const formParams: string[] = [];
+    
+    if (leistungData.aktId !== null) {
+      formParams.push(`aktId=${encodeURIComponent(leistungData.aktId?.toString() || '')}`);
+    }
+    if (leistungData.aKurz !== null) {
+      formParams.push(`aKurz=${encodeURIComponent(leistungData.aKurz || '')}`);
+    }
+    formParams.push(`leistungKurz=${encodeURIComponent(leistungData.leistungKurz)}`);
+    formParams.push(`datum=${encodeURIComponent(leistungData.datum)}`);
+    if (leistungData.honorartext !== null) {
+      formParams.push(`honorartext=${encodeURIComponent(leistungData.honorartext || '')}`);
+    }
+    if (leistungData.memo !== null) {
+      formParams.push(`memo=${encodeURIComponent(leistungData.memo || '')}`);
+    }
+    if (leistungData.sbZeitVerrechenbarInMinuten !== null) {
+      formParams.push(`sbZeitVerrechenbarInMinuten=${encodeURIComponent(leistungData.sbZeitVerrechenbarInMinuten?.toString() || '')}`);
+    }
+    if (leistungData.sbZeitNichtVerrechenbarInMinuten !== null) {
+      formParams.push(`sbZeitNichtVerrechenbarInMinuten=${encodeURIComponent(leistungData.sbZeitNichtVerrechenbarInMinuten?.toString() || '')}`);
+    }
+    
+    const formData = formParams.join('&');
+
+    console.log(`📤 Created Leistung URL-encoded form data:`);
+    console.log(`📤 Leistung form data content: ${formData}`);
+
+    return formData;
+  }
+
+  /**
    * Create headers for WebRTC requests with automatic authorization
    * @param baseHeaders - Base headers to include
    * @param messageType - Message type to determine if authorization is needed
@@ -1194,10 +1231,10 @@ export class WebRTCApiService {
     return this.sendRequest(
       'service.saveLeistung',
       'POST',
-      'api/v1.1/leistung',
+      'api/v1.1/Leistungen',
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json-patch+json',
+        'Accept': 'text/plain'
       },
       leistungData
     );
