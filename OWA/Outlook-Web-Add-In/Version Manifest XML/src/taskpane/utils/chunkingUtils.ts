@@ -6,8 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
 import { 
-  WebRTCApiRequest, 
-  WebRTCAckResponse, 
+  WebRTCApiRequest,  
   ChunkInfo, 
   PendingRequest, 
   ChunkingResult 
@@ -88,7 +87,6 @@ export function createProtocolRequest(method: string, url: string, headers: Reco
   
   // Process body if it exists
   if (body) {
-    // Convert body to string first if it's not already
     const bodyString = typeof body === 'string' ? body : JSON.stringify(body);
     console.log("📤 Original request body:", bodyString);
     // Base64 encode the body for POST requests
@@ -269,29 +267,6 @@ export function logChunkTransmission(chunkNumber: number, totalChunks: number, m
 export function calculateBackoffTimeout(retryCount: number, baseTimeout: number): number {
   const timeout = baseTimeout * Math.pow(CHUNKING_CONFIG.BACKOFF_MULTIPLIER, retryCount);
   return Math.min(timeout, CHUNKING_CONFIG.CHUNK.MAX_ACK_TIMEOUT_MS);
-}
-
-/**
- * Prepare a request for chunked sending - returns chunking information only
- * @param request - The request to chunk
- * @param messageType - Message type for logging
- * @returns Chunking result with chunks array and metadata
- */
-export function prepareChunkedRequest(
-  request: WebRTCApiRequest,
-  messageType?: string
-): ChunkingResult {
-  const chunkingResult = chunkRequest(request);
-  
-  // Log chunking decision
-  logChunkingInfo({
-    totalSize: calculateMessageSize(request),
-    totalChunks: chunkingResult.totalChunks,
-    messageType: messageType || request.messageType,
-    action: chunkingResult.totalChunks > 1 ? 'chunked' : 'single'
-  });
-  
-  return chunkingResult;
 }
 
 /**

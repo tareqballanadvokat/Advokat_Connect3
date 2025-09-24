@@ -10,7 +10,7 @@ import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlic
 import {
   calculateChecksum,
   createProtocolRequest,
-  prepareChunkedRequest,
+  chunkRequest,
   createPendingRequest,
   logChunkTransmission,
   calculateBackoffTimeout,
@@ -25,7 +25,7 @@ import {
 export class WebRTCApiService {
   private sipClient: SipClientInstance | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map();
-  private readonly REQUEST_TIMEOUT = 100000;
+  
   private chunkMonitorTimer: NodeJS.Timeout | null = null;
   private readonly CHUNK_MONITOR_INTERVAL = 500; // 500ms interval for chunk monitoring
 
@@ -82,8 +82,8 @@ export class WebRTCApiService {
    * @param authRequest - Authentication request data
    * @returns Form data string in URL-encoded format
    */
-  private createFormData(authRequest: IAuthRequest): string {
-    // Create URL-encoded form data in the exact format requested
+  private createAuthenticationFormData(authRequest: IAuthRequest): string {
+
     const formParams = [
       `client_id=${encodeURIComponent(authRequest.client_id)}`,
       `client_secret=${encodeURIComponent(authRequest.client_secret || '')}`,
@@ -182,7 +182,7 @@ export class WebRTCApiService {
     try {
       const parsed = JSON.parse(message);
       console.log("📨 Received message (processMessage method):", parsed);
-      // Check if this is an ACK message
+
       if (this.isAckMessage(parsed)) {
         const ack = parsed as WebRTCAckResponse;
         console.log('📨 Detected ACK message for chunk:', ack.body.chunk);
@@ -207,444 +207,7 @@ export class WebRTCApiService {
       }
     } catch (error) {
       console.log('📨 DataChannel message (not JSON):', message);
-      
-      if (this.pendingRequests.size > 0) {
-        console.log('🔧 FAKE RESPONSE: Attempting to match message to pending request');
-        
-        let targetPendingRequest: PendingRequest | undefined;
-        
-        const requestEntries = Array.from(this.pendingRequests.entries());
-        for (const [id, pendingRequest] of requestEntries) {
-          if (message.toLowerCase().includes('folders') && pendingRequest.messageType.includes('getAvailableFolders')) {
-            targetPendingRequest = pendingRequest;
-            break;
-          } else if (message.toLowerCase().includes('att') && pendingRequest.messageType.includes('getDocuments')) {
-            targetPendingRequest = pendingRequest;
-            break;
-          } else if (message.toLowerCase().includes('dokument') && pendingRequest.messageType.includes('dokument')) {
-            targetPendingRequest = pendingRequest;
-            break;
-          } else if (message.toLowerCase().includes('service') && pendingRequest.messageType.includes('service')) {
-            targetPendingRequest = pendingRequest;
-            break;
-          } else if (message.toLowerCase().includes('favoriteakten') && pendingRequest.messageType.includes('getFavoriteAkten')) {
-            targetPendingRequest = pendingRequest;
-            break;
-          } else if (message.toLowerCase().includes('favoritepersons') && pendingRequest.messageType.includes('getFavoritePersons')) {
-            targetPendingRequest = pendingRequest;
-            break;
-          } else if (message.toLowerCase().startsWith('akten')) {
-            targetPendingRequest = pendingRequest;
-            break;
-          }
-        }
-        
-        if (!targetPendingRequest && this.pendingRequests.size > 0) {
-          targetPendingRequest = this.pendingRequests.values().next().value;
-        }
-        
-        if (targetPendingRequest) {
-          let fakeResponse: WebRTCApiResponse;
-          
-          if (message.toLowerCase().includes('folders')) {
-            const fakeBodyData = [
-              "Korrespondenz",
-              "Verträge", 
-              "Gerichtsdokumente",
-              "Recherche",
-              "Klientenunterlagen"
-            ];
-            const fakeBodyString = JSON.stringify(fakeBodyData);
-            const calculatedChecksum = calculateChecksum(fakeBodyString);
-            
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: calculatedChecksum,
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: fakeBodyString
-              }
-            };
-            
-            console.log(`📋 Generated fake folders response with checksum: ${calculatedChecksum.substring(0, 8)}...`);
-          } else if (message.toLowerCase().includes('att')) {
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: '',
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: JSON.stringify([
-                  {
-                    id: 5001,
-                    aKurz: "FAKE-2024-001",
-                    aktId: 12345,
-                    datum: new Date('2024-01-15'),
-                    betreff: "Sample Email Document",
-                    dokumentArt: 1, // MailEmpfangen
-                    mailAdresse: "client@example.com",
-                    mailZeitpunkt: new Date('2024-01-15T10:30:00'),
-                    anzahlMailAnhänge: 2,
-                    anhangDateiNamen: "contract.pdf;invoice.xlsx",
-                    sachbearbeiterKürzel: "JD",
-                    dateipfad: "/documents/email_001.msg",
-                    bearbeitungsInfoErstelltVon: "System",
-                    bearbeitungsInfoErstelltAm: new Date('2024-01-15T10:35:00')
-                  },
-                  {
-                    id: 5002,
-                    aKurz: "FAKE-2024-001",
-                    aktId: 12345,
-                    datum: new Date('2024-01-15'),
-                    betreff: "Email Tab Content - old.png",
-                    dokumentArt: 0, // Keine (normal attachment)
-                    anzahlMailAnhänge: 0,
-                    sachbearbeiterKürzel: "JD",
-                    dateipfad: "/documents/attachments/Email Tab Content - old.png",
-                    bearbeitungsInfoErstelltVon: "System",
-                    bearbeitungsInfoErstelltAm: new Date('2024-01-15T10:36:00')
-                  }
-                ])
-              }
-            };
-          } else if (message.toLowerCase().includes('getdocuments')) {
-            // Create fake documents response for GetDocuments
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: '',
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: JSON.stringify([
-                  {
-                    id: 6001,
-                    aKurz: "FAKE-001",
-                    aktId: 12345,
-                    datum: new Date('2024-01-15'),
-                    betreff: "Contract Draft v1.0",
-                    dokumentArt: 0, // Normal document
-                    dateipfad: "/Korrespondenz/Verträge/contract_draft_v1.docx",
-                    sachbearbeiterKürzel: "JD",
-                    bearbeitungsInfoErstelltVon: "System",
-                    bearbeitungsInfoErstelltAm: new Date('2024-01-15T09:00:00')
-                  },
-                  {
-                    id: 6002,
-                    aKurz: "FAKE-001",
-                    aktId: 12345,
-                    datum: new Date('2024-01-16'),
-                    betreff: "Meeting Notes - Initial Discussion",
-                    dokumentArt: 0,
-                    dateipfad: "/Korrespondenz/Notizen/meeting_notes_20240116.pdf",
-                    sachbearbeiterKürzel: "JD",
-                    bearbeitungsInfoErstelltVon: "System",
-                    bearbeitungsInfoErstelltAm: new Date('2024-01-16T14:30:00')
-                  },
-                  {
-                    id: 6003,
-                    aKurz: "FAKE-001",
-                    aktId: 12345,
-                    datum: new Date('2024-01-17'),
-                    betreff: "Legal Research Summary",
-                    dokumentArt: 0,
-                    dateipfad: "/Recherche/Rechtslage/legal_research_summary.pdf.pdf",
-                    sachbearbeiterKürzel: "JD",
-                    bearbeitungsInfoErstelltVon: "System",
-                    bearbeitungsInfoErstelltAm: new Date('2024-01-17T11:15:00')
-                  },
-                  {
-                    id: 6004,
-                    aKurz: "FAKE-2024-001",
-                    aktId: 12345,
-                    datum: new Date('2024-01-18'),
-                    betreff: "Client Email Response",
-                    dokumentArt: 1, // MailEmpfangen
-                    mailAdresse: "client@example.com",
-                    mailZeitpunkt: new Date('2024-01-18T08:45:00'),
-                    dateipfad: "/Korrespondenz/E-Mails/client_response_20240118.msg",
-                    sachbearbeiterKürzel: "JD",
-                    bearbeitungsInfoErstelltVon: "System",
-                    bearbeitungsInfoErstelltAm: new Date('2024-01-18T08:50:00')
-                  }
-                ])
-              }
-            };
-          } else if (message.toLowerCase().includes('service') || message.toLowerCase().includes('leistung')) {
-            // Create fake Services response
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: '',
-
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: JSON.stringify([
-                  {
-                    Id: 1001,
-                    Kürzel: "FAKE-2024-001",
-                    Stufe1: "Consultation",
-                    Stufe2: "Initial Meeting",
-                    Stufe3: "Client Interview",
-                    AnzeigenInQuicklisteOutlook: true
-                  },
-                  {
-                    Id: 1002,
-                    Kürzel: "FAKE-2024-001",
-                    Stufe1: "Legal Research",
-                    Stufe2: "Case Analysis",
-                    Stufe3: "Document Review",
-                    AnzeigenInQuicklisteOutlook: true
-                  },
-                  {
-                    Id: 1003,
-                    Kürzel: "FAKE-2024-001",
-                    Stufe1: "Consultation",
-                    Stufe2: "Follow-up Meeting",
-                    Stufe3: "Strategy Discussion",
-                    AnzeigenInQuicklisteOutlook: false
-                  }
-                ])
-              }
-            };
-          } else if (message.toLowerCase().includes('addtofavorites') || message.toLowerCase().includes('addakt')) {
-            // Create fake Add to Favorites response
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: '',
-
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: JSON.stringify({
-                  success: true,
-                  message: "Akt successfully added to favorites"
-                })
-              }
-            };
-          } else if (message.toLowerCase().includes('removefromfavorites') || message.toLowerCase().includes('removeakt')) {
-            // Create fake Remove from Favorites response
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: '',
-
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: JSON.stringify({
-                  success: true,
-                  message: "Akt successfully removed from favorites"
-                })
-              }
-            };
-          } else if (message.toLowerCase().includes('favoriteakten') || (message.toLowerCase().includes('akten') && message.toLowerCase().includes('favoriten'))) {
-            // Create fake favorite Akten response (AktenResponse format: Id, AKurz, Causa)
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: '',
-
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: JSON.stringify([
-                  {
-                    Id: 12345,
-                    AKurz: "Akt1",
-                    Causa: "Sample"
-                  },
-                  {
-                    Id: 12346,
-                    AKurz: "Akt2", 
-                    Causa: "Favorite"
-                  },
-                  {
-                    Id: 12347,
-                    AKurz: "Akt3",
-                    Causa: "Favorite case"
-                  }
-                ])
-              }
-            };
-          } else if (message.toLowerCase().startsWith('person')) {
-            // Create fake Person lookup response (PersonLookUpResponse format)
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: '',
-
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: JSON.stringify([
-                  {
-                    id: 2001,
-                    nKurz: `DEMO-P001`,
-                    istFirma: false,
-                    titel: 'Dr.',
-                    vorname: 'Max',
-                    name1: 'Mustermann',
-                    name2: undefined,
-                    adresse: {
-                      straße: 'Musterstraße 123',
-                      plz: '12345',
-                      ort: 'Berlin',
-                      landeskennzeichenIso2: 'DE'
-                    },
-                    kontakte: [
-                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'max.mustermann@example.com', bemerkung: 'Primary' },
-                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 30 12345678', bemerkung: 'Mobile' }
-                    ]
-                  },
-                  {
-                    id: 2002,
-                    nKurz: `DEMO-P002`,
-                    istFirma: false,
-                    vorname: 'Anna',
-                    name1: 'Schmidt',
-                    adresse: {
-                      straße: 'Beispielweg 456',
-                      plz: '54321',
-                      ort: 'München',
-                      landeskennzeichenIso2: 'DE'
-                    },
-                    kontakte: [
-                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'anna.schmidt@example.com' },
-                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 89 87654321' }
-                    ]
-                  }
-                ])
-              }
-            };
-          } else if (message.toLowerCase().includes('favoritepersons')) {
-            // Create fake favorite persons response (PersonResponse format)
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: '',
-
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: JSON.stringify([
-                  {
-                    id: 3001,
-                    nKurz: 'FAV-P001',
-                    istFirma: false,
-                    titel: 'Dr.',
-                    vorname: 'Maria',
-                    name1: 'Favorit',
-                    name2: 'Client',
-                    adressdaten: {
-                      straße: 'Hauptstraße 789',
-                      plz: '10115',
-                      ort: 'Berlin',
-                      landeskennzeichenIso2: 'DE'
-                    },
-                    kontakte: [
-                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'maria.favorit@example.com', bemerkung: 'Business' },
-                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 30 55555555', bemerkung: 'Office' }
-                    ]
-                  },
-                  {
-                    id: 3002,
-                    nKurz: 'FAV-P002',
-                    istFirma: true,
-                    name1: 'Musterfirma',
-                    name2: 'GmbH',
-                    adressdaten: {
-                      straße: 'Geschäftsstraße 456',
-                      plz: '20095',
-                      ort: 'Hamburg',
-                      landeskennzeichenIso2: 'DE'
-                    },
-                    kontakte: [
-                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'info@musterfirma.de', bemerkung: 'Main' },
-                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 40 66666666', bemerkung: 'Reception' },
-                      { reihung: 3, art: 'Website', telefonnummerOderAdresse: 'https://www.musterfirma.de' }
-                    ]
-                  },
-                  {
-                    id: 3003,
-                    nKurz: 'FAV-P003',
-                    istFirma: false,
-                    vorname: 'Thomas',
-                    name1: 'Stammkunde',
-                    adressdaten: {
-                      straße: 'Kundenweg 123',
-                      plz: '80331',
-                      ort: 'München',
-                      landeskennzeichenIso2: 'DE'
-                    },
-                    kontakte: [
-                      { reihung: 1, art: 'Email', telefonnummerOderAdresse: 'thomas.stammkunde@email.de' },
-                      { reihung: 2, art: 'Telefon', telefonnummerOderAdresse: '+49 89 77777777', bemerkung: 'Mobile' }
-                    ]
-                  }
-                ])
-              }
-            };
-          } else {
-            // Create fake Akten response (AktLookUpResponse format for search)
-            fakeResponse = {
-              id: targetPendingRequest.id,
-              checksum: '',
-
-              response: {
-                timestamp: Date.now(),
-                totalChunks: 0,
-                currentChunk: 0,
-                statusCode: 200,
-                headers: {},
-                body: JSON.stringify([
-                  {
-                    Id: 12348,
-                    aKurz: "FAKE-2024-001",
-                    causa: "Sample case triggered by: " + message
-                  },
-                  {
-                    Id: 12349,
-                    aKurz: "FAKE-2024-002",
-                    causa: "Second test case - Contract review"
-                  },
-                  {
-                    Id: 12350,
-                    aKurz: "FAKE-2024-003",
-                    causa: "Third test case - Legal dispute"
-                  }
-                ])
-              }
-            };
-          }
-          
-          // Complete the request properly with cleanup
-          this.completeRequest(targetPendingRequest, fakeResponse);
-        }
-      }
+      console.log('📨 Ignoring non-JSON message');
     }
   }
 
@@ -721,6 +284,7 @@ export class WebRTCApiService {
     }
 
     const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
+    /// TODO, we need to re-establish the connection here before retrying
     if (!dataChannel || dataChannel.readyState !== 'open') {
       console.error(`❌ Cannot retry ${pendingRequest.messageType}: DataChannel not available`);
       this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: DataChannel not available'));
@@ -731,7 +295,7 @@ export class WebRTCApiService {
       console.log(`🔄 Re-sending original request for ${pendingRequest.messageType}`);
       
       // Step 1: Prepare chunking (using ChunkingUtils for pure chunking logic)
-      const chunkingResult = prepareChunkedRequest(pendingRequest.originalRequest, pendingRequest.messageType);
+      const chunkingResult = chunkRequest(pendingRequest.originalRequest);
       
       // Step 2: Send all chunks (WebRTCApiService responsibility)
       for (let i = 0; i < chunkingResult.chunks.length; i++) {
@@ -758,10 +322,31 @@ export class WebRTCApiService {
   }
 
   /**
-   * Handle chunk assembly timeout - retry the request
+   * Reset all chunk tracking state for a pending request
+   * @param pendingRequest - The request to reset state for
+   * @param retryCount - The new retry count to set (optional)
+   */
+  private resetRequestState(pendingRequest: PendingRequest, retryCount?: number): void {
+    // Reset ALL chunk tracking state
+    pendingRequest.receivedAcks = undefined;
+    pendingRequest.totalChunksSent = undefined;
+    pendingRequest.chunks = undefined; // Clear the chunks map to stop monitoring stale chunks
+    
+    if (retryCount !== undefined) {
+      pendingRequest.retryCount = retryCount;
+    }
+    
+    // Clear existing timeout if it exists
+    if (pendingRequest.timeoutHandle) {
+      clearTimeout(pendingRequest.timeoutHandle);
+    }
+  }
+
+  /**
+   * Retry a request - handles timeouts, chunk failures, and other retry scenarios
    * Implements exponential backoff with configurable retry limits
    */
-  private async handleChunkTimeout(pendingRequest: PendingRequest) {  
+  private async retryRequest(pendingRequest: PendingRequest) {  
     // Check if request still exists (might have been completed or cancelled)
     if (!this.pendingRequests.has(pendingRequest.id)) {
       console.log(`ℹ️ Request ${pendingRequest.messageType} already completed, skipping timeout handling`);
@@ -773,16 +358,8 @@ export class WebRTCApiService {
     if (retryCount <= CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS) {
       console.log(`⏰ Request timeout for ${pendingRequest.messageType}, retrying (${retryCount}/${CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS})`);
       
-      // Reset ALL chunk tracking state for retry
-      pendingRequest.receivedAcks = undefined;
-      pendingRequest.totalChunksSent = undefined;
-      pendingRequest.chunks = undefined; // Clear the chunks map to stop monitoring stale chunks
-      pendingRequest.retryCount = retryCount;
-      
-      // Clear existing timeout if it exists
-      if (pendingRequest.timeoutHandle) {
-        clearTimeout(pendingRequest.timeoutHandle);
-      }
+      // Reset all chunk tracking state for retry using helper method
+      this.resetRequestState(pendingRequest, retryCount);
       
       // Re-send the original request first
       try {
@@ -791,7 +368,7 @@ export class WebRTCApiService {
         // Only set new timeout if resend was successful and request is still pending
         if (this.pendingRequests.has(pendingRequest.id)) {
           pendingRequest.timeoutHandle = setTimeout(() => {
-            this.handleChunkTimeout(pendingRequest);
+            this.retryRequest(pendingRequest);
           }, CHUNKING_CONFIG.REQUEST.MAX_TIMEOUT_MS);
         }
       } catch (error) {
@@ -801,13 +378,7 @@ export class WebRTCApiService {
       
     } else {
       console.log(`❌ Max retries exceeded for ${pendingRequest.messageType}, failing request`);
-      // Ensure we clear any remaining timeout and complete the request
-      if (pendingRequest.timeoutHandle) {
-        clearTimeout(pendingRequest.timeoutHandle);
-      }
-      if (this.pendingRequests.has(pendingRequest.id)) {
-        this.completeRequest(pendingRequest, undefined, new Error(`Request timeout after ${retryCount} retries`));
-      }
+      this.completeRequest(pendingRequest, undefined, new Error(`Request timeout after ${retryCount} retries`));
     }
   }
 
@@ -827,15 +398,8 @@ export class WebRTCApiService {
     if (retryCount <= CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS) {
       console.log(`🔄 Checksum validation failed for ${pendingRequest.messageType}, retrying (${retryCount}/${CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS})`);
       
-      // Reset ALL chunk tracking state for retry
-      pendingRequest.receivedAcks = undefined;
-      pendingRequest.totalChunksSent = undefined;
-      pendingRequest.chunks = undefined; // Clear the chunks map to stop monitoring stale chunks
-      pendingRequest.retryCount = retryCount;
-      
-      if (pendingRequest.timeoutHandle) {
-        clearTimeout(pendingRequest.timeoutHandle);
-      }
+      // Reset all chunk tracking state for retry using helper method
+      this.resetRequestState(pendingRequest, retryCount);
       
       // Re-send the original request first
       try {
@@ -844,7 +408,7 @@ export class WebRTCApiService {
         // Only set new timeout if resend was successful and request is still pending
         if (this.pendingRequests.has(pendingRequest.id)) {
           pendingRequest.timeoutHandle = setTimeout(() => {
-            this.handleChunkTimeout(pendingRequest);
+            this.retryRequest(pendingRequest);
           }, CHUNKING_CONFIG.REQUEST.MAX_TIMEOUT_MS);
         }
       } catch (error) {
@@ -854,13 +418,7 @@ export class WebRTCApiService {
       
     } else {
       console.log(`❌ Max retries exceeded for ${pendingRequest.messageType} due to checksum failures, failing request`);
-      // Ensure we clear any remaining timeout and complete the request
-      if (pendingRequest.timeoutHandle) {
-        clearTimeout(pendingRequest.timeoutHandle);
-      }
-      if (this.pendingRequests.has(pendingRequest.id)) {
-        this.completeRequest(pendingRequest, undefined, new Error(`Checksum validation failed after ${retryCount} retries - data corruption detected`));
-      }
+      this.completeRequest(pendingRequest, undefined, new Error(`Checksum validation failed after ${retryCount} retries - data corruption detected`));
     }
   }
 
@@ -919,7 +477,9 @@ export class WebRTCApiService {
       
       console.log(`✅ Checksum validation passed for single response ${pendingRequest.messageType}`);
     } else {
-      console.log(`ℹ️ No checksum provided for ${pendingRequest.messageType}, skipping validation`);
+      var message = `ℹ️ No checksum provided for ${pendingRequest.messageType}, skipping validation`
+      console.log(message);
+      this.completeRequest(pendingRequest, undefined, new Error(message));
     }
     
     // Create response with decoded body
@@ -941,14 +501,8 @@ export class WebRTCApiService {
    * @param error - The error that occurred (if any)
    */
   private completeRequest(pendingRequest: PendingRequest, response?: WebRTCApiResponse, error?: Error) {
-    // Clear timeout if it exists
-    if (pendingRequest.timeoutHandle) {
-      clearTimeout(pendingRequest.timeoutHandle);
-    }
-    
-    // Clear chunk-related state for garbage collection
-    pendingRequest.chunks = undefined;
-    pendingRequest.receivedAcks = undefined;
+    // Reset all request state and clear timeout using helper method
+    this.resetRequestState(pendingRequest);
     
     // Remove from pending requests (this will also stop chunk monitoring for this request)
     this.pendingRequests.delete(pendingRequest.id);
@@ -1012,19 +566,17 @@ export class WebRTCApiService {
 
       console.log('📤 Preparing request for messageType:', messageType);
       console.log('📝 Pending requests before sending:', this.pendingRequests.size);
-      
-      const startTime = Date.now();
 
       try {
         // Step 1: Prepare chunking (ChunkingUtils responsibility)
-        const chunkingResult = prepareChunkedRequest(protocolRequest, messageType);
+        const chunkingResult = chunkRequest(protocolRequest);
         
         // Step 2: Create and store pending request (WebRTCApiService responsibility)
         const pendingRequest = createPendingRequest(protocolRequest, chunkingResult, messageType, resolve, reject);
         
         // Add timeout handling (WebRTCApiService responsibility)
         pendingRequest.timeoutHandle = setTimeout(() => {
-          this.handleChunkTimeout(pendingRequest);
+          this.retryRequest(pendingRequest);
         }, CHUNKING_CONFIG.REQUEST.MAX_TIMEOUT_MS);
         
         this.pendingRequests.set(protocolRequest.id, pendingRequest);
@@ -1379,7 +931,7 @@ export class WebRTCApiService {
     console.log('🔐 Authentication request:', authRequest);
     
     // Create form data for authentication
-    const formData = this.createFormData(authRequest);
+    const formData = this.createAuthenticationFormData(authRequest);
     
     const response = await this.sendRequest(
       'auth.authenticate',
@@ -1479,9 +1031,9 @@ export class WebRTCApiService {
           if (chunkInfo.retryCount < CHUNKING_CONFIG.CHUNK.MAX_RETRY_ATTEMPTS) {
             this.retryChunk(pendingRequest, chunkInfo);
           } else {
-            // Max retries exceeded, fail the entire request
-            const error = new Error(`Chunk ${chunkNumber} failed after ${CHUNKING_CONFIG.CHUNK.MAX_RETRY_ATTEMPTS} retries`);
-            this.completeRequest(pendingRequest, undefined, error);
+            // Max chunk retries exceeded, try retrying the entire request
+            console.log(`❌ Chunk ${chunkNumber} failed after ${CHUNKING_CONFIG.CHUNK.MAX_RETRY_ATTEMPTS} retries, attempting request retry`);
+            this.retryRequest(pendingRequest);
             return;
           }
         }
@@ -1514,8 +1066,8 @@ export class WebRTCApiService {
       }
     } catch (error) {
       console.error(`❌ Failed to retry chunk ${chunkInfo.chunkNumber}:`, error);
-      const retryError = new Error(`Failed to retry chunk ${chunkInfo.chunkNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      this.completeRequest(pendingRequest, undefined, retryError);
+      console.log(`🔄 Chunk retry failed, attempting request retry for ${pendingRequest.messageType}`);
+      this.retryRequest(pendingRequest);
     }
   }
 

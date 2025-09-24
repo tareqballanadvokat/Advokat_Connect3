@@ -5,7 +5,7 @@ import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnec
 
 interface ServiceState {
   // Service form data
-  abbreviation: number;
+  selectedServiceId: number;
   time: string;
   text: string;
   sb: string;
@@ -19,7 +19,7 @@ interface ServiceState {
 // Initial state
 const initialState: ServiceState = {
   // Service form data
-  abbreviation: 0,
+  selectedServiceId: 0,
   time: '',
   text: '',
   sb: '',
@@ -49,8 +49,8 @@ const serviceSlice = createSlice({
   name: 'service',
   initialState,
   reducers: {
-    setAbbreviation: (state, action: PayloadAction<number>) => {
-      state.abbreviation = action.payload;
+    setSelectedServiceId: (state, action: PayloadAction<number>) => {
+      state.selectedServiceId = action.payload;
     },
     setTime: (state, action: PayloadAction<string>) => {
       state.time = action.payload;
@@ -63,19 +63,19 @@ const serviceSlice = createSlice({
     },
     // Reset service data
     resetServiceData: (state) => {
-      state.abbreviation = 0;
+      state.selectedServiceId = 0;
       state.time = '';
       state.text = '';
       state.sb = '';
     },
     // Set all service data at once (useful when loading from API)
     setServiceData: (state, action: PayloadAction<{ 
-      abbreviation: number;
+      selectedServiceId: number;
       time: string;
       text: string;
       sb: string;
     }>) => {
-      state.abbreviation = action.payload.abbreviation;
+      state.selectedServiceId = action.payload.selectedServiceId;
       state.time = action.payload.time;
       state.text = action.payload.text;
       state.sb = action.payload.sb;
@@ -83,7 +83,7 @@ const serviceSlice = createSlice({
     clearServices: (state) => {
       state.services = [];
       state.servicesError = null;
-      state.abbreviation = 0; // Also clear selected service
+      state.selectedServiceId = 0; // Also clear selected service
     },
   },
   extraReducers: (builder) => {
@@ -105,7 +105,7 @@ const serviceSlice = createSlice({
 });
 
 export const { 
-  setAbbreviation,
+  setSelectedServiceId,
   setTime,
   setText,
   setSb,
