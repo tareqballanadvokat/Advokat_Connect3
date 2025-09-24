@@ -31,7 +31,7 @@ export class WebRTCApiService {
   private readonly CHUNK_MONITOR_INTERVAL = 500; // 500ms interval for chunk monitoring
 
   /**
-   * Decode base64 response body with comprehensive logging
+   * Decode base64 response body with UTF-8 support and comprehensive logging
    * @param body - Base64 encoded response body
    * @param messageType - Message type for logging context
    * @returns Decoded response body or original if not base64
@@ -46,9 +46,9 @@ export class WebRTCApiService {
     console.log(`📥 Raw response body content: "${body}"`);
 
     try {
-      // Attempt to decode base64
-      const decoded = atob(body);
-      console.log(`✅ Successfully decoded base64 response for ${messageType} (decoded length: ${decoded.length})`);
+      // Attempt to decode base64 with proper UTF-8 handling
+      const decoded = this.decodeBase64UTF8(body);
+      console.log(`✅ Successfully decoded base64 response with UTF-8 for ${messageType} (decoded length: ${decoded.length})`);
       console.log(`📥 Decoded response content: "${decoded}"`);
       return decoded;
     } catch (error) {
@@ -56,6 +56,26 @@ export class WebRTCApiService {
       console.log(`📥 Non-base64 response content: "${body}"`);
       return body;
     }
+  }
+
+  /**
+   * Decode base64 string with proper UTF-8 handling
+   * @param base64String - Base64 encoded string
+   * @returns UTF-8 decoded string
+   */
+  private decodeBase64UTF8(base64String: string): string {
+    // First decode base64 to binary string
+    const binaryString = atob(base64String);
+    
+    // Convert binary string to Uint8Array
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // Decode as UTF-8
+    const decoder = new TextDecoder('utf-8');
+    return decoder.decode(bytes);
   }
 
   /**
@@ -766,8 +786,7 @@ export class WebRTCApiService {
    * Handle chunk assembly timeout - retry the request
    * Implements exponential backoff with configurable retry limits
    */
-  private async handleChunkTimeout(pendingRequest: PendingRequest) {
-    debugger;
+  private async handleChunkTimeout(pendingRequest: PendingRequest) {  
     // Check if request still exists (might have been completed or cancelled)
     if (!this.pendingRequests.has(pendingRequest.id)) {
       console.log(`ℹ️ Request ${pendingRequest.messageType} already completed, skipping timeout handling`);
