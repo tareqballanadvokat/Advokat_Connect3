@@ -81,6 +81,20 @@ export interface ChunkingResult {
 }
 
 /**
+ * Tracking information for received response chunks awaiting reassembly
+ */
+export interface ReceivedResponseChunk {
+  /** The response chunk that was received */
+  responseChunk: WebRTCApiResponse;
+  /** Chunk number (1-based) */
+  chunkNumber: number;
+  /** Whether ACK was sent for this chunk */
+  ackSent: boolean;
+  /** Timestamp when chunk was received */
+  receivedAt: number;
+}
+
+/**
  * Unified pending request tracking for WebRTC API service
  * Supports both response handling and ACK tracking for chunked sending
  */
@@ -104,7 +118,7 @@ export interface PendingRequest {
   /** Original request for retries */
   originalRequest?: WebRTCApiRequest;
   
-  // ACK strategy specific properties
+  // ACK strategy specific properties (for sending chunked requests)
   /** Map of chunk number to chunk info */
   chunks?: Map<number, ChunkInfo>;
   /** Map of received ACKs by chunk number */
@@ -115,4 +129,10 @@ export interface PendingRequest {
   sendFunction?: (chunk: WebRTCApiRequest) => Promise<void> | void;
   /** Total number of chunks sent for this request (legacy) */
   totalChunksSent?: number;
+  
+  // Chunked response handling properties (for receiving chunked responses)
+  /** Map of received response chunks by chunk number */
+  receivedResponseChunks?: Map<number, ReceivedResponseChunk>;
+  /** Expected total chunks for incoming response */
+  expectedResponseChunks?: number;
 }

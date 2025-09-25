@@ -7,9 +7,12 @@ import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
 import { 
   WebRTCApiRequest,  
+  WebRTCApiResponse,
+  WebRTCAckResponse,
   ChunkInfo, 
   PendingRequest, 
-  ChunkingResult 
+  ChunkingResult,
+  ReceivedResponseChunk
 } from '../components/interfaces/IWebRTC';
 
 /**
@@ -316,5 +319,91 @@ export function createPendingRequest(
   }
   
   return pendingRequest;
+}
+
+/**
+ * Create ACK response for a received chunk
+ * @param responseChunk - The response chunk to acknowledge
+ * @returns WebRTCAckResponse to send back
+ */
+export function createAckForResponseChunk(responseChunk: WebRTCApiResponse): WebRTCAckResponse {
+  const ackBody = {
+    timestamp: Date.now(),
+    chunk: responseChunk.response.currentChunk
+  };
+  
+  const checksum = calculateChecksum(JSON.stringify(ackBody));
+  
+  return {
+    checksum,
+    id: responseChunk.id,
+    body: ackBody
+  };
+}
+
+/**
+ * Check if all expected response chunks have been received
+ * @param receivedChunks - Map of received chunks
+ * @param expectedTotal - Expected total number of chunks
+ * @returns True if all chunks received
+ */
+export function areAllResponseChunksReceived(receivedChunks: Map<number, ReceivedResponseChunk>, expectedTotal: number): boolean {
+  if (receivedChunks.size !== expectedTotal) {
+    return false;
+  }
+  
+  // Check that we have all chunks from 1 to expectedTotal
+  for (let i = 1; i <= expectedTotal; i++) {
+    if (!receivedChunks.has(i)) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+/**
+ * Reassemble chunked response into a single complete response
+ * @param receivedChunks - Map of received response chunks
+ * @param expectedTotal - Expected total number of chunks
+ * @returns Complete WebRTCApiResponse or null if not ready
+ */
+export function reassembleChunkedResponse(receivedChunks: Map<number, ReceivedResponseChunk>, expectedTotal: number): WebRTCApiResponse | null {
+  if (!areAllResponseChunksReceived(receivedChunks, expectedTotal)) {
+    return null;
+  }
+  
+  // Sort chunks by chunk number
+  const sortedChunks = Array.from(receivedChunks.values())
+    .sort((a, b) => a.chunkNumber - b.chunkNumber);
+  
+  // Take the first chunk as the base (it has all the metadata)
+  const baseResponse = sortedChunks[0].responseChunk;
+  
+  // Concatenate all chunk bodies
+  let reassembledBody = '';
+  for (const chunkInfo of sortedChunks) {
+    const chunkBody = chunkInfo.responseChunk.response.body || '';
+    reassembledBody += chunkBody;
+  }
+  
+  // Create the complete response
+  const completeResponse: WebRTCApiResponse = {
+    checksum: baseResponse.checksum, // We'll validate this later
+    id: baseResponse.id,
+    response: {
+      timestamp: baseResponse.response.timestamp,
+      totalChunks: 1, // Reset to indicate it's now a single complete response
+      currentChunk: 1, // Reset to indicate it's now a single complete response
+      statusCode: baseResponse.response.statusCode,
+      headers: baseResponse.response.headers,
+      body: reassembledBody
+    }
+  };
+  
+  // Recalculate checksum for the complete response
+  completeResponse.checksum = calculateChecksum(JSON.stringify(completeResponse.response));
+  
+  return completeResponse;
 }
 

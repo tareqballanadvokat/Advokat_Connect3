@@ -1,5 +1,5 @@
 import { AktenQuery } from '../components/interfaces/IAkten';
-import { WebRTCApiRequest, WebRTCApiResponse, PendingRequest, WebRTCAckResponse, ChunkInfo } from '../components/interfaces/IWebRTC';
+import { WebRTCApiRequest, WebRTCApiResponse, PendingRequest, WebRTCAckResponse, ChunkInfo, ReceivedResponseChunk } from '../components/interfaces/IWebRTC';
 import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
 import { DokumentPostData, DokumenteQuery } from '../components/interfaces/IDocument';
 import { PersonenQuery } from '../components/interfaces/IPerson';
@@ -14,6 +14,9 @@ import {
   createPendingRequest,
   logChunkTransmission,
   calculateBackoffTimeout,
+  createAckForResponseChunk,
+  areAllResponseChunksReceived,
+  reassembleChunkedResponse,
   CHUNKING_CONFIG
 } from '../utils/chunkingUtils';
 
@@ -190,15 +193,21 @@ export class WebRTCApiService {
         return;
       }
       
-      // Handle normal API response
+      // Handle API response (potentially chunked)
       const apiResponse = parsed as WebRTCApiResponse;
       if (apiResponse.id) {
         const pendingRequest = this.pendingRequests.get(apiResponse.id);
         if (pendingRequest) {
           console.log('✅ Received response for request ID:', apiResponse.id, 'MessageType:', pendingRequest.messageType);
           
-          // All responses are handled as single responses now
-          this.validateAndCompleteResponse(apiResponse, pendingRequest);
+          // Check if this is a chunked response
+          if (apiResponse.response.totalChunks > 1) {
+            console.log(`📨 Received chunked response ${apiResponse.response.currentChunk}/${apiResponse.response.totalChunks} for ${pendingRequest.messageType}`);
+            this.processChunkedResponse(apiResponse, pendingRequest);
+          } else {
+            // Single response - handle as before
+            this.validateAndCompleteResponse(apiResponse, pendingRequest);
+          }
         } else {
           console.warn('⚠️ Received response for unknown request ID:', apiResponse.id);
         }
@@ -273,6 +282,112 @@ export class WebRTCApiService {
   }
 
   /**
+   * Process a chunked response chunk
+   * Accumulates chunks and reassembles when all are received
+   */
+  private processChunkedResponse(responseChunk: WebRTCApiResponse, pendingRequest: PendingRequest): void {
+    const chunkNumber = responseChunk.response.currentChunk;
+    const totalChunks = responseChunk.response.totalChunks;
+    
+    console.log(`📨 Processing response chunk ${chunkNumber}/${totalChunks} for ${pendingRequest.messageType}`);
+    
+    // Initialize response chunk tracking if not exists
+    if (!pendingRequest.receivedResponseChunks) {
+      pendingRequest.receivedResponseChunks = new Map();
+    }
+    if (!pendingRequest.expectedResponseChunks) {
+      pendingRequest.expectedResponseChunks = totalChunks;
+    }
+    
+    // Check if we already have this chunk (duplicate)
+    if (pendingRequest.receivedResponseChunks.has(chunkNumber)) {
+      console.log(`📨 Duplicate chunk ${chunkNumber} received, ignoring and sending ACK again`);
+      // Send ACK again (remote probably didn't receive it)
+      this.sendAckForResponseChunk(responseChunk);
+      return;
+    }
+    
+    // Validate chunk checksum
+    const actualChecksum = calculateChecksum(JSON.stringify(responseChunk.response));
+    if (responseChunk.checksum !== actualChecksum) {
+      console.error(`❌ Invalid checksum for response chunk ${chunkNumber}/${totalChunks}: expected ${actualChecksum}, got ${responseChunk.checksum}`);
+      // Don't store corrupted chunk, don't send ACK
+      return;
+    }
+    
+    // Store the chunk
+    const chunkInfo: ReceivedResponseChunk = {
+      responseChunk,
+      chunkNumber,
+      ackSent: false,
+      receivedAt: Date.now()
+    };
+    
+    pendingRequest.receivedResponseChunks.set(chunkNumber, chunkInfo);
+    
+    // Send ACK for this chunk
+    this.sendAckForResponseChunk(responseChunk);
+    chunkInfo.ackSent = true;
+    
+    console.log(`📨 Stored chunk ${chunkNumber}/${totalChunks}, total received: ${pendingRequest.receivedResponseChunks.size}`);
+    
+    // Check if we have all chunks
+    if (areAllResponseChunksReceived(pendingRequest.receivedResponseChunks, totalChunks)) {
+      console.log(`✅ All ${totalChunks} response chunks received, reassembling`);
+      
+      // Reassemble the complete response
+      const completeResponse = reassembleChunkedResponse(pendingRequest.receivedResponseChunks, totalChunks);
+      if (completeResponse) {
+        console.log(`✅ Response reassembled successfully for ${pendingRequest.messageType}`);
+        // Process the complete response
+        this.validateAndCompleteResponse(completeResponse, pendingRequest);
+      } else {
+        console.error(`❌ Failed to reassemble response for ${pendingRequest.messageType}`);
+        
+        // Check if we can retry before completing with error
+        const retryCount = (pendingRequest.retryCount || 0) + 1;
+        if (retryCount <= CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS) {
+          console.log(`🔄 Response reassembly failed for ${pendingRequest.messageType}, retrying (${retryCount}/${CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS})`);
+          
+          // Clear received chunks and retry the request
+          this.resetRequestState(pendingRequest, retryCount);
+          
+          // Resend the original request
+          this.resendOriginalRequest(pendingRequest).catch(error => {
+            console.error(`❌ Failed to resend request during retry:`, error);
+            this.completeRequest(pendingRequest, undefined, error);
+          });
+        } else {
+          console.error(`❌ Response reassembly failed for ${pendingRequest.messageType} after ${retryCount} retries - giving up`);
+          this.completeRequest(pendingRequest, undefined, new Error(`Failed to reassemble chunked response after ${retryCount} retries`));
+        }
+      }
+    }
+  }
+
+  /**
+   * Send ACK for a received response chunk
+   */
+  private sendAckForResponseChunk(responseChunk: WebRTCApiResponse): void {
+    try {
+      const ack = createAckForResponseChunk(responseChunk);
+      const ackMessage = JSON.stringify(ack);
+      
+      console.log(`📤 Sending ACK for response chunk ${responseChunk.response.currentChunk}:`, ack);
+      
+      const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(ackMessage);
+        console.log(`✅ ACK sent for response chunk ${responseChunk.response.currentChunk}`);
+      } else {
+        console.error('❌ Cannot send ACK - DataChannel not available');
+      }
+    } catch (error) {
+      console.error('❌ Error sending ACK for response chunk:', error);
+    }
+  }
+
+  /**
    * Re-send the original request for retry scenarios
    * Handles chunking and sending logic internally within WebRTCApiService
    */
@@ -327,10 +442,14 @@ export class WebRTCApiService {
    * @param retryCount - The new retry count to set (optional)
    */
   private resetRequestState(pendingRequest: PendingRequest, retryCount?: number): void {
-    // Reset ALL chunk tracking state
+    // Reset ALL chunk tracking state (for sending chunked requests)
     pendingRequest.receivedAcks = undefined;
     pendingRequest.totalChunksSent = undefined;
     pendingRequest.chunks = undefined; // Clear the chunks map to stop monitoring stale chunks
+    
+    // Reset response chunk tracking state (for receiving chunked responses)
+    pendingRequest.receivedResponseChunks = undefined;
+    pendingRequest.expectedResponseChunks = undefined;
     
     if (retryCount !== undefined) {
       pendingRequest.retryCount = retryCount;
