@@ -46,6 +46,7 @@ const CaseTabContent: React.FC = () => {
   const { 
     favouriteAkten,
     loading, 
+    favoritesLoading,
     caseDocumentsLoading, 
     loadingCaseDocumentsForAktId,
     removeFromFavoriteLoading,
@@ -57,13 +58,13 @@ const CaseTabContent: React.FC = () => {
 
   // Load favorite Akten only once when component mounts and no data exists
   useEffect(() => {    
-    if (favouriteAkten.length === 0 && !loading) {
+    if (favouriteAkten.length === 0 && !favoritesLoading) {
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50
       }));
     }
-  }, [dispatch, favouriteAkten.length]); // Keep favouriteAkten.length as dependency to detect when it becomes empty
+  }, [dispatch, favouriteAkten.length, favoritesLoading]); // Keep favouriteAkten.length as dependency to detect when it becomes empty
 
   // Get all cached documents for display using memoized selector
   const allCachedDocuments = useAppSelector(selectAllCachedDocuments);
@@ -455,19 +456,19 @@ const CaseTabContent: React.FC = () => {
         }}>
           <button
             onClick={handleLoadFavorites}
-            disabled={loading}
+            disabled={favoritesLoading}
             style={{
               padding: '8px 16px',
-              backgroundColor: loading ? '#ccc' : '#0078d4',
+              backgroundColor: favoritesLoading ? '#ccc' : '#0078d4',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: favoritesLoading ? 'not-allowed' : 'pointer',
               fontSize: '14px',
               fontWeight: '500'
             }}
           >
-            {loading ? 'Loading...' : 'Reload Favorites'}
+            {favoritesLoading ? 'Loading...' : 'Reload Favorites'}
           </button>
         </div>
       )}

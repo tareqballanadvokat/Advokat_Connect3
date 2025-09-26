@@ -41,6 +41,19 @@
   animation: spin 1s linear infinite !important;
 }
 
+/* Disabled star button styling */
+.star-button-gold:disabled,
+.star-button-gold.dx-state-disabled {
+  color: #ccc !important; /* Gray out the star when disabled */
+  cursor: not-allowed !important;
+  opacity: 0.5 !important;
+}
+
+.star-button-gold:disabled .dx-icon,
+.star-button-gold.dx-state-disabled .dx-icon {
+  color: #ccc !important; /* Gray out the star icon when disabled */
+}
+
 /* Spinning animation for loading icons */
 @keyframes spin {
   from {

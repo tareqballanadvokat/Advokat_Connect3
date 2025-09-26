@@ -28,6 +28,7 @@ interface AktenState {
 
   // Favorites state
   favouriteAkten: AktenResponse[]; // For favorite Akten from GetAllAsync endpoint (Id, AKurz, Causa)
+  favoritesLoading: boolean; // Track when favorites are being loaded
   addToFavoriteLoading: boolean;
   addingToFavoriteAktId: number | null; // Track which akt is being added to favorites
   removeFromFavoriteLoading: boolean;
@@ -65,6 +66,7 @@ const initialState: AktenState = {
 
   // Favorites state
   favouriteAkten: [],
+  favoritesLoading: false,
   addToFavoriteLoading: false,
   addingToFavoriteAktId: null,
   removeFromFavoriteLoading: false,
@@ -314,15 +316,15 @@ const aktenSlice = createSlice({
     builder
       // Get favorite Akten handlers
       .addCase(getFavoriteAktenAsync.pending, (state) => {
-        state.loading = true;
+        state.favoritesLoading = true;
         state.error = null;
       })
       .addCase(getFavoriteAktenAsync.fulfilled, (state, action) => {
-        state.loading = false;
+        state.favoritesLoading = false;
         state.favouriteAkten = action.payload;
       })
       .addCase(getFavoriteAktenAsync.rejected, (state, action) => {
-        state.loading = false;
+        state.favoritesLoading = false;
         state.error = action.error.message || 'Failed to get favorite cases via WebRTC';
       })
       // Get case documents handlers (with caching)

@@ -10,20 +10,27 @@ import notify from 'devextreme/ui/notify';
 import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { cases, favouriteAkten, loading, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
+  const { cases, favouriteAkten, loading, favoritesLoading, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
 
   // Check if an Akt is already in favorites
   const isInFavorites = (aktId: number): boolean => {
-    if (!favouriteAkten || !Array.isArray(favouriteAkten) || favouriteAkten.length === 0) {
-      // When no favorites are loaded, show star button (allow adding to favorites)
-      return false;
+    // If favorites are still loading, we don't know the status yet
+    if (favoritesLoading) {
+      return false; // Will be handled by showing disabled state
     }
+    
+    // If favorites are loaded, check if this Akt is in the list
     return favouriteAkten.some(fav => fav.id === aktId);
   };
 
   // Check if case is being added to favorites
   const isAddingToFavorites = (aktId: number): boolean => {
     return addToFavoriteLoading && addingToFavoriteAktId === aktId;
+  };
+
+  // Check if star button should be disabled (when favorites are loading)
+  const isStarButtonDisabled = (aktId: number): boolean => {
+    return favoritesLoading || isAddingToFavorites(aktId);
   };
 
   // Handle adding Akt to favorites
@@ -142,10 +149,11 @@ const SearchCaseList: React.FC = () => {
         buttons={[
           {
             icon: 'favorites',
-            hint: 'Add to Favorites',
+            hint: favoritesLoading ? 'Loading favorites...' : 'Add to Favorites',
             cssClass: 'star-button-gold',
             visible: e => !isInFavorites(e.row.data.id) && !isAddingToFavorites(e.row.data.id),
-            onClick: e => handleAddToFavorites(e.row.data.id, e.row.data.aKurz)
+            disabled: e => isStarButtonDisabled(e.row.data.id),
+            onClick: e => !isStarButtonDisabled(e.row.data.id) && handleAddToFavorites(e.row.data.id, e.row.data.aKurz)
           },
           {
             icon: 'refresh',
