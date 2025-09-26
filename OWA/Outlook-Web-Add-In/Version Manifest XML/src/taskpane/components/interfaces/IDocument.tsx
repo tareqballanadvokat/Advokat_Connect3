@@ -49,6 +49,11 @@ export interface DokumentResponse {
   bearbeitungsInfoErstelltAm?: Date;
   bearbeitungsInfoBearbeitetVon?: string;
   bearbeitungsInfoBearbeitetAm?: Date;
+  // Fields from /with-content endpoint
+  inhalt?: string; // Base64 encoded file content
+  contentType?: string; // MIME type of the file
+  fileName?: string; // Original filename
+  fileSize?: number; // File size in bytes
 }
 
 // Interface for querying documents (corresponds to C# DokumenteQuery)

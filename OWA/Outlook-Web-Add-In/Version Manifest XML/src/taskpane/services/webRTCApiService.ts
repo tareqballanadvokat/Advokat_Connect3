@@ -1,7 +1,7 @@
 import { AktenQuery } from '../components/interfaces/IAkten';
 import { WebRTCApiRequest, WebRTCApiResponse, PendingRequest, WebRTCAckResponse, ChunkInfo, ReceivedResponseChunk } from '../components/interfaces/IWebRTC';
 import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
-import { DokumentPostData, DokumenteQuery } from '../components/interfaces/IDocument';
+import { DokumentPostData, DokumenteQuery, DokumentResponse } from '../components/interfaces/IDocument';
 import { PersonenQuery } from '../components/interfaces/IPerson';
 import { IAuthRequest, IAuthResponse } from '../components/interfaces/IAuth';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
@@ -200,12 +200,16 @@ export class WebRTCApiService {
         if (pendingRequest) {
           console.log('✅ Received response for request ID:', apiResponse.id, 'MessageType:', pendingRequest.messageType);
           
+          // Send ACK for all responses (both single and chunked)
+          this.sendAckForResponseChunk(apiResponse);
+          
           // Check if this is a chunked response
           if (apiResponse.response.totalChunks > 1) {
             console.log(`📨 Received chunked response ${apiResponse.response.currentChunk}/${apiResponse.response.totalChunks} for ${pendingRequest.messageType}`);
             this.processChunkedResponse(apiResponse, pendingRequest);
           } else {
             // Single response - handle as before
+            console.log(`📨 Received single response for ${pendingRequest.messageType}`);
             this.validateAndCompleteResponse(apiResponse, pendingRequest);
           }
         } else {
@@ -325,8 +329,7 @@ export class WebRTCApiService {
     
     pendingRequest.receivedResponseChunks.set(chunkNumber, chunkInfo);
     
-    // Send ACK for this chunk
-    this.sendAckForResponseChunk(responseChunk);
+    // ACK is already sent by the caller before processChunkedResponse
     chunkInfo.ackSent = true;
     
     console.log(`📨 Stored chunk ${chunkNumber}/${totalChunks}, total received: ${pendingRequest.receivedResponseChunks.size}`);
@@ -963,6 +966,27 @@ export class WebRTCApiService {
         'Accept': 'application/json'
       }
     );
+  }
+
+  /**
+   * Get document with content by document ID via WebRTC
+   * @param dokumentId - The ID of the document to retrieve with content
+   * @returns Promise resolving to DokumentResponse with inhalt, contentType, fileName, and fileSize
+   */
+  async getDocumentWithContent(dokumentId: number): Promise<DokumentResponse> {
+    const response = await this.sendRequest(
+      'dokument.getDocumentWithContent',
+      'GET',
+      `api/v1.1/Dokumente/${dokumentId}/with-content`,
+      {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    );
+    
+    // Parse the document data from the response body
+    const documentData = JSON.parse(response.response.body || '{}');
+    return documentData as DokumentResponse;
   }
 
   // ===== PERSON API METHODS =====

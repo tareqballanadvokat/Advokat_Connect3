@@ -23,6 +23,7 @@ export interface WebRTCApiRequest {
 export interface WebRTCApiResponse {
   checksum: string;                   // MD5 hash of response property (base64 encoded)
   id: string;                        // GUID + first 4 chars of GUID's MD5 hash
+  messageType: string;                // Format: "sliceName.actionName"
   response: {
     timestamp: number;                // Unix timestamp
     totalChunks: number;              // Total number of chunks (0 if not chunked)

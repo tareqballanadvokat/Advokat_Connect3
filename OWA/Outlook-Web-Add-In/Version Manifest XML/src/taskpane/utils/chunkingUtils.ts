@@ -391,6 +391,7 @@ export function reassembleChunkedResponse(receivedChunks: Map<number, ReceivedRe
   const completeResponse: WebRTCApiResponse = {
     checksum: baseResponse.checksum, // We'll validate this later
     id: baseResponse.id,
+    messageType: baseResponse.messageType,
     response: {
       timestamp: baseResponse.response.timestamp,
       totalChunks: 1, // Reset to indicate it's now a single complete response

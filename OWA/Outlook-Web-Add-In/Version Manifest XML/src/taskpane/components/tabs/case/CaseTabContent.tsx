@@ -25,6 +25,7 @@ import TreeList, {
 } from 'devextreme-react/tree-list';
 
 import { getFileContent } from '../../../utils/api'; // your API
+import { webRTCApiService } from '../../../services/webRTCApiService';
 
 const allowDeleting = (e) => e.row.data.ID !== 1; 
 
@@ -154,6 +155,7 @@ const CaseTabContent: React.FC = () => {
           causa: doc.betreff || '', // Show document subject as causa
           hasUrl: !!doc.dateipfad,
           url: doc.dateipfad || '',
+          documentId: doc.id, // Store the actual document ID for downloads
         };
         transformedNodes.push(fileNode);
       }
@@ -210,7 +212,7 @@ const CaseTabContent: React.FC = () => {
   }, [nodes, expandedKeys, caseDocumentsLoading, loadingCaseDocumentsForAktId, caseDocumentsCache, dispatch]);
 
 
-  const handleOpen = useCallback((node: HierarchyTree) => {
+  const handleOpen = useCallback(async (node: HierarchyTree) => {
     if (node.isStructure && node.url.startsWith('akt:')) {
       // This is an Akt node, load its documents (handled by expand event)
       const currentExpanded = [...expandedKeys];
@@ -218,27 +220,177 @@ const CaseTabContent: React.FC = () => {
         currentExpanded.push(node.id);
         onExpandedRowKeysChange(currentExpanded);
       }
-    } else if (!node.isStructure && node.url) {
-      // This is a document, open the file
-      console.log(`Opening document URL: ${node.url}`);
-      window.open(node.url, '_blank');
+    } else if (!node.isStructure && node.documentId) {
+      // This is a document, download and open the file
+      let downloadingToast: any = null;
+      try {
+        console.log(`Downloading document with ID: ${node.documentId}`);
+        
+        // Show persistent notification during download
+        try {
+          downloadingToast = notify(`Downloading ${node.name}...`, 'info', 0); // 0 means persistent
+        } catch {
+          // Fallback if the above doesn't work
+          downloadingToast = null;
+        }
+        
+        // Check if WebRTC connection is ready
+        if (!webRTCApiService.isReady()) {
+          if (downloadingToast && typeof downloadingToast.hide === 'function') {
+            downloadingToast.hide();
+          }
+          notify('WebRTC connection not available. Please ensure connection is established.', 'warning', 5000);
+          return;
+        }
+
+        // Get document with content via WebRTC
+        const documentData = await webRTCApiService.getDocumentWithContent(node.documentId);
+        
+        // Hide the downloading notification once we have the data
+        if (downloadingToast && typeof downloadingToast.hide === 'function') {
+          downloadingToast.hide();
+        }
+        
+        if (!documentData.inhalt) {
+          // Hide the downloading notification
+          if (downloadingToast && typeof downloadingToast.hide === 'function') {
+            downloadingToast.hide();
+          }
+          notify('Document content is empty', 'warning', 3000);
+          return;
+        }
+
+        // Convert base64 to binary data
+        const binaryString = atob(documentData.inhalt);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // Use the content type and filename from the API response, with fallbacks
+        const mimeType = documentData.contentType || 'application/octet-stream';
+        const fileName = documentData.fileName || node.name;
+
+        // Create blob and open/download based on file type
+        const blob = new Blob([bytes], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        
+        // Determine if file can be opened in browser
+        const viewableTypes = [
+          'application/pdf',
+          'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml',
+          'text/plain', 'text/html', 'text/css', 'text/javascript',
+          'application/json', 'application/xml'
+        ];
+        
+        const canViewInBrowser = viewableTypes.includes(mimeType) || mimeType.startsWith('text/') || mimeType.startsWith('image/');
+        
+        if (canViewInBrowser) {
+          // Automatically open viewable files in new window/tab
+          try {
+            const newWindow = window.open(url, '_blank');
+            if (newWindow) {
+              notify(`Opened ${fileName} in new tab`, 'success', 3000);
+              
+              // Clean up the URL after a delay to allow the new window to load
+              setTimeout(() => {
+                URL.revokeObjectURL(url);
+              }, 1000);
+            } else {
+              throw new Error('Popup blocked or window.open failed');
+            }
+          } catch (error) {
+            // Fallback to download if opening fails
+            console.log('Failed to open in new window, falling back to download:', error);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            notify(`Downloaded ${fileName} (could not open in browser)`, 'success', 3000);
+          }
+        } else {
+          // Download non-viewable files (like .msg, .docx, etc.)
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          notify(`Downloaded ${fileName}`, 'success', 3000);
+        }
+      } catch (error) {
+        // Hide the downloading notification in case of error
+        if (downloadingToast && typeof downloadingToast.hide === 'function') {
+          downloadingToast.hide();
+        }
+        console.error('Failed to download document:', error);
+        notify(`Failed to download ${node.name}: ${error}`, 'error', 5000);
+      }
+    } else {
+      // Fallback for nodes without documentId (shouldn't happen for documents)
+      console.warn('Document node missing documentId:', node);
+      notify('Unable to download: Document ID missing', 'warning', 3000);
     }
   }, [expandedKeys, onExpandedRowKeysChange]);
 
   const handleAdd = useCallback(async (node: HierarchyTree) => {
     if (node.isStructure) return; // Can't add Akt folders as attachments
     
-    // For documents, we need to get the file content using the dateipfad
+    // For documents, we need to get the file content via WebRTC
+    let attachingToast: any = null;
     try {
-      const base64 = await getFileContent(node.id); // This might need to be adapted
+      if (!node.documentId) {
+        notify('Unable to attach: Document ID missing', 'warning', 3000);
+        return;
+      }
+
+      // Show persistent notification during attachment process
+      try {
+        attachingToast = notify(`Adding ${node.name} as attachment...`, 'info', 0); // 0 means persistent
+      } catch {
+        attachingToast = null;
+      }
       
+      // Check if WebRTC connection is ready
+      if (!webRTCApiService.isReady()) {
+        if (attachingToast && typeof attachingToast.hide === 'function') {
+          attachingToast.hide();
+        }
+        notify('WebRTC connection not available. Please ensure connection is established.', 'warning', 5000);
+        return;
+      }
+
+      // Get document content via WebRTC
+      const documentData = await webRTCApiService.getDocumentWithContent(node.documentId);
+      
+      if (!documentData.inhalt) {
+        if (attachingToast && typeof attachingToast.hide === 'function') {
+          attachingToast.hide();
+        }
+        notify('Document content is empty', 'warning', 3000);
+        return;
+      }
+
+      // Use filename from API response or fallback to node name
+      const fileName = documentData.fileName || node.name;
+
       await new Promise<void>((resolve, reject) => {
         Office.context.mailbox.item.addFileAttachmentFromBase64Async(
-          base64, 
-          node.name,
+          documentData.inhalt, 
+          fileName,
           { isInline: false },
           result => {
+            // Hide the attaching notification
+            if (attachingToast && typeof attachingToast.hide === 'function') {
+              attachingToast.hide();
+            }
+            
             if (result.status === Office.AsyncResultStatus.Succeeded) {
+              notify(`Attached ${fileName} to email`, 'success', 3000);
               resolve();
             } else { 
               console.log(result);
@@ -248,7 +400,12 @@ const CaseTabContent: React.FC = () => {
         );
       });
     } catch (error) {
+      // Hide the attaching notification in case of error
+      if (attachingToast && typeof attachingToast.hide === 'function') {
+        attachingToast.hide();
+      }
       console.error('Failed to add attachment:', error);
+      notify(`Failed to attach ${node.name}: ${error}`, 'error', 5000);
     }
   }, []);
 
