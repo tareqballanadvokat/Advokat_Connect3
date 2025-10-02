@@ -29,6 +29,7 @@ interface AktenState {
   // Favorites state
   favouriteAkten: AktenResponse[]; // For favorite Akten from GetAllAsync endpoint (Id, AKurz, Causa)
   favoritesLoading: boolean; // Track when favorites are being loaded
+  favoritesLoaded: boolean; // Track if favorites have been loaded at least once
   addToFavoriteLoading: boolean;
   addingToFavoriteAktId: number | null; // Track which akt is being added to favorites
   removeFromFavoriteLoading: boolean;
@@ -67,6 +68,7 @@ const initialState: AktenState = {
   // Favorites state
   favouriteAkten: [],
   favoritesLoading: false,
+  favoritesLoaded: false,
   addToFavoriteLoading: false,
   addingToFavoriteAktId: null,
   removeFromFavoriteLoading: false,
@@ -292,6 +294,7 @@ const aktenSlice = createSlice({
     // Clear favorite Akten
     clearFavorites: (state) => {
       state.favouriteAkten = [];
+      state.favoritesLoaded = false;
       state.caseDocumentsCache = []; // Clear documents cache as they depend on favorites
     },
     // Clear folder options
@@ -321,6 +324,7 @@ const aktenSlice = createSlice({
       })
       .addCase(getFavoriteAktenAsync.fulfilled, (state, action) => {
         state.favoritesLoading = false;
+        state.favoritesLoaded = true;
         state.favouriteAkten = action.payload;
       })
       .addCase(getFavoriteAktenAsync.rejected, (state, action) => {

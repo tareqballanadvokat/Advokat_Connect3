@@ -10,12 +10,12 @@ import notify from 'devextreme/ui/notify';
 import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { cases, favouriteAkten, loading, favoritesLoading, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
+  const { cases, favouriteAkten, loading, favoritesLoading, favoritesLoaded, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
 
   // Check if an Akt is already in favorites
   const isInFavorites = (aktId: number): boolean => {
-    // If favorites are still loading, we don't know the status yet
-    if (favoritesLoading) {
+    // If favorites haven't been loaded or are still loading, we don't know the status yet
+    if (!favoritesLoaded || favoritesLoading) {
       return false; // Will be handled by showing disabled state
     }
     
@@ -28,9 +28,9 @@ const SearchCaseList: React.FC = () => {
     return addToFavoriteLoading && addingToFavoriteAktId === aktId;
   };
 
-  // Check if star button should be disabled (when favorites are loading)
+  // Check if star button should be disabled (when favorites are loading or not loaded yet)
   const isStarButtonDisabled = (aktId: number): boolean => {
-    return favoritesLoading || isAddingToFavorites(aktId);
+    return !favoritesLoaded || favoritesLoading || isAddingToFavorites(aktId);
   };
 
   // Handle adding Akt to favorites

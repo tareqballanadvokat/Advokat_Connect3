@@ -47,6 +47,7 @@ const CaseTabContent: React.FC = () => {
     favouriteAkten,
     loading, 
     favoritesLoading,
+    favoritesLoaded,
     caseDocumentsLoading, 
     loadingCaseDocumentsForAktId,
     removeFromFavoriteLoading,
@@ -56,15 +57,15 @@ const CaseTabContent: React.FC = () => {
   const [nodes, setNodes] = useState<HierarchyTree[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
 
-  // Load favorite Akten only once when component mounts and no data exists
+  // Load favorite Akten only once when component mounts and favorites haven't been loaded yet
   useEffect(() => {    
-    if (favouriteAkten.length === 0 && !favoritesLoading) {
+    if (!favoritesLoaded && !favoritesLoading) {
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50
       }));
     }
-  }, [dispatch, favouriteAkten.length, favoritesLoading]); // Keep favouriteAkten.length as dependency to detect when it becomes empty
+  }, [dispatch, favoritesLoaded, favoritesLoading]); // Only depend on the loading flags, not the data itself
 
   // Get all cached documents for display using memoized selector
   const allCachedDocuments = useAppSelector(selectAllCachedDocuments);
