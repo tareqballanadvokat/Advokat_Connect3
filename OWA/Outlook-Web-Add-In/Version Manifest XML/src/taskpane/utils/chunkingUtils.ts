@@ -101,11 +101,11 @@ export function createProtocolRequest(method: string, url: string, headers: Reco
     }
   }
   
-  // Create the nested request structure with proper chunk defaults
+  // Create the nested request structure (chunking fields will be properly set by chunkRequest function)
   const requestData = {
     timestamp,
-    totalChunks: 1,                  // Default: single chunk
-    currentChunk: 1,                 // Default: single chunk  
+    totalChunks: 0,                  // 0 indicates not yet chunked (will be set correctly by chunkRequest)
+    currentChunk: 0,                 // 0 indicates not yet chunked (will be set correctly by chunkRequest)
     method,
     uri: url,
     headers,

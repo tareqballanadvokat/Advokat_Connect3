@@ -684,7 +684,7 @@ export class WebRTCApiService {
       const requestHeaders = this.createRequestHeaders(headers, messageType);
       // Create full protocol request with messageType
       const protocolRequest = createProtocolRequest(method, url, requestHeaders, body, messageType);
-      console.log('📝 Created protocol request:', protocolRequest);
+      console.log('📝 Created initial protocol request (before chunking):', protocolRequest);
 
       console.log('📤 Preparing request for messageType:', messageType);
       console.log('📝 Pending requests before sending:', this.pendingRequests.size);
@@ -692,6 +692,7 @@ export class WebRTCApiService {
       try {
         // Step 1: Prepare chunking (ChunkingUtils responsibility)
         const chunkingResult = chunkRequest(protocolRequest);
+        console.log('📦 Chunking result: totalChunks =', chunkingResult.totalChunks);
         
         // Step 2: Create and store pending request (WebRTCApiService responsibility)
         const pendingRequest = createPendingRequest(protocolRequest, chunkingResult, messageType, resolve, reject);
