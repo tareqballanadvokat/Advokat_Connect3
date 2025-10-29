@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\OWA\WebRTCClient\WebRTCClient.csproj" />
-    <ProjectReference Include="..\WebRTCAPIRelay\WebRTCAPIRelay.csproj" />
+    <ProjectReference Include="..\..\..\AdvokatX\PlugIns\WebRTCRemote\Advokat.WebRTC.Plugin\Advokat.WebRTC.Plugin.csproj" />
+    <ProjectReference Include="..\..\..\AdvokatX\PlugIns\WebRTCRemote\Advokat.WebRTC.Client\Advokat.WebRTC.Client.csproj" />
   </ItemGroup>
 
 </Project>

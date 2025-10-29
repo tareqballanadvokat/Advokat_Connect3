@@ -10,8 +10,9 @@
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
 	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\WebRTCAPIRelay\WebRTCAPIRelay.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\..\..\AdvokatX\PlugIns\AdvokatConnector\Adovkat.Connector.Plugin\Advokat.Connector.Plugin.csproj" />
+	  <ProjectReference Include="..\..\..\AdvokatX\PlugIns\WebRTCRemote\Advokat.WebRTC.Plugin\Advokat.WebRTC.Plugin.csproj" />
+	</ItemGroup>
 
 </Project>
