@@ -1,78 +1,123 @@
-// src/taskpane/components/tabs/email/SearchAndCaseList.tsx
+// src/taskpane/components/tabs/case/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
+import './SearchCaseList.css'; // Import our custom CSS
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { CaseItem } from '../../interfaces/ISearchCase'
-import { getCases  } from '../../../utils/api'; 
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync } from '../../../../store/slices/aktenSlice';
+import notify from 'devextreme/ui/notify';
+import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
+const SearchCaseList: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { cases, favouriteAkten, loading, favoritesLoading, favoritesLoaded, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
 
-import notify from 'devextreme/ui/notify'; // ← import DevExtreme notify 
-interface Props {
-  onCaseSelect: (caseId: string) => void;
-}
+  // Check if an Akt is already in favorites
+  const isInFavorites = (aktId: number): boolean => {
+    // If favorites haven't been loaded or are still loading, we don't know the status yet
+    if (!favoritesLoaded || favoritesLoading) {
+      return false; // Will be handled by showing disabled state
+    }
+    
+    // If favorites are loaded, check if this Akt is in the list
+    return favouriteAkten.some(fav => fav.id === aktId);
+  };
 
-const SearchCaseList: React.FC<Props> = ({ onCaseSelect }) => {
-  const [searchValue, setSearchValue] = useState('');
-  const [rows, setRows] = useState<CaseItem[]>([]);
-  const [fullData, setFullData] = useState<CaseItem[]>([]);
+  // Check if case is being added to favorites
+  const isAddingToFavorites = (aktId: number): boolean => {
+    return addToFavoriteLoading && addingToFavoriteAktId === aktId;
+  };
 
+  // Check if star button should be disabled (when favorites are loading or not loaded yet)
+  const isStarButtonDisabled = (aktId: number): boolean => {
+    return !favoritesLoaded || favoritesLoading || isAddingToFavorites(aktId);
+  };
 
-  const handleSearch = async () => {
-    const filter = searchValue.trim().toLowerCase();
-    try{
-        const data = await getCases(filter);
-         setFullData(data);
-         setRows(data);
-        if (!filter) {
-          setRows(fullData);
-        } else {
-          // setRows(
-          //   fullData.filter(
-          //     item =>
-          //       item.name.toLowerCase().includes(filter) 
-          //     //||  item.causa.toLowerCase().includes(filter),
-          //   ),
-          // );
-          setRows(data);
-        }   
-    } catch(e){
-      notify('Search cases failed', 'error', 5000);
+  // Handle adding Akt to favorites
+  const handleAddToFavorites = async (aktId: number, aKurz: string) => {
+    // Prevent duplicate requests
+    if (addToFavoriteLoading && addingToFavoriteAktId === aktId) {
+      return;
+    }
+
+    try {
+      await dispatch(addAktToFavoriteAsync(aktId)).unwrap();
+      await dispatch(getFavoriteAktenAsync({ 
+              NurFavoriten: true,
+              Count: 50
+            })).unwrap();
+      notify(`Successfully added "${aKurz}" to favorites!`, 'success', 3000);
+    } catch (error) {
+      console.error('Failed to add to favorites:', error);
+      notify(`Failed to add "${aKurz}" to favorites: ${error}`, 'error', 5000);
     }
   };
 
+  const handleSearch = async () => {
+    const query = searchTerm.trim();
+    
+    if (!query) {
+      dispatch(clearCases());
+      return;
+    }
 
+    try {
+      await dispatch(aktLookUpAsync(query)).unwrap();
+    } catch (error) {
+      console.error('Search failed:', error);
+      notify('Search cases failed via WebRTC', 'error', 5000);
+    }
+  };
 
-return (
-  <div>
-      <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        Search 
-      </h3>
+  return (
+    <div>
+        <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          Search Cases via WebRTC
+        </h3>
 
       {/* Search panel */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <TextBox
           width={250}
           stylingMode="outlined"
-          placeholder="Search..."
-          value={searchValue}
-          onValueChanged={e => setSearchValue(e.value)}
+          placeholder="Search by Kürzel..."
+          value={searchTerm}
+          onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
         />
-        <Button icon="search" stylingMode="contained" onClick={handleSearch} />
+        <Button 
+          icon="search" 
+          stylingMode="contained" 
+          onClick={handleSearch}
+          disabled={loading}
+        />
       </div>
-    {/* … Twój panel wyszukiwania … */}
+
+      {/* Error message */}
+      {error && (
+        <div style={{ color: 'red', marginBottom: 16, padding: 8, backgroundColor: '#fee' }}>
+          Error: {error}
+        </div>
+      )}
+
+      {/* Loading indicator */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: 16 }}>
+          Searching via WebRTC...
+        </div>
+      )}
 
     <DataGrid
       className="compact-grid"
-      dataSource={rows}
-      keyExpr="id"               // Twój klucz
+      dataSource={cases}
+      keyExpr="id"
       showBorders={false}
-   visible={rows.length>0}
+      visible={cases.length > 0 || loading}
       showColumnLines={false}
       showRowLines={true}
       columnAutoWidth={true}
       rowAlternationEnabled={false}
-      
+      noDataText={loading ? "Loading..." : "No cases found. Try searching for 'demo' or enter a Kürzel."}
     >
       <Paging defaultPageSize={5} />
       <Pager
@@ -81,16 +126,16 @@ return (
         allowedPageSizes={[5]}
         showInfo
       />
-      {/* -------------------------------- */}
+      
       <Column
         dataField="id"
-        caption="Case ID"
-        visible={false}         // ukryte, ale dalej dostępne
+        caption="Akt ID"
+        visible={false}
         alignment="left"
       />
       <Column
-        dataField="name"
-        caption="Name"
+        dataField="aKurz"
+        caption="Kürzel"
         alignment="left"
       />
       <Column
@@ -100,20 +145,34 @@ return (
       />
       <Column
         type="buttons"
-        width={50}
+        width={80}
         buttons={[
           {
-            icon: 'arrowright',
-            //stylingMode: 'text',
-            hint: 'Select',
-            onClick: e => onCaseSelect(e.row.data.id)  // Twój callback
+            icon: 'favorites',
+            hint: favoritesLoading ? 'Loading favorites...' : 'Add to Favorites',
+            cssClass: 'star-button-gold',
+            visible: e => !isInFavorites(e.row.data.id) && !isAddingToFavorites(e.row.data.id),
+            disabled: e => isStarButtonDisabled(e.row.data.id),
+            onClick: e => !isStarButtonDisabled(e.row.data.id) && handleAddToFavorites(e.row.data.id, e.row.data.aKurz)
+          },
+          {
+            icon: 'refresh',
+            hint: 'Adding to favorites...',
+            cssClass: 'loading-button',
+            visible: e => isAddingToFavorites(e.row.data.id),
+            disabled: true
+          },
+          {
+            icon: 'check',
+            hint: 'Already in Favorites',
+            visible: e => isInFavorites(e.row.data.id),
+            disabled: true
           }
         ]}
       />
     </DataGrid>
   </div>
 );
-
 
 };
 

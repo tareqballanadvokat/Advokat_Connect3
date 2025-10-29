@@ -84,6 +84,7 @@ public class FavoriteController : ControllerBase
     [HttpPost("add")]
     public ActionResult<HierarchyTree> AddToFavorites([FromBody] FavoriteAction query)
     {
+        DatabaseServiceMock.FillMockData();
         var customTree = DatabaseServiceMock.customTree;
         var dd = customTree.Where(x => x.Id == Convert.ToInt32(query.NodeId)).First();
         while(dd.RootId != 0 && dd.RootId!= null)

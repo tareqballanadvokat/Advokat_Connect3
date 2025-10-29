@@ -1,46 +1,21 @@
 import React, { useState, Suspense, lazy, useEffect, useRef } from 'react';
 import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
-// import  { Person } from './tabs/person/PersonTabContent'; 
-//  import {SipClient} from "./tabs/SipClient"; 
- import { initializeSipClient } from './SIP_Library';
 // lazy-import
-const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent-new'));
+const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));
 const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
 const PersonTab  = lazy(() => import('./tabs/person/PersonTabContent'));
 const CaseTabContent = lazy(() => import('./tabs/case/CaseTabContent'));
 
 const DevTabs: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const sipRef = useRef(null);
-// useEffect(() => {
-//     SipClient(); // uruchomienie kodu SIP
-//   }, []);
-
-
-  useEffect(() => {
-    sipRef.current = initializeSipClient();
-  }, []);
-
-
-  const handleDelete = (id: string) => {
-    console.log(id);
-  };
-
-  const handleAdd = (id: string) => {
-    console.log(id);
-  };
 
   const renderContent = () => {
     switch (selectedIndex) {
       case 0: return <EmailTab />;
       case 1: return <ServiceTab />;
       case 2: return <CaseTabContent />;
-      case 3: return <PersonTab   sip={sipRef.current}
-      // onDeleteFavorite={handleDelete}
-      // onAddFavorite={handleAdd} 
-      />;
+      case 3: return <PersonTab />;
       default: return null;
     }
   };

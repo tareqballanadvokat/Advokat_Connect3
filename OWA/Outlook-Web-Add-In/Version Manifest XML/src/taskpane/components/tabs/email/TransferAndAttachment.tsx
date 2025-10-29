@@ -3,151 +3,191 @@ import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
 import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
-import { getSavedEmailInfo, getStructureFolderApi, getStructureFolderByIdApi, Attachment } from '../../../utils/api';
+import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '../../interfaces/IDocument';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../../../../store';
+import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEmailDocuments, selectEmailDocuments } from '../../../../store/slices/aktenSlice';
+import { setAttachmentSelected } from '../../../../store/slices/emailSlice';
 
-export interface TransferAttachmentItem {
-  id: string;
-  label: string;
-  option: number;
-  checked: boolean;
-  readonly: boolean;
-  disabled: boolean;
-  name: string;
-  type: string;
-}
+const TransferAndAttachment: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { 
+    folderOptions, 
+    foldersLoading, 
+    foldersError, 
+    foldersLoadedForAktId,
+    emailDocuments,
+    emailDocumentsLoadedForAktId,
+    selectedAkt 
+  } = useSelector((state: RootState) => state.akten);
+  
+  const [items, setItems] = useState<TransferAttachmentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>();
 
-export interface TransferEmailItem {
-  id: string;
-  label: string;
-  option: number;
-  checked: boolean;
-  readonly: boolean;
-}
+  // Clear folders and errors ONLY when selectedAkt actually changes
+  useEffect(() => {
+    const currentAktId = selectedAkt?.id;
+    
+    // Only clear if folders were loaded for a different Akt ID
+    if (foldersLoadedForAktId !== null && 
+        foldersLoadedForAktId !== currentAktId && 
+        currentAktId != null && 
+        currentAktId !== -1) {
+      console.log('Akt changed, clearing folders. Previous:', foldersLoadedForAktId, 'Current:', currentAktId);
+      dispatch(clearFolders());
+    }
+  }, [selectedAkt?.id, foldersLoadedForAktId, dispatch]);
 
-// var attachmentOptions = ['Email', 'Aktenordner', 'Andere…'];
-var attachmentOptions = [
-  // { id: 1, text: 'Email' },
-  // { id: 2, text: 'Aktenordner' },
-  // { id: 3, text: 'Andere…' },
-];
+  // Load folders only if they haven't been loaded for the current Akt
+  useEffect(() => {
+    if (selectedAkt?.id != null && 
+        selectedAkt.id !== -1 && 
+        foldersLoadedForAktId !== selectedAkt.id && // Only load if not already loaded for this Akt
+        !foldersLoading && 
+        !foldersError) { // Don't retry if there's already an error
+      console.log('Loading folders for case:', selectedAkt.id);
+      dispatch(getAvailableFoldersAsync(selectedAkt.id));
+    }
+  }, [selectedAkt?.id, foldersLoadedForAktId, foldersLoading, foldersError, dispatch]);
 
-interface TransferAndAttachmentProps {
-  onSelectionChange?: (selected: TransferAttachmentItem[]) => void;
-  caseId?: number; 
-}
-const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelectionChange, caseId }) => {
-  const [items, setItems] =         useState<TransferAttachmentItem[]>([]);
-  const [loading, setLoading] =     useState(true);
-  const [error, setError]     =     useState<string>();
+  // Clear email documents when Akt changes and load documents for the current Akt
+  useEffect(() => {
+    const loadDocuments = async () => {
+      const currentAktId = selectedAkt?.id;
+      
+      // Clear documents if they were loaded for a different Akt ID
+      if (emailDocumentsLoadedForAktId !== null && 
+          emailDocumentsLoadedForAktId !== currentAktId && 
+          currentAktId != null && 
+          currentAktId !== -1) {
+        console.log('Akt changed, clearing email documents. Previous:', emailDocumentsLoadedForAktId, 'Current:', currentAktId);
+        dispatch(clearEmailDocuments());
+      }
+      
+      // Load documents if they haven't been loaded for the current Akt
+      if (currentAktId != null && 
+          currentAktId !== -1 && 
+          emailDocumentsLoadedForAktId !== currentAktId) {
+        try {
+          const email = Office.context.mailbox.item;
+          const messageId = await getInternetMessageIdAsync(email);
+          console.log('Loading documents for case:', currentAktId, 'and email:', messageId);
+          dispatch(getEmailDocumentsAsync({ 
+            aktId: currentAktId, 
+            outlookEmailId: messageId || undefined // Handle missing messageId gracefully
+          }));
+        } catch (error) {
+          console.error('Failed to get message ID for document loading:', error);
+          // Still attempt to load documents without email ID
+          dispatch(getEmailDocumentsAsync({ 
+            aktId: currentAktId, 
+            outlookEmailId: undefined 
+          }));
+        }
+      }
+    };
+
+    loadDocuments();
+  }, [selectedAkt?.id, emailDocumentsLoadedForAktId, dispatch]);
 
   useEffect(() => {
     (async () => {
+      // Don't load anything if no case is selected
+      if (!selectedAkt?.id) {
+        setItems([]);
+        setLoading(false);
+        return;
+      }
+
+      // Wait for email documents to be loaded via Redux
+      if (emailDocumentsLoadedForAktId !== selectedAkt.id) {
+        // Documents are still loading or not loaded yet
+        setLoading(true);
+        return;
+      }
+
       setLoading(true);
       setError(undefined);
       
       try {
-
         const email = Office.context.mailbox.item;
-        const messageId = await getInternetMessageIdAsync(email);
-        const data = await getSavedEmailInfo(messageId);
-        if (data!= null)
-        {
- 
-            const options = await getStructureFolderByIdApi(data.caseId);
-            const newOptions = options.map(o => ({
-              id: o.id,
-              text: o.name
-            }));
-            attachmentOptions = newOptions;
-        }
-        // Step 1: Dictionaries        
-        if (caseId != null && caseId != -1)
-        {
-            console.log(caseId);
-            const options = await getStructureFolderByIdApi(caseId);
-            const newOptions = options.map(o => ({
-              id: o.id,
-              text: o.name
-            }));
-            attachmentOptions = newOptions;
-         }
-        // Step 1: Email informations
-
+        
+        // Use email documents from Redux state instead of loading manually
+        const savedDocuments = emailDocuments;
+        
+        // Step 1: Email information
         const emailSubject = await getEmailSubjectAsync();
         const emailAttachments = await getEmailAttachments(email);
- 
+
+        // Get messageId for email row
+        const messageId = await getInternetMessageIdAsync(email);
+        console.log('saved docs', savedDocuments);
+        // Find saved email document (if any)
+        const savedEmailDoc = savedDocuments.find(doc => 
+          doc.dokumentArt === DokumentArt.MailEmpfangen || 
+          doc.dokumentArt === DokumentArt.MailGesendet
+        );
+
         const newEmailRow: TransferAttachmentItem = {
-            label :emailSubject,
-            name: emailSubject,
-            option:-1,
-            id: messageId, 
-            checked: false,
-            readonly: false,
-            disabled:false,
-            type: "E"
-        }
-
-        var attachmentConcatenated = emailAttachments.map(att => ({
-                id: att.id,
-                label: att.name,
-                name: att.name,
-                option:-1,    // default option
-                checked: false,     // or true, as needed
-                readonly: false,
-                disabled: false,
-                type:"A"
-            }));
-        
-        // Step 2: fetch both emailRow & attachmentRows in one POST
-     
-        if (data!= null)
-        {
-           // newEmailRow.option = data.emailFolder
-           //  const matchingFolder = attachmentOptions.find(f => f.text === data.emailFolder);
-             newEmailRow.option =  data.emailFolderId;
-           //     matchingFolder
-            //        ? matchingFolder.id
-            //        : -1; 
-
-            newEmailRow.label = data.emailName;
-            newEmailRow.id = data.internetMessageId; 
-            newEmailRow.checked = true;
-            newEmailRow.readonly = true;
-            newEmailRow.disabled = true;
-
-            if (data.attachments.length > 0)
-            {
-                data.attachments.forEach(element => {
-    
-                    const att = element as Attachment;
-                    var el = attachmentConcatenated.find(x => x.id == att.id) ;
-                    if (el != null){
-               
-                        el.label = att.fileName;
-                        el.option = att.folder;
-                        el.checked = true;
-                        el.readonly = true;
-                        el.disabled = true;
-                    }
-                }); 
-            }
-          
+          label: emailSubject,
+          name: emailSubject,
+          option: -1,
+          id: messageId, 
+          checked: false,
+          readonly: false,
+          disabled: false,
+          type: "E",
+          folderName: "Default",
+          document: savedEmailDoc
         };
 
-        // Step 3: merge into a single array, emailRow first
-        const allRows: TransferAttachmentItem[] = [
-           newEmailRow ,
-        ...attachmentConcatenated.map(att => ({
-                id: att.id,
-                label: att.name,
-                name: att.name,
-                option: att.option,    // default option
-                checked: att.checked,     // or true, as needed
-                readonly: att.readonly,
-                disabled: att.disabled,
-                type:"A"
-            }))
-        ];
+        // If email is already saved, mark it as disabled and readonly
+        if (savedEmailDoc) {
+          newEmailRow.option = 1; // Default to first folder for now
+          newEmailRow.folderName = "Default"; // We'll need to map this from the folder structure
+          newEmailRow.label = savedEmailDoc.betreff || emailSubject;
+          newEmailRow.checked = true;
+          newEmailRow.readonly = true;
+          newEmailRow.disabled = true;
+        }
+
+        // Step 2: Create attachment items
+        const attachmentItems: TransferAttachmentItem[] = emailAttachments.map(att => {
+          // Find if this attachment is already saved
+          const savedAttachmentDoc = savedDocuments.find(doc => 
+            doc.dokumentArt === DokumentArt.Keine && 
+            (doc.dateipfad?.includes(att.name) || doc.betreff?.includes(att.name))
+          );
+
+          const attachmentItem: TransferAttachmentItem = {
+            id: att.id,
+            label: att.name,
+            name: att.name,
+            option: -1,
+            checked: false,
+            readonly: false,
+            disabled: false,
+            type: "A",
+            folderName: "Default",
+            document: savedAttachmentDoc
+          };
+
+          // If attachment is already saved, mark it as disabled and readonly
+          if (savedAttachmentDoc) {
+            attachmentItem.option = 1; // Default to first folder for now
+            attachmentItem.folderName = "Default"; // We'll need to map this from the folder structure
+            attachmentItem.label = savedAttachmentDoc.betreff || att.name;
+            attachmentItem.checked = true;
+            attachmentItem.readonly = true;
+            attachmentItem.disabled = true;
+          }
+
+          return attachmentItem;
+        });
+
+        // Step 3: merge into a single array, email first
+        const allRows: TransferAttachmentItem[] = [newEmailRow, ...attachmentItems];
         setItems(allRows);
       } catch (e: any) {
         console.error(e);
@@ -156,21 +196,17 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
         setLoading(false);
       }
     })();
-  }, [caseId]);
+  }, [selectedAkt?.id, emailDocumentsLoadedForAktId, emailDocuments]);
 
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;
-
- 
 
   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
  
     setItems(prev => {
       const updated = prev.map(item => item.id === id ? { ...item, ...changes } : item);
-      if (onSelectionChange) {
-        const selectedItems = updated.filter(i => i.checked);
-        onSelectionChange(selectedItems);
-      }
+      const selectedItems = updated.filter(i => i.checked);
+      dispatch(setAttachmentSelected(selectedItems));
       return updated;
     });
   };
@@ -200,12 +236,18 @@ const TransferAndAttachment: React.FC<TransferAndAttachmentProps> = ({ onSelecti
  
           <SelectBox
             stylingMode="outlined"
-            dataSource={attachmentOptions}
+            dataSource={folderOptions}
             displayExpr="text"   // the field to show
             valueExpr="id"       // the field to use as the actual value
             value={item.option}  // now this should be the numeric id
             disabled={item.readonly}
-            onValueChanged={e => updateItem(item.id, { option: e.value })}
+            onValueChanged={e => {
+              const selectedFolder = folderOptions.find(f => f.id === e.value);
+              updateItem(item.id, { 
+                option: e.value,
+                folderName: selectedFolder?.text || 'Default'
+              });
+            }}
             width={150}
           />
         </div>

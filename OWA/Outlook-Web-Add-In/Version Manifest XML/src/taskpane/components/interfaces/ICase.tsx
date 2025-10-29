@@ -9,5 +9,6 @@ export interface HierarchyTree {
   hasUrl: boolean;
   url: string;
   isStructure: boolean;
+  documentId?: number; // Add this to store the actual document ID from database
 }
  

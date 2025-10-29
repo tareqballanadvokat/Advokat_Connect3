@@ -11,7 +11,7 @@ namespace WebRTCLibrary.SIP
         /// <version date="25.04.2025" sb="MAC">Created.</version>
         public int RegistrationTimeout { get; set; } = defaultRegistrationTimeout; // TODO: add flag if it already started - prevent setting then.
 
-        public readonly static int defaultConnectionTimeout = 3000;
+        public readonly static int defaultConnectionTimeout = 10000;
 
         /// <summary>Timeout for the connection process after both peers successfully registered.
         ///          Specify how long the connection process should take before it is cancelled.

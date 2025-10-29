@@ -1,4 +1,5 @@
 // Email-related interfaces and models
+import { DokumentArt, TransferAttachmentItem } from './IDocument';
 
 export interface EmailSendProps {
   caseId: string;
@@ -6,6 +7,7 @@ export interface EmailSendProps {
   onTransfer: () => void;
   caseIdDisable: boolean;
   transferBtnDisable: boolean;
+  transferLoading?: boolean;  // New prop for loading state
 }
 
 export interface CaseSendProps {
@@ -34,14 +36,56 @@ export interface EmailModel {
   emailFolder: string;
   emailFolderId: number;
   userID: string;
-  attachments: Attachment[] | [];
+  attachments: TransferAttachmentItem[] | [];
 }
 
-// Attachment model
-export interface Attachment {
-  id: string;
-  originalFileName: string;
-  fileName: string;
-  contentBase64: string;
-  folder: number;
+/**
+ * Get the current user's email address from Office context
+ * @returns Promise with the current user's email address
+ */
+export function getCurrentUserEmail(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (Office.context.mailbox?.userProfile?.emailAddress) {
+      resolve(Office.context.mailbox.userProfile.emailAddress);
+    } else {
+      reject(new Error('Unable to get current user email address'));
+    }
+  });
+}
+
+/**
+ * Determine the correct DokumentArt based on email context
+ * @param isEmail - Whether this is an email document
+ * @param isCompose - Whether we're in compose mode (sending email)
+ * @param emailFrom - The email address of the sender (from email.from?.emailAddress)
+ * @returns Promise with the appropriate DokumentArt value
+ */
+export async function getDokumentArt(
+  isEmail: boolean, 
+  isCompose: boolean = false, 
+  emailFrom?: string
+): Promise<DokumentArt> {
+  if (!isEmail) {
+    return DokumentArt.Keine; // Normal attachment
+  }
+  
+  // If we're in compose mode, it's definitely a sent email
+  if (isCompose) {
+    return DokumentArt.MailGesendet;
+  }
+  
+  // If we have the sender email, try to get current user email for comparison
+  if (emailFrom) {
+    try {
+      const currentUserEmail = await getCurrentUserEmail();
+      return emailFrom.toLowerCase() === currentUserEmail.toLowerCase() 
+        ? DokumentArt.MailGesendet 
+        : DokumentArt.MailEmpfangen;
+    } catch (error) {
+      console.warn('Could not get current user email for DokumentArt detection:', error);
+    }
+  }
+  
+  // Default to received email if we can't determine otherwise
+  return DokumentArt.MailEmpfangen;
 }

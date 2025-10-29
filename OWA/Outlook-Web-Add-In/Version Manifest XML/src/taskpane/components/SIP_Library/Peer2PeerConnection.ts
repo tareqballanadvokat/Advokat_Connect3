@@ -26,6 +26,9 @@
 
 import { logger } from './Helper';
 
+// Type for message handler functions
+type MessageHandler = (event: MessageEvent) => Promise<void> | void;
+
 // Message handler for incoming WebRTC DataChannel messages
 async function writeMessage(event: MessageEvent): Promise<void> {
     const data = event.data;
@@ -56,6 +59,46 @@ export class Peer2PeerConnection {
     private dataChannelPeer: RTCDataChannel | undefined = undefined;
     public isOfferSent = false;
     
+    // Array of message handlers that will be called for each incoming message
+    private messageHandlers: MessageHandler[] = [];
+    
+    /**
+     * Add a message handler that will be called for all incoming DataChannel messages
+     * @param handler - Function to handle incoming messages
+     */
+    addMessageHandler(handler: MessageHandler): void {
+        this.messageHandlers.push(handler);
+    }
+    
+    /**
+     * Remove a message handler
+     * @param handler - Function to remove from handlers
+     */
+    removeMessageHandler(handler: MessageHandler): void {
+        const index = this.messageHandlers.indexOf(handler);
+        if (index > -1) {
+            this.messageHandlers.splice(index, 1);
+        }
+    }
+    
+    /**
+     * Dispatch message to all registered handlers
+     * @param event - MessageEvent from DataChannel
+     */
+    private async dispatchMessage(event: MessageEvent): Promise<void> {
+        // First call the default writeMessage handler
+        await writeMessage(event);
+        
+        // Then call all registered handlers
+        for (const handler of this.messageHandlers) {
+            try {
+                await handler(event);
+            } catch (error) {
+                console.error('Error in message handler:', error);
+            }
+        }
+    }
+    
     /**
      * Processes incoming SERVICE message and creates SDP answer for WebRTC connection
      * This method is called when this peer needs to create an answer to an incoming offer
@@ -70,7 +113,7 @@ export class Peer2PeerConnection {
         const fromLineMatch = data.match(/^from:.*$/mi);
         const fromLine = fromLineMatch ? fromLineMatch[0] : '';
         const toLine = fromLine.replace(/^from:/i, 'to:');
-        
+        console.log("toLine: ", toLine);
         const reCallId = /^call-id:\s*([^\r\n]+)/mi;
         const m = data.match(reCallId);
         const callId = m ? m[1] : "";
@@ -112,7 +155,7 @@ export class Peer2PeerConnection {
                 console.log("🟢 DataChannel opened: ", ev.channel.label);
             };
             
-            ev.channel.onmessage = writeMessage;
+            ev.channel.onmessage = (event) => this.dispatchMessage(event);
             
             ev.channel.onclose = () => {
                 console.log("🔴 DataChannel closed");
@@ -233,7 +276,7 @@ export class Peer2PeerConnection {
                 console.log("🟢 DataChannel opened: ", ev.channel.label);
             };
             
-            ev.channel.onmessage = writeMessage;
+            ev.channel.onmessage = (event) => this.dispatchMessage(event);
             
             ev.channel.onclose = () => {
                 console.log("🔴 DataChannel closed");

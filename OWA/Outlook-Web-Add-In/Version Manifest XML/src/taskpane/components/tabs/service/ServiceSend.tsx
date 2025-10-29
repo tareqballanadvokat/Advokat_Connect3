@@ -3,12 +3,35 @@ import React from 'react';
 import Button from 'devextreme-react/button';
 import { Height } from 'devextreme-react/cjs/chart';
 
+// Inject CSS for orange loading button
+const orangeButtonStyles = `
+  .transfer-button-loading .dx-button-content {
+    background-color: #ff8c00 !important;
+    color: #fff !important;
+    border-color: #ff8c00 !important;
+  }
+  .transfer-button-loading:not(.dx-state-disabled) {
+    background-color: #ff8c00 !important;
+    border-color: #ff8c00 !important;
+  }
+`;
+
+// Add styles to document head if not already added
+if (!document.getElementById('transfer-button-styles-service')) {
+  const styleSheet = document.createElement('style');
+  styleSheet.type = 'text/css';
+  styleSheet.id = 'transfer-button-styles-service';
+  styleSheet.innerText = orangeButtonStyles;
+  document.head.appendChild(styleSheet);
+}
+
 interface ServiceSendProps {
   caseId: string;
   onCaseChange: (id: string) => void;
   onTransfer: () => void;
   caseIdDisable: boolean;
-  transferBtnDisable:boolean;
+  transferBtnDisable: boolean;
+  transferLoading?: boolean;  // New prop for loading state
 }
 
 const ServiceSend: React.FC<ServiceSendProps> = ({ 
@@ -16,7 +39,8 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
     onCaseChange,
     onTransfer,
     caseIdDisable,
-    transferBtnDisable
+    transferBtnDisable,
+    transferLoading = false
 }) => ( <div>  <h3>Case</h3>
   <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
    
@@ -36,17 +60,15 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
       }}
     />
     <Button
-        text="Transfer"
-        type="success"
-        width={80}
-        disabled={transferBtnDisable}
+        text={transferLoading ? "Sending..." : "Transfer"}
+        type={transferLoading ? "default" : "success"}
+        width={transferLoading ? 100 : 80}
+        disabled={transferBtnDisable || transferLoading}
+        className={transferLoading ? "transfer-button-loading" : ""}
         style={{
-          // width: 80,
-          // Height: 80,
-          // padding: '8px 12px',
           fontSize: 14,
           border: '1px solid #ccc',
-          borderRadius: 4,
+          borderRadius: 4
         }}
         stylingMode="contained" onClick={() => {
         onTransfer();

@@ -1,322 +1,167 @@
-// // // src/taskpane/components/tabs/email/ServiceSection.tsx
-// // import React from 'react';
-
-// // export interface ServiceSectionProps {
-// //   abbreviation: string;
-// //   onAbbreviationChange: (value: string) => void;
-// //   time: string;
-// //   onTimeChange: (value: string) => void;
-// //   text: string;
-// //   onTextChange: (value: string) => void;
-// //   sb: string
-// //   onSbChange: (value: string) => void;
-// // }
-
-// // const ServiceSection: React.FC<ServiceSectionProps> = ({
-// //   abbreviation,
-// //   onAbbreviationChange,
-// //   time,
-// //   onTimeChange,
-// //   text,
-// //   onTextChange,
-// //   sb,
-// //   onSbChange,
-// // }) => (
-
-  
-// //   <div style={{ marginBottom: 24 }}>
-// //     <h3>Services</h3>
-// //     <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-// //       <input
-// //         type="text"
-// //         placeholder="Abbreviation"
-// //         value={abbreviation}
-// //         onChange={e => onAbbreviationChange(e.target.value)}
-// //         style={{
-// //           width: 130,
-// //           padding: '8px 12px',
-// //           fontSize: 14,
-// //           border: '1px solid #ccc',
-// //           borderRadius: 4,
-// //         }}
-// //       />
-// //       <input
-// //         type="text"
-// //         placeholder="SB"
-// //         value={sb}
-// //         onChange={e => onSbChange(e.target.value)}
-// //         style={{
-// //           width: 25,
-// //           padding: '8px 12px',
-// //           fontSize: 14,
-// //           border: '1px solid #ccc',
-// //           borderRadius: 4,
-// //           textAlign: 'center',
-// //           backgroundColor: '#f4f4f4',
-// //         }}
-// //       />
-// //       <input
-// //         type="text"
-// //         placeholder="Time"
-// //         value={time}
-// //         onChange={e => onTimeChange(e.target.value)}
-// //         style={{
-// //           width: 40,
-// //           padding: '8px 12px',
-// //           fontSize: 14,
-// //           border: '1px solid #ccc',
-// //           borderRadius: 4,
-// //         }}
-// //       />
-// //     </div>
-// //     <input
-// //       type="text"
-// //       placeholder="Text"
-// //       value={text}
-// //       onChange={e => onTextChange(e.target.value)}
-// //       style={{
-// //         width: 262,
-// //         padding: '8px 12px',
-// //         fontSize: 14,
-// //         border: '1px solid #ccc',
-// //         borderRadius: 4,
-// //       }}
-// //     />
-// //   </div>
-// // );
-
-// // export default ServiceSection;
-
-
-// // src/taskpane/components/tabs/email/ServiceSection.tsx
-// import React, { useState, useEffect } from 'react';
-// import SelectBox from 'devextreme-react/select-box';
-// import { getAbbreviationApi, Abbreviation,getSavedEmailInfo } from '../../../utils/api';
-
-// export interface ServiceSectionProps {
-//   abbreviation: string;
-//   onAbbreviationChange: (value: string) => void;
-//   time: string;
-//   onTimeChange: (value: string) => void;
-//   text: string;
-//   onTextChange: (value: string) => void;
-//   sb: string;
-//   onSbChange: (value: string) => void;
-// }
-
-// const ServiceSection: React.FC<ServiceSectionProps> = ({
-//   abbreviation,
-//   onAbbreviationChange,
-//   time,
-//   onTimeChange,
-//   text,
-//   onTextChange,
-//   sb,
-//   onSbChange,
-// }) => {
-//   const [options, setOptions] = useState<Abbreviation[]>([]);
-
-//   useEffect(() => {
-//     (async () => {
-//       try {
-//   const data = await getAbbreviationApi(); // Abbreviation[]
-//       setOptions(data);
-
-//       const emailInfo = await getSavedEmailInfo("<71M6XT6PQVi3e1nUFNcQow@geopod-ismtpd-7>");
-//       if (emailInfo != null) {
-//         const abbreviationId = Number(emailInfo.serviceAbbreviationType);
-
-//         // sprawdź, czy ID istnieje w dostępnych opcjach
-//         const opt = data.find(x => x.id === abbreviationId);
-//         if (opt) {
-//           onAbbreviationChange(opt.id.toString()); // ✅ użyj ID zamiast name
-//         }
-
-//         onTextChange(emailInfo.serviceText);
-//         onTimeChange(emailInfo.serviceTime);
-//         onSbChange(emailInfo.serviceSB);
-//       }
-
-
-//       } catch (err) {
-//         console.error('Failed to load abbreviations:', err);
-//       }
-//     })();
-//   }, []);
- 
-
-
-
-//   return (
-//     <div style={{ marginBottom: 24 }}>
-//       <h3>Services</h3>
-//       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-//         <SelectBox
-//           stylingMode="outlined"
-//           dataSource={options}
-//           value={abbreviation}
-//           valueExpr="id"
-//           displayExpr="name"
-//           placeholder="Abbreviation"
-//           onValueChanged={e => onAbbreviationChange(e.value)}
-//           width={130}
-//         />
-//         <input
-//           type="text"
-//           placeholder="SB"
-//           value={sb}
-//           onChange={e => onSbChange(e.target.value)}
-//           style={{
-//             width: 25,
-//             padding: '8px 12px',
-//             fontSize: 14,
-//             border: '1px solid #ccc',
-//             borderRadius: 4,
-//           }}
-//         />
-//         <input
-//           type="text"
-//           placeholder="Time"
-//           value={time}
-//           onChange={e => onTimeChange(e.target.value)}
-//           style={{
-//             width: 40,
-//             padding: '8px 12px',
-//             fontSize: 14,
-//             border: '1px solid #ccc',
-//             borderRadius: 4,
-//           }}
-//         />
-//       </div>
-//       <input
-//         type="text"
-//         placeholder="Text"
-//         value={text}
-//         onChange={e => onTextChange(e.target.value)}
-//         style={{
-//           width: 262,
-//           padding: '8px 12px',
-//           fontSize: 14,
-//           border: '1px solid #ccc',
-//           borderRadius: 4,
-//         }}
-//       />
-//     </div>
-//   );
-// };
-
-// export default ServiceSection;
-
-// src/taskpane/components/tabs/email/ServiceSection.tsx
-import React, { useState, useEffect } from 'react';
+// src/taskpane/components/tabs/shared/ServiceSection.tsx
+import React, { useEffect, useRef } from 'react';
 import SelectBox from 'devextreme-react/select-box';
-import { getAbbreviationApi, Abbreviation,getSavedEmailInfo, getAbbreviationByIdApi } from '../../../utils/api';
+import { LeistungAuswahlResponse } from '@components/interfaces/IService';
+import { useAppSelector, useAppDispatch } from '@store/hooks';
+import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@store/slices/serviceSlice';
 
-import {getInternetMessageIdAsync} from '../../../hooks/useOfficeItem';
+// Unified interface for both Email and Service tabs
+export interface ServiceSectionProps {}
 
-export interface ServiceSectionProps {
-  abbreviation: number;
-  onAbbreviationChange: (value: number) => void;
-  time: string;
-  onTimeChange: (value: string) => void;
-  text: string;
-  onTextChange: (value: string) => void;
-  sb: string;
-  onSbChange: (value: string) => void;
-  oveerideDataOnStartup: boolean;
-}
+const ServiceSection: React.FC<ServiceSectionProps> = () => {
+  // Get Redux dispatch function
+  const dispatch = useAppDispatch();
+  
+  // Get the service state from Redux store
+  const serviceState = useAppSelector(state => state.service);
+  
+  // Get selected Akt from aktenSlice
+  const selectedAkt = useAppSelector(state => state.akten.selectedAkt);
+  const selectedAktKuerzel = selectedAkt?.aKurz;
+  
+  // Track previous Kürzel so we only reload when the Akt actually changes
+  const prevKuerzelRef = useRef<string | null>(null);
 
-const ServiceSection: React.FC<ServiceSectionProps> = ({
-  abbreviation,
-  onAbbreviationChange,
-  time,
-  onTimeChange,
-  text,
-  onTextChange,
-  sb,
-  onSbChange,
-  oveerideDataOnStartup
-}) => {
-  const [options, setOptions] = useState<Abbreviation[]>([]);
-
+  // Load services when selectedAktKuerzel changes OR when there are no services yet
   useEffect(() => {
-    (async () => {
-      try {
-      const data = await getAbbreviationApi();  
-     
-        
-        setOptions(data);
-        if (oveerideDataOnStartup)//not used
-        {
-          
-        }
+    const servicesEmpty = serviceState.services.length === 0;
+    const aktChanged = prevKuerzelRef.current !== null && prevKuerzelRef.current !== selectedAktKuerzel;
 
-      } catch (err) {
-        console.error('Failed to load abbreviations:', err);
+    if (selectedAktKuerzel) {
+      if (aktChanged || servicesEmpty) {
+        console.log(`Loading services for Akt: ${selectedAktKuerzel}`);
+        dispatch(setSelectedServiceId(0));
+        dispatch(loadServicesAsync({
+          Kürzel: null,
+          OnlyQuickListe: true,
+          Limit: null
+        }));
+        prevKuerzelRef.current = selectedAktKuerzel;
+      } else {
+        // Use cached services - nothing to do
+        // console.log(`Using cached services for Akt: ${selectedAktKuerzel}`);
       }
-    })();
-  }, []);
- 
+    } else {
+      dispatch(clearServices());
+      prevKuerzelRef.current = null;
+    }
+  }, [selectedAktKuerzel, dispatch, serviceState.services.length]);
+  
+  // Handle value changes using Redux dispatch
+  const handleServiceChange = (value: number) => {
+    dispatch(setSelectedServiceId(value));
+  };
+  
+  const handleTimeChange = (value: string) => {
+    dispatch(setTime(value));
+  };
+  
+  const handleTextChange = (value: string) => {
+    dispatch(setText(value));
+  };
+  
+  const handleSbChange = (value: string) => {
+    dispatch(setSb(value));
+  };
 
-
+  // Create display text for services dropdown
+  const getServiceDisplayText = (service: LeistungAuswahlResponse): string => {
+    if (!service) return '';
+    const parts = [service.stufe1, service.stufe2, service.stufe3].filter(Boolean);
+    return parts.length > 0 ? parts.join(' > ') : `Service ${service.id}`;
+  };
+  // Transform services data to include display text
+  const servicesWithDisplayText = serviceState.services.map(service => ({
+    ...service,
+    displayText: getServiceDisplayText(service)
+  }));
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <h3>Services</h3>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <SelectBox
-          stylingMode="outlined"
-          dataSource={options}
-          value={abbreviation}
-          valueExpr="id"
-          displayExpr="name"
-          placeholder="Abbreviation"
-          onValueChanged={e => onAbbreviationChange(e.value)}
-          width={155}
-        />
-        <input
-          type="text"
-          placeholder="SB"
-          value={sb}
-          onChange={e => onSbChange(e.target.value)}
-          style={{
-            width: 25,
-            padding: '8px 12px',
-            fontSize: 14,
-            border: '1px solid #ccc',
-            borderRadius: 4,
-          }}
-        />
-        <input
-          type="text"
-          placeholder="Time"
-          value={time}
-          onChange={e => onTimeChange(e.target.value)}
-          style={{
-            width: 40,
-            padding: '8px 12px',
-            fontSize: 14,
-            border: '1px solid #ccc',
-            borderRadius: 4,
-          }}
-        />
-      </div>
-      <input
-        type="text"
-        placeholder="Text"
-        value={text}
-        onChange={e => onTextChange(e.target.value)}
-        style={{
-          width: 262,
-          padding: '8px 12px',
-          fontSize: 14,
-          border: '1px solid #ccc',
-          borderRadius: 4,
-        }}
-      />
+  <h3>Services</h3>
+      {!selectedAktKuerzel ? (
+        <div style={{ color: '#666', fontStyle: 'italic' }}>
+          Please select an Akt to load services
+        </div>
+      ) : serviceState.servicesLoading ? (
+        <div>Loading services...</div>
+      ) : serviceState.servicesError ? (
+        <div style={{ color: 'red' }}>Error: {serviceState.servicesError}</div>
+      ) : (
+        <>
+          {/* Service dropdown - full width */}
+          <div style={{ marginBottom: 8 }}>
+            <SelectBox
+              stylingMode="outlined"
+              dataSource={servicesWithDisplayText}
+              value={serviceState.services.length > 0 ? serviceState.selectedServiceId : null}
+              valueExpr="id"
+              displayExpr="displayText"
+              placeholder={serviceState.services.length > 0 ? "Select Service" : "No services available"}
+              onValueChanged={e => handleServiceChange(e.value)}
+              width="100%"
+              disabled={serviceState.services.length === 0}
+            />
+          </div>
+          
+          {/* Time and SB inputs - side by side */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              type="text"
+              placeholder="SB"
+              value={serviceState.sb}
+              onChange={e => handleSbChange(e.target.value)}
+              style={{
+                width: 50,
+                padding: '8px 12px',
+                fontSize: 14,
+                border: '1px solid #ccc',
+                borderRadius: 4,
+                textAlign: 'center',
+                backgroundColor: '#f4f4f4',
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Time"
+              value={serviceState.time}
+              onChange={e => handleTimeChange(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                fontSize: 14,
+                border: '1px solid #ccc',
+                borderRadius: 4,
+              }}
+            />
+          </div>
+          
+          {/* Text input - full width */}
+          <div style={{ marginBottom: 8 }}>
+            <input
+              type="text"
+              placeholder="Text"
+              value={serviceState.text}
+              onChange={e => handleTextChange(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                fontSize: 14,
+                border: '1px solid #ccc',
+                borderRadius: 4,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          
+          {/* Show additional info */}
+          <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+            Select a service. It will be handled according to the current context (email or service).
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
 export default ServiceSection;
-

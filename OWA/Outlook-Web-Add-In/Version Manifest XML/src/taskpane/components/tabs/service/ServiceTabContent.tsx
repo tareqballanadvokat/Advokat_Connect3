@@ -1,41 +1,47 @@
 // src/taskpane/components/tabs/service/ServiceTabContent.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import ServiceSection from './ServiceSection';
-import SearchCaseList from '../email/SearchCaseList';
-import { setSelectedCase, updateTransferCaseDisableState } from '@store/slices/emailSlice';
-import { saveServiceInformation } from '@utils/api';
+import ServiceSection from '../shared/ServiceSection';
+import SearchCaseList from '../shared/SearchCaseList';
+import { setSelectedAkt } from '@store/slices/aktenSlice';
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
-import { ServiceModel } from '@components/interfaces/IService';
+import { LeistungPostData } from '@components/interfaces/IService';
+import { AktLookUpResponse } from '@components/interfaces/IAkten';
+import { webRTCApiService } from '../../../services/webRTCApiService';
 import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
 import ServiceSend from './ServiceSend';
+import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 
 const ServiceTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
   
+  // Local state for transfer loading
+  const [transferLoading, setTransferLoading] = useState(false);
+  
   // Get the relevant state from Redux
-  const { abbreviation, time, text, sb } = useAppSelector(state => state.service);
-  const { selectedCaseId, selectedCaseName, selectedCaseDisable, transferCaseDisable } = useAppSelector(state => state.email);
+  const { selectedServiceId, time, text, sb, services } = useAppSelector(state => state.service);
+  const { selectedAkt, cases } = useAppSelector(state => state.akten);
+  
+  // Derive case values from selectedAkt
+  const selectedCaseId = selectedAkt?.id ?? -1;
+  const selectedCaseName = selectedAkt?.aKurz ?? '';
   
   // Refresh trigger for registered services
   const [refreshFlag, setRefreshFlag] = React.useState(0);
 
   // Handler for case selection
-  const setCaseHandler = (id: string, name: string) => {
-    dispatch(setSelectedCase({
-      id: Number.parseInt(id),
-      name: name
-    }));
-    dispatch(updateTransferCaseDisableState());
+  const setCaseHandler = (selectedCase: AktLookUpResponse) => {
+    // Dispatch the entire selected case object to aktenSlice
+    dispatch(setSelectedAkt(selectedCase));
   };
   
   // Handler for case name change
   const handleCaseChange = (value: string) => {
-    dispatch(setSelectedCase({
-      id: selectedCaseId,
-      name: value
-    }));
+    // Update the selected Akt name (aKurz) in the current selectedAkt
+    if (selectedAkt) {
+      dispatch(setSelectedAkt({ ...selectedAkt, aKurz: value }));
+    }
   };
   
   // Handler for sending service
@@ -45,36 +51,57 @@ const ServiceTabContent: React.FC = () => {
       return;
     }
     
+    // Set loading state
+    setTransferLoading(true);
+    
     try {
-      // Get message ID for reference (if needed)
-      const email = Office.context.mailbox.item;
-      const messageId = await getInternetMessageIdAsync(email);
+      // Find the selected service to get its kürzel
+      const selectedService = services.find(service => service.id === selectedServiceId);
+      const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
       
-      // Create payload using ServiceModel interface
-      const payload: ServiceModel = {
-        caseId: selectedCaseId,
-        serviceAbbreviationType: abbreviation.toString(),
-        serviceSB: sb,
-        serviceTime: time,
-        serviceText: text,
-        internetMessageId: messageId,
-        userId: 1
+      // Create payload using LeistungPostData interface matching C# model
+      const payload: LeistungPostData = {
+        aktId: selectedCaseId !== -1 ? selectedCaseId : null,
+        aKurz: selectedCaseName || null,
+        leistungKurz: serviceKuerzel,
+        datum: new Date().toISOString(), // Current date in ISO format
+        honorartext: text || null,
+        memo: null,
+        sbZeitVerrechenbarInMinuten: time ? parseInt(time) : null,
+        sbZeitNichtVerrechenbarInMinuten: 0
       };
       
-      // Send to API
-      await saveServiceInformation(payload);
-      notify('Service saved successfully', 'success', 3000);
+      // Check if WebRTC connection is ready
+      if (!webRTCApiService.isReady()) {
+        notify('WebRTC connection not available. Please ensure connection is established.', 'warning', 5000);
+        return;
+      }
       
-      // Trigger refresh
-      setRefreshFlag(f => f + 1);
+      // Send to API via WebRTC
+      const response = await webRTCApiService.saveLeistung(payload);
+      
+      if (response.response.statusCode >= 200 && response.response.statusCode < 300) {
+        notify('Service saved successfully', 'success', 3000);
+        // Trigger refresh
+        setRefreshFlag(f => f + 1);
+      } else {
+        throw new Error('Failed to save service');
+      }
+      
     } catch (error) {
       console.error('Failed to save service:', error);
       notify('Failed to save service', 'error', 5000);
+    } finally {
+      // Reset loading state
+      setTransferLoading(false);
     }
   };
   
   return (
     <div>
+      {/* WebRTC Connection Status */}
+      <WebRTCConnectionStatus />
+      
       {/* Case Search */}
       <SearchCaseList onCaseSelect={setCaseHandler} />
       
@@ -83,12 +110,13 @@ const ServiceTabContent: React.FC = () => {
         caseId={selectedCaseName}
         onCaseChange={handleCaseChange}
         onTransfer={sendServiceHandler}
-        caseIdDisable={selectedCaseDisable}
-        transferBtnDisable={transferCaseDisable}
+        caseIdDisable={!selectedAkt}
+        transferBtnDisable={!selectedAkt}
+        transferLoading={transferLoading}
       />
       
-      {/* Service Section */}
-      <ServiceSection />
+  {/* Service Section */}
+  <ServiceSection />
       
       {/* Registered Services */}
       <RegisteredService refreshTrigger={refreshFlag} />

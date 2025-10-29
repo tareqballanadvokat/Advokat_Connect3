@@ -19,6 +19,7 @@ public class PersonController : ControllerBase
     [HttpPost("search")]
     public ActionResult<PersonModel> SearchPerson([FromBody] PersonSearchRequest query)
     {
+        DatabaseServiceMock.FillMockData();
         var data = DatabaseServiceMock.allPersons.Where(x => x.FullName.ToLower().Contains(query.Query.ToLower())).ToList();
         return new JsonResult(data);
     }

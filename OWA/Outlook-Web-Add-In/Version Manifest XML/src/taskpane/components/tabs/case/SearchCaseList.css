@@ -1,12 +1,6 @@
-.dx-accordion-item-title .dx-icon {
-    float: left;
-}
+/* SearchCaseList specific styles */
 
-.dx-accordion-item-title::before{
-    position: left;
-}
-
-/* Gold star button styling for SearchPersonList */
+/* Gold star button styling */
 .star-button-gold {
   color: #ffd700 !important; /* Gold color */
 }
@@ -31,6 +25,13 @@
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+}
+
+/* Check mark styling for already favorited items */
+.dx-icon-check {
+  color: #28a745 !important; /* Green check mark */
 }
 
 /* Loading button styling with spinning animation */
@@ -38,6 +39,19 @@
 .dx-button.loading-button .dx-icon,
 .dx-datagrid .loading-button .dx-icon {
   animation: spin 1s linear infinite !important;
+}
+
+/* Disabled star button styling */
+.star-button-gold:disabled,
+.star-button-gold.dx-state-disabled {
+  color: #ccc !important; /* Gray out the star when disabled */
+  cursor: not-allowed !important;
+  opacity: 0.5 !important;
+}
+
+.star-button-gold:disabled .dx-icon,
+.star-button-gold.dx-state-disabled .dx-icon {
+  color: #ccc !important; /* Gray out the star icon when disabled */
 }
 
 /* Spinning animation for loading icons */
