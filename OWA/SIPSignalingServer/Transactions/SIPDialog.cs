@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Advokat.WebRTC.Library.SIP;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions.Interfaces;
@@ -7,9 +9,7 @@ using SIPSignalingServer.Transactions.TransactionFactories;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
-using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Interfaces;
-using static WebRTCLibrary.Utils.TaskHelpers;
+using static Advokat.WebRTC.Library.Utils.TaskHelpers;
 
 namespace SIPSignalingServer.Transactions
 {

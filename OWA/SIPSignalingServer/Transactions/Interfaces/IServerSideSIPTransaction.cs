@@ -1,5 +1,5 @@
-﻿using SIPSignalingServer.Models;
-using WebRTCLibrary.SIP.Interfaces;
+﻿using Advokat.WebRTC.Library.SIP.Interfaces;
+using SIPSignalingServer.Models;
 
 namespace SIPSignalingServer.Transactions.Interfaces
 {

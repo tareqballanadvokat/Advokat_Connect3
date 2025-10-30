@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Advokat.WebRTC.Client", "..
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Advokat.WebRTC.Plugin", "..\..\AdvokatX\PlugIns\WebRTCRemote\Advokat.WebRTC.Plugin\Advokat.WebRTC.Plugin.csproj", "{FB19EF16-F8BA-C488-C802-2D153C4F9639}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSignalingServer", "..\OWA\SIPSignalingServer\SIPSignalingServer.csproj", "{224C356D-8599-BC95-A270-C0DF00A0BF78}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +61,10 @@ Global
 		{FB19EF16-F8BA-C488-C802-2D153C4F9639}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FB19EF16-F8BA-C488-C802-2D153C4F9639}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FB19EF16-F8BA-C488-C802-2D153C4F9639}.Release|Any CPU.Build.0 = Release|Any CPU
+		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

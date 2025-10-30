@@ -1,5 +1,5 @@
-﻿using SIPSignalingServer.Utils.CustomEventArgs;
-using WebRTCLibrary.SIP.Interfaces;
+﻿using Advokat.WebRTC.Library.SIP.Interfaces;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SIPSignalingServer.Transactions.Interfaces
 {

@@ -5,11 +5,10 @@ using SIPSignalingServer.Transactions.Interfaces;
 using SIPSignalingServer.Utils.CustomEventArgs;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
-using WebRTCLibrary.SIP.Interfaces;
-using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.SIP.Utils;
-
-using static WebRTCLibrary.Utils.TaskHelpers;
+using Advokat.WebRTC.Library.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using static Advokat.WebRTC.Library.Utils.TaskHelpers;
+using Advokat.WebRTC.Library.SIP.Utils;
 
 namespace SIPSignalingServer.Transactions
 {

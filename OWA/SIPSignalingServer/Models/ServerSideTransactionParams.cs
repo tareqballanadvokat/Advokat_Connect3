@@ -1,4 +1,4 @@
-﻿using WebRTCLibrary.SIP.Models;
+﻿using Advokat.WebRTC.Library.SIP.Models;
 
 namespace SIPSignalingServer.Models
 {
