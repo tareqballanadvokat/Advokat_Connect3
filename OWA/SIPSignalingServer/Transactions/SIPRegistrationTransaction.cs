@@ -1,17 +1,16 @@
-﻿using SIPSorcery.SIP;
+﻿using static Advokat.WebRTC.Library.Utils.TaskHelpers;
+using SIPSorcery.SIP;
 using SIPSignalingServer.Models;
-using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.SIP.Utils;
 using SIPSignalingServer.Utils.CustomEventArgs;
-
-using static WebRTCLibrary.Utils.TaskHelpers;
 using Microsoft.Extensions.Logging;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using SIPSignalingServer.Interfaces;
-using WebRTCLibrary.SIP.Interfaces;
 using SIPSignalingServer.Transactions.Interfaces;
 using System.Text.Json;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Utils;
 
 [assembly: InternalsVisibleTo("SignalingServerTests")]
 namespace SIPSignalingServer.Transactions

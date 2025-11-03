@@ -6,5 +6,7 @@
         public required long Timestamp { get; set; }
 
         public required short ErrorCode { get; set; }
+
+        public string? ErrorMessage { get; set; }
     }
 }

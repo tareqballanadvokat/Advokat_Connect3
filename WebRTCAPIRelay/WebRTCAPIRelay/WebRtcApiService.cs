@@ -51,21 +51,11 @@ namespace WebRTCAPIRelay
 
         private async Task HandleRequest(IWebRTCPeer sender, byte[] data)
         {
-            if (!TryParseRootElement(data, out JsonDocument? rooteElement))
+            // try and extract the id without parsing the whole object, to get the id even if the object is corruped
+            if (!TryParseRootElement(data, out JsonDocument? rooteElement)
+                || !TryGetId(rooteElement, out string? id)
+                || !IdIsValid(id))
             {
-                await BadRequest(sender, id: null);
-                return;
-            }
-
-            if (!TryGetId(rooteElement, out string? id))
-            {
-                await BadRequest(sender, id: null);
-                return;
-            }
-
-            if (!IdIsValid(id))
-            {
-                // TODO sent invalid ID?
                 await BadRequest(sender, id: null);
                 return;
             }
@@ -107,7 +97,7 @@ namespace WebRTCAPIRelay
                 WebRTCResponsePayload responsePayload = await this.GetAPIResponse(webRtcRequest.Payload);
                 webRtcResponse = new WebRTCResponse()
                 {
-                    Id = webRtcRequest.Id, // or just id variable? should be the same
+                    Id = webRtcRequest.Id, // use just id variable? should be the same
                     Checksum = GetChecksum(responsePayload),
                     Payload = responsePayload
                 };

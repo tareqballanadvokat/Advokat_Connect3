@@ -1,10 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Advokat.WebRTC.Library.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Models;
+using Advokat.WebRTC.Library.Utils;
+using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
-using WebRTCLibrary.SIP.Interfaces;
-using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.Utils;
 
 namespace SIPSignalingServer.Transactions
 {

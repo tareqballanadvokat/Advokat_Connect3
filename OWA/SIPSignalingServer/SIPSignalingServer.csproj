@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
+	<TargetFramework>net8.0-windows</TargetFramework>
+	<ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WebRTCLibrary\WebRTCLibrary.csproj" />
+    <ProjectReference Include="..\..\..\AdvokatX\PlugIns\WebRTCRemote\Advokat.WebRTC.Library\Advokat.WebRTC.Library.csproj" />
   </ItemGroup>
 
 </Project>

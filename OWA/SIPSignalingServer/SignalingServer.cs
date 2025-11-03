@@ -1,14 +1,12 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Advokat.WebRTC.Library.SIP;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Transactions;
-using SIPSignalingServer.Utils;
 using SIPSorcery.SIP;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
-using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Interfaces;
 
 namespace SIPSignalingServer
 {
@@ -111,7 +109,7 @@ namespace SIPSignalingServer
             }
             // TODO: threw an InvalidOperationException --> probably multiple processes on same socket
 
-            return new WebRTCLibrary.SIP.Utils.SIPTransport(sourceEndpoint, this.Options.SIPChannels, this.Options.SSLCertificate);
+            return new Advokat.WebRTC.Library.SIP.Utils.SIPTransport(sourceEndpoint, this.Options.SIPChannels, this.Options.SSLCertificate);
         }
 
         /// <summary>General listener for all requests from clients.</summary>

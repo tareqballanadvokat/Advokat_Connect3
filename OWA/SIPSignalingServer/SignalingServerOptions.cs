@@ -1,8 +1,8 @@
-﻿using SIPSignalingServer.Utils;
+﻿using Advokat.WebRTC.Library.SIP;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using SIPSignalingServer.Utils;
 using SIPSorcery.SIP;
 using System.Security.Cryptography.X509Certificates;
-using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Interfaces;
 
 namespace SIPSignalingServer
 {
