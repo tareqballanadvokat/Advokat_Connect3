@@ -328,7 +328,6 @@ export class WebRTCConnectionManager {
    */
   private async performAuthentication(): Promise<void> {
     try {
-      
       this.updateConnectionState({ isAuthenticating: true });
       store.dispatch(startAuthentication());
 
@@ -357,19 +356,8 @@ export class WebRTCConnectionManager {
       // Send authentication request via WebRTC
       const authResponse = await webRTCApiService.authenticate(authRequest);
       
-      console.log('🔐 About to dispatch authenticationSuccess with:', authResponse);
-      
       // Update Redux store with authentication success
       store.dispatch(authenticationSuccess(authResponse));
-      
-      // Verify the token was stored
-      const state = store.getState();
-      console.log('🔐 After dispatch, auth state is:', {
-        hasToken: !!state.auth.token,
-        token: state.auth.token ? `${state.auth.token.substring(0, 20)}...` : 'null',
-        expiresAt: state.auth.expiresAt,
-        isAuthenticated: state.auth.isAuthenticated
-      });
       
       this.updateConnectionState({ 
         isAuthenticated: true, 
