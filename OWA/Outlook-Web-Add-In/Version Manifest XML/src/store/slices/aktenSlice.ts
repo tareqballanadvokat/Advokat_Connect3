@@ -242,8 +242,8 @@ export const aktLookUpAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
     const response = await webRTCApiService.aktLookUp(searchText);
-    
     if (response.response.statusCode === 200) {
+      
       return JSON.parse(response.response.body || '[]') as AktLookUpResponse[];
     } else {
       throw new Error('Failed to lookup cases');

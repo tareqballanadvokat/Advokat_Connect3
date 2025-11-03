@@ -6,7 +6,7 @@ import { PersonenQuery } from '../components/interfaces/IPerson';
 import { IAuthRequest, IAuthResponse } from '../components/interfaces/IAuth';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { store } from '../../store';
-import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlice';
+import { selectAuthToken, selectIsTokenValid, selectAuthCredentials, authenticationSuccess } from '../../store/slices/authSlice';
 import {
   calculateChecksum,
   createProtocolRequest,
@@ -66,18 +66,30 @@ export class WebRTCApiService {
    * @returns UTF-8 decoded string
    */
   private decodeBase64UTF8(base64String: string): string {
-    // First decode base64 to binary string
-    const binaryString = atob(base64String);
-    
-    // Convert binary string to Uint8Array
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    // Remove any surrounding quotes that might be in the base64 string
+    let cleanBase64 = base64String.trim();
+    if (cleanBase64.startsWith('"') && cleanBase64.endsWith('"')) {
+      cleanBase64 = cleanBase64.slice(1, -1);
     }
     
-    // Decode as UTF-8
-    const decoder = new TextDecoder('utf-8');
-    return decoder.decode(bytes);
+    try {
+      // First decode base64 to binary string using browser's atob
+      const binaryString = atob(cleanBase64);
+      
+      // Convert binary string to Uint8Array
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Decode as UTF-8
+      const decoder = new TextDecoder('utf-8');
+      return decoder.decode(bytes);
+    } catch (error) {
+      console.error('❌ Failed to decode base64 string:', error);
+      console.error('❌ Problematic base64 string:', cleanBase64.substring(0, 100) + '...');
+      throw error;
+    }
   }
 
   /**
@@ -109,21 +121,50 @@ export class WebRTCApiService {
    * @param messageType - Message type to determine if authorization is needed
    * @returns Headers object with authorization if needed
    */
-  private createRequestHeaders(baseHeaders: Record<string, string>, messageType: string): Record<string, string> {
+  private async createRequestHeaders(baseHeaders: Record<string, string>, messageType: string): Promise<Record<string, string>> {
     const requestHeaders = { ...baseHeaders };
     
     // Add Authorization header for all non-authentication requests
     if (!messageType.includes('auth.')) {
       const state = store.getState();
-      const token = selectAuthToken(state);
-      const isTokenValid = selectIsTokenValid(state);
+      let token = selectAuthToken(state);
+      let isTokenValid = selectIsTokenValid(state);
       
-      if (token && isTokenValid) {
+      // If no valid token, try to authenticate
+      if (!token || !isTokenValid) {
+        console.warn('⚠️ No valid token available for authenticated request:', messageType);
+        console.log('� Attempting to authenticate automatically...');
+        
+        try {
+          const credentials = selectAuthCredentials(state);
+          
+          // Build auth request from credentials
+          const authRequest: IAuthRequest = {
+            grant_type: credentials.grant_type,
+            client_id: credentials.client_id,
+            client_secret: credentials.client_secret,
+            username: credentials.username,
+            password: credentials.password
+          };
+          
+          // Authenticate and get new token
+          const authResponse = await this.authenticate(authRequest);
+          
+          // Update the store with the new token
+          store.dispatch(authenticationSuccess(authResponse));
+          
+          // Get the new token
+          token = authResponse.access_token;
+          console.log('✅ Auto-authentication successful');
+        } catch (error) {
+          console.error('❌ Auto-authentication failed:', error);
+          throw new Error(`Authentication required but failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+      
+      if (token) {
         requestHeaders['Authorization'] = `Bearer ${token}`;
         console.log('🔑 Added Authorization header to request:', messageType);
-      } else {
-        console.warn('⚠️ No valid token available for authenticated request:', messageType);
-        // You might want to trigger token refresh or reject the request here
       }
     }
     
@@ -681,7 +722,7 @@ export class WebRTCApiService {
       }
 
       // Create headers with automatic authorization
-      const requestHeaders = this.createRequestHeaders(headers, messageType);
+      const requestHeaders = await this.createRequestHeaders(headers, messageType);
       // Create full protocol request with messageType
       const protocolRequest = createProtocolRequest(method, url, requestHeaders, body, messageType);
       console.log('📝 Created initial protocol request (before chunking):', protocolRequest);
