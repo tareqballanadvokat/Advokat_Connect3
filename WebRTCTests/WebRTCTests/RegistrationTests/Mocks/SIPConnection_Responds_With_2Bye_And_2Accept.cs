@@ -1,8 +1,8 @@
 ﻿using SIPSorcery.SIP;
 using System.Net.Sockets;
 using System.Net;
-using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Interfaces;
 
 namespace SIPClientTests.RegistrationTests.Mocks
 {

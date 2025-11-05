@@ -6,8 +6,8 @@ using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Transactions;
 using SIPSorcery.SIP;
 using System.Net;
-using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.SIP.Utils;
+using Advokat.WebRTC.Library.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Utils;
 
 namespace SignalingServerTests.SIPRegistration
 {

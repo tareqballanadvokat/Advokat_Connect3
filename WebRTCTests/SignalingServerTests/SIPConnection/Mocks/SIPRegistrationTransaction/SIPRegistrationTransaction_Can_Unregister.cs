@@ -1,9 +1,9 @@
 ﻿using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions.Interfaces;
 using SIPSorcery.SIP;
-using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Interfaces;
-using WebRTCLibrary.SIP.Models;
+using Advokat.WebRTC.Library.SIP;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Models;
 
 namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
 {
@@ -25,6 +25,8 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
 
         public int StartCseq { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         public SIPConfig Config { get; set; }
+        ISIPDialogConfig ISIPRegistrationTransaction.Config { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        ISIPConfig ISIPTransaction.Config { get => Config; set => throw new NotImplementedException(); }
 
         public SIPRegistrationTransaction_Can_Unregister(
             SIPRequest initialRequest,
@@ -71,6 +73,11 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
                 remoteTag: CallProperties.CreateNewTag(),
                 clientTag: request.Header.From.FromTag, // TODO: What if request does not contain a tag?
                 callId: request.Header.CallId);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            throw new NotImplementedException();
         }
     }
 }

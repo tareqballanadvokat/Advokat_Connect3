@@ -84,24 +84,8 @@ namespace Caller
                     return;
                 }
 
-                WebRTCChunkAck? ack = null;
-                try
-                {
-                    ack = JsonSerializer.Deserialize<WebRTCChunkAck>(message, new JsonSerializerOptions()
-                    {
-                        AllowTrailingCommas = true,
-                        PropertyNameCaseInsensitive = true,
-                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                    });
-
-                    Console.WriteLine(Encoding.UTF8.GetString(message));
-                    Console.WriteLine("+++");
-                }
-                catch
-                {
-
-                }
+                //Console.WriteLine(Encoding.UTF8.GetString(message));
+                Console.WriteLine("+++");
 
                 WebRTCResponseChunk? response;
                 try
@@ -114,7 +98,7 @@ namespace Caller
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                     });
                     //Console.WriteLine(Encoding.UTF8.GetString(message));
-                    Console.WriteLine($"totalChunks: {response.Payload.TotalChunks}; currentChunk: {response.Payload.CurrentChunk}");
+                    Console.WriteLine($"totalChunks: {response.TotalChunks}; currentChunk: {response.CurrentChunk}");
                     //Console.WriteLine("---");
                     //Console.WriteLine("base64 string: ", response.Payload.Body);
 
@@ -122,11 +106,6 @@ namespace Caller
                 }
                 catch
                 {
-                    if (ack == null)
-                    {
-                        throw;
-                    }
-
                     return;
                 }
 
@@ -135,64 +114,21 @@ namespace Caller
                     throw new Exception();
                 }
 
-                //string ackBody = $$"""
-                //{
-                //    "timestamp": {{((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds()}},
-                //    "chunk": {{((JsonElement)response.Payload).GetProperty("currentChunk").GetInt32()}}
-                //}
-                //""";
-                //string responseAck = $$"""
-                //{
-                //  "checksum": "{{Convert.ToBase64String(MD5.HashData(Encoding.UTF8.GetBytes(ackBody)))}}",
-                //  "id": "{{response.Id}}",
-                //  "body": {{ackBody}}
-                //}
-                //""";
-
-                //await sender.SendMessageToPeer(responseAck);
-
-                //if (Response == null)
-                //{
-                //    Response = new string[((JsonElement)response.Payload).GetProperty("totalChunks").GetInt32()];
-                //}
-
-                //Response[((JsonElement)response.Payload).GetProperty("currentChunk").GetInt32() - 1] = ((JsonElement?)response?.Payload)?.GetProperty("body").GetString();
-
-
-
-
-                string ackBody = $$"""
-                {
-                    "timestamp": {{((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds()}},
-                    "chunk": {{response.Payload.CurrentChunk}}
-                }
-                """;
-                string responseAck = $$"""
-                {
-                  "checksum": "{{Convert.ToBase64String(MD5.HashData(Encoding.UTF8.GetBytes(ackBody)))}}",
-                  "id": "{{response.Id}}",
-                  "body": {{ackBody}}
-                }
-                """;
-
-                await sender.SendMessageToPeer(responseAck);
-                Console.WriteLine($"confirmed: {response.Payload.CurrentChunk}");
-
                 if (Response == null)
                 {
-                    Response = new string[response.Payload.TotalChunks];
+                    Response = new string[response.TotalChunks];
                 }
 
-                //Response[response.Payload.CurrentChunk - 1] = response.Payload?.Body;
-                Response[response.Payload.CurrentChunk - 1] = "yes";
+                Response[response.CurrentChunk - 1] = response.Body;
+                //Response[response.CurrentChunk - 1] = "yes";
 
 
 
                 if (Response.All(c => c != null))
                 {
                     Console.WriteLine("ooo");
-                    //Console.WriteLine(Encoding.UTF8.GetString(Convert.FromBase64String(string.Join("", Response))));
-                    Console.WriteLine("Done");
+                    Console.WriteLine(Encoding.UTF8.GetString(Convert.FromBase64String(string.Join("", Response))));
+                    //Console.WriteLine("Done");
 
                     Console.WriteLine("ooo");
 
@@ -206,8 +142,8 @@ namespace Caller
         private async static Task SendRequest()
         {
             string guid = Guid.NewGuid().ToString();
-            string uri = "/akten";
-            //string uri = "/connect/token";
+            //string uri = "/akten";
+            string uri = "/connect/token";
             string method = "POST";
             string headers = """
                 {
@@ -251,29 +187,21 @@ namespace Caller
 
         private async static Task SendMessage(string guid, string guidChecksum, string method, string uri, string headers, int totalChunks, int currentChunk, string body)
         {
-            string payload = $$"""
+            string requestString = $$"""
                 {
+                    "id": "{{guid}}{{guidChecksum}}",
+                    "messageType": "testmessagetype",
                     "timestamp": {{((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds()}},
                     "totalChunks": {{totalChunks}},
                     "currentChunk": {{currentChunk}},
                     "method": "{{method}}",
                     "uri": "{{uri}}",
-                    "Headers": {{headers}},
+                    "headers": {{headers}},
                     "body": "{{body}}"
                   }
                 """;
 
-            byte[] checksum = MD5.HashData(Encoding.UTF8.GetBytes(payload));
-            string checksumString = Convert.ToBase64String(checksum);
-
-            string requestString = $$"""
-                {
-                  "checksum": "{{checksumString}}",
-                  "id": "{{guid}}{{guidChecksum}}",
-                  "messageType": "testmessagetype",
-                  "request": {{payload}}
-                }
-                """;
+            Console.WriteLine($"Sending Chunk {currentChunk}");
 
             await UserAgent.SendMessageToPeer(requestString);
         }

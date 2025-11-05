@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Advokat.WebRTC.Plugin", "..
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSignalingServer", "..\OWA\SIPSignalingServer\SIPSignalingServer.csproj", "{224C356D-8599-BC95-A270-C0DF00A0BF78}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSorcery", "..\..\sipsorcery.fork\src\SIPSorcery.csproj", "{1BE4A474-0DAA-4473-6FC7-D7332226A0E9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -65,6 +67,10 @@ Global
 		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{224C356D-8599-BC95-A270-C0DF00A0BF78}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1BE4A474-0DAA-4473-6FC7-D7332226A0E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BE4A474-0DAA-4473-6FC7-D7332226A0E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BE4A474-0DAA-4473-6FC7-D7332226A0E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BE4A474-0DAA-4473-6FC7-D7332226A0E9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

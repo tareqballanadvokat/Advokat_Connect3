@@ -4,10 +4,10 @@ using SIPSignalingServer.Utils;
 using SIPSorcery.SIP;
 using System.Net;
 using System.Text;
+using Advokat.WebRTC.Library.SIP.Models;
 using WebRTCClient;
 using WebRTCClient.Models;
 using WebRTCClient.Utils;
-using WebRTCLibrary.SIP.Models;
 
 namespace WebRTCIntegrationTests
 {
@@ -21,8 +21,11 @@ namespace WebRTCIntegrationTests
         {
             IPEndPoint signalingServerEndpoint = new IPEndPoint(IPAddress.Loopback, 8081);
 
-            SignalingServer signalingServer = new SignalingServer(signalingServerEndpoint, NullLoggerFactory.Instance);
-            signalingServer.SIPChannels = [SIPServerChannelsEnum.WebSocket];
+            SignalingServerOptions options = new SignalingServerOptions();
+            options.SIPChannels = [SIPServerChannelsEnum.WebSocket];
+
+
+            SignalingServer signalingServer = new SignalingServer(signalingServerEndpoint, options, NullLoggerFactory.Instance);
             signalingServer.StartServer();
 
             IPEndPoint callerEndpoint = new IPEndPoint(IPAddress.Any, 8098);

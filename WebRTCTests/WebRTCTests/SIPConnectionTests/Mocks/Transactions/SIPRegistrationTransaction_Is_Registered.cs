@@ -1,8 +1,7 @@
 ﻿using SIPSorcery.SIP;
 using WebRTCClient.Transactions.SIP.Interfaces;
-using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Interfaces;
-using WebRTCLibrary.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Models;
 
 namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 {
@@ -21,10 +20,16 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
         public int CurrentCseq => throw new NotImplementedException();
 
         public int StartCseq { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-        public SIPConfig Config { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public ISIPConfig Config { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        ISIPDialogConfig ISIPRegistrationTransaction.Config { get => throw new NotImplementedException(); set => Config = value; }
 
         public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
         public event ISIPTransaction.TransactionStoppedDelegate? TransactionStopped;
+
+        public ValueTask DisposeAsync()
+        {
+            throw new NotImplementedException();
+        }
 
         public async Task Start(CancellationToken? ct = null)
         {

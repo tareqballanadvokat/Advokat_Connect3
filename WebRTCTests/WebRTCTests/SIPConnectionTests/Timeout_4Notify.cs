@@ -5,7 +5,8 @@ using SIPClientTests.SIPConnectionTests.Mocks.Transactions;
 using SIPSorcery.SIP;
 using System.Net;
 using WebRTCClient.Transactions.SIP;
-using WebRTCLibrary.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Models;
+using Advokat.WebRTC.Library.SIP;
 
 namespace SIPClientTests.SIPConnectionTests
 {

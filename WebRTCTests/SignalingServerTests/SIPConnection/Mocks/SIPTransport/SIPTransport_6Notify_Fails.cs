@@ -1,7 +1,7 @@
 ﻿using SIPSorcery.SIP;
 using System.Net;
 using System.Net.Sockets;
-using WebRTCLibrary.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Interfaces;
 
 namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
 {
@@ -84,6 +84,11 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
             };
 
             await (this.SIPTransportRequestReceived?.Invoke(sipEndPoint, sipEndPoint, AckRequest) ?? Task.CompletedTask);
+        }
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
         }
     }
 }
