@@ -118,7 +118,7 @@ const EmailTabContent: React.FC = () => {
         // Send Leistung to API via WebRTC
         const leistungResponse = await webRTCApiService.saveLeistung(leistungPayload);
         
-        if (leistungResponse.response.statusCode >= 200 && leistungResponse.response.statusCode < 300) {
+        if (leistungResponse.statusCode >= 200 && leistungResponse.statusCode < 300) {
           console.log('✅ Leistung saved successfully');
           notify('Service saved successfully', 'success', 3000);
         } else {
@@ -164,11 +164,11 @@ const EmailTabContent: React.FC = () => {
         // Save email document via WebRTC
         const emailResponse = await webRTCApiService.saveDokument(emailDokument);
         
-        if (emailResponse.response.statusCode >= 200 && emailResponse.response.statusCode < 300) {
+        if (emailResponse.statusCode >= 200 && emailResponse.statusCode < 300) {
           console.log('✅ Email document saved successfully');
           notify('Email saved successfully', 'success', 3000);
         } else {
-          throw new Error(emailResponse.response.body || 'Failed to save email document');
+          throw new Error(emailResponse.body || 'Failed to save email document');
         }
       }
       else {
@@ -215,10 +215,10 @@ const EmailTabContent: React.FC = () => {
             // Save attachment document via WebRTC
             const attachmentResponse = await webRTCApiService.saveDokument(attachmentDokument);
             
-            if (attachmentResponse.response.statusCode >= 200 && attachmentResponse.response.statusCode < 300) {
+            if (attachmentResponse.statusCode >= 200 && attachmentResponse.statusCode < 300) {
               console.log(`✅ Attachment '${attachment.name}' saved successfully`);
             } else {
-              throw new Error(attachmentResponse.response.body || `Failed to save attachment '${attachment.name}'`);
+              throw new Error(attachmentResponse.body || `Failed to save attachment '${attachment.name}'`);
             }
           } catch (attachmentError) {
             console.error(`Failed to save attachment '${attachment.name}':`, attachmentError);
