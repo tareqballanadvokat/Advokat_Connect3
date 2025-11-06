@@ -7,15 +7,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPClientTests", "WebRTCTes
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "projects_to_test", "projects_to_test", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCLibrary", "..\OWA\WebRTCLibrary\WebRTCLibrary.csproj", "{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCIntegrationTests", "WebRTCIntegrationTests\WebRTCIntegrationTests.csproj", "{6668EB4C-FB49-49DB-AEBE-46645EF0651F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSignalingServer", "..\OWA\SIPSignalingServer\SIPSignalingServer.csproj", "{224C356D-8599-BC95-A270-C0DF00A0BF78}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SignalingServerTests", "SignalingServerTests\SignalingServerTests.csproj", "{3F9F1AF7-2B06-46E4-8C46-588A2B5A7B60}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebRTCClient", "..\OWA\WebRTCClient\WebRTCClient.csproj", "{B27FDE7A-3C10-BFCC-7A98-125D905AF63F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Advokat.WebRTC.Library", "..\..\AdvokatX\PlugIns\WebRTCRemote\Advokat.WebRTC.Library\Advokat.WebRTC.Library.csproj", "{0A8D9ABD-B247-77E5-D897-0A066494FE22}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Advokat.WebRTC.Client", "..\..\AdvokatX\PlugIns\WebRTCRemote\Advokat.WebRTC.Client\Advokat.WebRTC.Client.csproj", "{38355E69-0948-1333-CE0D-2C3DBABFABB5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,10 +27,6 @@ Global
 		{050207ED-6BC4-44DC-B9C3-CEA34C957E2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{050207ED-6BC4-44DC-B9C3-CEA34C957E2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{050207ED-6BC4-44DC-B9C3-CEA34C957E2D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{6668EB4C-FB49-49DB-AEBE-46645EF0651F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{6668EB4C-FB49-49DB-AEBE-46645EF0651F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6668EB4C-FB49-49DB-AEBE-46645EF0651F}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -43,18 +39,22 @@ Global
 		{3F9F1AF7-2B06-46E4-8C46-588A2B5A7B60}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3F9F1AF7-2B06-46E4-8C46-588A2B5A7B60}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3F9F1AF7-2B06-46E4-8C46-588A2B5A7B60}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B27FDE7A-3C10-BFCC-7A98-125D905AF63F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B27FDE7A-3C10-BFCC-7A98-125D905AF63F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B27FDE7A-3C10-BFCC-7A98-125D905AF63F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B27FDE7A-3C10-BFCC-7A98-125D905AF63F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0A8D9ABD-B247-77E5-D897-0A066494FE22}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0A8D9ABD-B247-77E5-D897-0A066494FE22}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0A8D9ABD-B247-77E5-D897-0A066494FE22}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0A8D9ABD-B247-77E5-D897-0A066494FE22}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38355E69-0948-1333-CE0D-2C3DBABFABB5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38355E69-0948-1333-CE0D-2C3DBABFABB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38355E69-0948-1333-CE0D-2C3DBABFABB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38355E69-0948-1333-CE0D-2C3DBABFABB5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{13CEA9BD-47E8-410E-BB56-8DB1D2027A1E} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{224C356D-8599-BC95-A270-C0DF00A0BF78} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{B27FDE7A-3C10-BFCC-7A98-125D905AF63F} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{0A8D9ABD-B247-77E5-D897-0A066494FE22} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{38355E69-0948-1333-CE0D-2C3DBABFABB5} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C46747FA-119D-4028-804E-A2E66C2525A5}

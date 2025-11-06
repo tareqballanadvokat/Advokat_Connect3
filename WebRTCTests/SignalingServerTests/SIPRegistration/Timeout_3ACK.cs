@@ -6,7 +6,7 @@ using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Transactions;
 using SIPSorcery.SIP;
 using System.Net;
-using WebRTCLibrary.SIP;
+using Advokat.WebRTC.Library.SIP;
 
 namespace SignalingServerTests.SIPRegistration
 {
@@ -31,7 +31,7 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.Config = new SIPConfig()
+            sipRegistrationTransaction.Config = new SIPDialogConfig()
             {
                 ReceiveTimeout = 100
             };
@@ -64,7 +64,7 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.Config = new SIPConfig()
+            sipRegistrationTransaction.Config = new SIPDialogConfig()
             {
                 ReceiveTimeout = 100
             };
@@ -107,7 +107,7 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.Config = new SIPConfig()
+            sipRegistrationTransaction.Config = new SIPDialogConfig()
             {
                 ReceiveTimeout = 100
             };
@@ -139,7 +139,7 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.Config = new SIPConfig()
+            sipRegistrationTransaction.Config = new SIPDialogConfig()
             {
                 ReceiveTimeout = 100
             };
@@ -188,7 +188,7 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
-            sipRegistrationTransaction.Config = new SIPConfig()
+            sipRegistrationTransaction.Config = new SIPDialogConfig()
             {
                 ReceiveTimeout = messageTimeout
             };

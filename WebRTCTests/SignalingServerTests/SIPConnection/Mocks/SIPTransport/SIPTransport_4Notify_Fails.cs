@@ -1,7 +1,7 @@
 ﻿using SIPSorcery.SIP;
 using System.Net;
 using System.Net.Sockets;
-using WebRTCLibrary.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Interfaces;
 
 namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
 {
@@ -16,6 +16,11 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPTransport
         public event SIPTransportResponseAsyncDelegate SIPTransportResponseReceived;
 
         public void AddSIPChannel(SIPChannel sIPChannel)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Dispose()
         {
             throw new NotImplementedException();
         }

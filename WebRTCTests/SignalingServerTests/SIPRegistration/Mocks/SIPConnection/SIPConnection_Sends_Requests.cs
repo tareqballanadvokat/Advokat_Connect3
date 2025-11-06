@@ -1,8 +1,8 @@
 ﻿using Org.BouncyCastle.Asn1.Ocsp;
 using SIPSorcery.SIP;
 using System.Net.Sockets;
-using WebRTCLibrary.SIP.Interfaces;
-using WebRTCLibrary.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Models;
 
 namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
 {

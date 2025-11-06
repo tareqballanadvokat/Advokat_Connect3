@@ -3,8 +3,8 @@ using SIPClientTests.RegistrationTests.Mocks;
 using SIPSorcery.SIP;
 using System.Net;
 using WebRTCClient.Transactions.SIP;
-using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Models;
+using Advokat.WebRTC.Library.SIP;
 
 namespace SIPClientTests.RegistrationTests
 {
@@ -20,7 +20,7 @@ namespace SIPClientTests.RegistrationTests
 
             SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
 
-            sipRegistrationTransaction.Config = new SIPConfig()
+            sipRegistrationTransaction.Config = new SIPDialogConfig()
             {
                 ReceiveTimeout = 100
             };
@@ -43,7 +43,7 @@ namespace SIPClientTests.RegistrationTests
 
             SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
             
-            sipRegistrationTransaction.Config = new SIPConfig()
+            sipRegistrationTransaction.Config = new SIPDialogConfig()
             {
                 ReceiveTimeout = 100
             };

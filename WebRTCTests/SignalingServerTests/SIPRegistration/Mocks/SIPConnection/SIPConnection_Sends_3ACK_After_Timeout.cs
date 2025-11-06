@@ -1,9 +1,9 @@
 ﻿using SIPSorcery.SIP;
 using System.Net;
 using System.Net.Sockets;
-using WebRTCLibrary.SIP.Interfaces;
-using WebRTCLibrary.SIP.Models;
-using WebRTCLibrary.SIP.Utils;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Utils;
 
 namespace SignalingServerTests.SIPRegistration.Mocks.SIPConnection
 {

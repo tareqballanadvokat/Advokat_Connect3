@@ -4,7 +4,7 @@ using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Transactions.Interfaces;
 using SIPSignalingServer.Transactions.Interfaces.TransactionFactories;
 using SIPSorcery.SIP;
-using WebRTCLibrary.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Interfaces;
 
 namespace SignalingServerTests.SIPConnection.Mocks.TransactionFactories
 {

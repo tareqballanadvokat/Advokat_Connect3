@@ -1,7 +1,7 @@
 ﻿using WebRTCClient.Transactions.SIP.Interfaces;
 using WebRTCClient.Transactions.SIP.Interfaces.TransactionFactories;
-using WebRTCLibrary.SIP.Interfaces;
-using WebRTCLibrary.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Models;
 
 namespace SIPClientTests.SIPConnectionTests.Mocks.TransactionFactories
 {

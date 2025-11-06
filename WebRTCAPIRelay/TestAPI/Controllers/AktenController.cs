@@ -6,7 +6,9 @@ using TestAPI.DTOs;
 
 namespace TestAPI.Controllers
 {
-    [Route("[controller]")]
+    [Route("/connect/token")]
+
+    //[Route("[controller]")]
     [ApiController]
     public class AktenController : ControllerBase
     {
@@ -28,12 +30,24 @@ namespace TestAPI.Controllers
         {
             int sizeInMB = 3;
 
+            Random rng = new Random();
+
+
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            var stringChars = new char[8];
+
+            for (int i = 0; i < stringChars.Length; i++)
+            {
+                stringChars[i] = chars[rng.Next(chars.Length)];
+            }
+
+            //FileStream fs = new FileStream(new(stringChars), FileMode.Create, FileAccess.ReadWrite, FileShare.None);
             FileStream fs = new FileStream("test", FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+
             fs.SetLength(sizeInMB * 1024 * 1024);
             //return this.File(fs, "text/json");
 
             byte[]? data = new byte[sizeInMB * 1024 * 1024];
-            Random rng = new Random();
 
             rng.NextBytes(data);
             fs.Write(data);

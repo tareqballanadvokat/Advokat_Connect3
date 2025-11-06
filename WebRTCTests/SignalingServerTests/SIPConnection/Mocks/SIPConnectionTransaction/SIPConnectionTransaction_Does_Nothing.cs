@@ -1,9 +1,9 @@
 ﻿using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions.Interfaces;
 using SIPSorcery.SIP;
-using WebRTCLibrary.SIP;
-using WebRTCLibrary.SIP.Interfaces;
-using WebRTCLibrary.SIP.Models;
+using Advokat.WebRTC.Library.SIP;
+using Advokat.WebRTC.Library.SIP.Interfaces;
+using Advokat.WebRTC.Library.SIP.Models;
 
 namespace SignalingServerTests.SIPConnection.Mocks.SIPConnectionTransaction
 {
@@ -26,6 +26,7 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPConnectionTransaction
         TransactionParams ISIPTransaction.Params => Params;
 
         public SIPConfig Config { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        ISIPConfig ISIPTransaction.Config { get => Config; set => throw new NotImplementedException(); }
 
         public event ISIPConnectionTransaction.ConnectionFailedDelegate? OnConnectionFailed;
         public event ISIPTransaction.ConnectionLostDelegate? ConnectionLost;
@@ -45,6 +46,11 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPConnectionTransaction
         public async Task Stop()
         {
             this.Stopped.Add(DateTime.Now);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            throw new NotImplementedException();
         }
     }
 }

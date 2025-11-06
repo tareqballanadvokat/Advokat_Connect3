@@ -6,8 +6,9 @@ using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions;
 using SIPSorcery.SIP;
 using System.Net;
-using WebRTCLibrary.SIP.Models;
+using Advokat.WebRTC.Library.SIP.Models;
 using Xunit.Sdk;
+using Advokat.WebRTC.Library.SIP;
 
 namespace SignalingServerTests.SIPConnection
 {
