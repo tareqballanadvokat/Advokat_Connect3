@@ -24,9 +24,10 @@ namespace SIPClientTests.RegistrationTests.Mocks
             return SocketError.SocketError;
         }
 
-        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct)
         {
-            throw new NotImplementedException();
+            SentRequests.Add((method, headerParams));
+            return SocketError.SocketError;
         }
 
         public Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct)

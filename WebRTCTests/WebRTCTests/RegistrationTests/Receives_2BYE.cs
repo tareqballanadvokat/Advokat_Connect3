@@ -61,6 +61,7 @@ namespace SIPClientTests.RegistrationTests
 
             SIPRegistrationTransaction sipRegistrationTransaction = new(mockConnection, transactionParams, NullLoggerFactory.Instance);
 
+            sipRegistrationTransaction.Config = new SIPDialogConfig();
             await sipRegistrationTransaction.Start();
 
             Assert.False(sipRegistrationTransaction.Registered);

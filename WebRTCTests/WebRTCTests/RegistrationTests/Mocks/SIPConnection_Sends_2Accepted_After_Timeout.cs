@@ -51,9 +51,9 @@ namespace SIPClientTests.RegistrationTests.Mocks
             this.SIPResponseReceived?.Invoke(sIPEndPoint, sIPEndPoint, response);
         }
 
-        public Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct)
+        public async Task<SocketError> SendSIPRequest(SIPMethodsEnum method, SIPHeaderParams headerParams, string message, string contentType, CancellationToken ct)
         {
-            throw new NotImplementedException();
+            return await this.SendSIPRequest(method, headerParams, ct);
         }
 
         public Task<SocketError> SendSIPRequest(SIPRequest request, CancellationToken ct)

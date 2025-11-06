@@ -24,8 +24,9 @@ namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistrationTransaction
         public int CurrentCseq => 4;
 
         public int StartCseq { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-        public SIPConfig Config { get; set; }
-        ISIPDialogConfig ISIPRegistrationTransaction.Config { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        private ISIPDialogConfig Config { get; set; }
+
+        ISIPDialogConfig ISIPRegistrationTransaction.Config { get => this.Config; set => this.Config = value; }
         ISIPConfig ISIPTransaction.Config { get => Config; set => throw new NotImplementedException(); }
 
         public SIPRegistrationTransaction_Can_Unregister(

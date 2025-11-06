@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+﻿using Advokat.WebRTC.Library.SIP;
+using Microsoft.Extensions.Logging.Abstractions;
 using SignalingServerTests.Mocks.SIPRequests;
 using SignalingServerTests.SIPRegistration.Mocks.SIPConnection;
 using SignalingServerTests.SIPRegistration.Mocks.SIPRegistry;
@@ -30,6 +31,8 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
+            sipRegistrationTransaction.Config = new SIPDialogConfig();
+
             await sipRegistrationTransaction.Start();
 
             Assert.False(sipRegistrationTransaction.Registered);
@@ -56,6 +59,8 @@ namespace SignalingServerTests.SIPRegistration
                 NullLoggerFactory.Instance
                 );
 
+            sipRegistrationTransaction.Config = new SIPDialogConfig();
+
             await sipRegistrationTransaction.Start();
 
             // Unregister gets called twice. Should get reduced to once, but is also not a real problem
@@ -79,6 +84,8 @@ namespace SignalingServerTests.SIPRegistration
                 sipRegistry,
                 NullLoggerFactory.Instance
                 );
+
+            sipRegistrationTransaction.Config = new SIPDialogConfig();
 
             await sipRegistrationTransaction.Start();
 
