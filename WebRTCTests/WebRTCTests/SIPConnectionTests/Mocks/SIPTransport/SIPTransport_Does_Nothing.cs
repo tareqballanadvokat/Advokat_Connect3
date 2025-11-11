@@ -19,9 +19,9 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.SIPTransport
             throw new NotImplementedException();
         }
 
-        public Task<SocketError> SendRequestAsync(SIPRequest request, bool waitForDns = false)
+        public async Task<SocketError> SendRequestAsync(SIPRequest request, bool waitForDns = false)
         {
-            throw new NotImplementedException();
+            return SocketError.Success;
         }
 
         public Task<SocketError> SendResponseAsync(SIPResponse response, bool waitForDns = false)

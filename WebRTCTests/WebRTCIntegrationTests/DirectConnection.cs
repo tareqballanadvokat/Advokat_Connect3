@@ -11,6 +11,7 @@ using WebRTCClient.Utils;
 
 namespace WebRTCIntegrationTests
 {
+    [Collection("Sequential")]
     public class DirectConnection
     {
         private List<string> ReceivedMessagesByCaller = [];
@@ -65,7 +66,7 @@ namespace WebRTCIntegrationTests
             _ = Task.Run(remote.Connect);
 
             // Some time for the clients to connect
-            await Task.Delay(500); // cutoff point is 250. It always fails below that. 300 is fine most of the time
+            await Task.Delay(700); // cutoff point is ~600. It always fails below that. 700 is fine most of the time
 
             Assert.True(caller.IsConnected);
             Assert.True(remote.IsConnected);

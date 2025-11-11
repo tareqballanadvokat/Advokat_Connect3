@@ -7,11 +7,20 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 {
     internal class SIPRegistrationTransaction_Unregistering_Possible : ISIPRegistrationTransaction
     {
+        public SIPRegistrationTransaction_Unregistering_Possible()
+        {
+        }
+
+        public SIPRegistrationTransaction_Unregistering_Possible(TransactionParams transactionParams)
+        {
+            this.Params = transactionParams;
+        }
+
         public bool Registered { get; set; } = true;
 
         public ISIPConnection Connection => throw new NotImplementedException();
 
-        public TransactionParams Params => throw new NotImplementedException();
+        public TransactionParams Params { get; }
 
         public int SendTimeout { get; set; }
 
@@ -19,7 +28,7 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public bool Running => throw new NotImplementedException();
 
-        public int CurrentCseq => 0;
+        public int CurrentCseq => 4;
 
         public int StartCseq { get => 4; set => throw new NotImplementedException(); }
 
