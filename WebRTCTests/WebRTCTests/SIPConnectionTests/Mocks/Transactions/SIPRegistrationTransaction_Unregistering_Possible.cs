@@ -2,6 +2,7 @@
 using WebRTCClient.Transactions.SIP.Interfaces;
 using Advokat.WebRTC.Library.SIP.Interfaces;
 using Advokat.WebRTC.Library.SIP.Models;
+using Microsoft.Extensions.Logging;
 
 namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 {
@@ -16,9 +17,15 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
             this.Params = transactionParams;
         }
 
-        public TransactionParams PassedParams { get; }
+        public SIPRegistrationTransaction_Unregistering_Possible(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : this(dialogParams)
+        {
+            this.Params.SourceTag = CallProperties.CreateNewTag();
+            this.Params.RemoteTag = CallProperties.CreateNewTag();
+            this.Params.CallId = CallProperties.CreateNewTag();
+        }
 
-        public TransactionParams PassedInCreated { get; set; }
+        public TransactionParams? PassedInCreated { get; set; }
 
         public bool Registered { get; set; } = true;
 
@@ -49,8 +56,12 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public async Task Start(CancellationToken? ct = null)
         {
-            // Updates SIPDialogParams to the passed ones
+            if (this.PassedInCreated == null)
+            {
+                return;
+            }
 
+            // Updates SIPDialogParams to the passed ones
             this.PassedInCreated.SourceParticipant.Name = this.Params.SourceParticipant.Name;
             this.PassedInCreated.SourceParticipant.Endpoint = this.Params.SourceParticipant.Endpoint;
             this.PassedInCreated.SourceTag = this.Params.SourceTag;
