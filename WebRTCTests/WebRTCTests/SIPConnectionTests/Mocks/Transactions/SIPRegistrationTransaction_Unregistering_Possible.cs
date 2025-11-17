@@ -16,6 +16,10 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
             this.Params = transactionParams;
         }
 
+        public TransactionParams PassedParams { get; }
+
+        public TransactionParams PassedInCreated { get; set; }
+
         public bool Registered { get; set; } = true;
 
         public ISIPConnection Connection => throw new NotImplementedException();
@@ -45,6 +49,17 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public async Task Start(CancellationToken? ct = null)
         {
+            // Updates SIPDialogParams to the passed ones
+
+            this.PassedInCreated.SourceParticipant.Name = this.Params.SourceParticipant.Name;
+            this.PassedInCreated.SourceParticipant.Endpoint = this.Params.SourceParticipant.Endpoint;
+            this.PassedInCreated.SourceTag = this.Params.SourceTag;
+
+            this.PassedInCreated.RemoteParticipant.Name = this.Params.RemoteParticipant.Name;
+            this.PassedInCreated.RemoteParticipant.Endpoint = this.Params.RemoteParticipant.Endpoint;
+            this.PassedInCreated.RemoteTag = this.Params.RemoteTag;
+
+            this.PassedInCreated.CallId = this.Params.CallId;
         }
 
         public async Task Stop()

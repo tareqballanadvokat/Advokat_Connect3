@@ -2,6 +2,8 @@
 using WebRTCClient.Transactions.SIP.Interfaces.TransactionFactories;
 using Advokat.WebRTC.Library.SIP.Interfaces;
 using Advokat.WebRTC.Library.SIP.Models;
+using Microsoft.Extensions.Logging.Abstractions;
+using SIPClientTests.SIPConnectionTests.Mocks.Transactions;
 
 namespace SIPClientTests.SIPConnectionTests.Mocks.TransactionFactories
 {
@@ -21,7 +23,12 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.TransactionFactories
 
         public ISIPRegistrationTransaction Create(ISIPConnection connection, TransactionParams transactionParams)
         {
-            return this.RegistrationTransaction ?? new T();
+            if (this.RegistrationTransaction is SIPRegistrationTransaction_Unregistering_Possible registrationTransaction)
+            {
+                registrationTransaction.PassedInCreated = transactionParams;
+                return registrationTransaction;
+            }
+            return (ISIPRegistrationTransaction)Activator.CreateInstance(typeof(T), new object[] {connection, transactionParams, NullLoggerFactory.Instance });
         }
     }
 }
