@@ -36,20 +36,19 @@ async function writeMessage(event: MessageEvent): Promise<void> {
     
     if (data instanceof ArrayBuffer) {
         text = new TextDecoder("utf-8").decode(data);
-        console.log("📨 ArrayBuffer:", text);
+        logger.log("📨 [PEER2PEER] ArrayBuffer received: " + text);
     } else if (data instanceof Blob) {
-        text = await data.text(); // Updated from deprecated FileReader approach
-        console.log("📨 Blob:", text);
+        text = await data.text();
+        logger.log("📨 [PEER2PEER] Blob received: " + text);
     } else if (typeof data === "string") {
-        console.log("📨 Text:", data);
+        logger.log("📨 [PEER2PEER] Text received: " + data);
         text = data;
     } else {
-        console.warn("❓ Unknown message type:", typeof data, data);
+        logger.log("❓ [PEER2PEER] Unknown message type: " + typeof data);
         return;
     }
     
-    console.log("📨 DataChannel message:", text);
-    logger.log(text);
+    logger.log("📨 [PEER2PEER] DataChannel message: " + text);
 }
 
 export class Peer2PeerConnection {
@@ -94,7 +93,7 @@ export class Peer2PeerConnection {
             try {
                 await handler(event);
             } catch (error) {
-                console.error('Error in message handler:', error);
+                logger.log('❌ [PEER2PEER] Error in message handler: ' + error);
             }
         }
     }
@@ -108,12 +107,12 @@ export class Peer2PeerConnection {
      * @param tag - SIP tag for message identification
      */
     async parseServiceIncoming(data: string, socket: WebSocket, sipUri: string, tag: string): Promise<void> {
-        this.dataChannelPeer = this.pc.createDataChannel("answer");
+        logger.log('📥 [PEER2PEER] Received SERVICE with SDP offer - processing as ANSWERER');
         
         const fromLineMatch = data.match(/^from:.*$/mi);
         const fromLine = fromLineMatch ? fromLineMatch[0] : '';
         const toLine = fromLine.replace(/^from:/i, 'to:');
-        console.log("toLine: ", toLine);
+        logger.log("📥 [PEER2PEER] To Line: " + toLine);
         const reCallId = /^call-id:\s*([^\r\n]+)/mi;
         const m = data.match(reCallId);
         const callId = m ? m[1] : "";
@@ -121,15 +120,15 @@ export class Peer2PeerConnection {
         // Set up ICE candidate handling
         this.pc.onicecandidate = (evt) => {
             if (evt.candidate) {
-                console.log("ICE candidate:", JSON.stringify(evt.candidate));
+                logger.log("📡 [PEER2PEER] ICE candidate: " + JSON.stringify(evt.candidate));
             }
         };
         
         // Handle ICE gathering completion
         this.pc.onicegatheringstatechange = () => {
             if (this.pc.iceGatheringState === 'complete') {
-                console.log("ICE gathering complete.");
-                console.log("Final SDP:", JSON.stringify(this.pc.localDescription));
+                logger.log("✅ [PEER2PEER] ICE gathering complete");
+                logger.log("📤 [PEER2PEER] Final SDP: " + JSON.stringify(this.pc.localDescription));
                 const answerMsg = this.sendSdpAnswer(
                     JSON.stringify(this.pc.localDescription), 
                     callId, 
@@ -139,45 +138,34 @@ export class Peer2PeerConnection {
                 );
                 
                 if (socket && socket.readyState === WebSocket.OPEN) {
-                    logger.log('Sending Peer2PeerConnection answer:\n' + answerMsg);
+                    logger.log('📤 [PEER2PEER] Sending SDP answer:\n' + answerMsg);
                     socket.send(answerMsg);
                 } else {
-                    console.warn("⚠️ WebSocket is not available or not open");
+                    logger.log("⚠️ [PEER2PEER] WebSocket is not available or not open");
                 }
             }
         };
         
-        // Set up data channel event handlers
+        // Set up data channel event handlers - ANSWERER receives channel from OFFERER
         this.pc.ondatachannel = (ev) => {
-            console.log("DataChannel found");
+            logger.log("📥 [PEER2PEER] DataChannel received from OFFERER: " + ev.channel.label);
+            
+            // Store the received data channel
+            this.dataChannelPeer = ev.channel;
             
             ev.channel.onopen = () => {
-                console.log("🟢 DataChannel opened: ", ev.channel.label);
+                logger.log("🟢 [PEER2PEER] DataChannel opened: " + ev.channel.label);
             };
             
             ev.channel.onmessage = (event) => this.dispatchMessage(event);
             
             ev.channel.onclose = () => {
-                console.log("🔴 DataChannel closed");
+                logger.log("🔴 [PEER2PEER] DataChannel closed");
             };
             
             ev.channel.onerror = (err) => {
-                console.error("❌ DataChannel error:", err);
+                logger.log("❌ [PEER2PEER] DataChannel error: " + err);
             };
-        };
-        
-        // Configure the answer data channel
-        this.dataChannelPeer = this.pc.createDataChannel("answer");
-        this.dataChannelPeer.onopen = () => {
-            console.log("🟢 DataChannel opened: answer");
-        };
-        
-        this.dataChannelPeer.onclose = () => {
-            console.log("🔴 DataChannel closed");
-        };
-        
-        this.dataChannelPeer.onerror = (err) => {
-            console.error("❌ DataChannel error:", err);
         };
         
         // Process SDP offer from the incoming message
@@ -185,7 +173,7 @@ export class Peer2PeerConnection {
         if (sdpBlockMatch) {
             try {
                 const sdpBlock = sdpBlockMatch[1];
-                console.log('SDP JSON block:', sdpBlock);
+                logger.log('📥 [PEER2PEER] SDP JSON block: ' + sdpBlock);
                 
                 const sdpInit = JSON.parse(sdpBlock);
                 const desc = new RTCSessionDescription(sdpInit);
@@ -195,12 +183,12 @@ export class Peer2PeerConnection {
                 const answer = await this.pc.createAnswer();
                 await this.pc.setLocalDescription(answer);
                 
-                console.log("✔️ Local SDP Answer set:", JSON.stringify(this.pc.localDescription));
+                logger.log("✅ [PEER2PEER] Local SDP Answer set: " + JSON.stringify(this.pc.localDescription));
             } catch (err) {
-                console.error("❌ SDP or WebRTC error:", err);
+                logger.log("❌ [PEER2PEER] SDP or WebRTC error: " + err);
             }
         } else {
-            console.warn("⚠️ SDP block not found");
+            logger.log("⚠️ [PEER2PEER] SDP block not found in SERVICE message");
         }
     }
     
@@ -253,7 +241,7 @@ export class Peer2PeerConnection {
         // Create offer data channel
         this.dataChannelPeer = this.pc.createDataChannel("offer");
         this.dataChannelPeer.onopen = () => {
-            console.log("🟢 DataChannel OFFER opened");
+            logger.log("🟢 [PEER2PEER] DataChannel OFFER opened");
             if (this.dataChannelPeer) {
                 this.dataChannelPeer.send("Hello from OFFER side");
             }
@@ -261,43 +249,43 @@ export class Peer2PeerConnection {
         
         this.dataChannelPeer.onmessage = (event) => {
             const text = new TextDecoder("utf-8").decode(event.data);
-            console.log("📨 Received on offer channel:", text);
+            logger.log("📨 [PEER2PEER] Received on offer channel: " + text);
         };
         
         this.dataChannelPeer.onerror = (err) => {
-            console.error("❌ Offer DataChannel error:", err);
+            logger.log("❌ [PEER2PEER] Offer DataChannel error: " + err);
         };
         
         // Set up data channel event handlers
         this.pc.ondatachannel = (ev) => {
-            console.log("DataChannel found");
+            logger.log("📥 [PEER2PEER] DataChannel found: " + ev.channel.label);
             
             ev.channel.onopen = () => {
-                console.log("🟢 DataChannel opened: ", ev.channel.label);
+                logger.log("🟢 [PEER2PEER] DataChannel opened: " + ev.channel.label);
             };
             
             ev.channel.onmessage = (event) => this.dispatchMessage(event);
             
             ev.channel.onclose = () => {
-                console.log("🔴 DataChannel closed");
+                logger.log("🔴 [PEER2PEER] DataChannel closed");
             };
             
             ev.channel.onerror = (err) => {
-                console.error("❌ DataChannel error:", err);
+                logger.log("❌ [PEER2PEER] DataChannel error: " + err);
             };
         };
         
         // Handle ICE candidates
         this.pc.onicecandidate = (evt) => {
             if (evt.candidate) {
-                console.log("📤 ICE candidate (offer):", JSON.stringify(evt.candidate));
+                logger.log("📤 [PEER2PEER] ICE candidate (offer): " + JSON.stringify(evt.candidate));
             }
         };
         
         // Handle ICE gathering completion
         this.pc.onicegatheringstatechange = () => {
             if (this.pc.iceGatheringState === 'complete') {
-                console.log("✅ ICE gathering complete (offer)");
+                logger.log("✅ [PEER2PEER] ICE gathering complete (offer)");
                 const offerSDP = JSON.stringify(this.pc.localDescription);
                 const offerMsg = this.sendSdpOffer(offerSDP, callId, sipUri, tag, toLine, branch);
                 if (socket && socket.readyState === WebSocket.OPEN) {
@@ -310,7 +298,7 @@ export class Peer2PeerConnection {
         const offer = await this.pc.createOffer();
         await this.pc.setLocalDescription(offer);
         
-        console.log("📤 SDP Offer created:", JSON.stringify(offer));
+        logger.log("📤 [PEER2PEER] SDP Offer created: " + JSON.stringify(offer));
     }
     
     /**
@@ -357,12 +345,12 @@ export class Peer2PeerConnection {
                     const sdpBlock = sdpBlockMatch[1];
                     const sdpObj = JSON.parse(sdpBlock);
                     await this.pc.setRemoteDescription(new RTCSessionDescription(sdpObj));
-                    console.log("✔️ Remote SDP Answer set successfully");
+                    logger.log("✅ [PEER2PEER] Remote SDP Answer set successfully");
                 } catch (err) {
-                    console.error("❌ SDP or WebRTC error:", err);
+                    logger.log("❌ [PEER2PEER] SDP or WebRTC error: " + err);
                 }
             } else {
-                console.warn("⚠️ SDP block not found");
+                logger.log("⚠️ [PEER2PEER] SDP block not found in SERVICE answer");
             }
         }
     }
