@@ -52,6 +52,7 @@ namespace Caller
                 remoteUser: remoteName,
                 sourceEndpoint: callerEndpoint,
                 signalingServer: signalingServerEndpoint,
+                isOffering: true,
                 iceServers: [],
                 NullLoggerFactory.Instance
                 );
