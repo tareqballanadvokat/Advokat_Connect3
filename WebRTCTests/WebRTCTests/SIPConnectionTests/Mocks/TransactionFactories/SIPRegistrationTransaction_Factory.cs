@@ -28,6 +28,7 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.TransactionFactories
                 registrationTransaction.PassedInCreated = transactionParams;
                 return registrationTransaction;
             }
+
             return (ISIPRegistrationTransaction)Activator.CreateInstance(typeof(T), new object[] {connection, transactionParams, NullLoggerFactory.Instance });
         }
     }

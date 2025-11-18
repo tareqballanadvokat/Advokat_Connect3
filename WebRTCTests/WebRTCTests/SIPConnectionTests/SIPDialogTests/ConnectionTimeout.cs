@@ -64,7 +64,7 @@ namespace SIPClientTests.SIPConnectionTests.SIPDialogTests
             await Task.Delay(20);
 
             await mockTransport.SendNotify(connectionTransactionParams, 4);
-            await Task.Delay(120); // ConnectionTimeout hit, peerRegistrationTimeout not
+            await Task.Delay(130); // ConnectionTimeout hit, peerRegistrationTimeout not
 
             Assert.True(mockRegistrationTransaction.Registered);
             

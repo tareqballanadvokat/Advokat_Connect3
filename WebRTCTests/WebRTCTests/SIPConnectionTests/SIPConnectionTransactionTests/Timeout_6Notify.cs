@@ -1,4 +1,5 @@
-﻿using Advokat.WebRTC.Library.SIP;
+﻿using Advokat.WebRTC.Client.Utils;
+using Advokat.WebRTC.Library.SIP;
 using Advokat.WebRTC.Library.SIP.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using SIPClientTests.SIPConnectionTests.Mocks.SIPTransport;
@@ -31,10 +32,14 @@ namespace SIPClientTests.SIPConnectionTests.SIPConnectionTransactionTests
                 callId: CallProperties.CreateNewCallId()
                 );
 
+            using Registration registration = new Registration(null);
+            registration.SetActive();
+
             SIPConnectionTransaction connectionTransaction = new SIPConnectionTransaction(
                 SIPSchemesEnum.sip,
                 mockTransport,
                 transactionParams,
+                registration,
                 NullLoggerFactory.Instance
                 );
 
@@ -60,7 +65,8 @@ namespace SIPClientTests.SIPConnectionTests.SIPConnectionTransactionTests
             SIPEndPoint remoteEndpoint = new SIPEndPoint(new IPEndPoint(IPAddress.Parse("1.1.1.1"), 1));
             SIPEndPoint callerEndpoint = new SIPEndPoint(new IPEndPoint(IPAddress.Parse("1.1.1.1"), 2));
 
-            SIPTransport_Logs_Messages mockTransport = new SIPTransport_Logs_Messages();
+            SIPTransport_Does_Not_Send_6Notify mockTransport = new SIPTransport_Does_Not_Send_6Notify();
+
             TransactionParams transactionParams = new TransactionParams(
                 new SIPParticipant("remote-123", remoteEndpoint),
                 new SIPParticipant("caller-456", callerEndpoint),
@@ -69,14 +75,18 @@ namespace SIPClientTests.SIPConnectionTests.SIPConnectionTransactionTests
                 callId: CallProperties.CreateNewCallId()
                 );
 
+            Registration registration = new Registration(null);
+            registration.SetActive();
+
             SIPConnectionTransaction connectionTransaction = new SIPConnectionTransaction(
                 SIPSchemesEnum.sip,
                 mockTransport,
                 transactionParams,
+                registration,
                 NullLoggerFactory.Instance
                 );
 
-            connectionTransaction.StartCseq = 5;
+            connectionTransaction.StartCseq = 4;
 
             connectionTransaction.Config = new SIPDialogConfig()
             {
@@ -87,6 +97,9 @@ namespace SIPClientTests.SIPConnectionTests.SIPConnectionTransactionTests
             };
 
             _ = Task.Run(async () => await connectionTransaction.Start());
+
+            await Task.Delay(10);
+            await mockTransport.Send4Notify(transactionParams);
             await Task.Delay(20);
 
             Assert.Single(mockTransport.SentRequests);

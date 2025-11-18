@@ -15,11 +15,14 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
         public SIPRegistrationTransaction_Unregistering_Possible(TransactionParams transactionParams)
         {
             this.Params = transactionParams;
+            this.Connection ??= new SIPConnection_Does_Nothing();
         }
 
         public SIPRegistrationTransaction_Unregistering_Possible(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
             : this(dialogParams)
         {
+            this.Connection = connection;
+
             this.Params.SourceTag = CallProperties.CreateNewTag();
             this.Params.RemoteTag = CallProperties.CreateNewTag();
             this.Params.CallId = CallProperties.CreateNewTag();
@@ -29,7 +32,7 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public bool Registered { get; set; } = true;
 
-        public ISIPConnection Connection => throw new NotImplementedException();
+        public ISIPConnection Connection { get; set;}
 
         public TransactionParams Params { get; }
 

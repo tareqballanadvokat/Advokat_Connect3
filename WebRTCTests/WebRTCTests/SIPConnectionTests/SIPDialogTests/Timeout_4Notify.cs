@@ -78,7 +78,7 @@ namespace SIPClientTests.SIPConnectionTests.SIPDialogTests
             Assert.True(sipDialog.Registered);
             Assert.False(sipDialog.Connected);
 
-            await Task.Delay(150);
+            await Task.Delay(110);
 
             Assert.False(sipDialog.Connected);
             Assert.False(sipDialog.Registered);
@@ -103,7 +103,15 @@ namespace SIPClientTests.SIPConnectionTests.SIPDialogTests
                 NullLoggerFactory.Instance
                 );
 
-            SIPRegistrationTransaction_Unregistering_Possible mockRegistrationTransaction = new SIPRegistrationTransaction_Unregistering_Possible();
+            TransactionParams registrationTransactionParams = new TransactionParams(
+                callerParticipant,
+                remoteParticipant,
+                sourceTag: CallProperties.CreateNewTag(),
+                remoteTag: CallProperties.CreateNewTag(),
+                callId: CallProperties.CreateNewCallId()
+                );
+
+            SIPRegistrationTransaction_Unregistering_Possible mockRegistrationTransaction = new SIPRegistrationTransaction_Unregistering_Possible(registrationTransactionParams);
             SIPRegistrationTransaction_Factory<SIPRegistrationTransaction_Unregistering_Possible> sIPRegistrationTransaction_Factory = new(mockRegistrationTransaction);
             sipDialog.SIPRegistrationTransactionFactory = sIPRegistrationTransaction_Factory;
 
@@ -118,10 +126,13 @@ namespace SIPClientTests.SIPConnectionTests.SIPDialogTests
             _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(10);
 
-            Assert.True(mockRegistrationTransaction.Registered); 
+            Assert.True(mockRegistrationTransaction.Registered);
+            Assert.True(sipDialog.Registered);
             await Task.Delay(150);
 
             Assert.False(mockRegistrationTransaction.Registered);
+            Assert.False(sipDialog.Registered);
+
         }
 
 
@@ -152,8 +163,8 @@ namespace SIPClientTests.SIPConnectionTests.SIPDialogTests
                 callId: CallProperties.CreateNewCallId()
                 );
 
-            SIPRegistrationTransaction_Unregistering_Possible mockRegistrationTransaction = new SIPRegistrationTransaction_Unregistering_Possible(registrationTransactionParams);
-            SIPRegistrationTransaction_Factory<SIPRegistrationTransaction_Unregistering_Possible> sIPRegistrationTransaction_Factory = new(mockRegistrationTransaction);
+            //SIPRegistrationTransaction_Unregistering_Possible mockRegistrationTransaction = new SIPRegistrationTransaction_Unregistering_Possible(registrationTransactionParams);
+            SIPRegistrationTransaction_Factory<SIPRegistrationTransaction_Unregistering_Possible> sIPRegistrationTransaction_Factory = new();//mockRegistrationTransaction);
             sipDialog.SIPRegistrationTransactionFactory = sIPRegistrationTransaction_Factory;
 
             sipDialog.Config = new SIPDialogConfig()
@@ -214,8 +225,8 @@ namespace SIPClientTests.SIPConnectionTests.SIPDialogTests
                 callId: CallProperties.CreateNewCallId()
                 );
 
-            SIPRegistrationTransaction_Unregistering_Possible mockRegistrationTransaction = new SIPRegistrationTransaction_Unregistering_Possible(registrationTransactionParams);
-            SIPRegistrationTransaction_Factory<SIPRegistrationTransaction_Unregistering_Possible> sIPRegistrationTransaction_Factory = new(mockRegistrationTransaction);
+            //SIPRegistrationTransaction_Unregistering_Possible mockRegistrationTransaction = new SIPRegistrationTransaction_Unregistering_Possible(registrationTransactionParams);
+            SIPRegistrationTransaction_Factory<SIPRegistrationTransaction_Unregistering_Possible> sIPRegistrationTransaction_Factory = new(); // mockRegistrationTransaction);
             sipDialog.SIPRegistrationTransactionFactory = sIPRegistrationTransaction_Factory;
 
             sipDialog.Config = new SIPDialogConfig()
@@ -229,7 +240,7 @@ namespace SIPClientTests.SIPConnectionTests.SIPDialogTests
             _ = Task.Run(async () => await sipDialog.Start());
             await Task.Delay(20);
 
-            await mockTransport.SendRegistrationBye(registrationTransactionParams);
+            await mockTransport.SendRegistrationBye(sipDialog.Params); // should be the params created by the registrationTransaction
             await Task.Delay(10);
 
             await mockTransport.Send4Notify(connectionTransactionParams);
