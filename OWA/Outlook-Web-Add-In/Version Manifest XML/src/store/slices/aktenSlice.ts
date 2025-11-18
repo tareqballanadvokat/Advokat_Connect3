@@ -103,8 +103,8 @@ export const getFavoriteAktenAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.getFavoriteAkten(query);
     
-    if (response.response.statusCode === 200) {
-      return JSON.parse(response.response.body || '[]') as AktenResponse[]; // Use AktenResponse format (Id, AKurz, Causa)
+    if (response.statusCode === 200) {
+      return JSON.parse(response.body || '[]') as AktenResponse[]; // Use AktenResponse format (Id, AKurz, Causa)
     } else {
       throw new Error('Failed to get favorite cases');
     }
@@ -136,10 +136,10 @@ export const getCaseDocumentsAsync = createAsyncThunk(
       Count: params.Count
     });
     
-    if (response.response.statusCode === 200) {
+    if (response.statusCode === 200) {
       return {
         aktId: params.aktId,
-        documents: JSON.parse(response.response.body || '[]') as DokumentResponse[],
+        documents: JSON.parse(response.body || '[]') as DokumentResponse[],
         fromCache: false
       };
     } else {
@@ -163,8 +163,8 @@ export const getEmailDocumentsAsync = createAsyncThunk(
     
     const response = await webRTCApiService.GetDocuments(requestParams);
     
-    if (response.response.statusCode >= 200 && response.response.statusCode < 300) {
-      return JSON.parse(response.response.body || '[]') as DokumentResponse[];
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return JSON.parse(response.body || '[]') as DokumentResponse[];
     } else {
       throw new Error('Failed to get documents for email');
     }
@@ -179,7 +179,7 @@ export const addAktToFavoriteAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.addAktToFavorite(aktId);
     
-    if (response.response.statusCode === 200) {
+    if (response.statusCode === 200) {
       return aktId; // Return the aktId that was added to favorites
     } else {
       throw new Error('Failed to add Akt to favorites');
@@ -194,7 +194,7 @@ export const removeAktFromFavoriteAsync = createAsyncThunk(
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removeAktFromFavorite(aktId);
-    if (response.response.statusCode === 200) {
+    if (response.statusCode === 200) {
       return aktId; // Return the aktId that was removed from favorites
     } else {
       throw new Error('Failed to remove Akt from favorites');
@@ -210,8 +210,8 @@ export const getAvailableFoldersAsync = createAsyncThunk(
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.getAvailableFolders(aktId);
     
-    if (response.response.statusCode >= 200 && response.response.statusCode < 300) {
-      const responseData = JSON.parse(response.response.body || '[]');
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      const responseData = JSON.parse(response.body || '[]');
       const folderNames = Array.isArray(responseData) 
         ? responseData.map(folder => String(folder))
         : [];
@@ -243,8 +243,8 @@ export const aktLookUpAsync = createAsyncThunk(
     
     const response = await webRTCApiService.aktLookUp(searchText);
     
-    if (response.response.statusCode === 200) {
-      return JSON.parse(response.response.body || '[]') as AktLookUpResponse[];
+    if (response.statusCode === 200) {
+      return JSON.parse(response.body || '[]') as AktLookUpResponse[];
     } else {
       throw new Error('Failed to lookup cases');
     }

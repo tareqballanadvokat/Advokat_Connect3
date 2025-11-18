@@ -80,7 +80,7 @@ const ServiceTabContent: React.FC = () => {
       // Send to API via WebRTC
       const response = await webRTCApiService.saveLeistung(payload);
       
-      if (response.response.statusCode >= 200 && response.response.statusCode < 300) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         notify('Service saved successfully', 'success', 3000);
         // Trigger refresh
         setRefreshFlag(f => f + 1);

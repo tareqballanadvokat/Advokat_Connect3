@@ -1,14 +1,12 @@
 /**
- * Utility functions for WebRTC message chunking with ACK-based retry strategy
- * Implements reliable chunking for requests that exceed the 256KB UDP limit
+ * Utility functions for WebRTC message chunking
+ * Implements chunking for requests that exceed the 256KB message size limit
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import CryptoJS from 'crypto-js';
 import { 
   WebRTCApiRequest,  
   WebRTCApiResponse,
-  WebRTCAckResponse,
   ChunkInfo, 
   PendingRequest, 
   ChunkingResult,
@@ -16,7 +14,7 @@ import {
 } from '../components/interfaces/IWebRTC';
 
 /**
- * Configuration constants for chunking and ACK handling
+ * Configuration constants for chunking
  */
 export const CHUNKING_CONFIG = {
   /** Maximum WebRTC DataChannel message size (256 KB) */
@@ -24,21 +22,6 @@ export const CHUNKING_CONFIG = {
   
   /** Estimated size for chunk metadata overhead in JSON structure */
   CHUNK_METADATA_OVERHEAD: 200,
-  
-  /** Exponential backoff multiplier for retry timeouts */
-  BACKOFF_MULTIPLIER: 1.5,
-  
-  /** Chunk-level configuration for individual chunk ACK handling */
-  CHUNK: {
-    /** Base timeout period for individual chunk ACKs in milliseconds */
-    ACK_TIMEOUT_MS: 2000,
-    
-    /** Maximum timeout period after exponential backoff in milliseconds */
-    MAX_ACK_TIMEOUT_MS: 10000,
-    
-    /** Maximum number of retry attempts for unacknowledged chunks */
-    MAX_RETRY_ATTEMPTS: 3
-  },
   
   /** Request-level configuration for overall pending request handling */
   REQUEST: {
@@ -51,25 +34,12 @@ export const CHUNKING_CONFIG = {
 } as const;
 
 /**
- * Calculate MD5 checksum using crypto-js
- * @param data - The data to calculate checksum for
- * @returns Base64 encoded MD5 hash
- */
-export function calculateChecksum(data: string): string {
-  const hash = CryptoJS.MD5(data);
-  return CryptoJS.enc.Base64.stringify(hash);
-}
-
-/**
- * Create protocol ID with GUID + hash
+ * Create protocol ID with GUID
  * @param guid - Base GUID
- * @returns Protocol ID format: GUID + first 4 chars of GUID's MD5 hash
+ * @returns Protocol ID (just the GUID)
  */
 export function createProtocolId(guid?: string): string {
-  const baseGuid = guid || uuidv4();
-  const guidHash = CryptoJS.MD5(baseGuid);
-  const shortHash = guidHash.toString().substring(0, 4);
-  return `${baseGuid}${shortHash}`;
+  return guid || uuidv4();
 }
 
 /**
@@ -101,8 +71,10 @@ export function createProtocolRequest(method: string, url: string, headers: Reco
     }
   }
   
-  // Create the nested request structure (chunking fields will be properly set by chunkRequest function)
-  const requestData = {
+  // Return flat protocol request structure
+  return {
+    id: protocolId,
+    messageType: messageType || 'unknown.action',
     timestamp,
     totalChunks: 0,                  // 0 indicates not yet chunked (will be set correctly by chunkRequest)
     currentChunk: 0,                 // 0 indicates not yet chunked (will be set correctly by chunkRequest)
@@ -110,17 +82,6 @@ export function createProtocolRequest(method: string, url: string, headers: Reco
     uri: url,
     headers,
     ...(processedBody && { body: processedBody })
-  };
-  
-  // Calculate checksum of the request data
-  const checksum = calculateChecksum(JSON.stringify(requestData));
-  
-  // Return complete protocol request
-  return {
-    checksum,
-    id: protocolId,
-    messageType: messageType || 'unknown.action',  // Use provided messageType or default
-    request: requestData
   };
 }
 
@@ -150,43 +111,27 @@ export function needsChunking(request: WebRTCApiRequest): boolean {
  * @returns ChunkingResult with array of chunked requests
  */
 export function chunkRequest(request: WebRTCApiRequest): ChunkingResult {
-  // Calculate checksum of the original request
-  const originalChecksum = calculateChecksum(JSON.stringify(request));
-  
   // If request doesn't need chunking, return as single chunk with proper metadata
   if (!needsChunking(request)) {
     // Ensure single chunk has correct totalChunks and currentChunk values
-    const singleChunkRequestData = {
-      ...request.request,
+    const singleChunkRequest: WebRTCApiRequest = {
+      ...request,
       totalChunks: 1,
       currentChunk: 1
     };
     
-    // Calculate checksum for the single chunk's request data
-    const singleChunkChecksum = calculateChecksum(JSON.stringify(singleChunkRequestData));
-    
-    const singleChunkRequest: WebRTCApiRequest = {
-      ...request,
-      checksum: singleChunkChecksum,
-      request: singleChunkRequestData
-    };
-    
     return {
       chunks: [singleChunkRequest],
-      checksum: singleChunkChecksum,  // Use the recalculated checksum
       totalChunks: 1,
       baseId: request.id
     };
   }
 
   // Calculate how much space we have for the body content
-  const bodyContent = request.request.body || '';
+  const bodyContent = request.body || '';
   const requestWithoutBody = {
     ...request,
-    request: {
-      ...request.request,
-      body: '' // Empty body for size calculation
-    }
+    body: '' // Empty body for size calculation
   };
   
   const overheadSize = calculateMessageSize(requestWithoutBody);
@@ -204,21 +149,11 @@ export function chunkRequest(request: WebRTCApiRequest): ChunkingResult {
     const chunkBody = new TextDecoder().decode(chunkBodyBytes);
     
     // Create chunked request with updated metadata
-    const chunkRequestData = {
-      ...request.request,
+    const chunkRequest: WebRTCApiRequest = {
+      ...request,
       totalChunks: totalChunks,
       currentChunk: i + 1,      // 1-based chunk numbering
       body: chunkBody
-    };
-    
-    // Calculate checksum for this specific chunk's request data
-    const chunkChecksum = calculateChecksum(JSON.stringify(chunkRequestData));
-    
-    const chunkRequest: WebRTCApiRequest = {
-      checksum: chunkChecksum,    // Each chunk has its own checksum
-      id: request.id,             // All chunks share the same ID
-      messageType: request.messageType,
-      request: chunkRequestData
     };
     
     chunks.push(chunkRequest);
@@ -226,7 +161,6 @@ export function chunkRequest(request: WebRTCApiRequest): ChunkingResult {
   
   return {
     chunks,
-    checksum: originalChecksum,
     totalChunks,
     baseId: request.id
   };
@@ -262,18 +196,7 @@ export function logChunkTransmission(chunkNumber: number, totalChunks: number, m
 }
 
 /**
- * Calculate exponential backoff timeout for retry attempts
- * @param retryCount - Current retry attempt number
- * @param baseTimeout - Base timeout in milliseconds
- * @returns Calculated timeout with exponential backoff
- */
-export function calculateBackoffTimeout(retryCount: number, baseTimeout: number): number {
-  const timeout = baseTimeout * Math.pow(CHUNKING_CONFIG.BACKOFF_MULTIPLIER, retryCount);
-  return Math.min(timeout, CHUNKING_CONFIG.CHUNK.MAX_ACK_TIMEOUT_MS);
-}
-
-/**
- * Create a pending request for chunk tracking (structure only - no timeout handling)
+ * Create a pending request for chunk tracking
  * @param request - The original request
  * @param chunkingResult - The chunking result
  * @param messageType - Message type
@@ -294,7 +217,6 @@ export function createPendingRequest(
     id: request.id,
     messageType: messageType,
     chunks: new Map(),
-    receivedAcks: new Map(),
     totalChunks: chunkingResult.totalChunks,
     startTime,
     resolve,
@@ -310,35 +232,13 @@ export function createPendingRequest(
     const chunkInfo: ChunkInfo = {
       chunkRequest: chunk,
       chunkNumber,
-      retryCount: 0,
-      lastSentAt: Date.now(),
-      acknowledged: false
+      sentAt: Date.now()
     };
     
     pendingRequest.chunks.set(chunkNumber, chunkInfo);
   }
   
   return pendingRequest;
-}
-
-/**
- * Create ACK response for a received chunk
- * @param responseChunk - The response chunk to acknowledge
- * @returns WebRTCAckResponse to send back
- */
-export function createAckForResponseChunk(responseChunk: WebRTCApiResponse): WebRTCAckResponse {
-  const ackBody = {
-    timestamp: Date.now(),
-    chunk: responseChunk.response.currentChunk
-  };
-  
-  const checksum = calculateChecksum(JSON.stringify(ackBody));
-  
-  return {
-    checksum,
-    id: responseChunk.id,
-    body: ackBody
-  };
 }
 
 /**
@@ -383,28 +283,20 @@ export function reassembleChunkedResponse(receivedChunks: Map<number, ReceivedRe
   // Concatenate all chunk bodies
   let reassembledBody = '';
   for (const chunkInfo of sortedChunks) {
-    const chunkBody = chunkInfo.responseChunk.response.body || '';
+    const chunkBody = chunkInfo.responseChunk.body || '';
     reassembledBody += chunkBody;
   }
   
-  // Create the complete response
+  // Create the complete response (flat structure)
   const completeResponse: WebRTCApiResponse = {
-    checksum: baseResponse.checksum, // We'll validate this later
     id: baseResponse.id,
-    messageType: baseResponse.messageType,
-    response: {
-      timestamp: baseResponse.response.timestamp,
-      totalChunks: 1, // Reset to indicate it's now a single complete response
-      currentChunk: 1, // Reset to indicate it's now a single complete response
-      statusCode: baseResponse.response.statusCode,
-      headers: baseResponse.response.headers,
-      body: reassembledBody
-    }
+    timestamp: baseResponse.timestamp,
+    totalChunks: 1, // Reset to indicate it's now a single complete response
+    currentChunk: 1, // Reset to indicate it's now a single complete response
+    statusCode: baseResponse.statusCode,
+    headers: baseResponse.headers,
+    body: reassembledBody
   };
-  
-  // Recalculate checksum for the complete response
-  completeResponse.checksum = calculateChecksum(JSON.stringify(completeResponse.response));
   
   return completeResponse;
 }
-
