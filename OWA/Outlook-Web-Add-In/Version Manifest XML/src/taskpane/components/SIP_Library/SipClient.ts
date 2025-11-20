@@ -9,10 +9,16 @@
  * 
  * The SIP client handles the complete call flow:
  * 1. WebSocket connection establishment to SIP server
- * 2. SIP registration process
- * 3. Connection establishment and role negotiation
- * 4. WebRTC peer-to-peer connection setup
+ * 2. SIP registration process (REGISTER → OK → ACK)
+ * 3. Connection establishment (NOTIFY4 → ACK5 → NOTIFY6)
+ * 4. WebRTC SDP Exchange - OWA always creates offer (SERVICE1 → SERVICE2)
  * 5. Data channel communication between peers
+ * 
+ * Simplified Protocol (v2.0):
+ * - Removed SDP Assignment phase (NOTIFY1, ACK2, ACK3)
+ * - OWA always acts as OFFERER (sends SDP Offer)
+ * - Server always acts as ANSWERER (sends SDP Answer)
+ * - Direct transition from NOTIFY6 to SERVICE1
  * 
  * Key Features:
  * - Centralized SIP client initialization
@@ -22,12 +28,11 @@
  * - Returns handle to all components for external control
  * 
  * @author AdvokatConnect Development Team
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 import { Registration, RegistrationState } from './Registration';
 import { EstablishingConnection, ConnectionState } from './EstablishingConnection';
-import { SdpAssignment, SdpAssignmentState } from './SdpAssignment';
 import { Peer2PeerConnection } from './Peer2PeerConnection';
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
@@ -42,7 +47,6 @@ let fromTag = "";
 export interface SipClientInstance {
     registration: Registration;
     connection: EstablishingConnection;
-    sdpAssignment: SdpAssignment;
     peer2peer: Peer2PeerConnection;
     socket: WebSocket;
     timeoutManager: TimeoutManager;
@@ -77,7 +81,6 @@ export function initializeSipClient(): SipClientInstance {
     // Initialize all SIP component instances
     const registrationObj = new Registration(timeoutManager);
     const establishingConnectionObject = new EstablishingConnection(timeoutManager);
-    const sdpAssignmentObject = new SdpAssignment();
     const peer2PeerConnectionObject = new Peer2PeerConnection();
     
     // Set up callback for EstablishingConnection to query PeerRegistrationTimeout remaining time
@@ -169,15 +172,6 @@ export function initializeSipClient(): SipClientInstance {
                     registrationObj.toDisplayName,
                     timeoutConfig.connection  // Pass ConnectionTimeout from server
                 );
-                
-                // Also update SDP Assignment with registration data
-                sdpAssignmentObject.updateData(
-                    registrationObj.tag,
-                    registrationObj.callId,
-                    registrationObj.branch,
-                    registrationObj.fromDisplayName,
-                    registrationObj.toDisplayName
-                );
             }
         }
         
@@ -194,8 +188,33 @@ export function initializeSipClient(): SipClientInstance {
             
             // Check if connection establishment completed (NOTIFY6 received)
             if (establishingConnectionObject.getState() === ConnectionState.COMPLETE) {
-                logger.log('✅ [SIPCLIENT] Connection Establishment completed - transitioning to SDP Assignment phase');
+                logger.log('✅ [SIPCLIENT] Connection Establishment completed - transitioning to WebRTC phase');
+                logger.log('📤 [SIPCLIENT] OWA always creates SDP Offer - creating offer immediately');
                 establishingConnectionObject.isEstablishingConnectionProcessFinished = true;
+                
+                // OWA always acts as OFFERER - create and send SDP offer immediately
+                if (!peer2PeerConnectionObject.isOfferSent) {
+                    // Extract Call-ID from current message (will be in the NOTIFY6)
+                    const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
+                    const m = data.match(reCallId);
+                    const callId = m ? m[1] : '';
+                    
+                    // Swap From and To from NOTIFY6 for SERVICE message
+                    const fromLineMatch = data.match(/^From:.*$/m);
+                    const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+                    const toLine = fromLine.replace(/^From:/i, 'To:');
+                    
+                    logger.log('📤 [SIPCLIENT] Creating SDP Offer with Call-ID: ' + callId);
+                    logger.log('📤 [SIPCLIENT] To Line: ' + toLine);
+                    
+                    await peer2PeerConnectionObject.createAndSendOffer(
+                        socket,
+                        callId,
+                        establishingConnectionObject.sipUri,
+                        establishingConnectionObject.tag,
+                        toLine
+                    );
+                }
             }
             
             // Check for connection phase failure
@@ -264,83 +283,19 @@ export function initializeSipClient(): SipClientInstance {
             }
         }
         
-        // Phase 2.5: Handle SDP Assignment Process (after connection establishment, before WebRTC)
-        if (establishingConnectionObject.isEstablishingConnectionProcessFinished &&
-            !sdpAssignmentObject.isAssignmentComplete) {
-            
-            const request = sdpAssignmentObject.parseMessage(data);
-            if (request) {
-                socket.send(request);
-                logger.log('📤 [SIPCLIENT] Sent response from SDP assignment handler');
-                logger.log(request);
-            }
-            
-            // Check if SDP assignment completed
-            if (sdpAssignmentObject.getState() === SdpAssignmentState.ASSIGNMENT_COMPLETE) {
-                logger.log('✅ [SIPCLIENT] SDP Assignment completed - transitioning to WebRTC phase');
-                logger.log(`📋 [SIPCLIENT] Connection Type: ${sdpAssignmentObject.connectionType}`);
-                
-                // If this peer is OFFERER, immediately create and send offer
-                if (sdpAssignmentObject.connectionType === "OFFER" && !peer2PeerConnectionObject.isOfferSent) {
-                    logger.log('📤 [SIPCLIENT] This peer is OFFERER - creating SDP offer immediately');
-                    
-                    // Extract Call-ID from current message
-                    const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
-                    const m = data.match(reCallId);
-                    const callId = m ? m[1] : '';
-                    
-                    await peer2PeerConnectionObject.createAndSendOffer(
-                        socket, 
-                        callId,
-                        sdpAssignmentObject.sipUri,
-                        sdpAssignmentObject.tag,
-                        sdpAssignmentObject.toLineReplaced
-                    );
-                }
-            }
-            
-            // Check for SDP assignment failure
-            if (sdpAssignmentObject.getState() === SdpAssignmentState.FAILED) {
-                logger.log(`❌ [SIPCLIENT] SDP Assignment failed: ${sdpAssignmentObject.getLastError()}`);
-                // Could implement retry logic here if needed
-            }
-        }
-        
         // Phase 3: Handle WebRTC SDP Exchange (SERVICE messages)
-        if (sdpAssignmentObject.isAssignmentComplete) {
+        // OWA always sends offer (CSeq: 1), server always sends answer (CSeq: 2)
+        if (establishingConnectionObject.isEstablishingConnectionProcessFinished) {
             
-            // If this peer is designated as ANSWERER, wait for SERVICE offer
-            if (sdpAssignmentObject.connectionType === "ANSWER") {
-                if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
-                    const cseqMatch = data.match(/CSeq:\s*(\d+)/);
-                    const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
-                    
-                    // SERVICE CSeq: 4 is the SDP Offer from the offering peer
-                    if (cseq === 4) {
-                        logger.log('📥 [SIPCLIENT] Received SERVICE offer (CSeq: 4) - creating answer');
-                        await peer2PeerConnectionObject.parseServiceIncoming(
-                            data, 
-                            socket,
-                            sdpAssignmentObject.sipUri,
-                            sdpAssignmentObject.tag
-                        );
-                    }
-                }
-            }
-            
-            // If this peer is OFFERER and sent the offer, process incoming answer
-            if (sdpAssignmentObject.connectionType === "OFFER" &&
-                peer2PeerConnectionObject.isOfferSent) {
+            // Process incoming SERVICE answer from server (CSeq: 2)
+            if (peer2PeerConnectionObject.isOfferSent && /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
+                const cseqMatch = data.match(/CSeq:\s*(\d+)/);
+                const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
                 
-                if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
-                    const cseqMatch = data.match(/CSeq:\s*(\d+)/);
-                    const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
-                    
-                    // SERVICE CSeq: 5 is the SDP Answer from the answering peer
-                    if (cseq === 5) {
-                        logger.log('📥 [SIPCLIENT] Received SERVICE answer (CSeq: 5) - processing');
-                        await peer2PeerConnectionObject.parseIncomingAnswer(data);
-                    }
+                // SERVICE CSeq: 2 is the SDP Answer from the server
+                if (cseq === 2) {
+                    logger.log('📥 [SIPCLIENT] Received SERVICE answer (CSeq: 2) - processing');
+                    await peer2PeerConnectionObject.parseIncomingAnswer(data);
                 }
             }
         }
@@ -425,7 +380,6 @@ export function initializeSipClient(): SipClientInstance {
     return {
         registration: registrationObj,
         connection: establishingConnectionObject,
-        sdpAssignment: sdpAssignmentObject,
         peer2peer: peer2PeerConnectionObject,
         socket,
         timeoutManager,

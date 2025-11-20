@@ -5,23 +5,27 @@
  * between SIP clients. It handles the complete WebRTC negotiation process including
  * SDP (Session Description Protocol) offer/answer exchange and ICE candidate gathering.
  * 
+ * Protocol Flow:
+ * - OWA Client: Always acts as OFFERER (creates SDP Offer, CSeq: 1)
+ * - Server: Always acts as ANSWERER (creates SDP Answer, CSeq: 2)
+ * 
  * The P2P connection process involves:
- * 1. Creating WebRTC peer connections with appropriate configuration
- * 2. Setting up data channels for direct peer-to-peer communication
- * 3. Handling SDP offer creation and answer processing
- * 4. Managing ICE candidate gathering and exchange
- * 5. Establishing secure data channels for message exchange
+ * 1. OWA creates WebRTC peer connection and data channel
+ * 2. OWA creates and sends SDP offer (SERVICE CSeq: 1)
+ * 3. Server receives offer, creates answer, sends back (SERVICE CSeq: 2)
+ * 4. OWA processes answer and establishes connection
+ * 5. Data channel opens for bidirectional communication
  * 
  * Key Features:
  * - WebRTC peer connection management
- * - SDP offer/answer creation and processing
+ * - SDP offer creation (OWA only)
  * - Data channel setup and message handling
  * - ICE candidate gathering and state management
  * - SIP message formatting for WebRTC negotiation
  * - Bidirectional data channel communication
  * 
  * @author AdvokatConnect Development Team
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 import { logger } from './Helper';
@@ -212,9 +216,9 @@ export class Peer2PeerConnection {
             toLine + '\r\n' + 
             'From: "macc" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
             'Call-ID: ' + callId + '\r\n' +
-            'CSeq: 5 SERVICE\r\n' +
+            'CSeq: 2 SERVICE\r\n' +
             'Expires: 300\r\n' +
-            'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
+            'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n'
             'Supported: path,gruu,outbound\r\n' +
             'User-Agent: JsSIP 3.10.0\r\n' +
             'Content-Type: application/sdp\r\n' +
@@ -289,7 +293,11 @@ export class Peer2PeerConnection {
                 const offerSDP = JSON.stringify(this.pc.localDescription);
                 const offerMsg = this.sendSdpOffer(offerSDP, callId, sipUri, tag, toLine, branch);
                 if (socket && socket.readyState === WebSocket.OPEN) {
+                    logger.log('📤 [PEER2PEER] Sending SDP Offer via WebSocket');
                     socket.send(offerMsg);
+                    logger.log('✅ [PEER2PEER] SDP Offer sent successfully');
+                } else {
+                    logger.log("❌ [PEER2PEER] WebSocket is not available or not open - cannot send offer");
                 }
             }
         };
@@ -321,7 +329,7 @@ export class Peer2PeerConnection {
             toLine + '\r\n' +
             'From: "macc" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
             'Call-ID: ' + callId + '\r\n' +
-            'CSeq: 4 SERVICE\r\n' +
+            'CSeq: 1 SERVICE\r\n' +
             'Expires: 300\r\n' +
             'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
             'Supported: path,gruu,outbound\r\n' +
@@ -338,7 +346,7 @@ export class Peer2PeerConnection {
      * @param data - The SIP message containing SDP answer
      */
     async parseIncomingAnswer(data: string): Promise<void> {
-        if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) && /CSeq:\s*5 SERVICE/.test(data)) {
+        if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) && /CSeq:\s*2 SERVICE/.test(data)) {
             const sdpBlockMatch = data.match(/(\{[\s\S]*?"sdp"[\s\S]*?\})/m);
             if (sdpBlockMatch) {
                 try {

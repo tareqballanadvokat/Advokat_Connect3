@@ -228,7 +228,7 @@ export class EstablishingConnection {
      * NOTIFY6 marks the end of the connection establishment phase
      * No ACK response is needed - NOTIFY6 is just an end marker
      * Cancels both ConnectionTimeout and PeerRegistrationTimeout
-     * Transitions to COMPLETE - ready for SDP Assignment phase
+     * Transitions to COMPLETE - ready for WebRTC SDP Exchange
      * 
      * @param _data - NOTIFY message (unused, keeping for signature consistency)
      * @returns undefined (no response needed)
@@ -245,7 +245,8 @@ export class EstablishingConnection {
         
         this.connectionState = ConnectionState.COMPLETE;
         
-        logger.log("🏁 [CONNECTION] Connection establishment COMPLETE - Ready for SDP Assignment phase");
+        logger.log("🏁 [CONNECTION] Connection establishment COMPLETE - Ready for WebRTC SDP Exchange");
+        logger.log("🏁 [CONNECTION] OWA will create SDP Offer immediately (SERVICE CSeq: 1)");
         return undefined;
     }
     
