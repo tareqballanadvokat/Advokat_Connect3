@@ -12,7 +12,6 @@ import { TransferAttachmentItem, DokumentPostData, DokumentArt } from '@componen
 import { getDokumentArt } from '@components/interfaces/IEmail';
 import { AktLookUpResponse } from '@components/interfaces/IAkten';
 import { LeistungPostData } from '@components/interfaces/IService';
-import { webRTCApiService } from '../../../services/webRTCApiService';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
@@ -20,6 +19,8 @@ import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { setSelectedAkt } from '@store/slices/aktenSlice';
+import { saveDokumentAsync } from '@store/slices/emailSlice';
+import { saveLeistungAsync } from '@store/slices/serviceSlice';
 
 const EmailTabContent: React.FC = () => {
   // Get Redux dispatch function
@@ -109,21 +110,10 @@ const EmailTabContent: React.FC = () => {
           sbZeitNichtVerrechenbarInMinuten: 0
         };
         
-        // Check if WebRTC connection is ready
-        if (!webRTCApiService.isReady()) {
-          notify('WebRTC connection not available. Please ensure connection is established.', 'warning', 5000);
-          return;
-        }
-        
-        // Send Leistung to API via WebRTC
-        const leistungResponse = await webRTCApiService.saveLeistung(leistungPayload);
-        
-        if (leistungResponse.statusCode >= 200 && leistungResponse.statusCode < 300) {
-          console.log('✅ Leistung saved successfully');
-          notify('Service saved successfully', 'success', 3000);
-        } else {
-          throw new Error('Failed to save service');
-        }
+        // Send Leistung to API via WebRTC using Redux thunk
+        await dispatch(saveLeistungAsync(leistungPayload)).unwrap();
+        console.log('✅ Leistung saved successfully');
+        notify('Service saved successfully', 'success', 3000);
       } else {
         console.log('⚠️ No service selected, skipping Leistung save');
       }
@@ -161,15 +151,10 @@ const EmailTabContent: React.FC = () => {
           ordnerName: getFolderName(firstE)
         };
         
-        // Save email document via WebRTC
-        const emailResponse = await webRTCApiService.saveDokument(emailDokument);
-        
-        if (emailResponse.statusCode >= 200 && emailResponse.statusCode < 300) {
-          console.log('✅ Email document saved successfully');
-          notify('Email saved successfully', 'success', 3000);
-        } else {
-          throw new Error(emailResponse.body || 'Failed to save email document');
-        }
+        // Save email document via WebRTC using Redux thunk
+        await dispatch(saveDokumentAsync(emailDokument)).unwrap();
+        console.log('✅ Email document saved successfully');
+        notify('Email saved successfully', 'success', 3000);
       }
       else {
         console.log('⚠️ No email selected, skipping Email save');
@@ -212,14 +197,9 @@ const EmailTabContent: React.FC = () => {
               ordnerName: getFolderName(attachment)
             };
             
-            // Save attachment document via WebRTC
-            const attachmentResponse = await webRTCApiService.saveDokument(attachmentDokument);
-            
-            if (attachmentResponse.statusCode >= 200 && attachmentResponse.statusCode < 300) {
-              console.log(`✅ Attachment '${attachment.name}' saved successfully`);
-            } else {
-              throw new Error(attachmentResponse.body || `Failed to save attachment '${attachment.name}'`);
-            }
+            // Save attachment document via WebRTC using Redux thunk
+            await dispatch(saveDokumentAsync(attachmentDokument)).unwrap();
+            console.log(`✅ Attachment '${attachment.name}' saved successfully`);
           } catch (attachmentError) {
             console.error(`Failed to save attachment '${attachment.name}':`, attachmentError);
             notify(`Failed to save attachment '${attachment.name}'`, 'warning', 4000);
