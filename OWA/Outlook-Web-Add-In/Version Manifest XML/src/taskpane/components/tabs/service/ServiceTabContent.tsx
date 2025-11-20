@@ -4,10 +4,10 @@ import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '../shared/ServiceSection';
 import SearchCaseList from '../shared/SearchCaseList';
 import { setSelectedAkt } from '@store/slices/aktenSlice';
+import { saveLeistungAsync } from '@store/slices/serviceSlice';
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 import { LeistungPostData } from '@components/interfaces/IService';
 import { AktLookUpResponse } from '@components/interfaces/IAkten';
-import { webRTCApiService } from '../../../services/webRTCApiService';
 import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
 import ServiceSend from './ServiceSend';
@@ -71,22 +71,11 @@ const ServiceTabContent: React.FC = () => {
         sbZeitNichtVerrechenbarInMinuten: 0
       };
       
-      // Check if WebRTC connection is ready
-      if (!webRTCApiService.isReady()) {
-        notify('WebRTC connection not available. Please ensure connection is established.', 'warning', 5000);
-        return;
-      }
-      
-      // Send to API via WebRTC
-      const response = await webRTCApiService.saveLeistung(payload);
-      
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        notify('Service saved successfully', 'success', 3000);
-        // Trigger refresh
-        setRefreshFlag(f => f + 1);
-      } else {
-        throw new Error('Failed to save service');
-      }
+      // Send to API via WebRTC using Redux thunk
+      await dispatch(saveLeistungAsync(payload)).unwrap();
+      notify('Service saved successfully', 'success', 3000);
+      // Trigger refresh
+      setRefreshFlag(f => f + 1);
       
     } catch (error) {
       console.error('Failed to save service:', error);
