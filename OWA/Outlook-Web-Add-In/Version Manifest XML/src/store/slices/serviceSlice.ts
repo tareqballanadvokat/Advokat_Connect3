@@ -1,6 +1,6 @@
 // src/store/slices/serviceSlice.ts
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { LeistungenAuswahlQuery, LeistungAuswahlResponse } from '../../taskpane/components/interfaces/IService';
+import { LeistungenAuswahlQuery, LeistungAuswahlResponse, LeistungPostData } from '../../taskpane/components/interfaces/IService';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 
 interface ServiceState {
@@ -14,6 +14,10 @@ interface ServiceState {
   services: LeistungAuswahlResponse[];
   servicesLoading: boolean;
   servicesError: string | null;
+  
+  // Save Leistung state
+  saveLeistungLoading: boolean;
+  saveLeistungError: string | null;
 }
 
 // Initial state
@@ -28,6 +32,10 @@ const initialState: ServiceState = {
   services: [],
   servicesLoading: false,
   servicesError: null,
+  
+  // Save Leistung state
+  saveLeistungLoading: false,
+  saveLeistungError: null,
 };
 
 export const loadServicesAsync = createAsyncThunk(
@@ -41,6 +49,22 @@ export const loadServicesAsync = createAsyncThunk(
       return JSON.parse(response.body || '[]') as LeistungAuswahlResponse[];
     } else {
       throw new Error('Failed to load services');
+    }
+  }
+);
+
+// Async thunk for saving Leistung via WebRTC
+export const saveLeistungAsync = createAsyncThunk(
+  'service/saveLeistung',
+  async (leistungData: LeistungPostData) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    const response = await webRTCApiService.saveLeistung(leistungData);
+    
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response;
+    } else {
+      throw new Error(response.body || 'Failed to save service');
     }
   }
 );
@@ -85,6 +109,9 @@ const serviceSlice = createSlice({
       state.servicesError = null;
       state.selectedServiceId = 0; // Also clear selected service
     },
+    clearSaveLeistungError: (state) => {
+      state.saveLeistungError = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -100,6 +127,18 @@ const serviceSlice = createSlice({
       .addCase(loadServicesAsync.rejected, (state, action) => {
         state.servicesLoading = false;
         state.servicesError = action.error.message || 'Failed to load services';
+      })
+      .addCase(saveLeistungAsync.pending, (state) => {
+        state.saveLeistungLoading = true;
+        state.saveLeistungError = null;
+      })
+      .addCase(saveLeistungAsync.fulfilled, (state) => {
+        state.saveLeistungLoading = false;
+        state.saveLeistungError = null;
+      })
+      .addCase(saveLeistungAsync.rejected, (state, action) => {
+        state.saveLeistungLoading = false;
+        state.saveLeistungError = action.error.message || 'Failed to save service';
       });
   },
 });
@@ -112,6 +151,7 @@ export const {
   resetServiceData,
   setServiceData,
   clearServices,
+  clearSaveLeistungError,
 } = serviceSlice.actions;
 
 export default serviceSlice.reducer;

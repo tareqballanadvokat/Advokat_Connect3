@@ -26,23 +26,6 @@ export class Helper {
     }
     
     /**
-     * Converts a Blob object to a string using XMLHttpRequest
-     * Note: This method uses synchronous XMLHttpRequest which is deprecated.
-     * Use the async alternative: blob.text()
-     * @param b - The Blob to convert
-     * @returns The string representation of the blob
-     * @deprecated Use blobToStringAsync instead
-     */
-    blobToString(b: Blob): string {
-        const u = URL.createObjectURL(b);
-        const x = new XMLHttpRequest();
-        x.open('GET', u, false); // Synchronous request - consider making async
-        x.send();
-        URL.revokeObjectURL(u);
-        return x.responseText;
-    }
-    
-    /**
      * Modern async alternative to blobToString
      * @param b - The Blob to convert
      * @returns Promise that resolves to the string representation
