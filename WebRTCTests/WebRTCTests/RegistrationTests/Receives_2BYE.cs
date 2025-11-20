@@ -8,6 +8,7 @@ using Advokat.WebRTC.Library.SIP;
 
 namespace SIPClientTests.RegistrationTests
 {
+    [Collection("Sequential")]
     public class Receives_2BYE
     {
         [Fact]

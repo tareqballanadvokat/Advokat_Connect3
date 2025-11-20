@@ -2,16 +2,39 @@
 using WebRTCClient.Transactions.SIP.Interfaces;
 using Advokat.WebRTC.Library.SIP.Interfaces;
 using Advokat.WebRTC.Library.SIP.Models;
+using Microsoft.Extensions.Logging;
 
 namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 {
     internal class SIPRegistrationTransaction_Unregistering_Possible : ISIPRegistrationTransaction
     {
+        public SIPRegistrationTransaction_Unregistering_Possible()
+        {
+        }
+
+        public SIPRegistrationTransaction_Unregistering_Possible(TransactionParams transactionParams)
+        {
+            this.Params = transactionParams;
+            this.Connection ??= new SIPConnection_Does_Nothing();
+        }
+
+        public SIPRegistrationTransaction_Unregistering_Possible(ISIPConnection connection, TransactionParams dialogParams, ILoggerFactory loggerFactory)
+            : this(dialogParams)
+        {
+            this.Connection = connection;
+
+            this.Params.SourceTag = CallProperties.CreateNewTag();
+            this.Params.RemoteTag = CallProperties.CreateNewTag();
+            this.Params.CallId = CallProperties.CreateNewTag();
+        }
+
+        public TransactionParams? PassedInCreated { get; set; }
+
         public bool Registered { get; set; } = true;
 
-        public ISIPConnection Connection => throw new NotImplementedException();
+        public ISIPConnection Connection { get; set;}
 
-        public TransactionParams Params => throw new NotImplementedException();
+        public TransactionParams Params { get; }
 
         public int SendTimeout { get; set; }
 
@@ -19,7 +42,7 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public bool Running => throw new NotImplementedException();
 
-        public int CurrentCseq => 0;
+        public int CurrentCseq => 4;
 
         public int StartCseq { get => 4; set => throw new NotImplementedException(); }
 
@@ -36,6 +59,21 @@ namespace SIPClientTests.SIPConnectionTests.Mocks.Transactions
 
         public async Task Start(CancellationToken? ct = null)
         {
+            if (this.PassedInCreated == null)
+            {
+                return;
+            }
+
+            // Updates SIPDialogParams to the passed ones
+            this.PassedInCreated.SourceParticipant.Name = this.Params.SourceParticipant.Name;
+            this.PassedInCreated.SourceParticipant.Endpoint = this.Params.SourceParticipant.Endpoint;
+            this.PassedInCreated.SourceTag = this.Params.SourceTag;
+
+            this.PassedInCreated.RemoteParticipant.Name = this.Params.RemoteParticipant.Name;
+            this.PassedInCreated.RemoteParticipant.Endpoint = this.Params.RemoteParticipant.Endpoint;
+            this.PassedInCreated.RemoteTag = this.Params.RemoteTag;
+
+            this.PassedInCreated.CallId = this.Params.CallId;
         }
 
         public async Task Stop()

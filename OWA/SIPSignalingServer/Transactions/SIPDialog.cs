@@ -197,7 +197,7 @@ namespace SIPSignalingServer.Transactions
                 this.Config.ConnectionTimeout,
                 this.Ct,
                 // TODO: interval?
-                successCallback: this.StartICENegotiation,
+                successCallback: this.ConnectionEstablished,
                 timeoutCallback: this.SIPConnectionTransaction.Stop,
                 cancellationCallback: this.Stop
                 );
@@ -225,27 +225,34 @@ namespace SIPSignalingServer.Transactions
             this.SIPConnectionTransaction.TransactionStopped += this.ConnectionTransactionStopped;
         }
 
-
-        // TODO: Move to Signaling server. Outside of this class.
-        private async Task StartICENegotiation()
+        private async Task ConnectionEstablished()
         {
-            if (this.Connected)
-            {
-                SIPTunnel? tunnel = this.ConnectionPool.GetConnection(this.SIPConnectionTransaction.Params);
-                if (tunnel == null)
-                {
-                    // not connected
-                    return;
-                }
-
-                if (tunnel.Left.Params == this.SIPConnectionTransaction.Params)
-                {
-                    // only start negotiation once per connection
-                    ICENegotiation iceNegotiation = new ICENegotiation(tunnel, this.loggerFactory);
-                    await iceNegotiation.Start();
-                }
-            }
+            // TODO: Info could be sensitive if we use names as credentials.
+            this.logger.LogInformation("SIP Connection established. {caller} - {remote}",
+                this.Params.SourceParticipant.Name,
+                this.Params.RemoteParticipant.Name);
         }
+
+        //// TODO: Move to Signaling server. Outside of this class.
+        //private async Task StartICENegotiation()
+        //{
+        //    if (this.Connected)
+        //    {
+        //        SIPTunnel? tunnel = this.ConnectionPool.GetConnection(this.SIPConnectionTransaction.Params);
+        //        if (tunnel == null)
+        //        {
+        //            // not connected
+        //            return;
+        //        }
+
+        //        if (tunnel.Left.Params == this.SIPConnectionTransaction.Params)
+        //        {
+        //            // only start negotiation once per connection
+        //            ICENegotiation iceNegotiation = new ICENegotiation(tunnel, this.loggerFactory);
+        //            await iceNegotiation.Start();
+        //        }
+        //    }
+        //}
 
         protected override void StopRunning()
         {

@@ -11,6 +11,7 @@ using WebRTCClient.Utils;
 
 namespace WebRTCIntegrationTests
 {
+    [Collection("Sequential")]
     public class DirectConnection
     {
         private List<string> ReceivedMessagesByCaller = [];
@@ -19,6 +20,9 @@ namespace WebRTCIntegrationTests
         [Fact]
         public async Task Can_Connect()
         {
+            // Fails sometimes for inexplicable reasons.
+            // TODO: Find out why and fix that
+
             IPEndPoint signalingServerEndpoint = new IPEndPoint(IPAddress.Loopback, 8081);
 
             SignalingServerOptions options = new SignalingServerOptions();
@@ -50,11 +54,13 @@ namespace WebRTCIntegrationTests
 
             WebRTCPeer caller = new(
                 callerParams,
+                isOffering: true,
                 iceServers: [], // we use the host ice candidate here
                 NullLoggerFactory.Instance);
 
             WebRTCPeer remote = new(
                 remoteParams,
+                isOffering: false,
                 iceServers:[], // we use the host ice candidate here
                 NullLoggerFactory.Instance);
 
@@ -65,7 +71,7 @@ namespace WebRTCIntegrationTests
             _ = Task.Run(remote.Connect);
 
             // Some time for the clients to connect
-            await Task.Delay(500); // cutoff point is 250. It always fails below that. 300 is fine most of the time
+            await Task.Delay(700); // cutoff point is ~470. It always fails below that. 700 is fine most of the time
 
             Assert.True(caller.IsConnected);
             Assert.True(remote.IsConnected);
