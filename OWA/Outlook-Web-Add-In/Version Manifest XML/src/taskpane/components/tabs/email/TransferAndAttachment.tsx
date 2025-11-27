@@ -122,12 +122,18 @@ const TransferAndAttachment: React.FC = () => {
 
         // Get messageId for email row
         const messageId = await getInternetMessageIdAsync(email);
-        console.log('saved docs', savedDocuments);
-        // Find saved email document (if any)
-        const savedEmailDoc = savedDocuments.find(doc => 
-          doc.dokumentArt === DokumentArt.MailEmpfangen || 
-          doc.dokumentArt === DokumentArt.MailGesendet
-        );
+        console.log('📧 Current email messageId:', messageId);
+        console.log('📄 Saved documents:', savedDocuments);
+        
+        // Find saved email document by matching outlookEmailId
+        const savedEmailDoc = savedDocuments.find(doc => {
+          // Check if this document has an outlookEmailId that matches the current email
+          const hasMatchingId = doc.outlookEmailId && doc.outlookEmailId === messageId;
+
+          console.log(`🔍 Checking doc ${doc.id}: outlookEmailId=${doc.outlookEmailId},  matches=${hasMatchingId}`);
+          
+          return hasMatchingId;
+        });
 
         const newEmailRow: TransferAttachmentItem = {
           label: emailSubject,
@@ -155,10 +161,21 @@ const TransferAndAttachment: React.FC = () => {
         // Step 2: Create attachment items
         const attachmentItems: TransferAttachmentItem[] = emailAttachments.map(att => {
           // Find if this attachment is already saved
-          const savedAttachmentDoc = savedDocuments.find(doc => 
-            doc.dokumentArt === DokumentArt.Keine && 
-            (doc.dateipfad?.includes(att.name) || doc.betreff?.includes(att.name))
-          );
+          // Match by outlookEmailId (email context) and attachment name
+          const savedAttachmentDoc = savedDocuments.find(doc => {
+            // Must be a file attachment (not an email)
+            const isAttachment = doc.dokumentArt === DokumentArt.Keine;
+            // Must belong to the same email (via outlookEmailId)
+            const belongsToThisEmail = doc.outlookEmailId && doc.outlookEmailId === messageId;
+            // Must match the attachment name
+            const nameMatches = doc.dateipfad?.includes(att.name) || 
+                               doc.betreff?.includes(att.name) || 
+                               doc.fileName?.includes(att.name);
+            
+            console.log(`🔍 Checking attachment "${att.name}" against doc ${doc.id}: isAttachment=${isAttachment}, belongsToThisEmail=${belongsToThisEmail}, nameMatches=${nameMatches}`);
+            
+            return isAttachment && belongsToThisEmail && nameMatches;
+          });
 
           const attachmentItem: TransferAttachmentItem = {
             id: att.id,

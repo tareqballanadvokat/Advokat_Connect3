@@ -65,30 +65,56 @@ function getInternetMessageId(item: OfficeItem): Promise<string> {
 export function getInternetMessageIdAsync(item: any): Promise<string> {
   return new Promise((resolve, reject) => {
     const isCompose = typeof item.body.setAsync === "function";
+    console.log('🔍 getInternetMessageIdAsync - isCompose:', isCompose);
 
     if (isCompose) {
-      // Compose mode – trzeba pobrać itemId asynchronicznie
+      // Compose mode – use itemId as temporary unique identifier
+      console.log('📧 In compose mode, getting itemId...');
       item.getItemIdAsync((res: Office.AsyncResult<string>) => {
         if (res.status === Office.AsyncResultStatus.Succeeded) {
-          resolve(res.value); // Tymczasowe ID, unikalne w tej sesji
+          console.log('✅ Compose mode itemId:', res.value);
+          resolve(res.value);
         } else {
+          console.error('❌ Failed to get itemId in compose mode:', res.error.message);
           reject(new Error("Failed to get itemId in compose mode: " + res.error.message));
         }
       });
     } else {
-      // Read mode – można użyć internetMessageId z nagłówków
-      item.getAllInternetHeadersAsync((res: Office.AsyncResult<string>) => {
-        if (res.status === Office.AsyncResultStatus.Succeeded) {
-          const match = res.value.match(/Message-ID:\s*(.+)/i);
-          if (match) {
-            resolve(match[1].trim());
+      // Read mode – use the internetMessageId property directly
+      console.log('📧 In read mode, getting internetMessageId property...');
+      
+      // Check if internetMessageId property is available (it's synchronous in read mode)
+      if (item.internetMessageId) {
+        let messageId = item.internetMessageId;
+        // Remove angle brackets if present (Message-ID is often wrapped in <>)
+        messageId = messageId.replace(/^<|>$/g, '');
+        console.log('✅ internetMessageId from property:', messageId);
+        resolve(messageId);
+      } else {
+        // Fallback to parsing headers if internetMessageId is not available
+        console.log('⚠️ internetMessageId property not available, falling back to headers...');
+        item.getAllInternetHeadersAsync((res: Office.AsyncResult<string>) => {
+          if (res.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('📥 Raw headers received (first 500 chars):', res.value.substring(0, 500));
+            // Match Message-ID header value, stopping at newline or carriage return
+            const match = res.value.match(/Message-ID:\s*([^\r\n]+)/i);
+            if (match) {
+              console.log('✅ Message-ID matched from headers:', match[1]);
+              // Remove angle brackets if present
+              let messageId = match[1].trim();
+              messageId = messageId.replace(/^<|>$/g, '');
+              console.log('✅ Final messageId (after cleanup):', messageId);
+              resolve(messageId);
+            } else {
+              console.error('❌ Missing Message-ID header');
+              reject(new Error("Missing Message-ID header."));
+            }
           } else {
-            reject(new Error("Missing Message-ID header."));
+            console.error('❌ Error downloading headers:', res.error.message);
+            reject(new Error("Error downloading headers: " + res.error.message));
           }
-        } else {
-          reject(new Error("Error downloading headers: " + res.error.message));
-        }
-      });
+        });
+      }
     }
   });
 }

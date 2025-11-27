@@ -721,7 +721,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'dokument.saveDokument',
       'POST', 
-      'api/v1.1/dokumente', 
+      'api/v2.0/dokumente', 
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -738,7 +738,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'dokument.getAvailableFolders',
       'GET',
-      `api/v1.1/dokumente/folders/${aktId}`,
+      `api/v2.0/dokumente/folders/${aktId}`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -763,7 +763,7 @@ export class WebRTCApiService {
     return this.sendRequest(
       'dokument.getDocuments',
       'GET',
-      `api/v1.1/dokumente?${queryParams.toString()}`,
+      `api/v2.0/dokumente?${queryParams.toString()}`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -780,7 +780,7 @@ export class WebRTCApiService {
     const response = await this.sendRequest(
       'dokument.getDocumentWithContent',
       'GET',
-      `api/v1.1/Dokumente/${dokumentId}/with-content`,
+      `api/v2.0/Dokumente/${dokumentId}/with-content`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
