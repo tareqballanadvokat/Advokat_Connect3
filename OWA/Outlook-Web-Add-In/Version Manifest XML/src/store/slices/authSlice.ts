@@ -5,8 +5,8 @@ import { IAuthState, IAuthCredentials, IAuthResponse } from '../../taskpane/comp
 const initialState: IAuthState = {
   credentials: {
     grant_type: 'password',
-    client_id: 'advokat.client.web',
-    client_secret: 'advokat',
+    client_id: 'TestClientId',
+    client_secret: 'TestClientId',
     username: 'JCH',
     password: '',
   },
