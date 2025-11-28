@@ -6,15 +6,7 @@ export interface AttachmentInfo {
   id: string;
   name: string;
 }
-// export interface Attachment
-// {
-//    id :string;
-//    originalFileName  :string;
-//    fileName  :string;
-//    contentBase64  :string;
-//    folder  :number;
-// } 
-// OfficeItem alias
+
 type OfficeItem = typeof Office.context.mailbox.item;
 
 
@@ -34,7 +26,6 @@ export function isComposeMode(item: OfficeItem): boolean {
   );
 }
 
-/** Pobiera temat wiadomości */
 export function getEmailSubjectAsync(): Promise<string> {
   if (!isComposeMode(Office.context.mailbox.item)) {
     return Promise.resolve(Office.context.mailbox.item.subject);

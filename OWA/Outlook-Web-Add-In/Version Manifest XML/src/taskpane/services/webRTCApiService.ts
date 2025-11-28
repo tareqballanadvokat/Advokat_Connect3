@@ -780,7 +780,7 @@ export class WebRTCApiService {
     const response = await this.sendRequest(
       'dokument.getDocumentWithContent',
       'GET',
-      `api/v2.0/Dokumente/${dokumentId}/with-content`,
+      `api/v2.0/Dokumente/${dokumentId}/download`,
       {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
