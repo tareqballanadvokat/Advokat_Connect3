@@ -49,6 +49,7 @@ export interface DokumentResponse {
   bearbeitungsInfoErstelltAm?: Date;
   bearbeitungsInfoBearbeitetVon?: string;
   bearbeitungsInfoBearbeitetAm?: Date;
+  outlookEmailId?: string; // Outlook email message ID for tracking saved items
   // Fields from /with-content endpoint
   inhalt?: string; // Base64 encoded file content
   contentType?: string; // MIME type of the file
