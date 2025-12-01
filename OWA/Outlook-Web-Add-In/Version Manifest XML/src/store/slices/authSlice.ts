@@ -125,7 +125,7 @@ export const selectAuthError = (state: { auth: IAuthState }) => state.auth.error
 // Helper selector to check if token is valid (not expired)
 export const selectIsTokenValid = (state: { auth: IAuthState }) => {
   const { token, expiresAt } = state.auth;
-  return token && expiresAt && Date.now() < expiresAt;
+  return !!(token && expiresAt && Date.now() < expiresAt);
 };
 
 export default authSlice.reducer;
