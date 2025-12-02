@@ -29,9 +29,22 @@
  */
 
 import { logger } from './Helper';
+import { TimeoutManager } from './TimeoutManager';
 
 // Type for message handler functions
 type MessageHandler = (event: MessageEvent) => Promise<void> | void;
+
+/**
+ * WebRTC SDP Exchange state machine enum
+ * Tracks the current state of the WebRTC offer/answer exchange
+ */
+export enum SdpExchangeState {
+    IDLE = "IDLE",                      // Initial state
+    OFFER_SENT = "OFFER_SENT",          // Offer sent, waiting for answer (RECEIVE_TIMEOUT active)
+    ANSWER_RECEIVED = "ANSWER_RECEIVED",// Answer received and processed
+    COMPLETE = "COMPLETE",              // WebRTC connection established
+    FAILED = "FAILED"                   // SDP exchange failed
+}
 
 // Message handler for incoming WebRTC DataChannel messages
 async function writeMessage(event: MessageEvent): Promise<void> {
@@ -64,6 +77,28 @@ export class Peer2PeerConnection {
     
     // Array of message handlers that will be called for each incoming message
     private messageHandlers: MessageHandler[] = [];
+    
+    // State machine and retry logic
+    private sdpExchangeState: SdpExchangeState = SdpExchangeState.IDLE;
+    private retryCount: number = 0;
+    private readonly MAX_RETRIES = 3;
+    private lastError: string = "";
+    
+    // Timeout management
+    private timeoutManager: TimeoutManager | null = null;
+    private receiveTimeout: number = 1000;  // Default 1s, will be updated from Registration
+    
+    // Stored offer parameters for retries
+    private lastOfferParams: {
+        socket: WebSocket;
+        callId: string;
+        sipUri: string;
+        tag: string;
+        toLine: string;
+    } | null = null;
+    
+    // Callback for sending CONNECTION BYE
+    public onSendConnectionBye: ((message: string) => void) | null = null;
     
     /**
      * Add a message handler that will be called for all incoming DataChannel messages
@@ -102,11 +137,60 @@ export class Peer2PeerConnection {
         }
     }
     
+    /**
+     * Update timeout manager and receive timeout value
+     * Called from SipClient after registration completes
+     */
+    updateConfiguration(timeoutManager: TimeoutManager, receiveTimeout: number): void {
+        this.timeoutManager = timeoutManager;
+        this.receiveTimeout = receiveTimeout;
+        logger.log(`[PEER2PEER] Updated configuration - ReceiveTimeout: ${receiveTimeout}ms`);
+    }
+    
+    /**
+     * Get current SDP exchange state
+     */
+    getState(): SdpExchangeState {
+        return this.sdpExchangeState;
+    }
+    
+    /**
+     * Get last error message
+     */
+    getLastError(): string {
+        return this.lastError;
+    }
+    
+    /**
+     * Reset for new attempt
+     */
+    reset(): void {
+        this.sdpExchangeState = SdpExchangeState.IDLE;
+        this.isOfferSent = false;
+        this.retryCount = 0;
+        this.lastError = "";
+        this.lastOfferParams = null;
+        
+        // Cancel any active timeouts
+        if (this.timeoutManager) {
+            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        }
+        
+        // Close existing peer connection and create new one
+        if (this.pc) {
+            this.pc.close();
+        }
+        this.pc = new RTCPeerConnection();
+        this.dataChannelPeer = undefined;
+        
+        logger.log('[PEER2PEER] Reset complete');
+    }
+    
 
 
     /**
      * Creates and sends WebRTC offer for establishing peer-to-peer connection
-     * This method is called when this peer needs to initiate the WebRTC negotiation
+     * Implements retry logic with RECEIVE_TIMEOUT
      * @param socket - WebSocket connection for sending offer
      * @param callId - SIP Call-ID
      * @param sipUri - SIP URI for this peer
@@ -114,8 +198,14 @@ export class Peer2PeerConnection {
      * @param toLine - Formatted To header line
      */
     async createAndSendOffer(socket: WebSocket, callId: string, sipUri: string, tag: string, toLine: string): Promise<void> {
+        // Store parameters for potential retries
+        this.lastOfferParams = { socket, callId, sipUri, tag, toLine };
+        
+        logger.log(`[PEER2PEER] Creating SDP Offer (attempt ${this.retryCount + 1}/${this.MAX_RETRIES})`);
+        
         this.isOfferSent = true;
-        const branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11); // Updated from deprecated substr
+        this.sdpExchangeState = SdpExchangeState.OFFER_SENT;
+        const branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
         
         // Create offer data channel
         this.dataChannelPeer = this.pc.createDataChannel("offer");
@@ -171,8 +261,13 @@ export class Peer2PeerConnection {
                     logger.log('📤 [PEER2PEER] Sending SDP Offer via WebSocket');
                     socket.send(offerMsg);
                     logger.log('✅ [PEER2PEER] SDP Offer sent successfully');
+                    
+                    // Start RECEIVE_TIMEOUT waiting for answer
+                    this.startReceiveTimeout();
                 } else {
                     logger.log("❌ [PEER2PEER] WebSocket is not available or not open - cannot send offer");
+                    this.lastError = "WebSocket not available";
+                    this.sdpExchangeState = SdpExchangeState.FAILED;
                 }
             }
         };
@@ -218,10 +313,17 @@ export class Peer2PeerConnection {
     
     /**
      * Parses incoming SDP answer and sets it as remote description
+     * Cancels RECEIVE_TIMEOUT on success
      * @param data - The SIP message containing SDP answer
      */
     async parseIncomingAnswer(data: string): Promise<void> {
         if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) && /CSeq:\s*2 SERVICE/.test(data)) {
+            // Cancel RECEIVE_TIMEOUT - we got the answer
+            if (this.timeoutManager) {
+                this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+                logger.log('⏱️ [PEER2PEER] Cancelled RECEIVE_TIMEOUT - answer received');
+            }
+            
             const sdpBlockMatch = data.match(/(\{[\s\S]*?"sdp"[\s\S]*?\})/m);
             if (sdpBlockMatch) {
                 try {
@@ -229,13 +331,109 @@ export class Peer2PeerConnection {
                     const sdpObj = JSON.parse(sdpBlock);
                     await this.pc.setRemoteDescription(new RTCSessionDescription(sdpObj));
                     logger.log("✅ [PEER2PEER] Remote SDP Answer set successfully");
+                    
+                    this.sdpExchangeState = SdpExchangeState.ANSWER_RECEIVED;
+                    this.retryCount = 0;  // Reset retry count on success
                 } catch (err) {
                     logger.log("❌ [PEER2PEER] SDP or WebRTC error: " + err);
+                    this.lastError = `SDP error: ${err}`;
+                    this.sdpExchangeState = SdpExchangeState.FAILED;
                 }
             } else {
                 logger.log("⚠️ [PEER2PEER] SDP block not found in SERVICE answer");
+                this.lastError = "SDP block not found in answer";
+                this.sdpExchangeState = SdpExchangeState.FAILED;
             }
         }
+    }
+    
+    /**
+     * Start RECEIVE_TIMEOUT waiting for SDP answer
+     */
+    private startReceiveTimeout(): void {
+        if (!this.timeoutManager) {
+            logger.log('⚠️ [PEER2PEER] TimeoutManager not configured - cannot start RECEIVE_TIMEOUT');
+            return;
+        }
+        
+        logger.log(`⏱️ [PEER2PEER] Starting RECEIVE_TIMEOUT (${this.receiveTimeout}ms) waiting for SDP answer`);
+        
+        this.timeoutManager.startTimer('RECEIVE_TIMEOUT', this.receiveTimeout, () => {
+            this.handleReceiveTimeout();
+        });
+    }
+    
+    /**
+     * Handle RECEIVE_TIMEOUT expiry (no answer received)
+     * Retry up to MAX_RETRIES times, then fail
+     */
+    private async handleReceiveTimeout(): Promise<void> {
+        logger.log(`⏱️ [PEER2PEER] RECEIVE_TIMEOUT expired - no answer received (attempt ${this.retryCount + 1}/${this.MAX_RETRIES})`);
+        
+        this.retryCount++;
+        
+        if (this.retryCount < this.MAX_RETRIES && this.lastOfferParams) {
+            // Retry: close old peer connection and create new offer
+            logger.log(`🔄 [PEER2PEER] Retrying SDP offer (attempt ${this.retryCount + 1}/${this.MAX_RETRIES})`);
+            
+            // Close existing peer connection
+            this.pc.close();
+            this.pc = new RTCPeerConnection();
+            this.dataChannelPeer = undefined;
+            
+            // Retry with same parameters
+            const { socket, callId, sipUri, tag, toLine } = this.lastOfferParams;
+            await this.createAndSendOffer(socket, callId, sipUri, tag, toLine);
+        } else {
+            // Max retries reached - fail
+            logger.log(`❌ [PEER2PEER] Max retries (${this.MAX_RETRIES}) reached - SDP exchange failed`);
+            this.lastError = `No answer received after ${this.MAX_RETRIES} attempts`;
+            this.sdpExchangeState = SdpExchangeState.FAILED;
+            
+            // Send CONNECTION BYE
+            this.sendConnectionBye("SDP exchange failed - no answer received");
+        }
+    }
+    
+    /**
+     * Create and send CONNECTION BYE message
+     * @param reason - Reason for sending BYE
+     */
+    private sendConnectionBye(reason: string): void {
+        logger.log(`📤 [PEER2PEER] Sending CONNECTION BYE: ${reason}`);
+        
+        if (this.onSendConnectionBye && this.lastOfferParams) {
+            const { sipUri, tag, callId } = this.lastOfferParams;
+            const cseq = 7;  // CONNECTION BYE CSeq
+            
+            const byeMessage = this.createConnectionBye(sipUri, tag, callId, cseq, reason);
+            this.onSendConnectionBye(byeMessage);
+        } else {
+            logger.log('⚠️ [PEER2PEER] Cannot send CONNECTION BYE - callback not configured');
+        }
+    }
+    
+    /**
+     * Create CONNECTION BYE message
+     * @param sipUri - SIP URI
+     * @param tag - SIP tag
+     * @param callId - Call ID
+     * @param cseq - CSeq number
+     * @param reason - Reason for BYE
+     * @returns Formatted CONNECTION BYE message
+     */
+    private createConnectionBye(sipUri: string, tag: string, callId: string, cseq: number, reason: string): string {
+        const branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
+        const reasonHeader = `Reason: CONNECTION - ${reason}\r\n`;
+        
+        return `BYE sip:macs@127.0.0.1:8009 SIP/2.0\r\n` +
+            `Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=${branch}\r\n` +
+            `From: <${sipUri}>;tag=${tag}\r\n` +
+            `To: <sip:macs@127.0.0.1:8009>\r\n` +
+            `Call-ID: ${callId}\r\n` +
+            `CSeq: ${cseq} BYE\r\n` +
+            reasonHeader +
+            `Content-Length: 0\r\n\r\n`;
     }
     
     /**

@@ -33,7 +33,7 @@
 
 import { Registration, RegistrationState } from './Registration';
 import { EstablishingConnection, ConnectionState } from './EstablishingConnection';
-import { Peer2PeerConnection } from './Peer2PeerConnection';
+import { Peer2PeerConnection, SdpExchangeState } from './Peer2PeerConnection';
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 
@@ -172,6 +172,12 @@ export function initializeSipClient(): SipClientInstance {
                     registrationObj.toDisplayName,
                     timeoutConfig.connection  // Pass ConnectionTimeout from server
                 );
+                
+                // Also configure Peer2PeerConnection with timeout settings
+                peer2PeerConnectionObject.updateConfiguration(
+                    timeoutManager,
+                    timeoutConfig.receive  // Pass ReceiveTimeout from server
+                );
             }
         }
         
@@ -206,6 +212,12 @@ export function initializeSipClient(): SipClientInstance {
                     
                     logger.log('📤 [SIPCLIENT] Creating SDP Offer with Call-ID: ' + callId);
                     logger.log('📤 [SIPCLIENT] To Line: ' + toLine);
+                    
+                    // Set up CONNECTION BYE callback for Peer2PeerConnection
+                    peer2PeerConnectionObject.onSendConnectionBye = (byeMessage: string) => {
+                        socket.send(byeMessage);
+                        logger.log('📤 [SIPCLIENT] Sent CONNECTION BYE from WebRTC phase');
+                    };
                     
                     await peer2PeerConnectionObject.createAndSendOffer(
                         socket,
@@ -296,6 +308,66 @@ export function initializeSipClient(): SipClientInstance {
                 if (cseq === 2) {
                     logger.log('📥 [SIPCLIENT] Received SERVICE answer (CSeq: 2) - processing');
                     await peer2PeerConnectionObject.parseIncomingAnswer(data);
+                }
+            }
+            
+            // Check for WebRTC SDP exchange failure
+            const sdpExchangeState = peer2PeerConnectionObject.getState();
+            if (sdpExchangeState === SdpExchangeState.FAILED) {
+                const error = peer2PeerConnectionObject.getLastError();
+                logger.log(`❌ [SIPCLIENT] WebRTC SDP exchange failed: ${error}`);
+                
+                // CONNECTION BYE already sent by Peer2PeerConnection
+                // Now check if we're still registered and can retry connection phase
+                const peerTimeRemaining = timeoutManager.getRemainingTime('PEER_REGISTRATION_TIMEOUT');
+                logger.log(`⏱️ [SIPCLIENT] PeerRegistrationTimeout has ${peerTimeRemaining}ms remaining`);
+                
+                if (peerTimeRemaining > 0) {
+                    // Still registered - restart connection establishment phase
+                    logger.log('🔄 [SIPCLIENT] Still registered - restarting Connection Establishment phase');
+                    
+                    // Reset WebRTC phase
+                    peer2PeerConnectionObject.reset();
+                    
+                    // Reset connection establishment for new attempt
+                    establishingConnectionObject.reset();
+                    establishingConnectionObject.isEstablishingConnectionProcessFinished = false;
+                    
+                    // Re-update with registration data
+                    const timeoutConfig = registrationObj.getTimeoutConfiguration();
+                    establishingConnectionObject.updateData(
+                        registrationObj.tag,
+                        registrationObj.callId,
+                        registrationObj.branch,
+                        registrationObj.fromDisplayName,
+                        registrationObj.toDisplayName,
+                        timeoutConfig.connection
+                    );
+                    
+                    logger.log('✅ [SIPCLIENT] Connection Establishment phase reset - waiting for NOTIFY4');
+                } else {
+                    // PeerRegistrationTimeout exhausted - need to re-register
+                    logger.log('❌ [SIPCLIENT] PeerRegistrationTimeout exhausted - need to re-register');
+                    
+                    if (registrationRetryCount < MAX_RETRIES) {
+                        registrationRetryCount++;
+                        logger.log(`🔄 [SIPCLIENT] Restarting registration (attempt ${registrationRetryCount}/${MAX_RETRIES})`);
+                        
+                        // Reset everything
+                        connectionRetryCount = 0;
+                        peerRegistrationTimeoutStarted = false;
+                        
+                        // Send REGISTRATION BYE
+                        const byeMessage = registrationObj.createRegistrationBye(8);
+                        socket.send(byeMessage);
+                        
+                        // Start new registration
+                        const retryMsg = registrationObj.getInitialRegistration();
+                        socket.send(retryMsg);
+                    } else {
+                        logger.log('❌ [SIPCLIENT] Max registration retries reached - closing socket');
+                        socket.close();
+                    }
                 }
             }
         }
