@@ -10,6 +10,7 @@ export interface LeistungPostData {
   memo: string | null;                           // Always send, use null if not set
   sbZeitVerrechenbarInMinuten: number | null;    // Always send, use null if not set
   sbZeitNichtVerrechenbarInMinuten: number | null; // Always send, use null if not set
+  outlookEmailId?: string | null;                // Outlook email message ID for tracking
 }
 
 // Matches LeistungenAuswahlQuery class - search for services
