@@ -67,6 +67,9 @@ export class Registration {
     private retryCount: number = 0;
     private readonly MAX_RETRIES = 3;
     
+    // Callback for sending messages
+    public onSendMessage: ((message: string) => void) | null = null;
+    
     // Timeout configuration (dynamically set from server's 202 response)
     private connectionTimeout: number = 3000;           // Default 3s, updated from server
     private peerRegistrationTimeout: number = 30000;    // Default 30s, updated from server (handles null from server)
@@ -144,40 +147,57 @@ export class Registration {
     }
     
     /**
-     * Handles ReceiveTimeout expiry (waiting for 202 Accepted)
-     * Sends REGISTRATION BYE and retries
-     * @returns BYE message to send
+     * Attempts to retry registration if retry count allows
+     * @returns true if retry was attempted, false if max retries reached
      */
-    private handleReceiveTimeout(): string {
-        this.lastError = 'ReceiveTimeout expired waiting for 202 Accepted';
-        logger.log(`⏱️ [REGISTRATION] ${this.lastError}`);
-        
-        // Send REGISTRATION BYE (CSeq: 2)
-        const byeMessage = this.createRegistrationBye(2);
-        logger.log('📤 [REGISTRATION] Sending REGISTRATION BYE due to timeout');
-        
-        // Note: We don't wait for the BYE response, just reset and retry
-        this.resetAndRetry();
-        
-        // Return the BYE message to be sent (will be handled by caller)
-        return byeMessage;
-    }
-    
-    /**
-     * Resets registration state and retries if attempts remain
-     */
-    private resetAndRetry(): void {
+    private attemptRetry(): boolean {
+        // Check if max retries reached
         if (this.retryCount >= this.MAX_RETRIES) {
             logger.log(`❌ [REGISTRATION] Max retries (${this.MAX_RETRIES}) reached. Registration FAILED.`);
             this.registrationState = RegistrationState.FAILED;
             this.timeoutManager.logActiveTimers();
-            return;
+            return false;
         }
         
         this.retryCount++;
         logger.log(`🔄 [REGISTRATION] Retry attempt ${this.retryCount}/${this.MAX_RETRIES}`);
         this.resetRegistrationState();
+        
+        // Send new REGISTER via callback
+        if (this.onSendMessage) {
+            const registerMsg = this.getInitialRegistration();
+            this.onSendMessage(registerMsg);
+            logger.log('📤 [REGISTRATION] Sent retry REGISTER via callback');
+        } else {
+            logger.log('⚠️ [REGISTRATION] Cannot retry - callback not configured');
+        }
+        
+        return true;
     }
+    
+    /**
+     * Handles ReceiveTimeout expiry (waiting for 202 Accepted)
+     * Sends REGISTRATION BYE and retries internally via callback
+     */
+    private handleReceiveTimeout(): void {
+        this.lastError = 'ReceiveTimeout expired waiting for 202 Accepted';
+        logger.log(`⏱️ [REGISTRATION] ${this.lastError}`);
+        
+        // Send REGISTRATION BYE (CSeq: 2) via callback
+        const byeMessage = this.createRegistrationBye(2);
+        logger.log('📤 [REGISTRATION] Sending REGISTRATION BYE due to timeout');
+        
+        if (this.onSendMessage) {
+            this.onSendMessage(byeMessage);
+        } else {
+            logger.log('⚠️ [REGISTRATION] Cannot send BYE - callback not configured');
+        }
+        
+        // Attempt retry
+        this.attemptRetry();
+    }
+    
+
     
     /**
      * Creates a REGISTRATION BYE message
@@ -214,9 +234,9 @@ export class Registration {
         // Cancel all timers
         this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
         
-        // Mark as failed and prepare for retry
+        // Mark as failed and attempt retry
         this.registrationState = RegistrationState.FAILED;
-        this.resetAndRetry();
+        this.attemptRetry();
         
         // No response needed for REGISTRATION BYE in this implementation
         return "";
@@ -324,15 +344,7 @@ export class Registration {
         return this.registrationState;
     }
     
-    /**
-     * Returns whether registration needs retry (returns true if should trigger retry from SipClient)
-     * @returns true if registration should be retried
-     */
-    public shouldRetryRegistration(): boolean {
-        return this.registrationState === RegistrationState.IDLE && 
-               this.retryCount > 0 && 
-               this.retryCount <= this.MAX_RETRIES;
-    }
+
     
     /**
      * Returns the current timeout configuration

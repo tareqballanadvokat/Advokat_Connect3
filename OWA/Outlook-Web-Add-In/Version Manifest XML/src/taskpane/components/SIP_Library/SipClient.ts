@@ -83,19 +83,31 @@ export function initializeSipClient(): SipClientInstance {
     const establishingConnectionObject = new EstablishingConnection(timeoutManager);
     const peer2PeerConnectionObject = new Peer2PeerConnection();
     
-    // Set up callback for EstablishingConnection to query PeerRegistrationTimeout remaining time
+    // Establish WebSocket connection with SIP protocol
+    const socket = new WebSocket(wsUri, 'sip');
+    
+    // ========== Configure Callbacks for All Components ==========
+    
+    // Registration callbacks
+    registrationObj.onSendMessage = (message: string) => {
+        socket.send(message);
+        logger.log('📤 [SIPCLIENT] Sent message from Registration retry handler');
+    };
+    
+    // EstablishingConnection callbacks
     establishingConnectionObject.getPeerRegistrationTimeRemaining = () => {
         return timeoutManager.getRemainingTime('PEER_REGISTRATION_TIMEOUT');
     };
     
-    // Set up callback for EstablishingConnection to send messages
     establishingConnectionObject.onSendMessage = (message: string) => {
         socket.send(message);
         logger.log('📤 [SIPCLIENT] Sent message from EstablishingConnection timeout handler');
     };
     
-    // Establish WebSocket connection with SIP protocol
-    const socket = new WebSocket(wsUri, 'sip');
+    // Peer2PeerConnection callbacks (set later after NOTIFY6, before creating offer)
+    // peer2PeerConnectionObject.onSendConnectionBye will be set when connection completes
+    
+    // ========== End Callback Configuration ==========
     
     /**
      * WebSocket connection opened - start SIP registration
@@ -144,13 +156,6 @@ export function initializeSipClient(): SipClientInstance {
                         logger.log('❌ [SIPCLIENT] Max registration retries reached');
                     }
                 });
-            }
-            
-            // Check if registration needs retry (timeout occurred and retry is scheduled)
-            if (registrationObj.shouldRetryRegistration()) {
-                logger.log('🔄 [SIPCLIENT] Registration retry triggered - sending new REGISTER');
-                const retryMsg = registrationObj.getInitialRegistration();
-                socket.send(retryMsg);
             }
             
             // Check if registration failed permanently
