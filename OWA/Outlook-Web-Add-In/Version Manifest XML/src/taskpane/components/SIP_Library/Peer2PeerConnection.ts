@@ -6,22 +6,22 @@
  * SDP (Session Description Protocol) offer/answer exchange and ICE candidate gathering.
  * 
  * Protocol Flow:
- * - OWA Client: Always acts as OFFERER (creates SDP Offer, CSeq: 1)
- * - Server: Always acts as ANSWERER (creates SDP Answer, CSeq: 2)
+ * - OWA Client: Always acts as OFFERER (creates SDP Offer, sends SERVICE CSeq: 1)
+ * - Server: Always acts as ANSWERER (creates SDP Answer, sends SERVICE CSeq: 2)
  * 
- * The P2P connection process involves:
+ * OWA OFFERER Process:
  * 1. OWA creates WebRTC peer connection and data channel
  * 2. OWA creates and sends SDP offer (SERVICE CSeq: 1)
- * 3. Server receives offer, creates answer, sends back (SERVICE CSeq: 2)
- * 4. OWA processes answer and establishes connection
- * 5. Data channel opens for bidirectional communication
+ * 3. OWA waits for and processes SDP answer (SERVICE CSeq: 2) from server
+ * 4. WebRTC connection establishes and data channel opens
+ * 5. Bidirectional data channel communication begins
  * 
  * Key Features:
- * - WebRTC peer connection management
- * - SDP offer creation (OWA only)
- * - Data channel setup and message handling
+ * - WebRTC peer connection management (OFFERER role only)
+ * - SDP offer creation and transmission
+ * - SDP answer processing
+ * - Data channel creation and message handling
  * - ICE candidate gathering and state management
- * - SIP message formatting for WebRTC negotiation
  * - Bidirectional data channel communication
  * 
  * @author AdvokatConnect Development Team
@@ -102,133 +102,8 @@ export class Peer2PeerConnection {
         }
     }
     
-    /**
-     * Processes incoming SERVICE message and creates SDP answer for WebRTC connection
-     * This method is called when this peer needs to create an answer to an incoming offer
-     * @param data - The SIP SERVICE message containing SDP offer
-     * @param socket - WebSocket connection for sending response
-     * @param sipUri - SIP URI for this peer
-     * @param tag - SIP tag for message identification
-     */
-    async parseServiceIncoming(data: string, socket: WebSocket, sipUri: string, tag: string): Promise<void> {
-        logger.log('📥 [PEER2PEER] Received SERVICE with SDP offer - processing as ANSWERER');
-        
-        const fromLineMatch = data.match(/^from:.*$/mi);
-        const fromLine = fromLineMatch ? fromLineMatch[0] : '';
-        const toLine = fromLine.replace(/^from:/i, 'to:');
-        logger.log("📥 [PEER2PEER] To Line: " + toLine);
-        const reCallId = /^call-id:\s*([^\r\n]+)/mi;
-        const m = data.match(reCallId);
-        const callId = m ? m[1] : "";
-        
-        // Set up ICE candidate handling
-        this.pc.onicecandidate = (evt) => {
-            if (evt.candidate) {
-                logger.log("📡 [PEER2PEER] ICE candidate: " + JSON.stringify(evt.candidate));
-            }
-        };
-        
-        // Handle ICE gathering completion
-        this.pc.onicegatheringstatechange = () => {
-            if (this.pc.iceGatheringState === 'complete') {
-                logger.log("✅ [PEER2PEER] ICE gathering complete");
-                logger.log("📤 [PEER2PEER] Final SDP: " + JSON.stringify(this.pc.localDescription));
-                const answerMsg = this.sendSdpAnswer(
-                    JSON.stringify(this.pc.localDescription), 
-                    callId, 
-                    sipUri, 
-                    tag, 
-                    toLine
-                );
-                
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    logger.log('📤 [PEER2PEER] Sending SDP answer:\n' + answerMsg);
-                    socket.send(answerMsg);
-                } else {
-                    logger.log("⚠️ [PEER2PEER] WebSocket is not available or not open");
-                }
-            }
-        };
-        
-        // Set up data channel event handlers - ANSWERER receives channel from OFFERER
-        this.pc.ondatachannel = (ev) => {
-            logger.log("📥 [PEER2PEER] DataChannel received from OFFERER: " + ev.channel.label);
-            
-            // Store the received data channel
-            this.dataChannelPeer = ev.channel;
-            
-            ev.channel.onopen = () => {
-                logger.log("🟢 [PEER2PEER] DataChannel opened: " + ev.channel.label);
-            };
-            
-            ev.channel.onmessage = (event) => this.dispatchMessage(event);
-            
-            ev.channel.onclose = () => {
-                logger.log("🔴 [PEER2PEER] DataChannel closed");
-            };
-            
-            ev.channel.onerror = (err) => {
-                logger.log("❌ [PEER2PEER] DataChannel error: " + err);
-            };
-        };
-        
-        // Process SDP offer from the incoming message
-        const sdpBlockMatch = data.match(/(\{[\s\S]*?"sdp"[\s\S]*?\})/m);
-        if (sdpBlockMatch) {
-            try {
-                const sdpBlock = sdpBlockMatch[1];
-                logger.log('📥 [PEER2PEER] SDP JSON block: ' + sdpBlock);
-                
-                const sdpInit = JSON.parse(sdpBlock);
-                const desc = new RTCSessionDescription(sdpInit);
-                
-                // Set remote description and create answer
-                await this.pc.setRemoteDescription(desc);
-                const answer = await this.pc.createAnswer();
-                await this.pc.setLocalDescription(answer);
-                
-                logger.log("✅ [PEER2PEER] Local SDP Answer set: " + JSON.stringify(this.pc.localDescription));
-            } catch (err) {
-                logger.log("❌ [PEER2PEER] SDP or WebRTC error: " + err);
-            }
-        } else {
-            logger.log("⚠️ [PEER2PEER] SDP block not found in SERVICE message");
-        }
-    }
-    
-    /**
-     * Formats and creates SDP answer message for SIP transmission
-     * @param answer - The SDP answer as JSON string
-     * @param callId - SIP Call-ID
-     * @param sipUri - SIP URI for this peer
-     * @param tag - SIP tag
-     * @param toLine - Formatted To header line
-     * @returns Formatted SIP SERVICE message with SDP answer
-     */
-    sendSdpAnswer(answer: string, callId: string, sipUri: string, tag: string, toLine: string): string {
-        const branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11); // Updated from deprecated substr
-        const length = logger.contentLength(answer);
-        
-        const sdpAnswer = 
-            'SERVICE ' + sipUri + ' SIP/2.0\r\n' +
-            'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branch + '\r\n' +
-            'Max-Forwards: 70\r\n' +
-            toLine + '\r\n' + 
-            'From: "macc" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
-            'Call-ID: ' + callId + '\r\n' +
-            'CSeq: 2 SERVICE\r\n' +
-            'Expires: 300\r\n' +
-            'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n'
-            'Supported: path,gruu,outbound\r\n' +
-            'User-Agent: JsSIP 3.10.0\r\n' +
-            'Content-Type: application/sdp\r\n' +
-            'Contact: <' + sipUri + '>\r\n' + 
-            'Content-Length: ' + length + '\r\n\r\n' +
-            answer;
-        
-        return sdpAnswer;
-    }
-    
+
+
     /**
      * Creates and sends WebRTC offer for establishing peer-to-peer connection
      * This method is called when this peer needs to initiate the WebRTC negotiation
