@@ -64,8 +64,8 @@ export function createMockAuthState(overrides = {}) {
   return {
     credentials: {
       grant_type: 'password' as const,
-      client_id: 'advokat.client.web',
-      client_secret: 'advokat',
+      client_id: 'TestClientId',
+      client_secret: 'TestClientId',
       username: 'testuser',
       password: 'testpass',
     },
