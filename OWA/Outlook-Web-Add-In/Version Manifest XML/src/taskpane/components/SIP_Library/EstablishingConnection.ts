@@ -24,6 +24,7 @@
 
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
+import { MessageFactory } from './MessageFactory';
 
 /**
  * Connection Establishment state machine enum
@@ -208,16 +209,15 @@ export class EstablishingConnection {
         logger.log('📥 [CONNECTION] ACK5 From Line: ' + fromLineOrigin);
         logger.log('📥 [CONNECTION] ACK5 To Line: ' + toLineReplaced);
         
-        const ack5 =
-            'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
-            'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n' +
-            'Max-Forwards: 70\r\n' +
-            toLineReplaced + '\r\n' +
-            fromLineOrigin + '\r\n' +
-            'Call-ID: ' + callId + '\r\n' +
-            'CSeq: 5 ACK\r\n' +
-            'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
-            'Content-Length: 0\r\n\r\n';
+        const ack5 = MessageFactory.createAckMessage({
+            sipUri: this.sipUri,
+            branch: this.branch,
+            callId: callId,
+            tag: this.tag,
+            cseq: 5,
+            toLine: toLineReplaced,
+            fromLine: fromLineOrigin
+        });
         
         logger.log('📤 [CONNECTION] Created ACK5 for NOTIFY4');
         return ack5;
@@ -390,16 +390,17 @@ export class EstablishingConnection {
      * @returns CONNECTION BYE message
      */
     public createConnectionBye(cseqNum: number, reason?: string): string {
-        const reasonHeader = reason ? `Reason: CONNECTION - ${reason}\r\n` : `Reason: CONNECTION\r\n`;
-        
-        const byeMessage = `BYE sip:${this.toDisplayName}@127.0.0.1:8009 SIP/2.0\r\n` +
-            `Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=${this.branch}\r\n` +
-            `From: <${this.sipUri}>;tag=${this.tag}\r\n` +
-            `To: <sip:${this.toDisplayName}@127.0.0.1:8009>\r\n` +
-            `Call-ID: ${this.callId}\r\n` +
-            `CSeq: ${cseqNum} BYE\r\n` +
-            reasonHeader +
-            `Content-Length: 0\r\n\r\n`;
+        const byeMessage = MessageFactory.createByeMessage({
+            sipUri: this.sipUri,
+            branch: this.branch,
+            callId: this.callId,
+            tag: this.tag,
+            cseq: cseqNum,
+            toDisplayName: this.toDisplayName,
+            fromDisplayName: this.fromDisplayName,
+            reasonType: 'CONNECTION',
+            reasonText: reason
+        });
         
         logger.log(`EstablishingConnection: Created CONNECTION BYE - ${reason || 'no reason specified'}`);
         return byeMessage;

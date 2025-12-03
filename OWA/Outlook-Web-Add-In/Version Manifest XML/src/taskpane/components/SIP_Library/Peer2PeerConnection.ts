@@ -30,6 +30,7 @@
 
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
+import { MessageFactory } from './MessageFactory';
 
 // Type for message handler functions
 type MessageHandler = (event: MessageEvent) => Promise<void> | void;
@@ -290,25 +291,17 @@ export class Peer2PeerConnection {
      * @returns Formatted SIP SERVICE message with SDP offer
      */
     sendSdpOffer(offerSDP: string, callId: string, sipUri: string, tag: string, toLine: string, branch: string): string {
-        const length = logger.contentLength(offerSDP);
-        
-        return (
-            'SERVICE ' + sipUri + ' SIP/2.0\r\n' +
-            'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + branch + '\r\n' +
-            'Max-Forwards: 70\r\n' +
-            toLine + '\r\n' +
-            'From: "macc" <' + sipUri + ';transport=wss>;tag=' + tag + '\r\n' +
-            'Call-ID: ' + callId + '\r\n' +
-            'CSeq: 1 SERVICE\r\n' +
-            'Expires: 300\r\n' +
-            'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
-            'Supported: path,gruu,outbound\r\n' +
-            'User-Agent: JsSIP 3.10.0\r\n' +
-            'Content-Type: application/sdp\r\n' +
-            'Contact: <' + sipUri + '>\r\n' +
-            'Content-Length: ' + length + '\r\n\r\n' +
-            offerSDP
-        );
+        return MessageFactory.createServiceMessage({
+            sipUri: sipUri,
+            branch: branch,
+            callId: callId,
+            tag: tag,
+            cseq: 1,
+            toLine: toLine,
+            body: offerSDP,
+            contentType: 'application/sdp',
+            fromDisplayName: 'macc'
+        });
     }
     
     /**
@@ -424,16 +417,18 @@ export class Peer2PeerConnection {
      */
     private createConnectionBye(sipUri: string, tag: string, callId: string, cseq: number, reason: string): string {
         const branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
-        const reasonHeader = `Reason: CONNECTION - ${reason}\r\n`;
         
-        return `BYE sip:macs@127.0.0.1:8009 SIP/2.0\r\n` +
-            `Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=${branch}\r\n` +
-            `From: <${sipUri}>;tag=${tag}\r\n` +
-            `To: <sip:macs@127.0.0.1:8009>\r\n` +
-            `Call-ID: ${callId}\r\n` +
-            `CSeq: ${cseq} BYE\r\n` +
-            reasonHeader +
-            `Content-Length: 0\r\n\r\n`;
+        return MessageFactory.createByeMessage({
+            sipUri: sipUri,
+            branch: branch,
+            callId: callId,
+            tag: tag,
+            cseq: cseq,
+            toDisplayName: 'macs',
+            fromDisplayName: 'macc',
+            reasonType: 'CONNECTION',
+            reasonText: reason
+        });
     }
     
     /**

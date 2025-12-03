@@ -29,6 +29,7 @@
 
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
+import { MessageFactory } from './MessageFactory';
 
 // Global variables for FROM header parsing
 let fromUri = "";
@@ -87,19 +88,6 @@ export class Registration {
     }
 
     /**
-     * Generates the timeout configuration JSON for REGISTER message body
-     * @returns JSON string with timeout configuration
-     */
-    private generateTimeoutConfig(): string {
-        const config = {
-            ConnectionTimeout: this.connectionTimeout,
-            PeerRegistrationTimeout: this.peerRegistrationTimeout,
-            ReceiveTimeout: this.receiveTimeout
-        };
-        return JSON.stringify(config);
-    }
-
-    /**
      * Creates and returns the initial REGISTER message
      * Also resets registration state for new attempt
      * @returns The formatted SIP REGISTER message
@@ -113,27 +101,21 @@ export class Registration {
         logger.log('📤 [REGISTRATION] STATE: IDLE -> REGISTER_SENT');
         this.registrationState = RegistrationState.REGISTER_SENT;
         
-        // Generate timeout configuration JSON body
-        const timeoutBody = this.generateTimeoutConfig();
-        const contentLength = timeoutBody.length;
-        
-        // Build REGISTER message with timeout configuration in body
-        const register = 
-            'REGISTER ' + this.sipUri + ' SIP/2.0\r\n' +
-            'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n' +
-            'Max-Forwards: 70\r\n' +
-            'To: "' + this.toDisplayName + '" <sip:macs@127.0.0.1:8009>\r\n' +
-            'From: "' + this.fromDisplayName + '" <' + this.sipUri + ';transport=wss>;tag=' + this.tag + '\r\n' +
-            'Call-ID: ' + this.callId + '\r\n' +
-            'CSeq: ' + this.cseq + ' REGISTER\r\n' +
-            'Expires: 300\r\n' +
-            'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
-            'Supported: path,gruu,outbound\r\n' +
-            'User-Agent: JsSIP 3.10.0\r\n' +
-            'Contact: <' + this.sipUri + '>\r\n' +
-            'Content-Type: application/json\r\n' +
-            'Content-Length: ' + contentLength + '\r\n\r\n' +
-            timeoutBody;
+        // Build REGISTER message using MessageFactory
+        const register = MessageFactory.createRegisterMessage({
+            sipUri: this.sipUri,
+            branch: this.branch,
+            callId: this.callId,
+            tag: this.tag,
+            fromDisplayName: this.fromDisplayName,
+            toDisplayName: this.toDisplayName,
+            timeoutConfig: {
+                ConnectionTimeout: this.connectionTimeout,
+                PeerRegistrationTimeout: this.peerRegistrationTimeout,
+                ReceiveTimeout: this.receiveTimeout
+            },
+            cseq: this.cseq
+        });
         
         logger.log('📤 [REGISTRATION] REGISTER message created with timeout configuration');
         
@@ -207,17 +189,17 @@ export class Registration {
     public createRegistrationBye(cseqNum: number): string {
         logger.log(`🔨 [REGISTRATION] Creating REGISTRATION BYE (CSeq: ${cseqNum})`);
         
-        const bye =
-            'BYE ' + this.sipUri + ' SIP/2.0\r\n' +
-            'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n' +
-            'Max-Forwards: 70\r\n' +
-            'To: "' + this.toDisplayName + '" <sip:macs@127.0.0.1:8009>' + 
-            (this.expectedToTag ? ';tag=' + this.expectedToTag : '') + '\r\n' +
-            'From: "' + this.fromDisplayName + '" <' + this.sipUri + ';transport=wss>;tag=' + this.tag + '\r\n' +
-            'Call-ID: ' + this.callId + '\r\n' +
-            'CSeq: ' + cseqNum + ' REGISTRATION BYE\r\n' +
-            'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
-            'Content-Length: 0\r\n\r\n';
+        const bye = MessageFactory.createByeMessage({
+            sipUri: this.sipUri,
+            branch: this.branch,
+            callId: this.callId,
+            tag: this.tag,
+            cseq: cseqNum,
+            toDisplayName: this.toDisplayName,
+            fromDisplayName: this.fromDisplayName,
+            toTag: this.expectedToTag || undefined,
+            reasonType: 'REGISTRATION'
+        });
         
         logger.log('📤 [REGISTRATION] REGISTRATION BYE created');
         return bye;
@@ -373,16 +355,18 @@ export class Registration {
         logger.log('🔨 [REGISTRATION] Creating ACK for 202 Accepted');
         this.getFromParts(data);
         
-        const ack =
-            'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
-            'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n' +
-            'Max-Forwards: 70\r\n' +
-            'To: "' + this.toDisplayName + '" <' + fromUri + '>;tag=' + fromTag + '\r\n' +
-            'From: "' + this.fromDisplayName + '" <' + this.sipUri + ';transport=wss>;tag=' + this.tag + '\r\n' +
-            'Call-ID: ' + this.callId + '\r\n' +
-            'CSeq: 3 ACK\r\n' +
-            'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
-            'Content-Length: 0\r\n\r\n';
+        const toLine = `"${this.toDisplayName}" <${fromUri}>;tag=${fromTag}`;
+        const fromLine = `"${this.fromDisplayName}" <${this.sipUri};transport=wss>;tag=${this.tag}`;
+        
+        const ack = MessageFactory.createAckMessage({
+            sipUri: this.sipUri,
+            branch: this.branch,
+            callId: this.callId,
+            tag: this.tag,
+            cseq: 3,
+            toLine: toLine,
+            fromLine: fromLine
+        });
         
         logger.log('📤 [REGISTRATION] ACK created with CSeq: 3');
         return ack;
