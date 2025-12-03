@@ -1,10 +1,15 @@
 // React Hook for WebRTC Connection Manager
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
+import { useAppSelector } from '../../store/hooks';
+import { 
+  selectConnectionState, 
+  selectConnectionHealth,
+  ConnectionState,
+  ConnectionHealth 
+} from '../../store/slices/connectionSlice';
 import { 
   getWebRTCConnectionManager, 
   WebRTCConnectionManager,
-  ConnectionState, 
-  ConnectionHealth,
   ConnectionManagerConfig 
 } from '../services/WebRTCConnectionManager';
 
@@ -43,33 +48,15 @@ export const useWebRTCConnectionManager = (
   config: ConnectionManagerConfig = {}
 ): UseWebRTCConnectionManagerReturn => {
   const connectionManagerRef = useRef<WebRTCConnectionManager | null>(null);
-  const [connectionState, setConnectionState] = useState<ConnectionState>({
-    isConnected: false,
-    isConnecting: false,
-    isRegistered: false,
-    isConnectionEstablished: false,
-    isPeerConnected: false,
-    isDataChannelOpen: false,
-    isAuthenticated: false,
-    isAuthenticating: false,
-    connectionStatus: 'Initializing...',
-    reconnectAttempts: 0
-  });
-  const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>({
-    isHealthy: false,
-    latency: 0,
-    lastHealthCheck: new Date(),
-    consecutiveFailures: 0
-  });
+  
+  // Get state from Redux instead of local state
+  const connectionState = useAppSelector(selectConnectionState);
+  const connectionHealth = useAppSelector(selectConnectionHealth);
 
   // Initialize connection manager
   useEffect(() => {
     const manager = getWebRTCConnectionManager(config);
     connectionManagerRef.current = manager;
-
-    // Set up state listeners
-    const unsubscribeState = manager.onStateChange(setConnectionState);
-    const unsubscribeHealth = manager.onHealthChange(setConnectionHealth);
 
     // Initialize the connection
     manager.initialize().catch(error => {
@@ -78,8 +65,6 @@ export const useWebRTCConnectionManager = (
 
     // Cleanup on unmount
     return () => {
-      unsubscribeState();
-      unsubscribeHealth();
       // Note: Don't destroy the manager here as it's a singleton
       // It should persist across component unmounts
     };
@@ -108,11 +93,16 @@ export const useWebRTCConnectionManager = (
     return connectionManagerRef.current?.isReady() || false;
   }, []);
 
-  const performHealthCheck = useCallback(async () => {
+  const performHealthCheck = useCallback(async (): Promise<ConnectionHealth> => {
     if (connectionManagerRef.current) {
       return await connectionManagerRef.current.performHealthCheck();
     }
-    return connectionHealth;
+    return {
+      isHealthy: connectionHealth.isHealthy,
+      latency: connectionHealth.latency,
+      lastHealthCheck: connectionHealth.lastHealthCheck,
+      consecutiveFailures: connectionHealth.consecutiveFailures
+    };
   }, [connectionHealth]);
 
   return {
@@ -124,23 +114,5 @@ export const useWebRTCConnectionManager = (
     isReady,
     performHealthCheck,
     connectionManager: connectionManagerRef.current!
-  };
-};
-
-// Legacy compatibility - gradually replace useWebRTCApiIntegration with this
-export const useWebRTCApiIntegration = () => {
-  console.warn('useWebRTCApiIntegration is deprecated. Use useWebRTCConnectionManager instead.');
-  
-  const {
-    connectionState,
-    connectionManager
-  } = useWebRTCConnectionManager();
-
-  return {
-    sipClient: connectionManager?.getSipClient() || null,
-    isConnected: connectionState.isConnected,
-    connectionStatus: connectionState.connectionStatus,
-    isRegistered: connectionState.isRegistered,
-    isConnectionEstablished: connectionState.isConnectionEstablished
   };
 };

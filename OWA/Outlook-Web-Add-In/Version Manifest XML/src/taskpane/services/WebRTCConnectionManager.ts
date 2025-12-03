@@ -10,28 +10,17 @@ import {
   selectAuthCredentials,
   selectIsAuthenticated 
 } from '../../store/slices/authSlice';
+import {
+  updateConnectionState as updateReduxConnectionState,
+  updateConnectionStatus as updateReduxConnectionStatus,
+  updateConnectionHealth as updateReduxConnectionHealth,
+  selectConnectionState,
+  selectConnectionHealth,
+  ConnectionState,
+  ConnectionHealth,
+} from '../../store/slices/connectionSlice';
 
-export interface ConnectionState {
-  isConnected: boolean;
-  isConnecting: boolean;
-  isRegistered: boolean;
-  isConnectionEstablished: boolean;
-  isPeerConnected: boolean;
-  isDataChannelOpen: boolean;
-  isAuthenticated: boolean;
-  isAuthenticating: boolean;
-  connectionStatus: string;
-  lastError?: string;
-  reconnectAttempts: number;
-  lastSuccessfulConnection?: Date;
-}
-
-export interface ConnectionHealth {
-  isHealthy: boolean;
-  latency: number;
-  lastHealthCheck: Date;
-  consecutiveFailures: number;
-}
+export type { ConnectionState, ConnectionHealth };
 
 export interface ConnectionManagerConfig {
   maxReconnectAttempts?: number;
@@ -56,8 +45,6 @@ const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
  */
 export class WebRTCConnectionManager {
   private config: Required<ConnectionManagerConfig>;
-  private connectionState: ConnectionState;
-  private connectionHealth: ConnectionHealth;
   private sipClient: SipClientInstance | null = null;
   
   // Timers and intervals
@@ -65,64 +52,61 @@ export class WebRTCConnectionManager {
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private connectionTimeoutTimer: NodeJS.Timeout | null = null;
   
-  // Event listeners
-  private stateChangeListeners: Set<(state: ConnectionState) => void> = new Set();
-  private healthChangeListeners: Set<(health: ConnectionHealth) => void> = new Set();
-  
   // Internal flags
   private isInitialized = false;
   private isDestroyed = false;
   private isReconnecting = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor(config: ConnectionManagerConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    
-    this.connectionState = {
-      isConnected: false,
-      isConnecting: false,
-      isRegistered: false,
-      isConnectionEstablished: false,
-      isPeerConnected: false,
-      isDataChannelOpen: false,
-      isAuthenticated: false,
-      isAuthenticating: false,
-      connectionStatus: 'Initializing...',
-      reconnectAttempts: 0
-    };
-    
-    this.connectionHealth = {
-      isHealthy: false,
-      latency: 0,
-      lastHealthCheck: new Date(),
-      consecutiveFailures: 0
-    };
   }
 
   /**
    * Initialize the connection manager
    */
   async initialize(): Promise<void> {
-    if (this.isInitialized || this.isDestroyed) {
+    // Return existing initialization if already complete
+    if (this.isInitialized) {
       return;
     }
 
-    this.isInitialized = true;
-    this.updateConnectionStatus('Initializing connection manager...');
-    
-    try {
-      await this.connect();
-      this.startHealthMonitoring();
-    } catch (error) {
-      console.error('Failed to initialize WebRTC Connection Manager:', error);
-      this.handleConnectionError(error);
+    // Return ongoing initialization promise if in progress
+    if (this.initializationPromise) {
+      return this.initializationPromise;
     }
+
+    // Check if destroyed
+    if (this.isDestroyed) {
+      return;
+    }
+
+    // Create and store initialization promise
+    this.initializationPromise = (async () => {
+      this.updateConnectionStatus('Initializing connection manager...');
+      
+      try {
+        await this.connect();
+        this.startHealthMonitoring();
+        this.isInitialized = true;
+      } catch (error) {
+        console.error('Failed to initialize WebRTC Connection Manager:', error);
+        this.handleConnectionError(error);
+        throw error;
+      } finally {
+        this.initializationPromise = null;
+      }
+    })();
+
+    return this.initializationPromise;
   }
 
   /**
    * Connect to WebRTC
    */
   async connect(): Promise<void> {
-    if (this.isDestroyed || this.connectionState.isConnecting) {
+    const state = selectConnectionState(store.getState());
+    if (this.isDestroyed || state.isConnecting) {
       return;
     }
 
@@ -151,7 +135,7 @@ export class WebRTCConnectionManager {
         isConnected: true,
         isConnecting: false,
         reconnectAttempts: 0,
-        lastSuccessfulConnection: new Date()
+        lastSuccessfulConnection: new Date().toISOString()
       });
       this.updateConnectionStatus('Connected - authenticating with API...');
       
@@ -215,8 +199,9 @@ export class WebRTCConnectionManager {
       return;
     }
 
+    const state = selectConnectionState(store.getState());
     const maxAttempts = this.config.maxReconnectAttempts;
-    if (this.connectionState.reconnectAttempts >= maxAttempts && !force) {
+    if (state.reconnectAttempts >= maxAttempts && !force) {
       this.updateConnectionStatus(`Max reconnection attempts (${maxAttempts}) reached`);
       return;
     }
@@ -224,7 +209,7 @@ export class WebRTCConnectionManager {
     this.isReconnecting = true;
     this.clearReconnectTimer();
 
-    const attemptNumber = force ? 0 : this.connectionState.reconnectAttempts + 1;
+    const attemptNumber = force ? 0 : state.reconnectAttempts + 1;
     const delay = this.calculateReconnectDelay(attemptNumber);
 
     this.updateConnectionState({ 
@@ -258,14 +243,15 @@ export class WebRTCConnectionManager {
    * Perform health check
    */
   async performHealthCheck(): Promise<ConnectionHealth> {
+    const health = selectConnectionHealth(store.getState());
     if (!this.sipClient || this.isDestroyed) {
       this.updateConnectionHealth({
         isHealthy: false,
         latency: 0,
-        lastHealthCheck: new Date(),
-        consecutiveFailures: this.connectionHealth.consecutiveFailures + 1
+        lastHealthCheck: new Date().toISOString(),
+        consecutiveFailures: health.consecutiveFailures + 1
       });
-      return this.connectionHealth;
+      return selectConnectionHealth(store.getState());
     }
 
     const startTime = Date.now();
@@ -284,11 +270,12 @@ export class WebRTCConnectionManager {
       
       const latency = Date.now() - startTime;
       
+      const currentHealth = selectConnectionHealth(store.getState());
       this.updateConnectionHealth({
         isHealthy,
         latency,
-        lastHealthCheck: new Date(),
-        consecutiveFailures: isHealthy ? 0 : this.connectionHealth.consecutiveFailures + 1
+        lastHealthCheck: new Date().toISOString(),
+        consecutiveFailures: isHealthy ? 0 : currentHealth.consecutiveFailures + 1
       });
       
       // Update connection state based on health check
@@ -306,19 +293,20 @@ export class WebRTCConnectionManager {
         this.reconnect();
       }
       
-      return this.connectionHealth;
+      return selectConnectionHealth(store.getState());
       
     } catch (error) {
       console.error('Health check failed:', error);
       
+      const currentHealth = selectConnectionHealth(store.getState());
       this.updateConnectionHealth({
         isHealthy: false,
         latency: Date.now() - startTime,
-        lastHealthCheck: new Date(),
-        consecutiveFailures: this.connectionHealth.consecutiveFailures + 1
+        lastHealthCheck: new Date().toISOString(),
+        consecutiveFailures: currentHealth.consecutiveFailures + 1
       });
       
-      return this.connectionHealth;
+      return selectConnectionHealth(store.getState());
     }
   }
 
@@ -388,14 +376,14 @@ export class WebRTCConnectionManager {
    * Get current connection state
    */
   getConnectionState(): ConnectionState {
-    return { ...this.connectionState };
+    return selectConnectionState(store.getState());
   }
 
   /**
    * Get current connection health
    */
   getConnectionHealth(): ConnectionHealth {
-    return { ...this.connectionHealth };
+    return selectConnectionHealth(store.getState());
   }
 
   /**
@@ -416,26 +404,28 @@ export class WebRTCConnectionManager {
    * Check if ready for API calls
    */
   isReady(): boolean {
-    return this.connectionState.isConnected && 
-           this.connectionState.isDataChannelOpen && 
-           this.connectionState.isAuthenticated &&
-           this.connectionHealth.isHealthy;
+    const state = selectConnectionState(store.getState());
+    const health = selectConnectionHealth(store.getState());
+    return state.isConnected && 
+           state.isDataChannelOpen && 
+           state.isAuthenticated &&
+           health.isHealthy;
   }
 
   /**
-   * Add state change listener
+   * @deprecated Use Redux selectors instead (selectConnectionState, selectConnectionHealth)
    */
-  onStateChange(listener: (state: ConnectionState) => void): () => void {
-    this.stateChangeListeners.add(listener);
-    return () => this.stateChangeListeners.delete(listener);
+  onStateChange(_listener: (state: ConnectionState) => void): () => void {
+    console.warn('onStateChange is deprecated. Use Redux useAppSelector(selectConnectionState) instead.');
+    return () => {};
   }
 
   /**
-   * Add health change listener
+   * @deprecated Use Redux selectors instead (selectConnectionState, selectConnectionHealth)
    */
-  onHealthChange(listener: (health: ConnectionHealth) => void): () => void {
-    this.healthChangeListeners.add(listener);
-    return () => this.healthChangeListeners.delete(listener);
+  onHealthChange(_listener: (health: ConnectionHealth) => void): () => void {
+    console.warn('onHealthChange is deprecated. Use Redux useAppSelector(selectConnectionHealth) instead.');
+    return () => {};
   }
 
   /**
@@ -445,8 +435,6 @@ export class WebRTCConnectionManager {
     this.isDestroyed = true;
     this.clearAllTimers();
     this.disconnect();
-    this.stateChangeListeners.clear();
-    this.healthChangeListeners.clear();
   }
 
   // Private methods
@@ -532,7 +520,8 @@ export class WebRTCConnectionManager {
   private startConnectionTimeout(): void {
     this.clearConnectionTimeout();
     this.connectionTimeoutTimer = setTimeout(() => {
-      if (this.connectionState.isConnecting) {
+      const state = selectConnectionState(store.getState());
+      if (state.isConnecting) {
         this.handleConnectionError(new Error('Connection timeout'));
       }
     }, this.config.connectionTimeout);
@@ -563,29 +552,16 @@ export class WebRTCConnectionManager {
   }
 
   private updateConnectionState(updates: Partial<ConnectionState>): void {
-    this.connectionState = { ...this.connectionState, ...updates };
-    this.stateChangeListeners.forEach(listener => {
-      try {
-        listener(this.getConnectionState());
-      } catch (error) {
-        console.error('Error in state change listener:', error);
-      }
-    });
+    store.dispatch(updateReduxConnectionState(updates));
   }
 
   private updateConnectionStatus(status: string): void {
     this.updateConnectionState({ connectionStatus: status });
+    store.dispatch(updateReduxConnectionStatus(status));
   }
 
   private updateConnectionHealth(updates: Partial<ConnectionHealth>): void {
-    this.connectionHealth = { ...this.connectionHealth, ...updates };
-    this.healthChangeListeners.forEach(listener => {
-      try {
-        listener(this.getConnectionHealth());
-      } catch (error) {
-        console.error('Error in health change listener:', error);
-      }
-    });
+    store.dispatch(updateReduxConnectionHealth(updates));
   }
 }
 

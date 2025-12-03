@@ -1,6 +1,8 @@
 // src/taskpane/components/tabs/shared/WebRTCConnectionStatus.tsx
 import React from 'react';
-import { useWebRTCConnectionManager } from '@hooks/useWebRTCConnectionManager';
+import { useAppSelector } from '@store/hooks';
+import { selectConnectionState, selectConnectionHealth, selectIsReady } from '@store/slices/connectionSlice';
+import { getWebRTCConnectionManager } from '../../../services/WebRTCConnectionManager';
 
 interface WebRTCConnectionStatusProps {
   className?: string;
@@ -15,12 +17,15 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
   showHealthIndicator = false,
   showReconnectButton = false
 }) => {
-  const { 
-    connectionState, 
-    connectionHealth, 
-    reconnect,
-    isReady 
-  } = useWebRTCConnectionManager();
+  // Read directly from Redux
+  const connectionState = useAppSelector(selectConnectionState);
+  const connectionHealth = useAppSelector(selectConnectionHealth);
+  const isReady = useAppSelector(selectIsReady);
+
+  const handleReconnect = () => {
+    const manager = getWebRTCConnectionManager();
+    manager.reconnect(true);
+  };
 
   // Function to get connection status styling
   const getConnectionStatusStyle = (): React.CSSProperties => {
@@ -35,7 +40,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
     };
 
     // Connected and healthy state - green background
-    if (connectionState.isConnected && connectionHealth.isHealthy && isReady()) {
+    if (connectionState.isConnected && connectionHealth.isHealthy && isReady) {
       return {
         ...baseStyle,
         backgroundColor: '#28a745', // Green
@@ -75,7 +80,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <strong>WebRTC:</strong> {connectionState.connectionStatus}
-          {isReady() && <span style={{ color: 'white' }}> ✓</span>}
+          {isReady && <span style={{ color: 'white' }}> ✓</span>}
           {connectionState.reconnectAttempts > 0 && (
             <span style={{ marginLeft: '5px', fontSize: '11px' }}>
               (Retry {connectionState.reconnectAttempts}/5)
@@ -85,7 +90,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
         
         {showReconnectButton && !connectionState.isConnecting && (
           <button
-            onClick={() => reconnect(true)}
+            onClick={handleReconnect}
             style={{
               background: 'rgba(255,255,255,0.2)',
               border: '1px solid rgba(255,255,255,0.3)',
