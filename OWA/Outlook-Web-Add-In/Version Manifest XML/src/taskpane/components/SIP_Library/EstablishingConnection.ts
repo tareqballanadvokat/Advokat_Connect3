@@ -45,6 +45,7 @@ export class EstablishingConnection {
     private callId = Math.random().toString(36).substring(2, 12);
     private cseq = 1;
     public isEstablishingConnectionProcessFinished = false;
+    public isConnectionEstablished = false; // Current connection status - true if connected, false if received CONNECTION BYE
     private branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
     private fromDisplayName = "macc";
     private toDisplayName = "macs";
@@ -54,6 +55,9 @@ export class EstablishingConnection {
     private timeoutManager: TimeoutManager;
     private connectionTimeout: number = 3000;  // Default 3s, updated from Registration
     private lastError: string = "";
+    
+    // BYE tracking metadata
+    public lastByeReceived: string | null = null; // Timestamp of last CONNECTION BYE
     
     // Callback for querying PeerRegistrationTimeout remaining time (from SipClient)
     public getPeerRegistrationTimeRemaining: (() => number) | null = null;
@@ -243,7 +247,10 @@ export class EstablishingConnection {
         this.timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
         logger.log("🏁 [CONNECTION] Cancelled ConnectionTimeout and PeerRegistrationTimeout");
         
+        // Update state to COMPLETE
         this.connectionState = ConnectionState.COMPLETE;
+        this.isConnectionEstablished = true; // Mark as currently connected
+        logger.log("✅ EstablishingConnection: Connection Establishment COMPLETE - isConnectionEstablished set to true");
         
         logger.log("🏁 [CONNECTION] Connection establishment COMPLETE - Ready for WebRTC SDP Exchange");
         logger.log("🏁 [CONNECTION] OWA will create SDP Offer immediately (SERVICE CSeq: 1)");

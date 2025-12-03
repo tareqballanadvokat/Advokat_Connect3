@@ -164,6 +164,25 @@ export class WebRTCConnectionManager {
     
     if (this.sipClient) {
       try {
+        // Send graceful disconnect messages to server
+        
+        // 1. Send CONNECTION BYE (7) to notify server we're cutting the connection
+        if (this.sipClient.connection.isConnectionEstablished) {
+          const connectionBye = this.sipClient.connection.createConnectionBye(7, 'Client disconnecting');
+          this.sipClient.socket.send(connectionBye);
+          console.log('📤 Sent CONNECTION BYE (7) - client disconnecting');
+        }
+        
+        // 2. Send REGISTRATION BYE if we haven't received one yet (if still registered)
+        if (this.sipClient.registration.isRegistered && !this.sipClient.registration.lastByeReceived) {
+          const registrationBye = this.sipClient.registration.createRegistrationBye(10);
+          this.sipClient.socket.send(registrationBye);
+          console.log('📤 Sent REGISTRATION BYE - client unregistering');
+        }
+        
+        // Give messages time to be sent before closing
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Gracefully close data channel
         const dataChannel = this.sipClient.peer2peer.getActiveDataChannel();
         if (dataChannel && dataChannel.readyState === 'open') {
@@ -262,8 +281,8 @@ export class WebRTCConnectionManager {
       const isApiReady = webRTCApiService.isReady();
       
       const isHealthy = !!(
-        this.sipClient.registration.isRegistrationProcessFinished &&
-        this.sipClient.connection.isEstablishingConnectionProcessFinished &&
+        this.sipClient.registration.isRegistered &&
+        this.sipClient.connection.isConnectionEstablished &&
         dataChannel?.readyState === 'open' &&
         isApiReady
       );
@@ -280,11 +299,13 @@ export class WebRTCConnectionManager {
       
       // Update connection state based on health check
       this.updateConnectionState({
-        isRegistered: this.sipClient.registration.isRegistrationProcessFinished,
-        isConnectionEstablished: this.sipClient.connection.isEstablishingConnectionProcessFinished,
-        isPeerConnected: !!dataChannel, // Use dataChannel existence as indicator of peer connection
+        isRegistered: this.sipClient.registration.isRegistered,
+        isConnectionEstablished: this.sipClient.connection.isConnectionEstablished,
+        isPeerConnected: !!dataChannel,
         isDataChannelOpen: dataChannel?.readyState === 'open',
-        isConnected: isHealthy
+        isConnected: isHealthy,
+        lastRegistrationByeReceived: this.sipClient.registration.lastByeReceived || undefined,
+        lastConnectionByeReceived: this.sipClient.connection.lastByeReceived || undefined
       });
       
       // Trigger auto-reconnect if unhealthy
@@ -464,8 +485,8 @@ export class WebRTCConnectionManager {
 
         const dataChannel = this.sipClient.peer2peer.getActiveDataChannel();
         const isFullyConnected = !!(
-          this.sipClient.registration.isRegistrationProcessFinished &&
-          this.sipClient.connection.isEstablishingConnectionProcessFinished &&
+          this.sipClient.registration.isRegistered &&
+          this.sipClient.connection.isConnectionEstablished &&
           dataChannel?.readyState === 'open'
         );
 

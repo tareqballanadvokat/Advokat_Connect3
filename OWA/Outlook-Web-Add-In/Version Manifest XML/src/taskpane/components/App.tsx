@@ -25,10 +25,27 @@ const App: React.FC<AppProps> = () => {
       console.error('❌ Failed to initialize WebRTC connection:', error);
     });
     
+    let isDisconnected = false;
+    
+    // Handle window/tab close - disconnect gracefully
+    const handleUnload = () => {
+      if (!isDisconnected) {
+        console.log('🔴 Window closing - disconnecting WebRTC...');
+        isDisconnected = true;
+        manager.disconnect();
+      }
+    };
+
+    window.addEventListener('unload', handleUnload);
+    
     // Cleanup when add-in closes
     return () => {
-      console.log('🔴 App unmounting - disconnecting WebRTC...');
-      manager.disconnect();
+      if (!isDisconnected) {
+        console.log('🔴 App unmounting - disconnecting WebRTC...');
+        isDisconnected = true;
+        manager.disconnect();
+      }
+      window.removeEventListener('unload', handleUnload);
     };
   }, []);
 

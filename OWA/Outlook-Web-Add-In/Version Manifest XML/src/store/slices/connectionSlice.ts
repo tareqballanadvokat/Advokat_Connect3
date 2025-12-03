@@ -15,6 +15,8 @@ export interface ConnectionState {
   lastError?: string;
   reconnectAttempts: number;
   lastSuccessfulConnection?: string;
+  lastRegistrationByeReceived?: string; // Timestamp of last REGISTRATION BYE received
+  lastConnectionByeReceived?: string; // Timestamp of last CONNECTION BYE received
 }
 
 export interface ConnectionHealth {

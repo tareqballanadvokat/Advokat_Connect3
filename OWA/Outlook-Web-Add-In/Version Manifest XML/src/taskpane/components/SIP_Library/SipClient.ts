@@ -126,6 +126,30 @@ export function initializeSipClient(): SipClientInstance {
         const data = await logger.blobToStringAsync(event.data);
         logger.log('📥 [SIPCLIENT] Received message:\n' + data);
         
+        // ========== GLOBAL BYE MONITOR (runs at all times) ==========
+        // Monitor for BYE messages at ANY stage, including during data exchange
+        if (/^BYE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
+            const isRegistrationBye = /Reason:\s*REGISTRATION/.test(data);
+            const isConnectionBye = /Reason:\s*CONNECTION/.test(data);
+            
+            if (isRegistrationBye) {
+                logger.log('📥 [SIPCLIENT] REGISTRATION BYE received - updating status');
+                registrationObj.isRegistered = false;
+                registrationObj.lastByeReceived = new Date().toISOString();
+                logger.log('⚠️ [SIPCLIENT] isRegistered = false');
+            }
+            
+            if (isConnectionBye) {
+                logger.log('📥 [SIPCLIENT] CONNECTION BYE received - updating status');
+                establishingConnectionObject.isConnectionEstablished = false;
+                establishingConnectionObject.lastByeReceived = new Date().toISOString();
+                logger.log('⚠️ [SIPCLIENT] isConnectionEstablished = false');
+            }
+            
+            // Continue to phase-specific handlers below for full processing
+        }
+        // ========== END GLOBAL BYE MONITOR ==========
+        
         // Phase 1: Handle Registration Process
         if (!registrationObj.isRegistrationProcessFinished) {
             const request = registrationObj.parseMessage(data);

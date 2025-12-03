@@ -55,6 +55,7 @@ export class Registration {
     public callId = Math.random().toString(36).substring(2, 12);
     private cseq = 1;
     public isRegistrationProcessFinished = false;
+    public isRegistered = false; // Current registration status - true if registered, false if received REGISTRATION BYE
     
     public branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
     public fromDisplayName = "macc";
@@ -67,6 +68,9 @@ export class Registration {
     private timeoutManager: TimeoutManager;
     private retryCount: number = 0;
     private readonly MAX_RETRIES = 3;
+    
+    // BYE tracking metadata
+    public lastByeReceived: string | null = null; // Timestamp of last REGISTRATION BYE
     
     // Callback for sending messages
     public onSendMessage: ((message: string) => void) | null = null;
@@ -213,8 +217,15 @@ export class Registration {
     private handleRegistrationBye(_data: string): string {
         logger.log('📥 [REGISTRATION] Received REGISTRATION BYE');
         
+        // Track BYE timestamp
+        this.lastByeReceived = new Date().toISOString();
+        
         // Cancel all timers
         this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        
+        // Mark as no longer registered
+        this.isRegistered = false;
+        logger.log('⚠️ [REGISTRATION] isRegistered set to false - we are no longer registered');
         
         // Mark as failed and attempt retry
         this.registrationState = RegistrationState.FAILED;
@@ -236,6 +247,8 @@ export class Registration {
         // Reset state machine
         this.registrationState = RegistrationState.IDLE;
         this.isRegistrationProcessFinished = false;
+        this.isRegistered = false; // Reset registration status for new session
+        this.lastByeReceived = null;
         
         // Generate new Call-ID and branch for the retry (new session)
         this.callId = Math.random().toString(36).substring(2, 12);
@@ -527,7 +540,9 @@ export class Registration {
         
         // Registration phase is now COMPLETE - Connection Establishment phase takes over
         this.isRegistrationProcessFinished = true;
+        this.isRegistered = true; // Mark as currently registered
         logger.log('🎉 [REGISTRATION] Registration phase COMPLETED (ACK_3 sent) - transitioning to Connection Establishment');
+        logger.log('✅ [REGISTRATION] isRegistered set to true - we are now registered');
         logger.log('⏱️ [REGISTRATION] PeerRegistrationTimeout should start now (handled by SipClient)');
         
         return ack;
