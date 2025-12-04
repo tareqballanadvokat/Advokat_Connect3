@@ -2,6 +2,7 @@
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { sipClientService } from './sipClientService';
 import { webRTCApiService } from './webRTCApiService';
+import { IdleActivityMonitor } from './IdleActivityMonitor';
 import { store } from '../../store';
 import { 
   startAuthentication, 
@@ -18,6 +19,10 @@ import {
   selectConnectionHealth,
   ConnectionState,
   ConnectionHealth,
+  setIdle,
+  updateLastActivity,
+  setIdleDisconnected,
+  setAutoReconnectPending,
 } from '../../store/slices/connectionSlice';
 
 export type { ConnectionState, ConnectionHealth };
@@ -28,6 +33,9 @@ export interface ConnectionManagerConfig {
   healthCheckInterval?: number;
   connectionTimeout?: number;
   enableAutoReconnect?: boolean;
+  idleTimeout?: number;           // Time before user is considered idle (default: 60000ms = 1 minute)
+  enableIdleDisconnect?: boolean; // Enable idle disconnect feature (default: true)
+  reconnectOnActivity?: boolean;  // Reconnect when user becomes active (default: true)
 }
 
 const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
@@ -35,7 +43,10 @@ const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
   reconnectDelay: 3000, // 3 seconds
   healthCheckInterval: 10000, // 10 seconds
   connectionTimeout: 30000, // 30 seconds
-  enableAutoReconnect: true
+  enableAutoReconnect: true,
+  idleTimeout: 5 * 60 * 1000, // 5 minutes
+  enableIdleDisconnect: true,
+  reconnectOnActivity: true
 };
 
 /**
@@ -51,6 +62,10 @@ export class WebRTCConnectionManager {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private connectionTimeoutTimer: NodeJS.Timeout | null = null;
+  
+  // Idle monitoring
+  private idleMonitor: IdleActivityMonitor | null = null;
+  private wasIdleDisconnected: boolean = false;
   
   // Internal flags
   private isInitialized = false;
@@ -88,6 +103,7 @@ export class WebRTCConnectionManager {
       try {
         await this.connect();
         this.startHealthMonitoring();
+        this.startIdleMonitoring();
         this.isInitialized = true;
       } catch (error) {
         console.error('Failed to initialize WebRTC Connection Manager:', error);
@@ -455,6 +471,7 @@ export class WebRTCConnectionManager {
   destroy(): void {
     this.isDestroyed = true;
     this.clearAllTimers();
+    this.stopIdleMonitoring();
     this.disconnect();
   }
 
@@ -536,6 +553,95 @@ export class WebRTCConnectionManager {
         this.performHealthCheck();
       }
     }, this.config.healthCheckInterval);
+  }
+
+  /**
+   * Start idle activity monitoring
+   */
+  private startIdleMonitoring(): void {
+    if (!this.config.enableIdleDisconnect) {
+      console.log('[ConnectionManager] Idle disconnect is disabled');
+      return;
+    }
+
+    if (this.idleMonitor) {
+      console.warn('[ConnectionManager] Idle monitor already running');
+      return;
+    }
+
+    console.log(`[ConnectionManager] Starting idle monitoring (timeout: ${this.config.idleTimeout}ms)`);
+    
+    this.idleMonitor = new IdleActivityMonitor({
+      idleTimeout: this.config.idleTimeout,
+      onIdle: () => this.handleUserIdle(),
+      onActive: () => this.handleUserActive(),
+    });
+
+    this.idleMonitor.start();
+  }
+
+  /**
+   * Stop idle activity monitoring
+   */
+  private stopIdleMonitoring(): void {
+    if (this.idleMonitor) {
+      console.log('[ConnectionManager] Stopping idle monitoring');
+      this.idleMonitor.stop();
+      this.idleMonitor = null;
+    }
+  }
+
+  /**
+   * Handle user going idle - disconnect to save resources
+   */
+  private handleUserIdle(): void {
+    console.log('[ConnectionManager] User went idle - disconnecting');
+    
+    const state = selectConnectionState(store.getState());
+    if (!state.isConnected) {
+      console.log('[ConnectionManager] Already disconnected, skipping idle disconnect');
+      return;
+    }
+
+    // Mark as idle and track when disconnected
+    store.dispatch(setIdle(true));
+    store.dispatch(setIdleDisconnected(new Date().toISOString()));
+    this.wasIdleDisconnected = true;
+
+    // Update status before disconnecting
+    this.updateConnectionStatus('Disconnected due to inactivity (5 min idle)');
+    
+    // Disconnect
+    this.disconnect().catch(error => {
+      console.error('[ConnectionManager] Error during idle disconnect:', error);
+    });
+  }
+
+  /**
+   * Handle user becoming active - reconnect if was idle-disconnected
+   */
+  private handleUserActive(): void {
+    console.log('[ConnectionManager] User became active');
+    
+    // Update activity timestamp
+    store.dispatch(updateLastActivity());
+    store.dispatch(setIdle(false));
+
+    // Check if we should reconnect
+    if (this.wasIdleDisconnected && this.config.reconnectOnActivity) {
+      console.log('[ConnectionManager] Reconnecting after idle period');
+      
+      this.wasIdleDisconnected = false;
+      store.dispatch(setIdleDisconnected(undefined));
+      store.dispatch(setAutoReconnectPending(false));
+      
+      // Update status and reconnect
+      this.updateConnectionStatus('Reconnecting after inactivity...');
+      
+      this.connect().catch(error => {
+        console.error('[ConnectionManager] Error during post-idle reconnect:', error);
+      });
+    }
   }
 
   private startConnectionTimeout(): void {

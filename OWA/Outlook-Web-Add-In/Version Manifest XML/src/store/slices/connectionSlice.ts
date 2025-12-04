@@ -17,6 +17,10 @@ export interface ConnectionState {
   lastSuccessfulConnection?: string;
   lastRegistrationByeReceived?: string; // Timestamp of last REGISTRATION BYE received
   lastConnectionByeReceived?: string; // Timestamp of last CONNECTION BYE received
+  isIdle: boolean; // User is currently idle
+  lastActivityTimestamp?: string; // Last user interaction
+  idleDisconnectedAt?: string; // When auto-disconnected due to idle
+  autoReconnectPending: boolean; // Waiting to reconnect on next activity
 }
 
 export interface ConnectionHealth {
@@ -43,6 +47,8 @@ const initialState: ConnectionSliceState = {
     isAuthenticating: false,
     connectionStatus: 'Initializing...',
     reconnectAttempts: 0,
+    isIdle: false,
+    autoReconnectPending: false,
   },
   health: {
     isHealthy: false,
@@ -118,6 +124,25 @@ const connectionSlice = createSlice({
       state.state = initialState.state;
       state.health = initialState.health;
     },
+
+    setIdle: (state, action: PayloadAction<boolean>) => {
+      state.state.isIdle = action.payload;
+    },
+
+    updateLastActivity: (state) => {
+      state.state.lastActivityTimestamp = new Date().toISOString();
+    },
+
+    setIdleDisconnected: (state, action: PayloadAction<string | undefined>) => {
+      state.state.idleDisconnectedAt = action.payload;
+      if (action.payload) {
+        state.state.autoReconnectPending = true;
+      }
+    },
+
+    setAutoReconnectPending: (state, action: PayloadAction<boolean>) => {
+      state.state.autoReconnectPending = action.payload;
+    },
   },
 });
 
@@ -136,6 +161,10 @@ export const {
   resetReconnectAttempts,
   updateConnectionHealth,
   resetConnection,
+  setIdle,
+  updateLastActivity,
+  setIdleDisconnected,
+  setAutoReconnectPending,
 } = connectionSlice.actions;
 
 // Selectors

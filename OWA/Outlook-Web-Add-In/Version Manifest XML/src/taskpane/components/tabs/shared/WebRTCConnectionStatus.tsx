@@ -39,6 +39,15 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
       ...style // Allow custom style overrides
     };
 
+    // Idle state - gray background (disconnected due to inactivity)
+    if (connectionState.idleDisconnectedAt) {
+      return {
+        ...baseStyle,
+        backgroundColor: '#6c757d', // Gray
+        border: '1px solid #5a6268'
+      };
+    }
+
     // Connected and healthy state - green background
     if (connectionState.isConnected && connectionHealth.isHealthy && isReady) {
       return {
