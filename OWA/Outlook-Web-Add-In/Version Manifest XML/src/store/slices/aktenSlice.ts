@@ -202,7 +202,21 @@ export const removeAktFromFavoriteAsync = createAsyncThunk(
   }
 );
 
-// New async thunk for loading available folders for an Akt
+export const downloadDocumentAsync = createAsyncThunk(
+  'akten/downloadDocument',
+  async (dokumentId: number) => {
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    const base64Content = await webRTCApiService.downloadDocument(dokumentId);
+    
+    if (!base64Content) {
+      throw new Error('Document content is empty');
+    }
+    
+    return base64Content; // Return the base64-encoded file content
+  }
+);
+
 export const getAvailableFoldersAsync = createAsyncThunk(
   'akten/getAvailableFolders',
   async (aktId: number) => {

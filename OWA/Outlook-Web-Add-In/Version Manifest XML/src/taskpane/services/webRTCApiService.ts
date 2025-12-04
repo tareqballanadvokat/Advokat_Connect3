@@ -252,6 +252,12 @@ export class WebRTCApiService {
       const completeResponse = reassembleChunkedResponse(pendingRequest.receivedResponseChunks, totalChunks);
       if (completeResponse) {
         console.log(`✅ Response reassembled successfully for ${pendingRequest.messageType}`);
+        console.log(`📦 Reassembled response:`, {
+          statusCode: completeResponse.statusCode,
+          headers: completeResponse.headers,
+          bodyLength: completeResponse.body?.length || 0,
+          rawBody: completeResponse.body
+        });
         // Process the complete response
         this.validateAndCompleteResponse(completeResponse, pendingRequest);
       } else {
@@ -397,11 +403,24 @@ export class WebRTCApiService {
   private validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
     const rawResponseBody = response.body || '';
     console.log(`📥 Processing single response for ${pendingRequest.messageType}`);
+    console.log(`📝 Raw response body (base64):`, rawResponseBody.substring(0, 100) + (rawResponseBody.length > 100 ? '...' : ''));
+    
+    // For binary file downloads, keep the body as base64
+    // For other responses, decode the base64 to get JSON or text
+    const isBinaryDownload = pendingRequest.messageType === 'dokument.downloadDocument';
+    const decodedBody = isBinaryDownload ? rawResponseBody : this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
+    
+    if (!isBinaryDownload) {
+      console.log(`📝 Decoded response body:`, decodedBody);
+    } else {
+      console.log(`📝 Binary download - keeping base64 encoding (length: ${decodedBody.length})`);
+    }
     
     // Check HTTP status code first
     const statusCode = response.statusCode;
     if (statusCode >= 400) {
       console.error(`❌ HTTP error ${statusCode} for ${pendingRequest.messageType}`);
+      console.error(`❌ Error response body:`, decodedBody);
       
       // For certain error codes, we want to retry (temporary errors)
       // For others, we want to fail immediately (permanent errors)
@@ -414,18 +433,15 @@ export class WebRTCApiService {
         return;
       } else if (permanentErrors.includes(statusCode)) {
         console.log(`❌ HTTP ${statusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${rawResponseBody || 'Request failed'}`));
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${decodedBody || 'Request failed'}`));
         return;
       } else {
         // Unknown error code, treat as permanent
         console.log(`❌ HTTP ${statusCode} is unknown error, failing request for ${pendingRequest.messageType}`);
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${rawResponseBody || 'Request failed'}`));
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${decodedBody || 'Request failed'}`));
         return;
       }
     }
-    
-    // Decode base64 response body
-    const decodedBody = this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
     
     // Create response with decoded body (no checksum validation - SCTP ensures data integrity)
     const processedResponse: WebRTCApiResponse = {
@@ -772,24 +788,25 @@ export class WebRTCApiService {
   }
 
   /**
-   * Get document with content by document ID via WebRTC
-   * @param dokumentId - The ID of the document to retrieve with content
-   * @returns Promise resolving to DokumentResponse with inhalt, contentType, fileName, and fileSize
+   * Download document content (file stream as base64)
+   * @param dokumentId - The ID of the document to download
+   * @returns Promise resolving to base64 encoded file content string
    */
-  async getDocumentWithContent(dokumentId: number): Promise<DokumentResponse> {
+  async downloadDocument(dokumentId: number): Promise<string> {
     const response = await this.sendRequest(
-      'dokument.getDocumentWithContent',
+      'dokument.downloadDocument',
       'GET',
       `api/v2.0/Dokumente/${dokumentId}/download`,
       {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/octet-stream' // Expecting binary file stream
       }
     );
     
-    // Parse the document data from the response body
-    const documentData = JSON.parse(response.body || '{}');
-    return documentData as DokumentResponse;
+    // The response body is already base64-encoded (from the chunking process)
+    // The C# API returns File(stream, contentType, fileName) which sends raw bytes
+    // These bytes are base64-encoded when sent through WebRTC chunks
+    return response.body || '';
   }
 
   // ===== PERSON API METHODS =====
@@ -923,7 +940,7 @@ export class WebRTCApiService {
     const refreshRequest: IAuthRequest = {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: 'advokat.client.web'
+      client_id: 'TestClientId'
     };
 
     return this.authenticate(refreshRequest);
