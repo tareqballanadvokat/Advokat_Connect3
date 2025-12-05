@@ -136,6 +136,7 @@ export function createMockWebRTCService() {
     saveDokument: jest.fn(),
     getAvailableFolders: jest.fn(),
     getDocumentWithContent: jest.fn(),
+    downloadDocument: jest.fn(),
     
     // Service methods
     loadServices: jest.fn(),
