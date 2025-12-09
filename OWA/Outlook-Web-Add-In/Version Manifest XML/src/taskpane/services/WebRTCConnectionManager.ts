@@ -502,7 +502,6 @@ export class WebRTCConnectionManager {
 
         const dataChannel = this.sipClient.peer2peer.getActiveDataChannel();
         const isFullyConnected = !!(
-          this.sipClient.registration.isRegistered &&
           this.sipClient.connection.isConnectionEstablished &&
           dataChannel?.readyState === 'open'
         );

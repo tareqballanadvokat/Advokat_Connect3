@@ -94,6 +94,11 @@ export function initializeSipClient(): SipClientInstance {
         logger.log('📤 [SIPCLIENT] Sent message from Registration retry handler');
     };
     
+    registrationObj.getConnectionStatus = () => {
+        // Return true if connection is established or being established
+        return establishingConnectionObject.isConnectionEstablished;
+    };
+    
     // EstablishingConnection callbacks
     establishingConnectionObject.getPeerRegistrationTimeRemaining = () => {
         return timeoutManager.getRemainingTime('PEER_REGISTRATION_TIMEOUT');
@@ -137,6 +142,8 @@ export function initializeSipClient(): SipClientInstance {
                 registrationObj.isRegistered = false;
                 registrationObj.lastByeReceived = new Date().toISOString();
                 logger.log('⚠️ [SIPCLIENT] isRegistered = false');
+                // Clear the PeerRegistrationTimer if exists
+                timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
             }
             
             if (isConnectionBye) {
@@ -170,6 +177,13 @@ export function initializeSipClient(): SipClientInstance {
                     socket.send(byeMessage);
                     logger.log('📤 [SIPCLIENT] Sent REGISTRATION BYE due to PeerRegistrationTimeout: ');
                     logger.log(byeMessage);
+                    
+                    // wait for the connection phase if currently connected or connecting
+                    if (establishingConnectionObject.getState() != ConnectionState.FAILED
+                        && establishingConnectionObject.getState() != ConnectionState.TERMINATING) {
+                        return;
+                    }
+        
                     // Reset and retry if retries available
                     registrationRetryCount++;
                     peerRegistrationTimeoutStarted = false;  // Reset flag for retry
@@ -216,7 +230,6 @@ export function initializeSipClient(): SipClientInstance {
         // Phase 2: Handle Connection Establishment Process
         if (registrationObj.isRegistrationProcessFinished &&
             !establishingConnectionObject.isEstablishingConnectionProcessFinished) {
-            
             const request = establishingConnectionObject.parseMessage(data);
             if (request) {
                 socket.send(request);

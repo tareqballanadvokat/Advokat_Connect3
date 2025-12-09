@@ -75,6 +75,9 @@ export class Registration {
     // Callback for sending messages
     public onSendMessage: ((message: string) => void) | null = null;
     
+    // Callback to check connection status before retrying registration
+    public getConnectionStatus: (() => boolean) | null = null;
+    
     // Timeout configuration (dynamically set from server's 202 response)
     private connectionTimeout: number = 3000;           // Default 3s, updated from server
     private peerRegistrationTimeout: number = 30000;    // Default 30s, updated from server (handles null from server)
@@ -137,6 +140,15 @@ export class Registration {
      * @returns true if retry was attempted, false if max retries reached
      */
     private attemptRetry(): boolean {
+        // Check if we're still connected/connecting - don't retry registration in that case
+        if (this.getConnectionStatus && this.getConnectionStatus()) {
+            logger.log('⚠️ [REGISTRATION] Connection still established/establishing - skipping retry');
+            logger.log('⚠️ [REGISTRATION] Sending new REGISTER would cause server to terminate current connection');
+            logger.log('⚠️ [REGISTRATION] Registration retry aborted - connection takes precedence');
+            this.registrationState = RegistrationState.FAILED;
+            return false;
+        }
+        
         // Check if max retries reached
         if (this.retryCount >= this.MAX_RETRIES) {
             logger.log(`❌ [REGISTRATION] Max retries (${this.MAX_RETRIES}) reached. Registration FAILED.`);
@@ -168,6 +180,10 @@ export class Registration {
     private handleReceiveTimeout(): void {
         this.lastError = 'ReceiveTimeout expired waiting for 202 Accepted';
         logger.log(`⏱️ [REGISTRATION] ${this.lastError}`);
+        
+        // Mark as no longer registered
+        this.isRegistered = false;
+        logger.log('⚠️ [REGISTRATION] isRegistered set to false - timeout before receiving 202');
         
         // Send REGISTRATION BYE (CSeq: 2) via callback
         const byeMessage = this.createRegistrationBye(2);
@@ -206,6 +222,15 @@ export class Registration {
         });
         
         logger.log('📤 [REGISTRATION] REGISTRATION BYE created');
+
+        this.timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
+        logger.log(`🔨 [REGISTRATION] Cancelling PEER_REGISTRATION_TIMEOUT after sending a REGISTRATION BYE (CSeq: ${cseqNum})`);
+
+        // Mark as no longer registered
+        this.isRegistered = false;
+        this.registrationState = RegistrationState.FAILED;
+        logger.log('⚠️ [REGISTRATION] isRegistered set to false - timeout before receiving 202');
+        
         return bye;
     }
     

@@ -367,10 +367,11 @@ export class EstablishingConnection {
         // Cancel ConnectionTimeout (will restart when NOTIFY4 arrives)
         this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
         logger.log("EstablishingConnection: Cancelled ConnectionTimeout");
-        
+
         // Check PeerRegistrationTimeout remaining time
         const peerTimeRemaining = this.getPeerRegistrationTimeRemaining?.() ?? 0;
         logger.log(`EstablishingConnection: PeerRegistrationTimeout has ${peerTimeRemaining}ms remaining`);
+        
         
         if (peerTimeRemaining > 0) {
             // Enough time - reset to wait for NOTIFY4 again
