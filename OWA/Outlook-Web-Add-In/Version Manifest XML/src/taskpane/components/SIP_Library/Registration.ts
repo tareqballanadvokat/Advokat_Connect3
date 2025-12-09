@@ -31,10 +31,6 @@ import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
 
-// Global variables for FROM header parsing
-let fromUri = "";
-let fromTag = "";
-
 /**
  * Registration state machine enum
  * Tracks the current state of the SIP registration process
@@ -63,6 +59,10 @@ export class Registration {
     public fromUri = "";
     public fromTag = "";
     
+    // FROM header parsing (instance variables instead of globals)
+    private parsedFromUri = "";
+    private parsedFromTag = "";
+    
     // State machine and timeout management
     private registrationState: RegistrationState = RegistrationState.IDLE;
     private timeoutManager: TimeoutManager;
@@ -80,7 +80,7 @@ export class Registration {
     
     // Timeout configuration (dynamically set from server's 202 response)
     private connectionTimeout: number = 3000;           // Default 3s, updated from server
-    private peerRegistrationTimeout: number = 30000;    // Default 30s, updated from server (handles null from server)
+    private peerRegistrationTimeout: number = 30000;    // Default 30s, updated from server
     private receiveTimeout: number = 1000;              // Default 1s, updated from server
     private readonly TIMEOUT_SAFETY_MARGIN = 500;       // 500ms margin to timeout before server
     
@@ -92,6 +92,38 @@ export class Registration {
 
     constructor(timeoutManager: TimeoutManager) {
         this.timeoutManager = timeoutManager;
+    }
+
+    /**
+     * Helper: Marks registration as failed with consistent state updates
+     */
+    private markRegistrationFailed(reason?: string): void {
+        this.isRegistered = false;
+        this.registrationState = RegistrationState.FAILED;
+        if (reason) {
+            logger.log(`⚠️ [REGISTRATION] isRegistered set to false - ${reason}`);
+        }
+    }
+
+    /**
+     * Helper: Sends message via callback with error handling
+     */
+    private sendMessage(message: string, context: string): void {
+        if (this.onSendMessage) {
+            this.onSendMessage(message);
+            logger.log(`📤 [REGISTRATION] Sent ${context} via callback`);
+        } else {
+            logger.log(`⚠️ [REGISTRATION] Cannot send ${context} - callback not configured`);
+        }
+    }
+
+    /**
+     * Helper: Cancels RECEIVE_TIMEOUT if active
+     */
+    private cancelReceiveTimeout(): void {
+        if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
+            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        }
     }
 
     /**
@@ -145,14 +177,14 @@ export class Registration {
             logger.log('⚠️ [REGISTRATION] Connection still established/establishing - skipping retry');
             logger.log('⚠️ [REGISTRATION] Sending new REGISTER would cause server to terminate current connection');
             logger.log('⚠️ [REGISTRATION] Registration retry aborted - connection takes precedence');
-            this.registrationState = RegistrationState.FAILED;
+            this.markRegistrationFailed();
             return false;
         }
         
         // Check if max retries reached
         if (this.retryCount >= this.MAX_RETRIES) {
             logger.log(`❌ [REGISTRATION] Max retries (${this.MAX_RETRIES}) reached. Registration FAILED.`);
-            this.registrationState = RegistrationState.FAILED;
+            this.markRegistrationFailed();
             this.timeoutManager.logActiveTimers();
             return false;
         }
@@ -162,13 +194,8 @@ export class Registration {
         this.resetRegistrationState();
         
         // Send new REGISTER via callback
-        if (this.onSendMessage) {
-            const registerMsg = this.getInitialRegistration();
-            this.onSendMessage(registerMsg);
-            logger.log('📤 [REGISTRATION] Sent retry REGISTER via callback');
-        } else {
-            logger.log('⚠️ [REGISTRATION] Cannot retry - callback not configured');
-        }
+        const registerMsg = this.getInitialRegistration();
+        this.sendMessage(registerMsg, 'retry REGISTER');
         
         return true;
     }
@@ -181,19 +208,12 @@ export class Registration {
         this.lastError = 'ReceiveTimeout expired waiting for 202 Accepted';
         logger.log(`⏱️ [REGISTRATION] ${this.lastError}`);
         
-        // Mark as no longer registered
-        this.isRegistered = false;
-        logger.log('⚠️ [REGISTRATION] isRegistered set to false - timeout before receiving 202');
+        // Mark as failed
+        this.markRegistrationFailed('timeout before receiving 202');
         
-        // Send REGISTRATION BYE (CSeq: 2) via callback
+        // Send REGISTRATION BYE (CSeq: 2)
         const byeMessage = this.createRegistrationBye(2);
-        logger.log('📤 [REGISTRATION] Sending REGISTRATION BYE due to timeout');
-        
-        if (this.onSendMessage) {
-            this.onSendMessage(byeMessage);
-        } else {
-            logger.log('⚠️ [REGISTRATION] Cannot send BYE - callback not configured');
-        }
+        this.sendMessage(byeMessage, 'REGISTRATION BYE due to timeout');
         
         // Attempt retry
         this.attemptRetry();
@@ -222,14 +242,9 @@ export class Registration {
         });
         
         logger.log('📤 [REGISTRATION] REGISTRATION BYE created');
-
+        
+        // Cancel PEER_REGISTRATION_TIMEOUT when sending BYE
         this.timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
-        logger.log(`🔨 [REGISTRATION] Cancelling PEER_REGISTRATION_TIMEOUT after sending a REGISTRATION BYE (CSeq: ${cseqNum})`);
-
-        // Mark as no longer registered
-        this.isRegistered = false;
-        this.registrationState = RegistrationState.FAILED;
-        logger.log('⚠️ [REGISTRATION] isRegistered set to false - timeout before receiving 202');
         
         return bye;
     }
@@ -245,17 +260,11 @@ export class Registration {
         // Track BYE timestamp
         this.lastByeReceived = new Date().toISOString();
         
-        // Cancel all timers (only if active)
-        if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
-            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
-        }
-        
-        // Mark as no longer registered
-        this.isRegistered = false;
-        logger.log('⚠️ [REGISTRATION] isRegistered set to false - we are no longer registered');
+        // Cancel active timers
+        this.cancelReceiveTimeout();
         
         // Mark as failed and attempt retry
-        this.registrationState = RegistrationState.FAILED;
+        this.markRegistrationFailed('received REGISTRATION BYE from server');
         this.attemptRetry();
         
         // No response needed for REGISTRATION BYE in this implementation
@@ -268,15 +277,13 @@ export class Registration {
     private resetRegistrationState(): void {
         logger.log('🔄 [REGISTRATION] Resetting registration state for retry');
         
-        // Clear any active timers (only if they exist)
-        if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
-            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
-        }
+        // Clear any active timers
+        this.cancelReceiveTimeout();
         
         // Reset state machine
         this.registrationState = RegistrationState.IDLE;
         this.isRegistrationProcessFinished = false;
-        this.isRegistered = false; // Reset registration status for new session
+        this.isRegistered = false;
         this.lastByeReceived = null;
         
         // Generate new Call-ID and branch for the retry (new session)
@@ -289,10 +296,8 @@ export class Registration {
         this.processedCSeqs.clear();
         this.fromUri = "";
         this.fromTag = "";
-        
-        // Reset global variables
-        fromUri = "";
-        fromTag = "";
+        this.parsedFromUri = "";
+        this.parsedFromTag = "";
         
         logger.log(`🔄 [REGISTRATION] New session - Call-ID: ${this.callId}, Tag: ${this.tag}, Branch: ${this.branch}`);
         this.timeoutManager.logActiveTimers();
@@ -397,7 +402,7 @@ export class Registration {
         logger.log('🔨 [REGISTRATION] Creating ACK for 202 Accepted');
         this.getFromParts(data);
         
-        const toLine = `"${this.toDisplayName}" <${fromUri}>;tag=${fromTag}`;
+        const toLine = `"${this.toDisplayName}" <${this.parsedFromUri}>;tag=${this.parsedFromTag}`;
         const fromLine = `"${this.fromDisplayName}" <${this.sipUri};transport=wss>;tag=${this.tag}`;
         
         const ack = MessageFactory.createAckMessage({
@@ -537,9 +542,7 @@ export class Registration {
         }
         
         // Clear the ReceiveTimeout (we got the 202 response in time)
-        if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
-            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
-        }
+        this.cancelReceiveTimeout();
         
         // Parse and update timeout configuration from server response
         this.parseServerTimeouts(data);
@@ -652,7 +655,7 @@ export class Registration {
     getFromParts(data: string): void {
         logger.log('🔍 [REGISTRATION] Extracting FROM header components');
         
-        if (fromTag !== "" && fromUri !== "") {
+        if (this.parsedFromTag !== "" && this.parsedFromUri !== "") {
             logger.log('🔍 [REGISTRATION] FROM parts already extracted, skipping');
             return;
         }
@@ -661,9 +664,9 @@ export class Registration {
         const m = re.exec(data);
         
         if (m) {
-            fromUri = m[2]; // sip:macs@127.0.0.1:443;transport=wss
-            fromTag = m[3]; // tag value
-            logger.log(`✅ [REGISTRATION] Extracted FROM - URI: ${fromUri}, Tag: ${fromTag}`);
+            this.parsedFromUri = m[2]; // sip:macs@127.0.0.1:443;transport=wss
+            this.parsedFromTag = m[3]; // tag value
+            logger.log(`✅ [REGISTRATION] Extracted FROM - URI: ${this.parsedFromUri}, Tag: ${this.parsedFromTag}`);
         } else {
             logger.log('❌ [REGISTRATION] Failed to parse From header');
         }
@@ -677,10 +680,8 @@ export class Registration {
     public terminate(): string {
         logger.log('🛑 [REGISTRATION] Initiating graceful termination');
         
-        // Cancel all active timers (only if active)
-        if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
-            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
-        }
+        // Cancel all active timers
+        this.cancelReceiveTimeout();
         
         // Update state
         this.registrationState = RegistrationState.TERMINATING;
