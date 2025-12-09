@@ -172,8 +172,8 @@ export class Peer2PeerConnection {
         this.lastError = "";
         this.lastOfferParams = null;
         
-        // Cancel any active timeouts
-        if (this.timeoutManager) {
+        // Cancel any active timeouts (only if active)
+        if (this.timeoutManager && this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
             this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
         }
         
@@ -272,7 +272,6 @@ export class Peer2PeerConnection {
                 }
             }
         };
-        
         // Create and set local offer
         const offer = await this.pc.createOffer();
         await this.pc.setLocalDescription(offer);
@@ -311,8 +310,8 @@ export class Peer2PeerConnection {
      */
     async parseIncomingAnswer(data: string): Promise<void> {
         if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) && /CSeq:\s*2 SERVICE/.test(data)) {
-            // Cancel RECEIVE_TIMEOUT - we got the answer
-            if (this.timeoutManager) {
+            // Cancel RECEIVE_TIMEOUT - we got the answer (only if active)
+            if (this.timeoutManager && this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
                 this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
                 logger.log('⏱️ [PEER2PEER] Cancelled RECEIVE_TIMEOUT - answer received');
             }

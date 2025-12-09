@@ -220,8 +220,10 @@ export class Registration {
         // Track BYE timestamp
         this.lastByeReceived = new Date().toISOString();
         
-        // Cancel all timers
-        this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        // Cancel all timers (only if active)
+        if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
+            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        }
         
         // Mark as no longer registered
         this.isRegistered = false;
@@ -241,8 +243,10 @@ export class Registration {
     private resetRegistrationState(): void {
         logger.log('🔄 [REGISTRATION] Resetting registration state for retry');
         
-        // Clear any active timers
-        this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        // Clear any active timers (only if they exist)
+        if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
+            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        }
         
         // Reset state machine
         this.registrationState = RegistrationState.IDLE;
@@ -508,7 +512,9 @@ export class Registration {
         }
         
         // Clear the ReceiveTimeout (we got the 202 response in time)
-        this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
+            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        }
         
         // Parse and update timeout configuration from server response
         this.parseServerTimeouts(data);
@@ -646,8 +652,10 @@ export class Registration {
     public terminate(): string {
         logger.log('🛑 [REGISTRATION] Initiating graceful termination');
         
-        // Cancel all active timers
-        this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        // Cancel all active timers (only if active)
+        if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
+            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
+        }
         
         // Update state
         this.registrationState = RegistrationState.TERMINATING;

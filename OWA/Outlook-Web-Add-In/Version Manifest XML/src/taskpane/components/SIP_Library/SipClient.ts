@@ -168,7 +168,8 @@ export function initializeSipClient(): SipClientInstance {
                     logger.log('⏱️ [SIPCLIENT] PeerRegistrationTimeout expired - sending REGISTRATION BYE');
                     const byeMessage = registrationObj.createRegistrationBye(4);
                     socket.send(byeMessage);
-                    
+                    logger.log('📤 [SIPCLIENT] Sent REGISTRATION BYE due to PeerRegistrationTimeout: ');
+                    logger.log(byeMessage);
                     // Reset and retry if retries available
                     registrationRetryCount++;
                     peerRegistrationTimeoutStarted = false;  // Reset flag for retry
@@ -176,6 +177,8 @@ export function initializeSipClient(): SipClientInstance {
                         logger.log(`🔄 [SIPCLIENT] Registration retry ${registrationRetryCount}/${MAX_RETRIES}`);
                         const retryMsg = registrationObj.getInitialRegistration();
                         socket.send(retryMsg);
+                        logger.log('📤 [SIPCLIENT] Sent REGISTER message for retry');
+                        logger.log(retryMsg);
                     } else {
                         logger.log('❌ [SIPCLIENT] Max registration retries reached');
                     }

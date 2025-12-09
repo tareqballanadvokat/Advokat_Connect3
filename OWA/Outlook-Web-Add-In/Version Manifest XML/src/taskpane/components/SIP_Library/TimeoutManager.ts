@@ -46,6 +46,7 @@ export class TimeoutManager {
             logger.log(`⏱️ [TIMEOUT_MANAGER] - Start: ${new Date(startTime).toISOString()}`);
             logger.log(`⏱️ [TIMEOUT_MANAGER] - Expiry: ${new Date().toISOString()}`);
             this.timers.delete(name);
+            logger.log(`⏱️ [TIMEOUT_MANAGER] Timer '${name}' DELETED and REMOVED from active timers`);
             callback();
         }, duration);
         
