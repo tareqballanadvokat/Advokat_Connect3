@@ -7,6 +7,7 @@ import { IAuthRequest, IAuthResponse } from '../components/interfaces/IAuth';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { store } from '../../store';
 import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlice';
+import { tokenService } from './TokenService';
 import {
   createProtocolRequest,
   chunkRequest,
@@ -114,11 +115,24 @@ export class WebRTCApiService {
       const isTokenValid = selectIsTokenValid(state);
       
       if (token && isTokenValid) {
+        // Validate token expiration
+        if (tokenService.isTokenExpired(token)) {
+          console.error('❌ Token is expired or expiring soon - request may fail');
+          console.error('❌ Please refresh token before making request:', messageType);
+          tokenService.logTokenValidation(token, messageType);
+          // Continue with expired token - let server handle it and trigger refresh on 401/400
+        } else {
+          // Token is valid - log validation details in development
+          if (process.env.NODE_ENV === 'development') {
+            tokenService.logTokenValidation(token, messageType);
+          }
+        }
+        
         requestHeaders['Authorization'] = `Bearer ${token}`;
         console.log('🔑 Added Authorization header to request:', messageType);
       } else {
         console.warn('⚠️ No valid token available for authenticated request:', messageType);
-        // You might want to trigger token refresh or reject the request here
+        console.warn('⚠️ This request will likely fail with 401 Unauthorized');
       }
     }
     
@@ -418,27 +432,57 @@ export class WebRTCApiService {
     
     // Check HTTP status code first
     const statusCode = response.statusCode;
-    if (statusCode >= 400) {
-      console.error(`❌ HTTP error ${statusCode} for ${pendingRequest.messageType}`);
+    const errorCode = response.errorCode; // Some responses use errorCode instead of statusCode
+    const actualStatusCode = statusCode || errorCode;
+    
+    if (actualStatusCode && actualStatusCode >= 400) {
+      console.error(`❌ HTTP error ${actualStatusCode} for ${pendingRequest.messageType}`);
       console.error(`❌ Error response body:`, decodedBody);
+      
+      // Handle authentication/authorization errors specially
+      if (actualStatusCode === 401 || actualStatusCode === 400) {
+        console.error(`🔐 Authentication error ${actualStatusCode} - token may be expired or invalid`);
+        console.error(`🔐 Request ID: ${pendingRequest.id}`);
+        console.error(`🔐 Message type: ${pendingRequest.messageType}`);
+        
+        // Check if we have a token to validate
+        const state = store.getState();
+        const token = selectAuthToken(state);
+        if (token) {
+          console.error(`🔐 Checking token validity...`);
+          tokenService.logTokenValidation(token, pendingRequest.messageType);
+          
+          if (tokenService.isTokenExpired(token)) {
+            console.error(`🔐 Token is expired - user should re-authenticate`);
+          }
+        }
+        
+        // Fail the request with clear auth error
+        this.completeRequest(
+          pendingRequest, 
+          undefined, 
+          new Error(`Authentication failed (${actualStatusCode}): Token may be expired. Please refresh your session.`)
+        );
+        return;
+      }
       
       // For certain error codes, we want to retry (temporary errors)
       // For others, we want to fail immediately (permanent errors)
       const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
-      const permanentErrors = [400, 401, 403, 404]; // Client errors, authorization, not found
+      const permanentErrors = [403, 404, 422]; // Forbidden, not found, validation errors
       
-      if (retryableErrors.includes(statusCode)) {
-        console.log(`🔄 HTTP ${statusCode} is retryable, attempting retry for ${pendingRequest.messageType}`);
+      if (retryableErrors.includes(actualStatusCode)) {
+        console.log(`🔄 HTTP ${actualStatusCode} is retryable, attempting retry for ${pendingRequest.messageType}`);
         this.retryRequest(pendingRequest);
         return;
-      } else if (permanentErrors.includes(statusCode)) {
-        console.log(`❌ HTTP ${statusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${decodedBody || 'Request failed'}`));
+      } else if (permanentErrors.includes(actualStatusCode)) {
+        console.log(`❌ HTTP ${actualStatusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${actualStatusCode}: ${decodedBody || 'Request failed'}`));
         return;
       } else {
         // Unknown error code, treat as permanent
-        console.log(`❌ HTTP ${statusCode} is unknown error, failing request for ${pendingRequest.messageType}`);
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${decodedBody || 'Request failed'}`));
+        console.log(`❌ HTTP ${actualStatusCode} is unknown error, failing request for ${pendingRequest.messageType}`);
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${actualStatusCode}: ${decodedBody || 'Request failed'}`));
         return;
       }
     }
