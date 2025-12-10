@@ -4,27 +4,82 @@
  * This class manages the SIP registration phase ONLY.
  * Registration phase handles CSeq 1-3 (REGISTER → 202 → ACK_3).
  * 
- * The registration process follows these steps:
- * 1. Send REGISTER request (CSeq: 1) with timeout configuration
- * 2. Receive 202 Accepted (CSeq: 2) and extract server's timeout values
- * 3. Send ACK (CSeq: 3) - REGISTRATION PHASE COMPLETES HERE
+ * REGISTRATION FLOW (Success Path):
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │ Client sends REGISTER (CSeq:1) with timeout config in JSON body     │
+ * │   → State: IDLE → REGISTER_SENT                                      │
+ * │   → Start RECEIVE_TIMEOUT waiting for 202                            │
+ * └──────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │ Server responds with 202 Accepted (CSeq:2)                           │
+ * │   → Cancel RECEIVE_TIMEOUT                                           │
+ * │   → Parse server timeout configuration from response body            │
+ * │   → Extract server's tag from From header                            │
+ * │   → State: REGISTER_SENT → ACCEPTED_202                              │
+ * └──────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │ Client sends ACK (CSeq:3)                                            │
+ * │   → State: ACCEPTED_202 → ACK_3_SENT                                 │
+ * │   → isRegistrationProcessFinished = true                             │
+ * │   → isRegistered = true                                              │
+ * │   → REGISTRATION PHASE COMPLETE                                      │
+ * │   → Connection Establishment phase takes over                        │
+ * └──────────────────────────────────────────────────────────────────────┘
  * 
- * After ACK_3 is sent, the Connection Establishment phase takes over.
+ * RETRY LOGIC (Failure Handling):
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │ Failure Trigger (one of):                                            │
+ * │   • RECEIVE_TIMEOUT expires (no 202 received)                        │
+ * │   • Server sends error response (4xx, 5xx, 6xx)                      │
+ * │   • Server sends REGISTRATION BYE                                    │
+ * └──────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │ Check Connection Status:                                             │
+ * │   → If connection still active/establishing → ABORT retry            │
+ * │      (New REGISTER would cause server to drop current connection)    │
+ * │   → If connection not active → Proceed with retry                    │
+ * └──────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │ Check Retry Count:                                                   │
+ * │   → If retryCount >= MAX_RETRIES (3) → Mark FAILED permanently       │
+ * │   → If retryCount < MAX_RETRIES → Continue retry                     │
+ * └──────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │ Send REGISTRATION BYE (CSeq:2) to signal failure                     │
+ * │   → State: → FAILED                                                  │
+ * │   → isRegistered = false                                             │
+ * └──────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │ Reset Registration State:                                            │
+ * │   → Generate new Call-ID, branch, tag                                │
+ * │   → Clear session data (expectedToTag, processedCSeqs)               │
+ * │   → State: FAILED → IDLE                                             │
+ * │   → Increment retryCount                                             │
+ * └──────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │ Send new REGISTER (CSeq:1) via onSendMessage callback                │
+ * │   → Restart RECEIVE_TIMEOUT                                          │
+ * │   → State: IDLE → REGISTER_SENT                                      │
+ * │   → Retry attempt logged (attempt X/3)                               │
+ * └──────────────────────────────────────────────────────────────────────┘
  * 
- * Key Features:
- * - Generates SIP REGISTER messages with timeout configuration in JSON body
- * - Parses 202 Accepted responses and updates timeout values from server
- * - Creates ACK message for 202 response
- * - Tracks registration state through RegistrationState enum
- * - Validates session identity (Call-ID and tags)
- * - Handles ReceiveTimeout waiting for 202 response
- * - Implements retry logic with REGISTRATION BYE on failures
+ * ERROR HANDLING:
+ *   • Permanent errors (401, 403, 407): Mark as FAILED, no retry
+ *   • Temporary errors (408, 500, 503, 504): Send BYE, retry with delay
+ *   • Duplicate messages: Resend last response (idempotent behavior)
  * 
- * Important: This class does NOT handle NOTIFY messages (CSeq 4 and 6).
+ * IMPORTANT: This class does NOT handle NOTIFY messages (CSeq 4 and 6).
  * NOTIFY messages belong to Connection Establishment phase.
  * 
  * @author AdvokatConnect Development Team
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 import { logger } from './Helper';
@@ -46,14 +101,26 @@ export enum RegistrationState {
 }
 
 export class Registration {
+    // Regex patterns
+    private static readonly REGEX_CALL_ID = /^Call-ID:\s*([^\r\n]+)/m;
+    private static readonly REGEX_TO_TAG = /^To:.*?;tag=(\S+)/m;
+    private static readonly REGEX_FROM_TAG = /^From:.*?;tag=(\S+)/m;
+    private static readonly REGEX_FROM_HEADER = /^From:\s*(?:"([^"]+)"\s*)?<([^>]+)>;tag=(\S+)/m;
+    private static readonly REGEX_CSEQ = /^CSeq:\s*(\d+)\s+(\w+)/m;
+    
+    // CSeq constants
+    private static readonly CSEQ_REGISTER = 1;
+    private static readonly CSEQ_BYE_TIMEOUT = 2;
+    private static readonly CSEQ_ACK = 3;
+    
     private sipUri = "sip:macc@127.0.0.1:8009";
-    public tag = Math.random().toString(36).substring(2, 12);
-    public callId = Math.random().toString(36).substring(2, 12);
+    public tag = "";
+    public callId = "";
     private cseq = 1;
     public isRegistrationProcessFinished = false;
-    public isRegistered = false; // Current registration status - true if registered, false if received REGISTRATION BYE
+    public isRegistered = false;
     
-    public branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
+    public branch = "";
     public fromDisplayName = "macc";
     public toDisplayName = "macs";
     public fromUri = "";
@@ -92,21 +159,41 @@ export class Registration {
 
     constructor(timeoutManager: TimeoutManager) {
         this.timeoutManager = timeoutManager;
+        this.generateSessionIds();
     }
 
     /**
-     * Helper: Marks registration as failed with consistent state updates
+     * Generates new session identifiers (Call-ID, branch, tag) for a fresh registration attempt
      */
-    private markRegistrationFailed(reason?: string): void {
-        this.isRegistered = false;
-        this.registrationState = RegistrationState.FAILED;
+    private generateSessionIds(): void {
+        this.callId = Math.random().toString(36).substring(2, 12);
+        this.branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
+        this.tag = Math.random().toString(36).substring(2, 12);
+    }
+
+    /**
+     * Centralized state transition helper with automatic logging
+     */
+    private transitionTo(newState: RegistrationState, reason?: string): void {
+        const oldState = this.registrationState;
+        this.registrationState = newState;
         if (reason) {
-            logger.log(`⚠️ [REGISTRATION] isRegistered set to false - ${reason}`);
+            logger.log(`📤 [REGISTRATION] STATE: ${oldState} -> ${newState} (${reason})`);
+        } else {
+            logger.log(`📤 [REGISTRATION] STATE: ${oldState} -> ${newState}`);
         }
     }
 
     /**
-     * Helper: Sends message via callback with error handling
+     * Marks registration as failed with consistent state updates
+     */
+    private markRegistrationFailed(reason?: string): void {
+        this.isRegistered = false;
+        this.transitionTo(RegistrationState.FAILED, reason);
+    }
+
+    /**
+     * Sends SIP message via onSendMessage callback with error handling
      */
     private sendMessage(message: string, context: string): void {
         if (this.onSendMessage) {
@@ -118,7 +205,7 @@ export class Registration {
     }
 
     /**
-     * Helper: Cancels RECEIVE_TIMEOUT if active
+     * Cancels RECEIVE_TIMEOUT timer if currently active
      */
     private cancelReceiveTimeout(): void {
         if (this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
@@ -127,20 +214,14 @@ export class Registration {
     }
 
     /**
-     * Creates and returns the initial REGISTER message
-     * Also resets registration state for new attempt
+     * Creates and returns the initial REGISTER message (CSeq:1) with timeout configuration
+     * Starts RECEIVE_TIMEOUT waiting for 202 Accepted response
      * @returns The formatted SIP REGISTER message
      */
     getInitialRegistration(): string {
-        logger.log('🔗 WebSocket connected');
-        
-        // Reset registration completion flag for new attempt
         this.isRegistrationProcessFinished = false;
+        this.transitionTo(RegistrationState.REGISTER_SENT);
         
-        logger.log('📤 [REGISTRATION] STATE: IDLE -> REGISTER_SENT');
-        this.registrationState = RegistrationState.REGISTER_SENT;
-        
-        // Build REGISTER message using MessageFactory
         const register = MessageFactory.createRegisterMessage({
             sipUri: this.sipUri,
             branch: this.branch,
@@ -153,14 +234,12 @@ export class Registration {
                 PeerRegistrationTimeout: this.peerRegistrationTimeout,
                 ReceiveTimeout: this.receiveTimeout
             },
-            cseq: this.cseq
+            cseq: Registration.CSEQ_REGISTER
         });
         
         logger.log('📤 [REGISTRATION] REGISTER message created with timeout configuration');
         
-        // Start ReceiveTimeout waiting for 202 response
         this.timeoutManager.startTimer('RECEIVE_TIMEOUT', this.receiveTimeout, () => {
-            logger.log('⏱️ [REGISTRATION] ReceiveTimeout expired waiting for 202 Accepted');
             this.handleReceiveTimeout();
         });
         
@@ -168,11 +247,11 @@ export class Registration {
     }
     
     /**
-     * Attempts to retry registration if retry count allows
-     * @returns true if retry was attempted, false if max retries reached
+     * Attempts to retry registration after failure (max 3 attempts)
+     * Checks connection status to prevent disrupting active connections
+     * @returns true if retry was attempted, false if aborted or max retries reached
      */
     private attemptRetry(): boolean {
-        // Check if we're still connected/connecting - don't retry registration in that case
         if (this.getConnectionStatus && this.getConnectionStatus()) {
             logger.log('⚠️ [REGISTRATION] Connection still established/establishing - skipping retry');
             logger.log('⚠️ [REGISTRATION] Sending new REGISTER would cause server to terminate current connection');
@@ -181,7 +260,6 @@ export class Registration {
             return false;
         }
         
-        // Check if max retries reached
         if (this.retryCount >= this.MAX_RETRIES) {
             logger.log(`❌ [REGISTRATION] Max retries (${this.MAX_RETRIES}) reached. Registration FAILED.`);
             this.markRegistrationFailed();
@@ -193,7 +271,6 @@ export class Registration {
         logger.log(`🔄 [REGISTRATION] Retry attempt ${this.retryCount}/${this.MAX_RETRIES}`);
         this.resetRegistrationState();
         
-        // Send new REGISTER via callback
         const registerMsg = this.getInitialRegistration();
         this.sendMessage(registerMsg, 'retry REGISTER');
         
@@ -201,28 +278,26 @@ export class Registration {
     }
     
     /**
-     * Handles ReceiveTimeout expiry (waiting for 202 Accepted)
-     * Sends REGISTRATION BYE and retries internally via callback
+     * Handles RECEIVE_TIMEOUT expiry when waiting for 202 Accepted response
+     * Sends REGISTRATION BYE (CSeq:2) and triggers retry logic
      */
     private handleReceiveTimeout(): void {
         this.lastError = 'ReceiveTimeout expired waiting for 202 Accepted';
         logger.log(`⏱️ [REGISTRATION] ${this.lastError}`);
         
-        // Mark as failed
         this.markRegistrationFailed('timeout before receiving 202');
         
-        // Send REGISTRATION BYE (CSeq: 2)
-        const byeMessage = this.createRegistrationBye(2);
+        const byeMessage = this.createRegistrationBye(Registration.CSEQ_BYE_TIMEOUT);
         this.sendMessage(byeMessage, 'REGISTRATION BYE due to timeout');
         
-        // Attempt retry
         this.attemptRetry();
     }
     
 
     
     /**
-     * Creates a REGISTRATION BYE message
+     * Creates a REGISTRATION BYE message to signal registration failure
+     * Cancels PEER_REGISTRATION_TIMEOUT if active
      * @param cseqNum - CSeq number for the BYE message
      * @returns The formatted REGISTRATION BYE message
      */
@@ -243,55 +318,43 @@ export class Registration {
         
         logger.log('📤 [REGISTRATION] REGISTRATION BYE created');
         
-        // Cancel PEER_REGISTRATION_TIMEOUT when sending BYE
         this.timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
         
         return bye;
     }
     
     /**
-     * Handles incoming REGISTRATION BYE message
+     * Handles incoming REGISTRATION BYE message from server
+     * Marks registration as failed and triggers retry logic
      * @param _data - The REGISTRATION BYE message (unused but kept for consistency)
-     * @returns Response message or empty string
+     * @returns Empty string (no response needed)
      */
     private handleRegistrationBye(_data: string): string {
         logger.log('📥 [REGISTRATION] Received REGISTRATION BYE');
         
-        // Track BYE timestamp
         this.lastByeReceived = new Date().toISOString();
-        
-        // Cancel active timers
         this.cancelReceiveTimeout();
         
-        // Mark as failed and attempt retry
         this.markRegistrationFailed('received REGISTRATION BYE from server');
         this.attemptRetry();
         
-        // No response needed for REGISTRATION BYE in this implementation
         return "";
     }
     
     /**
-     * Resets the registration state to prepare for a new registration attempt
+     * Resets registration state for a new attempt
+     * Generates fresh session IDs (Call-ID, branch, tag) and clears session data
      */
     private resetRegistrationState(): void {
-        logger.log('🔄 [REGISTRATION] Resetting registration state for retry');
-        
-        // Clear any active timers
         this.cancelReceiveTimeout();
         
-        // Reset state machine
-        this.registrationState = RegistrationState.IDLE;
+        this.transitionTo(RegistrationState.IDLE, 'resetting for retry');
         this.isRegistrationProcessFinished = false;
         this.isRegistered = false;
         this.lastByeReceived = null;
         
-        // Generate new Call-ID and branch for the retry (new session)
-        this.callId = Math.random().toString(36).substring(2, 12);
-        this.branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
-        this.tag = Math.random().toString(36).substring(2, 12);
+        this.generateSessionIds();
         
-        // Clear session-specific data
         this.expectedToTag = "";
         this.processedCSeqs.clear();
         this.fromUri = "";
@@ -300,20 +363,16 @@ export class Registration {
         this.parsedFromTag = "";
         
         logger.log(`🔄 [REGISTRATION] New session - Call-ID: ${this.callId}, Tag: ${this.tag}, Branch: ${this.branch}`);
-        this.timeoutManager.logActiveTimers();
     }
     
     /**
-     * Validates that an incoming message belongs to the current registration session
-     * Registration phase only handles CSeq 1-3 (REGISTER → 202 → ACK)
+     * Validates that incoming message belongs to current registration session
+     * Verifies Call-ID, To-tag, and From-tag match expected values
      * @param data - The SIP message to validate
      * @returns true if message is valid for current session, false otherwise
      */
     private validateSession(data: string): boolean {
-        logger.log('🔍 [REGISTRATION] Validating session...');
-        
-        // Extract Call-ID from message
-        const callIdMatch = data.match(/^Call-ID:\s*([^\r\n]+)/m);
+        const callIdMatch = data.match(Registration.REGEX_CALL_ID);
         if (!callIdMatch) {
             logger.log('⚠️ [REGISTRATION] Message missing Call-ID header');
             return false;
@@ -321,39 +380,25 @@ export class Registration {
         
         const messageCallId = callIdMatch[1];
         
-        // Verify Call-ID matches registration session
-        logger.log(`🔍 [REGISTRATION] Call-ID check - Expected: ${this.callId}, Received: ${messageCallId}`);
         if (messageCallId !== this.callId) {
-            logger.log(`⚠️ [REGISTRATION] Call-ID mismatch! Expected: ${this.callId}, Received: ${messageCallId}`);
-            logger.log('⚠️ [REGISTRATION] Message belongs to different session - IGNORING');
+            logger.log(`⚠️ [REGISTRATION] Call-ID mismatch - Expected: ${this.callId}, Got: ${messageCallId} - IGNORING`);
             return false;
         }
         
-        // Validate To-tag matches our tag
-        const toTagMatch = data.match(/^To:.*?;tag=(\S+)/m);
-        if (toTagMatch) {
-            const messageToTag = toTagMatch[1];
-            logger.log(`🔍 [REGISTRATION] To-tag check - Expected our tag: ${this.tag}, Received: ${messageToTag}`);
-            if (messageToTag !== this.tag) {
-                logger.log(`⚠️ [REGISTRATION] To-tag mismatch! Expected our tag: ${this.tag}, Received: ${messageToTag}`);
+        const toTagMatch = data.match(Registration.REGEX_TO_TAG);
+        if (toTagMatch && toTagMatch[1] !== this.tag) {
+            logger.log(`⚠️ [REGISTRATION] To-tag mismatch - Expected: ${this.tag}, Got: ${toTagMatch[1]}`);
+            return false;
+        }
+        
+        if (this.expectedToTag !== "") {
+            const fromTagMatch = data.match(Registration.REGEX_FROM_TAG);
+            if (fromTagMatch && fromTagMatch[1] !== this.expectedToTag) {
+                logger.log(`⚠️ [REGISTRATION] From-tag mismatch - Expected: ${this.expectedToTag}, Got: ${fromTagMatch[1]}`);
                 return false;
             }
         }
         
-        // Validate From-tag if we have the server's tag
-        if (this.expectedToTag !== "") {
-            const fromTagMatch = data.match(/^From:.*?;tag=(\S+)/m);
-            if (fromTagMatch) {
-                const messageFromTag = fromTagMatch[1];
-                logger.log(`🔍 [REGISTRATION] From-tag check - Expected server tag: ${this.expectedToTag}, Received: ${messageFromTag}`);
-                if (messageFromTag !== this.expectedToTag) {
-                    logger.log(`⚠️ [REGISTRATION] From-tag mismatch! Expected server tag: ${this.expectedToTag}, Received: ${messageFromTag}`);
-                    return false;
-                }
-            }
-        }
-        
-        logger.log('✅ [REGISTRATION] Session validation passed');
         return true;
     }
     
@@ -395,12 +440,9 @@ export class Registration {
     
     /**
      * Creates an ACK message in response to a 202 Accepted response
-     * @param data - The SIP message data received
-     * @returns The formatted ACK message
      */
-    createAck(data: string): string {
-        logger.log('🔨 [REGISTRATION] Creating ACK for 202 Accepted');
-        this.getFromParts(data);
+    private createAck(data: string): string {
+        this.extractFromParts(data);
         
         const toLine = `"${this.toDisplayName}" <${this.parsedFromUri}>;tag=${this.parsedFromTag}`;
         const fromLine = `"${this.fromDisplayName}" <${this.sipUri};transport=wss>;tag=${this.tag}`;
@@ -410,7 +452,7 @@ export class Registration {
             branch: this.branch,
             callId: this.callId,
             tag: this.tag,
-            cseq: 3,
+            cseq: Registration.CSEQ_ACK,
             toLine: toLine,
             fromLine: fromLine
         });
@@ -420,75 +462,59 @@ export class Registration {
     }
     
     /**
-     * Central message router that analyzes incoming SIP messages and determines the appropriate response
-     * Implements state machine logic with comprehensive error handling and session validation
+     * Central message router - analyzes incoming SIP messages and returns appropriate response
+     * Validates session, detects duplicates, and routes to specific handlers
      * @param data - The SIP message data to parse
      * @returns The appropriate response message or empty string
      */
     parseMessage(data: string): string {
         logger.log(`📨 [REGISTRATION] Parsing message in state: ${this.registrationState}`);
-        logger.log(data);
-        // First, validate that this message belongs to our current registration session
+        
         if (!this.validateSession(data)) {
-            logger.log('⛔ [REGISTRATION] Message failed session validation - ignoring');
             return "";
         }
         
-        // Extract CSeq for duplicate detection
-        const cseqMatch = data.match(/^CSeq:\s*(\d+)\s+(\w+)/m);
+        const cseqMatch = data.match(Registration.REGEX_CSEQ);
         if (cseqMatch) {
             const cseqNum = parseInt(cseqMatch[1], 10);
             const cseqMethod = cseqMatch[2];
             logger.log(`📋 [REGISTRATION] Message CSeq: ${cseqNum} ${cseqMethod}`);
             
-            // Check for duplicate messages (server retransmission)
             if (this.processedCSeqs.has(cseqNum)) {
-                logger.log(`⚠️ [REGISTRATION] Duplicate CSeq ${cseqNum} detected - resending last response`);
-                // For duplicates, we should resend the same response (idempotent)
-                // This handles server retransmissions
+                logger.log(`⚠️ [REGISTRATION] Duplicate CSeq ${cseqNum} - resending response`);
                 return this.handleDuplicateMessage(data, cseqNum);
             }
         }
         
-        // Handle SIP error responses (4xx, 5xx, 6xx)
         if (/SIP\/2\.0 [456]\d{2}/.test(data)) {
             return this.handleErrorResponse(data);
         }
         
-        // Handle 202 Accepted response
         if (/SIP\/2\.0 202/.test(data)) {
             return this.handle202Accepted(data);
         }
         
-        // Handle BYE messages from server
         if (/^BYE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
-            logger.log('📥 [REGISTRATION] Received BYE from server');
             return this.handleRegistrationBye(data);
         }
         
-        // Handle NOTIFY messages - ERROR: Should never reach Registration phase
         if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
             logger.log('❌ [REGISTRATION] ERROR: NOTIFY received in Registration phase!');
-            logger.log('❌ [REGISTRATION] All NOTIFY messages belong to Connection Establishment phase');
-            logger.log('❌ [REGISTRATION] This indicates a message routing error in SipClient');
-            logger.log('❌ [REGISTRATION] Registration phase ends after sending ACK_3');
             return "";
         }
         
-        // Unrecognized message type
-        logger.log('⚠️ [REGISTRATION] Unrecognized message type or format');
+        logger.log('⚠️ [REGISTRATION] Unrecognized message type');
         return "";
     }
     
     /**
-     * Parses timeout configuration from server's 202 response body
-     * Updates internal timeout values based on server configuration
+     * Parses timeout configuration from server's 202 response JSON body
+     * Updates internal timeout values with safety margin (500ms before server timeout)
      * @param data - The 202 response message with JSON body
      */
     private parseServerTimeouts(data: string): void {
         logger.log('⏱️ [REGISTRATION] Parsing server timeout configuration...');
         
-        // Extract JSON body from message (after double CRLF)
         const doubleCrlfIndex = data.indexOf('\r\n\r\n');
         if (doubleCrlfIndex === -1) {
             logger.log('⚠️ [REGISTRATION] No body found in 202 response, using default timeouts');
@@ -501,7 +527,6 @@ export class Registration {
             
             logger.log('📋 [REGISTRATION] Server timeout config: ' + JSON.stringify(config));
             
-            // Update timeouts with safety margin (timeout before server does)
             if (config.ConnectionTimeout && typeof config.ConnectionTimeout === 'number') {
                 this.connectionTimeout = Math.max(100, config.ConnectionTimeout - this.TIMEOUT_SAFETY_MARGIN);
                 logger.log(`⏱️ [REGISTRATION] ConnectionTimeout set to ${this.connectionTimeout}ms (server: ${config.ConnectionTimeout}ms)`);
@@ -528,64 +553,41 @@ export class Registration {
     }
     
     /**
-     * Handles 202 Accepted response from server
+     * Handles 202 Accepted response (CSeq:2) from server
+     * Cancels RECEIVE_TIMEOUT, parses server timeouts, extracts server tag, sends ACK (CSeq:3)
      * @param data - The 202 response message
      * @returns ACK message to send
      */
     private handle202Accepted(data: string): string {
         logger.log('📥 [REGISTRATION] Received 202 Accepted');
         
-        // Validate state transition
-        if (this.registrationState !== RegistrationState.REGISTER_SENT) {
-            logger.log(`⚠️ [REGISTRATION] Unexpected 202 in state ${this.registrationState} - expected REGISTER_SENT`);
-            // Still process it but log the warning
-        }
-        
-        // Clear the ReceiveTimeout (we got the 202 response in time)
         this.cancelReceiveTimeout();
-        
-        // Parse and update timeout configuration from server response
         this.parseServerTimeouts(data);
         
-        // Extract server's tag from From header in 202 response
-        // In server responses, the server's tag is in the From header
-        const fromTagMatch = data.match(/^From:.*?;tag=(\S+)/m);
+        const fromTagMatch = data.match(Registration.REGEX_FROM_TAG);
         if (fromTagMatch) {
             this.expectedToTag = fromTagMatch[1];
-            logger.log(`🏷️ [REGISTRATION] Extracted server's tag from From header: ${this.expectedToTag}`);
-        } else {
-            logger.log(`⚠️ [REGISTRATION] No From-tag found in 202 response`);
+            logger.log(`🏷️ [REGISTRATION] Extracted server tag: ${this.expectedToTag}`);
         }
         
-        // Update state
-        this.registrationState = RegistrationState.ACCEPTED_202;
-        logger.log('📤 [REGISTRATION] STATE: REGISTER_SENT -> ACCEPTED_202');
+        this.transitionTo(RegistrationState.ACCEPTED_202);
+        this.processedCSeqs.add(2);
         
-        // Mark CSeq as processed
-        this.processedCSeqs.add(2); // Server's CSeq in 202 response
-        
-        // Create and send ACK (CSeq: 3)
         const ack = this.createAck(data);
-        logger.log('✅ [REGISTRATION] Sending ACK (CSeq: 3) for 202 Accepted');
         
-        // Update state to ACK_3_SENT
-        this.registrationState = RegistrationState.ACK_3_SENT;
-        logger.log('📤 [REGISTRATION] STATE: ACCEPTED_202 -> ACK_3_SENT');
-        
-        // Registration phase is now COMPLETE - Connection Establishment phase takes over
+        this.transitionTo(RegistrationState.ACK_3_SENT, 'ACK sent - registration complete');
         this.isRegistrationProcessFinished = true;
-        this.isRegistered = true; // Mark as currently registered
-        logger.log('🎉 [REGISTRATION] Registration phase COMPLETED (ACK_3 sent) - transitioning to Connection Establishment');
-        logger.log('✅ [REGISTRATION] isRegistered set to true - we are now registered');
-        logger.log('⏱️ [REGISTRATION] PeerRegistrationTimeout should start now (handled by SipClient)');
+        this.isRegistered = true;
+        logger.log('🎉 [REGISTRATION] Registration phase COMPLETED - transitioning to Connection Establishment');
         
         return ack;
     }
     
     /**
      * Handles SIP error responses (4xx, 5xx, 6xx)
+     * Permanent errors (401, 403, 407): no retry | Temporary errors: send BYE and retry
      * @param data - The error response message
-     * @returns REGISTRATION BYE message to send before retry
+     * @returns REGISTRATION BYE message for temporary errors, empty string for permanent
      */
     private handleErrorResponse(data: string): string {
         const errorMatch = data.match(/SIP\/2\.0 (\d{3})\s+(.+?)[\r\n]/);
@@ -596,33 +598,22 @@ export class Registration {
             
             this.lastError = `${errorCode} ${errorReason}`;
             
-            // Handle specific error codes
-            switch (errorCode) {
-                case '401':
-                case '407':
-                    logger.log('🔐 [REGISTRATION] Authentication required - not implemented yet');
-                    this.registrationState = RegistrationState.FAILED;
-                    break;
-                    
-                case '403':
-                    logger.log('⛔ [REGISTRATION] Forbidden - permanent failure');
-                    this.registrationState = RegistrationState.FAILED;
-                    break;
-                    
-                case '408':
-                case '504':
-                    logger.log('⏱️ [REGISTRATION] Timeout error from server - sending BYE and retrying');
-                    return this.createRegistrationBye(2); // Will be sent before retry
-                    
-                case '500':
-                case '503':
-                    logger.log('🔧 [REGISTRATION] Server error - sending BYE and retrying');
-                    return this.createRegistrationBye(2); // Will be sent before retry
-                    
-                default:
-                    logger.log(`⚠️ [REGISTRATION] Unhandled error code: ${errorCode} - sending BYE and retrying`);
-                    return this.createRegistrationBye(2); // Will be sent before retry
+            if (errorCode === '401' || errorCode === '407' || errorCode === '403') {
+                logger.log(`⛔ [REGISTRATION] Permanent failure - ${errorCode}`);
+                this.markRegistrationFailed(`permanent error ${errorCode}`);
+                return "";
             }
+            
+            logger.log(`⚠️ [REGISTRATION] Temporary error ${errorCode} - will retry after sending BYE`);
+            this.markRegistrationFailed(`temporary error ${errorCode}`);
+            
+            const byeMessage = this.createRegistrationBye(Registration.CSEQ_BYE_TIMEOUT);
+            
+            setTimeout(() => {
+                this.attemptRetry();
+            }, 100);
+            
+            return byeMessage;
         }
         
         return "";
@@ -630,42 +621,35 @@ export class Registration {
     
     /**
      * Handles duplicate messages from server (retransmissions)
+     * Implements idempotent behavior by resending appropriate responses
      * @param data - The duplicate message
      * @param cseqNum - The CSeq number of the duplicate
-     * @returns Response to resend (idempotent)
+     * @returns Response to resend (ACK for duplicate 202, empty otherwise)
      */
     private handleDuplicateMessage(data: string, cseqNum: number): string {
         logger.log(`🔁 [REGISTRATION] Handling duplicate for CSeq: ${cseqNum}`);
         
-        // For 202 Accepted duplicates, resend ACK
         if (/SIP\/2\.0 202/.test(data)) {
             logger.log('🔁 [REGISTRATION] Resending ACK for duplicate 202');
             return this.createAck(data);
         }
         
-        // For other duplicates, just log and ignore
         logger.log('🔁 [REGISTRATION] Ignoring duplicate - no action needed');
         return "";
     }
     
     /**
      * Extracts FROM header components (URI and tag) from SIP message
-     * @param data - The SIP message containing FROM header
      */
-    getFromParts(data: string): void {
-        logger.log('🔍 [REGISTRATION] Extracting FROM header components');
-        
+    private extractFromParts(data: string): void {
         if (this.parsedFromTag !== "" && this.parsedFromUri !== "") {
-            logger.log('🔍 [REGISTRATION] FROM parts already extracted, skipping');
             return;
         }
         
-        const re = /^From:\s*(?:"([^"]+)"\s*)?<([^>]+)>;tag=(\S+)/m;
-        const m = re.exec(data);
-        
+        const m = data.match(Registration.REGEX_FROM_HEADER);
         if (m) {
-            this.parsedFromUri = m[2]; // sip:macs@127.0.0.1:443;transport=wss
-            this.parsedFromTag = m[3]; // tag value
+            this.parsedFromUri = m[2];
+            this.parsedFromTag = m[3];
             logger.log(`✅ [REGISTRATION] Extracted FROM - URI: ${this.parsedFromUri}, Tag: ${this.parsedFromTag}`);
         } else {
             logger.log('❌ [REGISTRATION] Failed to parse From header');
@@ -674,22 +658,16 @@ export class Registration {
     
     /**
      * Initiates graceful termination of registration
-     * Sends REGISTRATION BYE and cleans up resources
+     * Cancels active timers and sends REGISTRATION BYE
      * @returns REGISTRATION BYE message to send
      */
     public terminate(): string {
         logger.log('🛑 [REGISTRATION] Initiating graceful termination');
         
-        // Cancel all active timers
         this.cancelReceiveTimeout();
+        this.transitionTo(RegistrationState.TERMINATING);
         
-        // Update state
-        this.registrationState = RegistrationState.TERMINATING;
-        logger.log('📤 [REGISTRATION] STATE: -> TERMINATING');
-        
-        // Create and return REGISTRATION BYE message
         const byeMessage = this.createRegistrationBye(this.cseq + 1);
-        logger.log('📤 [REGISTRATION] Termination BYE message created');
         
         return byeMessage;
     }
