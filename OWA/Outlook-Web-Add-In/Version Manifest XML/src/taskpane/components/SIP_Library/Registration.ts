@@ -345,7 +345,7 @@ export class Registration {
      * Resets registration state for a new attempt
      * Generates fresh session IDs (Call-ID, branch, tag) and clears session data
      */
-    private resetRegistrationState(): void {
+    public resetRegistrationState(): void {
         this.cancelReceiveTimeout();
         
         this.transitionTo(RegistrationState.IDLE, 'resetting for retry');
