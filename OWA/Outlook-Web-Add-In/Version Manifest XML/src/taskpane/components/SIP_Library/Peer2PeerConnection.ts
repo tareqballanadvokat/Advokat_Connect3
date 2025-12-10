@@ -9,30 +9,70 @@
  * - OWA Client: Always acts as OFFERER (creates SDP Offer, sends SERVICE CSeq: 1)
  * - Server: Always acts as ANSWERER (creates SDP Answer, sends SERVICE CSeq: 2)
  * 
- * OWA OFFERER Process:
- * 1. OWA creates WebRTC peer connection and data channel
- * 2. OWA creates and sends SDP offer (SERVICE CSeq: 1)
- * 3. OWA waits for and processes SDP answer (SERVICE CSeq: 2) from server
- * 4. WebRTC connection establishes and data channel opens
- * 5. Bidirectional data channel communication begins
+ * Success Flow:
+ * ┌─────────────┐                                ┌─────────────┐
+ * │  OWA Client │                                │   Server    │
+ * │  (OFFERER)  │                                │ (ANSWERER)  │
+ * └──────┬──────┘                                └──────┬──────┘
+ *        │                                              │
+ *        │ ──── SERVICE (SDP Offer, CSeq: 1) ────────> │
+ *        │ [OFFER_SENT] Start RECEIVE_TIMEOUT           │
+ *        │                                              │ Create Answer
+ *        │ <─── SERVICE (SDP Answer, CSeq: 2) ──────── │
+ *        │ Cancel RECEIVE_TIMEOUT                       │
+ *        │ [ANSWER_RECEIVED]                            │
+ *        │                                              │
+ *        │ ═══════ WebRTC Connection Established ══════│
+ *        │ [COMPLETE] DataChannel opens                 │
+ *        │ <──────── Bidirectional Data Flow ────────> │
+ *        │                                              │
+ * 
+ * Retry Flow (RECEIVE_TIMEOUT):
+ * ┌─────────────┐                                ┌─────────────┐
+ * │  OWA Client │                                │   Server    │
+ * └──────┬──────┘                                └──────┬──────┘
+ *        │                                              │
+ *        │ ──── SERVICE (SDP Offer, CSeq: 1) ────────> │
+ *        │ [OFFER_SENT] Start RECEIVE_TIMEOUT           │
+ *        │                                              X (No Answer)
+ *        │ ⏱️  RECEIVE_TIMEOUT expires                  │
+ *        │ Close PeerConnection, Retry (attempt 2/3)    │
+ *        │ ──── SERVICE (SDP Offer, CSeq: 1) ────────> │
+ *        │ [OFFER_SENT] Start RECEIVE_TIMEOUT           │
+ *        │                                              X (No Answer)
+ *        │ ⏱️  RECEIVE_TIMEOUT expires                  │
+ *        │ Close PeerConnection, Retry (attempt 3/3)    │
+ *        │ ──── SERVICE (SDP Offer, CSeq: 1) ────────> │
+ *        │                                              X (No Answer)
+ *        │ ⏱️  RECEIVE_TIMEOUT expires                  │
+ *        │ [FAILED] Max retries reached                 │
+ *        │ ──── CONNECTION BYE (CSeq: 7) ───────────> │
+ *        │                                              │
+ * 
+ * State Machine:
+ * IDLE → OFFER_SENT → ANSWER_RECEIVED → COMPLETE
+ *          ↓ (timeout)                      ↑
+ *          └─── Retry (up to 3x) ───────────┘
+ *          ↓ (max retries)
+ *        FAILED → Send CONNECTION BYE
  * 
  * Key Features:
  * - WebRTC peer connection management (OFFERER role only)
  * - SDP offer creation and transmission
- * - SDP answer processing
+ * - SDP answer processing with timeout and retry
  * - Data channel creation and message handling
  * - ICE candidate gathering and state management
+ * - Automatic retry up to 3 attempts on timeout
  * - Bidirectional data channel communication
  * 
  * @author AdvokatConnect Development Team
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
 
-// Type for message handler functions
 type MessageHandler = (event: MessageEvent) => Promise<void> | void;
 
 /**
@@ -47,7 +87,6 @@ export enum SdpExchangeState {
     FAILED = "FAILED"                   // SDP exchange failed
 }
 
-// Message handler for incoming WebRTC DataChannel messages
 async function writeMessage(event: MessageEvent): Promise<void> {
     const data = event.data;
     let text: string;
@@ -70,26 +109,28 @@ async function writeMessage(event: MessageEvent): Promise<void> {
 }
 
 export class Peer2PeerConnection {
-    // WebRTC peer connection that handles media/data exchange
+    private static readonly LOG_PREFIX = '[PEER2PEER]';
+    private static readonly CSEQ_OFFER = 1;
+    private static readonly CSEQ_ANSWER = 2;
+    private static readonly CSEQ_CONNECTION_BYE = 7;
+    private static readonly DATA_CHANNEL_LABEL = 'offer';
+    private static readonly TIMEOUT_NAME = 'RECEIVE_TIMEOUT';
+    private static readonly DEFAULT_RECEIVE_TIMEOUT = 1000;
+    private static readonly MAX_RETRIES = 3;
+    
+    private static readonly REGEX_SERVICE_ANSWER = /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
+    private static readonly REGEX_CSEQ_ANSWER = /CSeq:\s*2 SERVICE/;
+    private static readonly REGEX_SDP_BLOCK = /(\{[\s\S]*?"sdp"[\s\S]*?\})/m;
+    
     private pc = new RTCPeerConnection();
-    // The DataChannel for sending messages directly between peers
     private dataChannelPeer: RTCDataChannel | undefined = undefined;
     public isOfferSent = false;
-    
-    // Array of message handlers that will be called for each incoming message
     private messageHandlers: MessageHandler[] = [];
-    
-    // State machine and retry logic
     private sdpExchangeState: SdpExchangeState = SdpExchangeState.IDLE;
     private retryCount: number = 0;
-    private readonly MAX_RETRIES = 3;
     private lastError: string = "";
-    
-    // Timeout management
     private timeoutManager: TimeoutManager | null = null;
-    private receiveTimeout: number = 1000;  // Default 1s, will be updated from Registration
-    
-    // Stored offer parameters for retries
+    private receiveTimeout: number = Peer2PeerConnection.DEFAULT_RECEIVE_TIMEOUT;
     private lastOfferParams: {
         socket: WebSocket;
         callId: string;
@@ -98,8 +139,101 @@ export class Peer2PeerConnection {
         toLine: string;
     } | null = null;
     
-    // Callback for sending CONNECTION BYE
     public onSendConnectionBye: ((message: string) => void) | null = null;
+    
+    /**
+     * Generate SIP branch parameter
+     */
+    private static generateBranch(): string {
+        return 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
+    }
+    
+    /**
+     * Log with standardized prefix
+     */
+    private logWithPrefix(message: string): void {
+        logger.log(`${Peer2PeerConnection.LOG_PREFIX} ${message}`);
+    }
+    
+    /**
+     * Transition to new SDP exchange state with logging
+     */
+    private transitionTo(newState: SdpExchangeState): void {
+        const oldState = this.sdpExchangeState;
+        this.sdpExchangeState = newState;
+        this.logWithPrefix(`State transition: ${oldState} → ${newState}`);
+    }
+    
+    /**
+     * Cancel RECEIVE_TIMEOUT if active
+     */
+    private cancelReceiveTimeout(): void {
+        if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_NAME)) {
+            this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_NAME);
+            this.logWithPrefix(`⏱️ Cancelled ${Peer2PeerConnection.TIMEOUT_NAME}`);
+        }
+    }
+    
+    /**
+     * Reset peer connection to fresh state
+     */
+    private resetPeerConnection(): void {
+        if (this.pc) {
+            this.pc.close();
+        }
+        this.pc = new RTCPeerConnection();
+        this.dataChannelPeer = undefined;
+    }
+    
+    /**
+     * Setup DataChannel event handlers
+     */
+    private setupDataChannelHandlers(channel: RTCDataChannel): void {
+        channel.onopen = () => {
+            this.logWithPrefix(`🟢 DataChannel opened: ${channel.label}`);
+        };
+        
+        channel.onmessage = (event) => this.dispatchMessage(event);
+        
+        channel.onclose = () => {
+            this.logWithPrefix('🔴 DataChannel closed');
+        };
+        
+        channel.onerror = (err) => {
+            this.logWithPrefix('❌ DataChannel error: ' + err);
+        };
+    }
+    
+    /**
+     * Setup ICE event handlers for peer connection
+     */
+    private setupICEHandlers(socket: WebSocket, callId: string, sipUri: string, tag: string, toLine: string): void {
+        this.pc.onicecandidate = (evt) => {
+            if (evt.candidate) {
+                this.logWithPrefix('📤 ICE candidate (offer): ' + JSON.stringify(evt.candidate));
+            }
+        };
+        
+        this.pc.onicegatheringstatechange = () => {
+            if (this.pc.iceGatheringState === 'complete') {
+                this.logWithPrefix('✅ ICE gathering complete (offer)');
+                const offerSDP = JSON.stringify(this.pc.localDescription);
+                const branch = Peer2PeerConnection.generateBranch();
+                const offerMsg = this.createSdpOfferMessage(offerSDP, callId, sipUri, tag, toLine, branch);
+                
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    this.logWithPrefix('📤 Sending SDP Offer via WebSocket');
+                    socket.send(offerMsg);
+                    this.logWithPrefix('✅ SDP Offer sent successfully');
+                    this.startReceiveTimeout();
+                } else {
+                    this.logWithPrefix('❌ WebSocket is not available or not open - cannot send offer');
+                    this.lastError = 'WebSocket not available';
+                    this.transitionTo(SdpExchangeState.FAILED);
+                }
+            }
+        };
+    }
     
     /**
      * Add a message handler that will be called for all incoming DataChannel messages
@@ -125,15 +259,13 @@ export class Peer2PeerConnection {
      * @param event - MessageEvent from DataChannel
      */
     private async dispatchMessage(event: MessageEvent): Promise<void> {
-        // First call the default writeMessage handler
         await writeMessage(event);
         
-        // Then call all registered handlers
         for (const handler of this.messageHandlers) {
             try {
                 await handler(event);
             } catch (error) {
-                logger.log('❌ [PEER2PEER] Error in message handler: ' + error);
+                this.logWithPrefix('❌ Error in message handler: ' + error);
             }
         }
     }
@@ -141,15 +273,18 @@ export class Peer2PeerConnection {
     /**
      * Update timeout manager and receive timeout value
      * Called from SipClient after registration completes
+     * @param timeoutManager - TimeoutManager instance for managing timeouts
+     * @param receiveTimeout - Timeout duration in milliseconds for waiting for SDP answer
      */
     updateConfiguration(timeoutManager: TimeoutManager, receiveTimeout: number): void {
         this.timeoutManager = timeoutManager;
         this.receiveTimeout = receiveTimeout;
-        logger.log(`[PEER2PEER] Updated configuration - ReceiveTimeout: ${receiveTimeout}ms`);
+        this.logWithPrefix(`Updated configuration - ReceiveTimeout: ${receiveTimeout}ms`);
     }
     
     /**
      * Get current SDP exchange state
+     * @returns Current state of SDP exchange
      */
     getState(): SdpExchangeState {
         return this.sdpExchangeState;
@@ -157,6 +292,7 @@ export class Peer2PeerConnection {
     
     /**
      * Get last error message
+     * @returns Last error message or empty string
      */
     getLastError(): string {
         return this.lastError;
@@ -164,6 +300,7 @@ export class Peer2PeerConnection {
     
     /**
      * Reset for new attempt
+     * Clears all state, cancels timeouts, and creates fresh peer connection
      */
     reset(): void {
         this.sdpExchangeState = SdpExchangeState.IDLE;
@@ -172,19 +309,10 @@ export class Peer2PeerConnection {
         this.lastError = "";
         this.lastOfferParams = null;
         
-        // Cancel any active timeouts (only if active)
-        if (this.timeoutManager && this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
-            this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
-        }
+        this.cancelReceiveTimeout();
+        this.resetPeerConnection();
         
-        // Close existing peer connection and create new one
-        if (this.pc) {
-            this.pc.close();
-        }
-        this.pc = new RTCPeerConnection();
-        this.dataChannelPeer = undefined;
-        
-        logger.log('[PEER2PEER] Reset complete');
+        this.logWithPrefix('Reset complete');
     }
     
 
@@ -199,84 +327,41 @@ export class Peer2PeerConnection {
      * @param toLine - Formatted To header line
      */
     async createAndSendOffer(socket: WebSocket, callId: string, sipUri: string, tag: string, toLine: string): Promise<void> {
-        // Store parameters for potential retries
         this.lastOfferParams = { socket, callId, sipUri, tag, toLine };
         
-        logger.log(`[PEER2PEER] Creating SDP Offer (attempt ${this.retryCount + 1}/${this.MAX_RETRIES})`);
+        this.logWithPrefix(`Creating SDP Offer (attempt ${this.retryCount + 1}/${Peer2PeerConnection.MAX_RETRIES})`);
         
         this.isOfferSent = true;
-        this.sdpExchangeState = SdpExchangeState.OFFER_SENT;
-        const branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
+        this.transitionTo(SdpExchangeState.OFFER_SENT);
         
-        // Create offer data channel
-        this.dataChannelPeer = this.pc.createDataChannel("offer");
+        this.dataChannelPeer = this.pc.createDataChannel(Peer2PeerConnection.DATA_CHANNEL_LABEL);
         this.dataChannelPeer.onopen = () => {
-            logger.log("🟢 [PEER2PEER] DataChannel OFFER opened");
+            this.logWithPrefix('🟢 DataChannel OFFER opened');
             if (this.dataChannelPeer) {
-                this.dataChannelPeer.send("Hello from OFFER side");
+                this.dataChannelPeer.send('Hello from OFFER side');
             }
         };
         
         this.dataChannelPeer.onmessage = (event) => {
-            const text = new TextDecoder("utf-8").decode(event.data);
-            logger.log("📨 [PEER2PEER] Received on offer channel: " + text);
+            const text = new TextDecoder('utf-8').decode(event.data);
+            this.logWithPrefix('📨 Received on offer channel: ' + text);
         };
         
         this.dataChannelPeer.onerror = (err) => {
-            logger.log("❌ [PEER2PEER] Offer DataChannel error: " + err);
+            this.logWithPrefix('❌ Offer DataChannel error: ' + err);
         };
         
-        // Set up data channel event handlers
         this.pc.ondatachannel = (ev) => {
-            logger.log("📥 [PEER2PEER] DataChannel found: " + ev.channel.label);
-            
-            ev.channel.onopen = () => {
-                logger.log("🟢 [PEER2PEER] DataChannel opened: " + ev.channel.label);
-            };
-            
-            ev.channel.onmessage = (event) => this.dispatchMessage(event);
-            
-            ev.channel.onclose = () => {
-                logger.log("🔴 [PEER2PEER] DataChannel closed");
-            };
-            
-            ev.channel.onerror = (err) => {
-                logger.log("❌ [PEER2PEER] DataChannel error: " + err);
-            };
+            this.logWithPrefix('📥 DataChannel found: ' + ev.channel.label);
+            this.setupDataChannelHandlers(ev.channel);
         };
         
-        // Handle ICE candidates
-        this.pc.onicecandidate = (evt) => {
-            if (evt.candidate) {
-                logger.log("📤 [PEER2PEER] ICE candidate (offer): " + JSON.stringify(evt.candidate));
-            }
-        };
+        this.setupICEHandlers(socket, callId, sipUri, tag, toLine);
         
-        // Handle ICE gathering completion
-        this.pc.onicegatheringstatechange = () => {
-            if (this.pc.iceGatheringState === 'complete') {
-                logger.log("✅ [PEER2PEER] ICE gathering complete (offer)");
-                const offerSDP = JSON.stringify(this.pc.localDescription);
-                const offerMsg = this.sendSdpOffer(offerSDP, callId, sipUri, tag, toLine, branch);
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    logger.log('📤 [PEER2PEER] Sending SDP Offer via WebSocket');
-                    socket.send(offerMsg);
-                    logger.log('✅ [PEER2PEER] SDP Offer sent successfully');
-                    
-                    // Start RECEIVE_TIMEOUT waiting for answer
-                    this.startReceiveTimeout();
-                } else {
-                    logger.log("❌ [PEER2PEER] WebSocket is not available or not open - cannot send offer");
-                    this.lastError = "WebSocket not available";
-                    this.sdpExchangeState = SdpExchangeState.FAILED;
-                }
-            }
-        };
-        // Create and set local offer
         const offer = await this.pc.createOffer();
         await this.pc.setLocalDescription(offer);
         
-        logger.log("📤 [PEER2PEER] SDP Offer created: " + JSON.stringify(offer));
+        this.logWithPrefix('📤 SDP Offer created: ' + JSON.stringify(offer));
     }
     
     /**
@@ -289,13 +374,13 @@ export class Peer2PeerConnection {
      * @param branch - SIP branch parameter
      * @returns Formatted SIP SERVICE message with SDP offer
      */
-    sendSdpOffer(offerSDP: string, callId: string, sipUri: string, tag: string, toLine: string, branch: string): string {
+    private createSdpOfferMessage(offerSDP: string, callId: string, sipUri: string, tag: string, toLine: string, branch: string): string {
         return MessageFactory.createServiceMessage({
             sipUri: sipUri,
             branch: branch,
             callId: callId,
             tag: tag,
-            cseq: 1,
+            cseq: Peer2PeerConnection.CSEQ_OFFER,
             toLine: toLine,
             body: offerSDP,
             contentType: 'application/sdp',
@@ -309,32 +394,29 @@ export class Peer2PeerConnection {
      * @param data - The SIP message containing SDP answer
      */
     async parseIncomingAnswer(data: string): Promise<void> {
-        if (/^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) && /CSeq:\s*2 SERVICE/.test(data)) {
-            // Cancel RECEIVE_TIMEOUT - we got the answer (only if active)
-            if (this.timeoutManager && this.timeoutManager.isTimerActive('RECEIVE_TIMEOUT')) {
-                this.timeoutManager.cancelTimer('RECEIVE_TIMEOUT');
-                logger.log('⏱️ [PEER2PEER] Cancelled RECEIVE_TIMEOUT - answer received');
-            }
+        if (Peer2PeerConnection.REGEX_SERVICE_ANSWER.test(data) && Peer2PeerConnection.REGEX_CSEQ_ANSWER.test(data)) {
+            this.cancelReceiveTimeout();
+            this.logWithPrefix('⏱️ Answer received');
             
-            const sdpBlockMatch = data.match(/(\{[\s\S]*?"sdp"[\s\S]*?\})/m);
+            const sdpBlockMatch = data.match(Peer2PeerConnection.REGEX_SDP_BLOCK);
             if (sdpBlockMatch) {
                 try {
                     const sdpBlock = sdpBlockMatch[1];
                     const sdpObj = JSON.parse(sdpBlock);
                     await this.pc.setRemoteDescription(new RTCSessionDescription(sdpObj));
-                    logger.log("✅ [PEER2PEER] Remote SDP Answer set successfully");
+                    this.logWithPrefix('✅ Remote SDP Answer set successfully');
                     
-                    this.sdpExchangeState = SdpExchangeState.ANSWER_RECEIVED;
-                    this.retryCount = 0;  // Reset retry count on success
+                    this.transitionTo(SdpExchangeState.ANSWER_RECEIVED);
+                    this.retryCount = 0;
                 } catch (err) {
-                    logger.log("❌ [PEER2PEER] SDP or WebRTC error: " + err);
+                    this.logWithPrefix('❌ SDP or WebRTC error: ' + err);
                     this.lastError = `SDP error: ${err}`;
-                    this.sdpExchangeState = SdpExchangeState.FAILED;
+                    this.transitionTo(SdpExchangeState.FAILED);
                 }
             } else {
-                logger.log("⚠️ [PEER2PEER] SDP block not found in SERVICE answer");
-                this.lastError = "SDP block not found in answer";
-                this.sdpExchangeState = SdpExchangeState.FAILED;
+                this.logWithPrefix('⚠️ SDP block not found in SERVICE answer');
+                this.lastError = 'SDP block not found in answer';
+                this.transitionTo(SdpExchangeState.FAILED);
             }
         }
     }
@@ -344,13 +426,13 @@ export class Peer2PeerConnection {
      */
     private startReceiveTimeout(): void {
         if (!this.timeoutManager) {
-            logger.log('⚠️ [PEER2PEER] TimeoutManager not configured - cannot start RECEIVE_TIMEOUT');
+            this.logWithPrefix(`⚠️ TimeoutManager not configured - cannot start ${Peer2PeerConnection.TIMEOUT_NAME}`);
             return;
         }
         
-        logger.log(`⏱️ [PEER2PEER] Starting RECEIVE_TIMEOUT (${this.receiveTimeout}ms) waiting for SDP answer`);
+        this.logWithPrefix(`⏱️ Starting ${Peer2PeerConnection.TIMEOUT_NAME} (${this.receiveTimeout}ms) waiting for SDP answer`);
         
-        this.timeoutManager.startTimer('RECEIVE_TIMEOUT', this.receiveTimeout, () => {
+        this.timeoutManager.startTimer(Peer2PeerConnection.TIMEOUT_NAME, this.receiveTimeout, () => {
             this.handleReceiveTimeout();
         });
     }
@@ -360,30 +442,23 @@ export class Peer2PeerConnection {
      * Retry up to MAX_RETRIES times, then fail
      */
     private async handleReceiveTimeout(): Promise<void> {
-        logger.log(`⏱️ [PEER2PEER] RECEIVE_TIMEOUT expired - no answer received (attempt ${this.retryCount + 1}/${this.MAX_RETRIES})`);
+        this.logWithPrefix(`⏱️ ${Peer2PeerConnection.TIMEOUT_NAME} expired - no answer received (attempt ${this.retryCount + 1}/${Peer2PeerConnection.MAX_RETRIES})`);
         
         this.retryCount++;
         
-        if (this.retryCount < this.MAX_RETRIES && this.lastOfferParams) {
-            // Retry: close old peer connection and create new offer
-            logger.log(`🔄 [PEER2PEER] Retrying SDP offer (attempt ${this.retryCount + 1}/${this.MAX_RETRIES})`);
+        if (this.retryCount < Peer2PeerConnection.MAX_RETRIES && this.lastOfferParams) {
+            this.logWithPrefix(`🔄 Retrying SDP offer (attempt ${this.retryCount + 1}/${Peer2PeerConnection.MAX_RETRIES})`);
             
-            // Close existing peer connection
-            this.pc.close();
-            this.pc = new RTCPeerConnection();
-            this.dataChannelPeer = undefined;
+            this.resetPeerConnection();
             
-            // Retry with same parameters
             const { socket, callId, sipUri, tag, toLine } = this.lastOfferParams;
             await this.createAndSendOffer(socket, callId, sipUri, tag, toLine);
         } else {
-            // Max retries reached - fail
-            logger.log(`❌ [PEER2PEER] Max retries (${this.MAX_RETRIES}) reached - SDP exchange failed`);
-            this.lastError = `No answer received after ${this.MAX_RETRIES} attempts`;
-            this.sdpExchangeState = SdpExchangeState.FAILED;
+            this.logWithPrefix(`❌ Max retries (${Peer2PeerConnection.MAX_RETRIES}) reached - SDP exchange failed`);
+            this.lastError = `No answer received after ${Peer2PeerConnection.MAX_RETRIES} attempts`;
+            this.transitionTo(SdpExchangeState.FAILED);
             
-            // Send CONNECTION BYE
-            this.sendConnectionBye("SDP exchange failed - no answer received");
+            this.sendConnectionBye('SDP exchange failed - no answer received');
         }
     }
     
@@ -392,16 +467,14 @@ export class Peer2PeerConnection {
      * @param reason - Reason for sending BYE
      */
     private sendConnectionBye(reason: string): void {
-        logger.log(`📤 [PEER2PEER] Sending CONNECTION BYE: ${reason}`);
+        this.logWithPrefix(`📤 Sending CONNECTION BYE: ${reason}`);
         
         if (this.onSendConnectionBye && this.lastOfferParams) {
             const { sipUri, tag, callId } = this.lastOfferParams;
-            const cseq = 7;  // CONNECTION BYE CSeq
-            
-            const byeMessage = this.createConnectionBye(sipUri, tag, callId, cseq, reason);
+            const byeMessage = this.createConnectionBye(sipUri, tag, callId, Peer2PeerConnection.CSEQ_CONNECTION_BYE, reason);
             this.onSendConnectionBye(byeMessage);
         } else {
-            logger.log('⚠️ [PEER2PEER] Cannot send CONNECTION BYE - callback not configured');
+            this.logWithPrefix('⚠️ Cannot send CONNECTION BYE - callback not configured');
         }
     }
     
@@ -415,11 +488,9 @@ export class Peer2PeerConnection {
      * @returns Formatted CONNECTION BYE message
      */
     private createConnectionBye(sipUri: string, tag: string, callId: string, cseq: number, reason: string): string {
-        const branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
-        
         return MessageFactory.createByeMessage({
             sipUri: sipUri,
-            branch: branch,
+            branch: Peer2PeerConnection.generateBranch(),
             callId: callId,
             tag: tag,
             cseq: cseq,
@@ -432,7 +503,7 @@ export class Peer2PeerConnection {
     
     /**
      * Returns the active data channel for sending messages
-     * @returns The active RTCDataChannel or undefined
+     * @returns The active RTCDataChannel or undefined if not established
      */
     getActiveDataChannel(): RTCDataChannel | undefined {
         return this.dataChannelPeer;
