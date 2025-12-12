@@ -1,5 +1,5 @@
 // WebRTC Connection Manager - Robust connection management with auto-recovery
-import { SipClientInstance } from '../components/SIP_Library/SipClient';
+import { SipClientInstance, SipClientState } from '../components/SIP_Library/SipClient';
 import { sipClientService } from './sipClientService';
 import { webRTCApiService } from './webRTCApiService';
 import { IdleActivityMonitor } from './IdleActivityMonitor';
@@ -8,24 +8,22 @@ import {
   startAuthentication, 
   authenticationSuccess, 
   authenticationFailure, 
-  selectAuthCredentials,
-  selectIsAuthenticated 
+  selectAuthCredentials
 } from '../../store/slices/authSlice';
 import {
   updateConnectionState as updateReduxConnectionState,
-  updateConnectionStatus as updateReduxConnectionStatus,
-  updateConnectionHealth as updateReduxConnectionHealth,
   selectConnectionState,
-  selectConnectionHealth,
   ConnectionState,
-  ConnectionHealth,
   setIdle,
   updateLastActivity,
   setIdleDisconnected,
   setAutoReconnectPending,
+  sipClientStateChanged,
+  selectIsReady,
 } from '../../store/slices/connectionSlice';
+import { selectIsAuthenticated } from '../../store/slices/authSlice';
 
-export type { ConnectionState, ConnectionHealth };
+export type { ConnectionState };
 
 export interface ConnectionManagerConfig {
   maxReconnectAttempts?: number;
@@ -51,8 +49,21 @@ const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
 
 /**
  * WebRTC Connection Manager Class
- * Handles robust connection management with auto-recovery, health monitoring,
- * and intelligent reconnection strategies
+ * 
+ * Orchestrates SipClient lifecycle and manages connection state in Redux.
+ * Key responsibilities:
+ * - SipClient initialization and teardown
+ * - Redux state synchronization (sipClientState is single source of truth)
+ * - Internal health monitoring (not exposed to Redux/UI)
+ * - Idle detection and auto-disconnect
+ * - Authentication coordination
+ * - Automatic reconnection on failures
+ * 
+ * Architecture:
+ * - SipClient events → Redux updates via sipClientStateChanged action
+ * - Redux derives all boolean flags (isConnected, isConnecting) from sipClientState
+ * - Health monitoring is internal: consecutiveFailures triggers reconnect after 3 failures
+ * - UI components use derived selectors, never access internal health state
  */
 export class WebRTCConnectionManager {
   private config: Required<ConnectionManagerConfig>;
@@ -62,10 +73,15 @@ export class WebRTCConnectionManager {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private connectionTimeoutTimer: NodeJS.Timeout | null = null;
+  private stateMonitorInterval: NodeJS.Timeout | null = null;
   
   // Idle monitoring
   private idleMonitor: IdleActivityMonitor | null = null;
   private wasIdleDisconnected: boolean = false;
+  
+  // Internal health tracking (not exposed to Redux)
+  private consecutiveFailures: number = 0;
+  private lastHealthCheckTime: Date = new Date();
   
   // Internal flags
   private isInitialized = false;
@@ -98,12 +114,11 @@ export class WebRTCConnectionManager {
 
     // Create and store initialization promise
     this.initializationPromise = (async () => {
-      this.updateConnectionStatus('Initializing connection manager...');
+      this.updateConnectionState({ connectionStatus: 'Initializing connection manager...' });
       
       try {
         await this.connect();
-        this.startHealthMonitoring();
-        this.startIdleMonitoring();
+        // Health and idle monitoring are started by connect() after successful connection
         this.isInitialized = true;
       } catch (error) {
         console.error('Failed to initialize WebRTC Connection Manager:', error);
@@ -122,15 +137,16 @@ export class WebRTCConnectionManager {
    */
   async connect(): Promise<void> {
     const state = selectConnectionState(store.getState());
-    if (this.isDestroyed || state.isConnecting) {
+    const isConnecting = state.sipClientState === SipClientState.REGISTERING || 
+                        state.sipClientState === SipClientState.CONNECTING || 
+                        state.sipClientState === SipClientState.CONNECTING_P2P;
+    if (this.isDestroyed || isConnecting) {
       return;
     }
 
     this.updateConnectionState({ 
-      isConnecting: true,
-      lastError: undefined 
+      lastError: undefined,
     });
-    this.updateConnectionStatus('Connecting to SIP server...');
 
     try {
       // Start connection timeout
@@ -139,24 +155,23 @@ export class WebRTCConnectionManager {
       // Initialize SIP client through singleton service
       this.sipClient = await sipClientService.initialize();
       
-      // Initialize WebRTC API service
+      // Start monitoring SIP client state changes
       if (this.sipClient) {
+        this.startStateMonitoring();
+        
+        // Initialize WebRTC API service
         webRTCApiService.initialize(this.sipClient);
       }
       
       // Wait for full connection establishment
       await this.waitForFullConnection();
       
-      this.updateConnectionState({
-        isConnected: true,
-        isConnecting: false,
-        reconnectAttempts: 0,
-        lastSuccessfulConnection: new Date().toISOString()
-      });
-      this.updateConnectionStatus('Connected - authenticating with API...');
-      
       // Automatically authenticate after connection is established
       await this.performAuthentication();
+      
+      // Start health and idle monitoring only after successful connection
+      this.startHealthMonitoring();
+      this.startIdleMonitoring();
       
       // Clear any existing reconnect timer
       this.clearReconnectTimer();
@@ -173,57 +188,32 @@ export class WebRTCConnectionManager {
    * Disconnect from WebRTC
    */
   async disconnect(): Promise<void> {
-    this.updateConnectionStatus('Disconnecting...');
+    this.updateConnectionState({ connectionStatus: 'Disconnecting...' });
+    
+    // Stop monitoring before disconnect
+    this.stopHealthMonitoring();
+    this.stopIdleMonitoring();
+    this.stopStateMonitoring();
     
     this.clearAllTimers();
     this.isReconnecting = false;
     
     if (this.sipClient) {
       try {
-        // Send graceful disconnect messages to server
+        // Use SipClient public API for graceful disconnect
+        // This will send CONNECTION BYE and REGISTRATION BYE messages if needed
+        this.sipClient.disconnect();
         
-        // 1. Send CONNECTION BYE (7) to notify server we're cutting the connection
-        if (this.sipClient.connection.isConnectionEstablished) {
-          const connectionBye = this.sipClient.connection.createConnectionBye(7, 'Client disconnecting');
-          this.sipClient.socket.send(connectionBye);
-          console.log('📤 Sent CONNECTION BYE (7) - client disconnecting');
-        }
-        
-        // 2. Send REGISTRATION BYE if we haven't received one yet (if still registered)
-        if (this.sipClient.registration.isRegistered && !this.sipClient.registration.lastByeReceived) {
-          const registrationBye = this.sipClient.registration.createRegistrationBye(10);
-          this.sipClient.socket.send(registrationBye);
-          console.log('📤 Sent REGISTRATION BYE - client unregistering');
-        }
-        
-        // Give messages time to be sent before closing
+        // Give messages time to be sent before cleanup
         await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Gracefully close data channel
-        const dataChannel = this.sipClient.peer2peer.getActiveDataChannel();
-        if (dataChannel && dataChannel.readyState === 'open') {
-          dataChannel.close();
-        }
-        
-        // Note: Cannot access RTCPeerConnection directly as it's private in Peer2PeerConnection
-        // The peer2peer class manages its own connection lifecycle
       } catch (error) {
         console.warn('Error during graceful disconnect:', error);
       }
     }
     
     this.updateConnectionState({
-      isConnected: false,
-      isConnecting: false,
-      isRegistered: false,
-      isConnectionEstablished: false,
-      isPeerConnected: false,
-      isDataChannelOpen: false,
-      isAuthenticated: false,
-      isAuthenticating: false,
-      reconnectAttempts: 0
+      reconnectAttempts: 0,
     });
-    this.updateConnectionStatus('Disconnected');
   }
 
   /**
@@ -237,7 +227,7 @@ export class WebRTCConnectionManager {
     const state = selectConnectionState(store.getState());
     const maxAttempts = this.config.maxReconnectAttempts;
     if (state.reconnectAttempts >= maxAttempts && !force) {
-      this.updateConnectionStatus(`Max reconnection attempts (${maxAttempts}) reached`);
+      this.updateConnectionState({ connectionStatus: `Max reconnection attempts (${maxAttempts}) reached` });
       return;
     }
 
@@ -249,16 +239,21 @@ export class WebRTCConnectionManager {
 
     this.updateConnectionState({ 
       reconnectAttempts: attemptNumber,
-      isConnecting: false
     });
-    this.updateConnectionStatus(`Reconnecting in ${delay}ms... (attempt ${attemptNumber}/${maxAttempts})`);
 
     this.reconnectTimer = setTimeout(async () => {
       if (this.isDestroyed || !this.isReconnecting) return;
 
       try {
+        // Stop monitoring before reconnect
+        this.stopHealthMonitoring();
+        this.stopIdleMonitoring();
+        
+        // Full reconnect cycle
         await this.disconnect();
         await this.connect();
+        
+        // Monitoring will be started by connect() after successful connection
         this.isReconnecting = false;
       } catch (error) {
         console.error(`Reconnection attempt ${attemptNumber} failed:`, error);
@@ -268,82 +263,50 @@ export class WebRTCConnectionManager {
           await this.reconnect();
         } else {
           this.isReconnecting = false;
-          this.updateConnectionStatus(`Reconnection failed after ${maxAttempts} attempts`);
+          this.updateConnectionState({ connectionStatus: `Reconnection failed after ${maxAttempts} attempts` });
         }
       }
     }, delay);
   }
 
   /**
-   * Perform health check
+   * Perform internal health check (not exposed to Redux)
+   * Updates connection state if issues detected
    */
-  async performHealthCheck(): Promise<ConnectionHealth> {
-    const health = selectConnectionHealth(store.getState());
+  private async performHealthCheck(): Promise<void> {
     if (!this.sipClient || this.isDestroyed) {
-      this.updateConnectionHealth({
-        isHealthy: false,
-        latency: 0,
-        lastHealthCheck: new Date().toISOString(),
-        consecutiveFailures: health.consecutiveFailures + 1
-      });
-      return selectConnectionHealth(store.getState());
+      this.consecutiveFailures++;
+      return;
     }
 
-    const startTime = Date.now();
+    this.lastHealthCheckTime = new Date();
     
     try {
-      // Check SIP client state
-      const dataChannel = this.sipClient.peer2peer.getActiveDataChannel();
+      // Check SIP client health using public API
+      const isSipHealthy = this.sipClient.isHealthy();
       const isApiReady = webRTCApiService.isReady();
       
-      const isHealthy = !!(
-        this.sipClient.registration.isRegistered &&
-        this.sipClient.connection.isConnectionEstablished &&
-        dataChannel?.readyState === 'open' &&
-        isApiReady
-      );
+      const isHealthy = isSipHealthy && isApiReady;
       
-      const latency = Date.now() - startTime;
-      
-      const currentHealth = selectConnectionHealth(store.getState());
-      this.updateConnectionHealth({
-        isHealthy,
-        latency,
-        lastHealthCheck: new Date().toISOString(),
-        consecutiveFailures: isHealthy ? 0 : currentHealth.consecutiveFailures + 1
-      });
-      
-      // Update connection state based on health check
-      this.updateConnectionState({
-        isRegistered: this.sipClient.registration.isRegistered,
-        isConnectionEstablished: this.sipClient.connection.isConnectionEstablished,
-        isPeerConnected: !!dataChannel,
-        isDataChannelOpen: dataChannel?.readyState === 'open',
-        isConnected: isHealthy,
-        lastRegistrationByeReceived: this.sipClient.registration.lastByeReceived || undefined,
-        lastConnectionByeReceived: this.sipClient.connection.lastByeReceived || undefined
-      });
-      
-      // Trigger auto-reconnect if unhealthy
-      if (!isHealthy && this.config.enableAutoReconnect && !this.isReconnecting) {
-        console.warn('Health check failed, triggering reconnection...');
-        this.reconnect();
+      if (!isHealthy) {
+        this.consecutiveFailures++;
+        console.warn(`[ConnectionManager] Health check failed (${this.consecutiveFailures} consecutive failures)`);
+        
+        // Trigger auto-reconnect after 3 consecutive failures
+        if (this.consecutiveFailures >= 3 && this.config.enableAutoReconnect && !this.isReconnecting) {
+          console.warn('[ConnectionManager] Health check threshold reached, triggering reconnection...');
+          this.reconnect();
+        }
+      } else {
+        // Reset failure count on successful health check
+        if (this.consecutiveFailures > 0) {
+          console.log('[ConnectionManager] Health restored');
+          this.consecutiveFailures = 0;
+        }
       }
-      
-      return selectConnectionHealth(store.getState());
-      
     } catch (error) {
-      console.error('Health check failed:', error);
-      
-      const currentHealth = selectConnectionHealth(store.getState());
-      this.updateConnectionHealth({
-        isHealthy: false,
-        latency: Date.now() - startTime,
-        lastHealthCheck: new Date().toISOString(),
-        consecutiveFailures: currentHealth.consecutiveFailures + 1
-      });
-      
-      return selectConnectionHealth(store.getState());
+      console.error('[ConnectionManager] Health check error:', error);
+      this.consecutiveFailures++;
     }
   }
 
@@ -353,7 +316,6 @@ export class WebRTCConnectionManager {
    */
   private async performAuthentication(): Promise<void> {
     try {
-      this.updateConnectionState({ isAuthenticating: true });
       store.dispatch(startAuthentication());
 
       // Wait a moment for the data channel to be fully ready
@@ -384,11 +346,7 @@ export class WebRTCConnectionManager {
       // Update Redux store with authentication success
       store.dispatch(authenticationSuccess(authResponse));
       
-      this.updateConnectionState({ 
-        isAuthenticated: true, 
-        isAuthenticating: false 
-      });
-      this.updateConnectionStatus('Connected and authenticated - ready for API calls');
+      // Authentication state is managed by authSlice
       
       console.log('✅ Authentication successful');
       
@@ -399,11 +357,8 @@ export class WebRTCConnectionManager {
       store.dispatch(authenticationFailure(errorMessage));
       
       this.updateConnectionState({ 
-        isAuthenticated: false, 
-        isAuthenticating: false,
-        lastError: errorMessage
+        lastError: errorMessage,
       });
-      this.updateConnectionStatus(`Connected but authentication failed: ${errorMessage}`);
       
       throw error;
     }
@@ -414,13 +369,6 @@ export class WebRTCConnectionManager {
    */
   getConnectionState(): ConnectionState {
     return selectConnectionState(store.getState());
-  }
-
-  /**
-   * Get current connection health
-   */
-  getConnectionHealth(): ConnectionHealth {
-    return selectConnectionHealth(store.getState());
   }
 
   /**
@@ -441,28 +389,7 @@ export class WebRTCConnectionManager {
    * Check if ready for API calls
    */
   isReady(): boolean {
-    const state = selectConnectionState(store.getState());
-    const health = selectConnectionHealth(store.getState());
-    return state.isConnected && 
-           state.isDataChannelOpen && 
-           state.isAuthenticated &&
-           health.isHealthy;
-  }
-
-  /**
-   * @deprecated Use Redux selectors instead (selectConnectionState, selectConnectionHealth)
-   */
-  onStateChange(_listener: (state: ConnectionState) => void): () => void {
-    console.warn('onStateChange is deprecated. Use Redux useAppSelector(selectConnectionState) instead.');
-    return () => {};
-  }
-
-  /**
-   * @deprecated Use Redux selectors instead (selectConnectionState, selectConnectionHealth)
-   */
-  onHealthChange(_listener: (health: ConnectionHealth) => void): () => void {
-    console.warn('onHealthChange is deprecated. Use Redux useAppSelector(selectConnectionHealth) instead.');
-    return () => {};
+    return selectIsReady(store.getState());
   }
 
   /**
@@ -522,11 +449,8 @@ export class WebRTCConnectionManager {
     const errorMessage = error instanceof Error ? error.message : String(error);
     
     this.updateConnectionState({
-      isConnected: false,
-      isConnecting: false,
-      lastError: errorMessage
+      lastError: errorMessage,
     });
-    this.updateConnectionStatus(`Connection error: ${errorMessage}`);
     
     // Trigger reconnection if enabled
     if (this.config.enableAutoReconnect && !this.isReconnecting) {
@@ -542,6 +466,34 @@ export class WebRTCConnectionManager {
     return Math.min(exponentialDelay + jitter, 30000); // Max 30 seconds
   }
 
+  private startStateMonitoring(): void {
+    if (this.stateMonitorInterval) {
+      clearInterval(this.stateMonitorInterval);
+    }
+
+    this.stateMonitorInterval = setInterval(() => {
+      if (!this.sipClient || this.isDestroyed) {
+        this.stopStateMonitoring();
+        return;
+      }
+      
+      const currentState = this.sipClient.getState();
+      store.dispatch(sipClientStateChanged(currentState));
+      
+      // sipClientStateChanged will automatically update connectionStatus
+      if (currentState === 'DISCONNECTED') {
+        this.stopStateMonitoring();
+      }
+    }, 500);
+  }
+
+  private stopStateMonitoring(): void {
+    if (this.stateMonitorInterval) {
+      clearInterval(this.stateMonitorInterval);
+      this.stateMonitorInterval = null;
+    }
+  }
+
   private startHealthMonitoring(): void {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
@@ -552,6 +504,13 @@ export class WebRTCConnectionManager {
         this.performHealthCheck();
       }
     }, this.config.healthCheckInterval);
+  }
+
+  private stopHealthMonitoring(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
   }
 
   /**
@@ -597,7 +556,8 @@ export class WebRTCConnectionManager {
     console.log('[ConnectionManager] User went idle - disconnecting');
     
     const state = selectConnectionState(store.getState());
-    if (!state.isConnected) {
+    const isConnected = state.sipClientState === SipClientState.CONNECTED;
+    if (!isConnected) {
       console.log('[ConnectionManager] Already disconnected, skipping idle disconnect');
       return;
     }
@@ -608,7 +568,7 @@ export class WebRTCConnectionManager {
     this.wasIdleDisconnected = true;
 
     // Update status before disconnecting
-    this.updateConnectionStatus('Disconnected due to inactivity (5 min idle)');
+    this.updateConnectionState({ connectionStatus: 'Disconnected due to inactivity (5 min idle)' });
     
     // Disconnect
     this.disconnect().catch(error => {
@@ -635,7 +595,7 @@ export class WebRTCConnectionManager {
       store.dispatch(setAutoReconnectPending(false));
       
       // Update status and reconnect
-      this.updateConnectionStatus('Reconnecting after inactivity...');
+      this.updateConnectionState({ connectionStatus: 'Reconnecting after inactivity...' });
       
       this.connect().catch(error => {
         console.error('[ConnectionManager] Error during post-idle reconnect:', error);
@@ -647,7 +607,10 @@ export class WebRTCConnectionManager {
     this.clearConnectionTimeout();
     this.connectionTimeoutTimer = setTimeout(() => {
       const state = selectConnectionState(store.getState());
-      if (state.isConnecting) {
+      const isConnecting = state.sipClientState === SipClientState.REGISTERING || 
+                          state.sipClientState === SipClientState.CONNECTING || 
+                          state.sipClientState === SipClientState.CONNECTING_P2P;
+      if (isConnecting) {
         this.handleConnectionError(new Error('Connection timeout'));
       }
     }, this.config.connectionTimeout);
@@ -670,24 +633,12 @@ export class WebRTCConnectionManager {
   private clearAllTimers(): void {
     this.clearConnectionTimeout();
     this.clearReconnectTimer();
-    
-    if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval);
-      this.healthCheckInterval = null;
-    }
+    this.stopStateMonitoring();
+    this.stopHealthMonitoring();
   }
 
   private updateConnectionState(updates: Partial<ConnectionState>): void {
     store.dispatch(updateReduxConnectionState(updates));
-  }
-
-  private updateConnectionStatus(status: string): void {
-    this.updateConnectionState({ connectionStatus: status });
-    store.dispatch(updateReduxConnectionStatus(status));
-  }
-
-  private updateConnectionHealth(updates: Partial<ConnectionHealth>): void {
-    store.dispatch(updateReduxConnectionHealth(updates));
   }
 }
 

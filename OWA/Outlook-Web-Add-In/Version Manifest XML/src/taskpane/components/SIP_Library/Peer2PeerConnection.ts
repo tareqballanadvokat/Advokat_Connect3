@@ -5,6 +5,11 @@
  * between SIP clients. It handles the complete WebRTC negotiation process including
  * SDP (Session Description Protocol) offer/answer exchange and ICE candidate gathering.
  * 
+ * EVENT-DRIVEN DESIGN:
+ * Uses Peer2PeerEvents callback interface to emit state changes and outcomes.
+ * SipClient subscribes to these events to coordinate final connection establishment.
+ * No direct coupling to Redux or external state management.
+ * 
  * Protocol Flow:
  * - OWA Client: Always acts as OFFERER (creates SDP Offer, sends SERVICE CSeq: 1)
  * - Server: Always acts as ANSWERER (creates SDP Answer, sends SERVICE CSeq: 2)
@@ -72,8 +77,15 @@
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
+import { SipPhaseEvents } from './SipClient';
 
 type MessageHandler = (event: MessageEvent) => Promise<void> | void;
+
+/**
+ * Event callbacks for Peer2Peer WebRTC phase
+ * Specialized from generic SipPhaseEvents with SdpExchangeState and 'RECEIVE_TIMEOUT'
+ */
+export type Peer2PeerEvents = SipPhaseEvents<SdpExchangeState, 'RECEIVE_TIMEOUT'>;
 
 /**
  * WebRTC SDP Exchange state machine enum
@@ -116,7 +128,6 @@ export class Peer2PeerConnection {
     private static readonly DATA_CHANNEL_LABEL = 'offer';
     private static readonly TIMEOUT_NAME = 'RECEIVE_TIMEOUT';
     private static readonly DEFAULT_RECEIVE_TIMEOUT = 1000;
-    private static readonly MAX_RETRIES = 3;
     
     private static readonly REGEX_SERVICE_ANSWER = /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
     private static readonly REGEX_CSEQ_ANSWER = /CSeq:\s*2 SERVICE/;
@@ -127,19 +138,24 @@ export class Peer2PeerConnection {
     public isOfferSent = false;
     private messageHandlers: MessageHandler[] = [];
     private sdpExchangeState: SdpExchangeState = SdpExchangeState.IDLE;
-    private retryCount: number = 0;
     private lastError: string = "";
     private timeoutManager: TimeoutManager | null = null;
     private receiveTimeout: number = Peer2PeerConnection.DEFAULT_RECEIVE_TIMEOUT;
+    
+    // Store last offer parameters for retry and BYE message creation
     private lastOfferParams: {
-        socket: WebSocket;
         callId: string;
         sipUri: string;
         tag: string;
         toLine: string;
     } | null = null;
     
-    public onSendConnectionBye: ((message: string) => void) | null = null;
+    // Event callbacks for SipClient observation
+    private events: Peer2PeerEvents;
+    
+    constructor(events: Peer2PeerEvents) {
+        this.events = events;
+    }
     
     /**
      * Generate SIP branch parameter
@@ -156,12 +172,13 @@ export class Peer2PeerConnection {
     }
     
     /**
-     * Transition to new SDP exchange state with logging
+     * Transition to new SDP exchange state with logging and event emission
      */
     private transitionTo(newState: SdpExchangeState): void {
         const oldState = this.sdpExchangeState;
         this.sdpExchangeState = newState;
         this.logWithPrefix(`State transition: ${oldState} → ${newState}`);
+        this.events.onStateChange?.(newState);
     }
     
     /**
@@ -207,7 +224,7 @@ export class Peer2PeerConnection {
     /**
      * Setup ICE event handlers for peer connection
      */
-    private setupICEHandlers(socket: WebSocket, callId: string, sipUri: string, tag: string, toLine: string): void {
+    private setupICEHandlers(callId: string, sipUri: string, tag: string, toLine: string): void {
         this.pc.onicecandidate = (evt) => {
             if (evt.candidate) {
                 this.logWithPrefix('📤 ICE candidate (offer): ' + JSON.stringify(evt.candidate));
@@ -221,16 +238,9 @@ export class Peer2PeerConnection {
                 const branch = Peer2PeerConnection.generateBranch();
                 const offerMsg = this.createSdpOfferMessage(offerSDP, callId, sipUri, tag, toLine, branch);
                 
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    this.logWithPrefix('📤 Sending SDP Offer via WebSocket');
-                    socket.send(offerMsg);
-                    this.logWithPrefix('✅ SDP Offer sent successfully');
-                    this.startReceiveTimeout();
-                } else {
-                    this.logWithPrefix('❌ WebSocket is not available or not open - cannot send offer');
-                    this.lastError = 'WebSocket not available';
-                    this.transitionTo(SdpExchangeState.FAILED);
-                }
+                this.logWithPrefix('📤 Emitting SDP Offer message');
+                this.events.onMessageToSend?.(offerMsg, 'SERVICE Offer');
+                this.startReceiveTimeout();
             }
         };
     }
@@ -305,7 +315,6 @@ export class Peer2PeerConnection {
     reset(): void {
         this.sdpExchangeState = SdpExchangeState.IDLE;
         this.isOfferSent = false;
-        this.retryCount = 0;
         this.lastError = "";
         this.lastOfferParams = null;
         
@@ -326,42 +335,53 @@ export class Peer2PeerConnection {
      * @param tag - SIP tag
      * @param toLine - Formatted To header line
      */
-    async createAndSendOffer(socket: WebSocket, callId: string, sipUri: string, tag: string, toLine: string): Promise<void> {
-        this.lastOfferParams = { socket, callId, sipUri, tag, toLine };
+    async createAndSendOffer(callId: string, sipUri: string, tag: string, toLine: string): Promise<void> {
+        // Save offer parameters for retry and BYE message creation
+        this.lastOfferParams = { callId, sipUri, tag, toLine };
         
-        this.logWithPrefix(`Creating SDP Offer (attempt ${this.retryCount + 1}/${Peer2PeerConnection.MAX_RETRIES})`);
-        
-        this.isOfferSent = true;
-        this.transitionTo(SdpExchangeState.OFFER_SENT);
-        
-        this.dataChannelPeer = this.pc.createDataChannel(Peer2PeerConnection.DATA_CHANNEL_LABEL);
-        this.dataChannelPeer.onopen = () => {
-            this.logWithPrefix('🟢 DataChannel OFFER opened');
-            if (this.dataChannelPeer) {
-                this.dataChannelPeer.send('Hello from OFFER side');
-            }
-        };
-        
-        this.dataChannelPeer.onmessage = (event) => {
-            const text = new TextDecoder('utf-8').decode(event.data);
-            this.logWithPrefix('📨 Received on offer channel: ' + text);
-        };
-        
-        this.dataChannelPeer.onerror = (err) => {
-            this.logWithPrefix('❌ Offer DataChannel error: ' + err);
-        };
-        
-        this.pc.ondatachannel = (ev) => {
-            this.logWithPrefix('📥 DataChannel found: ' + ev.channel.label);
-            this.setupDataChannelHandlers(ev.channel);
-        };
-        
-        this.setupICEHandlers(socket, callId, sipUri, tag, toLine);
-        
-        const offer = await this.pc.createOffer();
-        await this.pc.setLocalDescription(offer);
-        
-        this.logWithPrefix('📤 SDP Offer created: ' + JSON.stringify(offer));
+        try {
+            this.logWithPrefix('Creating SDP Offer');
+            
+            this.isOfferSent = true;
+            this.transitionTo(SdpExchangeState.OFFER_SENT);
+            
+            this.dataChannelPeer = this.pc.createDataChannel(Peer2PeerConnection.DATA_CHANNEL_LABEL);
+            this.dataChannelPeer.onopen = () => {
+                this.logWithPrefix('🟢 DataChannel OFFER opened');
+                if (this.dataChannelPeer) {
+                    this.dataChannelPeer.send('Hello from OFFER side');
+                }
+                // DataChannel successfully opened - WebRTC connection established
+                this.events.onSuccess?.();
+            };
+            
+            this.dataChannelPeer.onmessage = (event) => {
+                const text = new TextDecoder('utf-8').decode(event.data);
+                this.logWithPrefix('📨 Received on offer channel: ' + text);
+            };
+            
+            this.dataChannelPeer.onerror = (err) => {
+                this.logWithPrefix('❌ Offer DataChannel error: ' + err);
+                this.events.onFailure?.(`DataChannel error: ${err}`);
+            };
+            
+            this.pc.ondatachannel = (ev) => {
+                this.logWithPrefix('📥 DataChannel found: ' + ev.channel.label);
+                this.setupDataChannelHandlers(ev.channel);
+            };
+            
+            this.setupICEHandlers(callId, sipUri, tag, toLine);
+            
+            const offer = await this.pc.createOffer();
+            await this.pc.setLocalDescription(offer);
+            
+            this.logWithPrefix('📤 SDP Offer created: ' + JSON.stringify(offer));
+        } catch (error) {
+            this.logWithPrefix(`❌ Failed to create SDP offer: ${error}`);
+            this.lastError = `SDP offer creation failed: ${error}`;
+            this.transitionTo(SdpExchangeState.FAILED);
+            this.events.onFailure?.(`SDP offer creation failed: ${error}`);
+        }
     }
     
     /**
@@ -407,16 +427,18 @@ export class Peer2PeerConnection {
                     this.logWithPrefix('✅ Remote SDP Answer set successfully');
                     
                     this.transitionTo(SdpExchangeState.ANSWER_RECEIVED);
-                    this.retryCount = 0;
+                    // Success will be emitted when DataChannel opens in createAndSendOffer
                 } catch (err) {
                     this.logWithPrefix('❌ SDP or WebRTC error: ' + err);
                     this.lastError = `SDP error: ${err}`;
                     this.transitionTo(SdpExchangeState.FAILED);
+                    this.events.onFailure?.(`SDP parsing error: ${err}`);
                 }
             } else {
                 this.logWithPrefix('⚠️ SDP block not found in SERVICE answer');
                 this.lastError = 'SDP block not found in answer';
                 this.transitionTo(SdpExchangeState.FAILED);
+                this.events.onFailure?.('SDP block not found in SERVICE answer');
             }
         }
     }
@@ -439,66 +461,16 @@ export class Peer2PeerConnection {
     
     /**
      * Handle RECEIVE_TIMEOUT expiry (no answer received)
-     * Retry up to MAX_RETRIES times, then fail
+     * Emits timeout and failure events - retry decision handled by SipClient
      */
-    private async handleReceiveTimeout(): Promise<void> {
-        this.logWithPrefix(`⏱️ ${Peer2PeerConnection.TIMEOUT_NAME} expired - no answer received (attempt ${this.retryCount + 1}/${Peer2PeerConnection.MAX_RETRIES})`);
+    private handleReceiveTimeout(): void {
+        this.logWithPrefix(`⏱️ ${Peer2PeerConnection.TIMEOUT_NAME} expired - no answer received`);
         
-        this.retryCount++;
+        this.lastError = 'No answer received - timeout expired';
+        this.transitionTo(SdpExchangeState.FAILED);
         
-        if (this.retryCount < Peer2PeerConnection.MAX_RETRIES && this.lastOfferParams) {
-            this.logWithPrefix(`🔄 Retrying SDP offer (attempt ${this.retryCount + 1}/${Peer2PeerConnection.MAX_RETRIES})`);
-            
-            this.resetPeerConnection();
-            
-            const { socket, callId, sipUri, tag, toLine } = this.lastOfferParams;
-            await this.createAndSendOffer(socket, callId, sipUri, tag, toLine);
-        } else {
-            this.logWithPrefix(`❌ Max retries (${Peer2PeerConnection.MAX_RETRIES}) reached - SDP exchange failed`);
-            this.lastError = `No answer received after ${Peer2PeerConnection.MAX_RETRIES} attempts`;
-            this.transitionTo(SdpExchangeState.FAILED);
-            
-            this.sendConnectionBye('SDP exchange failed - no answer received');
-        }
-    }
-    
-    /**
-     * Create and send CONNECTION BYE message
-     * @param reason - Reason for sending BYE
-     */
-    private sendConnectionBye(reason: string): void {
-        this.logWithPrefix(`📤 Sending CONNECTION BYE: ${reason}`);
-        
-        if (this.onSendConnectionBye && this.lastOfferParams) {
-            const { sipUri, tag, callId } = this.lastOfferParams;
-            const byeMessage = this.createConnectionBye(sipUri, tag, callId, Peer2PeerConnection.CSEQ_CONNECTION_BYE, reason);
-            this.onSendConnectionBye(byeMessage);
-        } else {
-            this.logWithPrefix('⚠️ Cannot send CONNECTION BYE - callback not configured');
-        }
-    }
-    
-    /**
-     * Create CONNECTION BYE message
-     * @param sipUri - SIP URI
-     * @param tag - SIP tag
-     * @param callId - Call ID
-     * @param cseq - CSeq number
-     * @param reason - Reason for BYE
-     * @returns Formatted CONNECTION BYE message
-     */
-    private createConnectionBye(sipUri: string, tag: string, callId: string, cseq: number, reason: string): string {
-        return MessageFactory.createByeMessage({
-            sipUri: sipUri,
-            branch: Peer2PeerConnection.generateBranch(),
-            callId: callId,
-            tag: tag,
-            cseq: cseq,
-            toDisplayName: 'macs',
-            fromDisplayName: 'macc',
-            reasonType: 'CONNECTION',
-            reasonText: reason
-        });
+        this.events.onTimeout?.(Peer2PeerConnection.TIMEOUT_NAME);
+        this.events.onFailure?.('RECEIVE_TIMEOUT expired - no SDP answer received');
     }
     
     /**
@@ -507,5 +479,46 @@ export class Peer2PeerConnection {
      */
     getActiveDataChannel(): RTCDataChannel | undefined {
         return this.dataChannelPeer;
+    }
+    
+    /**
+     * Get the last sent offer parameters
+     * @returns Last offer parameters or null if not available
+     */
+    getLastOfferParams(): { callId: string; sipUri: string; tag: string; toLine: string } | null {
+        return this.lastOfferParams;
+    }
+    
+    /**
+     * Generate SIP branch parameter
+     */
+    private static generateConnectionByeBranch(): string {
+        return 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
+    }
+    
+    /**
+     * Create CONNECTION BYE message using saved offer parameters
+     * @param reason - Reason for sending BYE
+     * @returns Formatted CONNECTION BYE message or null if parameters not available
+     */
+    createConnectionBye(reason: string): string | null {
+        if (!this.lastOfferParams) {
+            this.logWithPrefix('⚠️ Cannot create CONNECTION BYE - offer parameters not saved');
+            return null;
+        }
+        
+        const { sipUri, tag, callId } = this.lastOfferParams;
+        
+        return MessageFactory.createByeMessage({
+            sipUri: sipUri,
+            branch: Peer2PeerConnection.generateConnectionByeBranch(),
+            callId: callId,
+            tag: tag,
+            cseq: Peer2PeerConnection.CSEQ_CONNECTION_BYE,
+            toDisplayName: 'macs',
+            fromDisplayName: 'macc',
+            reasonType: 'CONNECTION',
+            reasonText: reason
+        });
     }
 }

@@ -1,22 +1,22 @@
 // React Hook for WebRTC Connection Manager
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAppSelector } from '../../store/hooks';
 import { 
   selectConnectionState, 
-  selectConnectionHealth,
-  ConnectionState,
-  ConnectionHealth 
+  selectSipClientState,
+  ConnectionState
 } from '../../store/slices/connectionSlice';
 import { 
   getWebRTCConnectionManager, 
   WebRTCConnectionManager,
   ConnectionManagerConfig 
 } from '../services/WebRTCConnectionManager';
+import { SipClientState } from '../components/SIP_Library/SipClient';
 
 interface UseWebRTCConnectionManagerReturn {
   // Connection state
   connectionState: ConnectionState;
-  connectionHealth: ConnectionHealth;
+  sipClientState?: SipClientState;
   
   // Connection management
   connect: () => Promise<void>;
@@ -25,7 +25,7 @@ interface UseWebRTCConnectionManagerReturn {
   
   // Utilities
   isReady: () => boolean;
-  performHealthCheck: () => Promise<ConnectionHealth>;
+  isConnecting: boolean;
   
   // Manager instance (for advanced usage)
   connectionManager: WebRTCConnectionManager;
@@ -51,7 +51,14 @@ export const useWebRTCConnectionManager = (
   
   // Get state from Redux instead of local state
   const connectionState = useAppSelector(selectConnectionState);
-  const connectionHealth = useAppSelector(selectConnectionHealth);
+  const sipClientState = useAppSelector(selectSipClientState);
+
+  // Derived state: isConnecting covers REGISTERING, CONNECTING, and CONNECTING_P2P
+  const isConnecting = useMemo(() => {
+    return sipClientState === 'REGISTERING' || 
+           sipClientState === 'CONNECTING' || 
+           sipClientState === 'CONNECTING_P2P';
+  }, [sipClientState]);
 
   // Initialize connection manager
   useEffect(() => {
@@ -93,26 +100,14 @@ export const useWebRTCConnectionManager = (
     return connectionManagerRef.current?.isReady() || false;
   }, []);
 
-  const performHealthCheck = useCallback(async (): Promise<ConnectionHealth> => {
-    if (connectionManagerRef.current) {
-      return await connectionManagerRef.current.performHealthCheck();
-    }
-    return {
-      isHealthy: connectionHealth.isHealthy,
-      latency: connectionHealth.latency,
-      lastHealthCheck: connectionHealth.lastHealthCheck,
-      consecutiveFailures: connectionHealth.consecutiveFailures
-    };
-  }, [connectionHealth]);
-
   return {
     connectionState,
-    connectionHealth,
+    sipClientState,
     connect,
     disconnect,
     reconnect,
     isReady,
-    performHealthCheck,
+    isConnecting,
     connectionManager: connectionManagerRef.current!
   };
 };

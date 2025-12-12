@@ -77,7 +77,7 @@ class SipClientService {
   cleanup(): void {
     if (this.sipClient?.socket) {
       console.log('🔌 Closing SIP client connection...');
-      this.sipClient.socket.close();
+      this.sipClient.socket.close(1000, 'SipClientService Cleanup');
     }
     
     this.sipClient = null;

@@ -1,7 +1,7 @@
 // src/taskpane/components/tabs/shared/WebRTCConnectionStatus.tsx
 import React from 'react';
 import { useAppSelector } from '@store/hooks';
-import { selectConnectionState, selectConnectionHealth, selectIsReady } from '@store/slices/connectionSlice';
+import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting } from '@store/slices/connectionSlice';
 import { getWebRTCConnectionManager } from '../../../services/WebRTCConnectionManager';
 
 interface WebRTCConnectionStatusProps {
@@ -19,8 +19,9 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
 }) => {
   // Read directly from Redux
   const connectionState = useAppSelector(selectConnectionState);
-  const connectionHealth = useAppSelector(selectConnectionHealth);
   const isReady = useAppSelector(selectIsReady);
+  const isConnected = useAppSelector(selectIsConnected);
+  const isConnecting = useAppSelector(selectIsConnecting);
 
   const handleReconnect = () => {
     const manager = getWebRTCConnectionManager();
@@ -48,8 +49,8 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
       };
     }
 
-    // Connected and healthy state - green background
-    if (connectionState.isConnected && connectionHealth.isHealthy && isReady) {
+    // Connected and ready state - green background
+    if (isReady) {
       return {
         ...baseStyle,
         backgroundColor: '#28a745', // Green
@@ -57,8 +58,8 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
       };
     }
 
-    // Connected but unhealthy state - yellow background
-    if (connectionState.isConnected && !connectionHealth.isHealthy) {
+    // Connected but not authenticated - yellow background
+    if (isConnected && !isReady) {
       return {
         ...baseStyle,
         backgroundColor: '#ffc107', // Yellow
@@ -88,7 +89,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
     <div className={className} style={getConnectionStatusStyle()}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <strong>WebRTC:</strong> {connectionState.connectionStatus}
+          {connectionState.connectionStatus}
           {isReady && <span style={{ color: 'white' }}> ✓</span>}
           {connectionState.reconnectAttempts > 0 && (
             <span style={{ marginLeft: '5px', fontSize: '11px' }}>
@@ -97,7 +98,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
           )}
         </div>
         
-        {showReconnectButton && !connectionState.isConnecting && (
+        {showReconnectButton && !isConnecting && (
           <button
             onClick={handleReconnect}
             style={{
@@ -118,9 +119,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
       
       {showHealthIndicator && (
         <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.9 }}>
-          Health: {connectionHealth.isHealthy ? '💚' : '💔'} 
-          {connectionHealth.latency > 0 && ` | ${connectionHealth.latency}ms`}
-          {connectionHealth.consecutiveFailures > 0 && ` | ${connectionHealth.consecutiveFailures} failures`}
+          Status: {isReady ? '✅ Ready' : isConnecting ? '⏳ Connecting' : '⚠️ Not Ready'}
         </div>
       )}
     </div>

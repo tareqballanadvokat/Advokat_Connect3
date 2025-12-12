@@ -5,6 +5,11 @@
  * Coordinates dual timeout management (ConnectionTimeout + PeerRegistrationTimeout) and handles
  * the NOTIFY4 → ACK5 → NOTIFY6 sequence to establish peer-to-peer connection readiness.
  * 
+ * EVENT-DRIVEN DESIGN:
+ * Uses ConnectionEvents callback interface to emit state changes and outcomes.
+ * SipClient subscribes to these events to coordinate transition to WebRTC phase.
+ * No direct coupling to Redux or external state management.
+ * 
  * CONNECTION ESTABLISHMENT FLOW (Success Path):
  * ┌────────────────────────────────────────────────────────────────────┐
  * │ Server sends NOTIFY (CSeq:4) - Connection phase starts            │
@@ -69,6 +74,13 @@
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
+import { SipPhaseEvents } from './SipClient';
+
+/**
+ * Event callbacks for Connection Establishment phase
+ * Specialized from generic SipPhaseEvents with ConnectionState and 'CONNECTION_TIMEOUT'
+ */
+export type ConnectionEvents = SipPhaseEvents<ConnectionState, 'CONNECTION_TIMEOUT'>;
 
 /**
  * Connection Establishment state machine enum
@@ -113,11 +125,12 @@ export class EstablishingConnection {
     
     public lastByeReceived: string | null = null;
     
-    public getPeerRegistrationTimeRemaining: (() => number) | null = null;
-    public onSendMessage: ((message: string) => void) | null = null;
+    // Event callbacks for SipClient observation
+    private events: ConnectionEvents;
     
-    constructor(timeoutManager: TimeoutManager) {
+    constructor(timeoutManager: TimeoutManager, events: ConnectionEvents) {
         this.timeoutManager = timeoutManager;
+        this.events = events;
         this.generateSessionIds();
     }
     
@@ -131,7 +144,7 @@ export class EstablishingConnection {
     }
     
     /**
-     * Centralized state transition helper with automatic logging
+     * Centralized state transition helper with automatic logging and event emission
      */
     private transitionTo(newState: ConnectionState, reason?: string): void {
         const oldState = this.connectionState;
@@ -141,18 +154,7 @@ export class EstablishingConnection {
         } else {
             logger.log(`📤 [CONNECTION] STATE: ${oldState} -> ${newState}`);
         }
-    }
-    
-    /**
-     * Sends SIP message via onSendMessage callback with error handling
-     */
-    private sendMessage(message: string, context: string): void {
-        if (this.onSendMessage) {
-            this.onSendMessage(message);
-            logger.log(`📤 [CONNECTION] Sent ${context} via callback`);
-        } else {
-            logger.log(`⚠️ [CONNECTION] Cannot send ${context} - callback not configured`);
-        }
+        this.events.onStateChange?.(newState);
     }
     
     /**
@@ -164,15 +166,7 @@ export class EstablishingConnection {
         }
     }
     
-    /**
-     * Gets and logs PeerRegistrationTimeout remaining time
-     * @returns Remaining time in milliseconds (0 if exhausted or callback not set)
-     */
-    private getPeerTimeRemaining(): number {
-        const remaining = this.getPeerRegistrationTimeRemaining?.() ?? 0;
-        logger.log(`⏱️ [CONNECTION] PeerRegistrationTimeout: ${remaining}ms remaining`);
-        return remaining;
-    }
+
     
     /**
      * Updates connection parameters from registration data
@@ -259,15 +253,12 @@ export class EstablishingConnection {
         logger.log("🔔 [CONNECTION] NOTIFY4 RECEIVED - Connection phase starting");
         logger.log("🔔 [CONNECTION] ===============================================");
         
-        this.getPeerTimeRemaining();
-        
         this.timeoutManager.startTimer(
             'CONNECTION_TIMEOUT',
             this.connectionTimeout,
             () => this.handleConnectionTimeout()
         );
         logger.log(`⏱️ [CONNECTION] Started ConnectionTimeout (${this.connectionTimeout}ms)`);
-        logger.log(`⏱️ [CONNECTION] Both timeouts now active: ConnectionTimeout + PeerRegistrationTimeout`);
         
         this.transitionTo(ConnectionState.NOTIFY_4_RECEIVED, 'NOTIFY4 received');
         
@@ -318,14 +309,17 @@ export class EstablishingConnection {
         logger.log("🏁 [CONNECTION] NOTIFY6 RECEIVED - Connection establishment COMPLETE");
         logger.log("🏁 [CONNECTION] ===============================================");
         
-        this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
-        this.timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
+        this.cancelConnectionTimeout();
         
         this.transitionTo(ConnectionState.COMPLETE, 'NOTIFY6 received - ready for WebRTC');
         this.isConnectionEstablished = true;
         this.isEstablishingConnectionProcessFinished = true;
         
         logger.log("🏁 [CONNECTION] Ready for WebRTC SDP Exchange (SERVICE CSeq:1)");
+        
+        // Notify SipClient of success
+        this.events.onSuccess?.();
+        
         return undefined;
     }
     
@@ -344,32 +338,25 @@ export class EstablishingConnection {
     
     /**
      * Handles CONNECTION_TIMEOUT expiry (ACK not received by server)
-     * Checks PeerRegistrationTimeout: retry if time remains, fail if exhausted
+     * Notifies SipClient of timeout failure
      */
     private handleConnectionTimeout(): void {
         logger.log("⏰ [CONNECTION] ===============================================");
         logger.log("⏰ [CONNECTION] ConnectionTimeout EXPIRED - ACK not received");
         logger.log("⏰ [CONNECTION] ===============================================");
         
-        const peerTimeRemaining = this.getPeerTimeRemaining();
         this.cancelConnectionTimeout();
         
-        let byeMessage: string;
+        this.transitionTo(ConnectionState.FAILED, 'CONNECTION_TIMEOUT expired');
+        this.isConnectionEstablished = false;
+        this.lastError = "ConnectionTimeout expired - ACK not received";
         
-        if (peerTimeRemaining > 0) {
-            logger.log("✅ [CONNECTION] Sufficient time - resetting to WAITING_NOTIFY_4");
-            this.transitionTo(ConnectionState.WAITING_NOTIFY_4, 'timeout - retry available');
-            this.lastError = "ConnectionTimeout expired - ACK not received, waiting for retry";
-            byeMessage = this.createConnectionBye(this.cseq++, "ConnectionTimeout expired - ACK not received");
-        } else {
-            logger.log("❌ [CONNECTION] PeerRegistrationTimeout exhausted - restart registration");
-            this.transitionTo(ConnectionState.FAILED, 'both timeouts exhausted');
-            this.isConnectionEstablished = false;
-            this.lastError = "Both ConnectionTimeout and PeerRegistrationTimeout expired";
-            byeMessage = this.createConnectionBye(this.cseq++, "Both timeouts expired");
-        }
+        const byeMessage = this.createConnectionBye(this.cseq++, "ConnectionTimeout expired");
+        this.events.onMessageToSend?.(byeMessage, 'CONNECTION BYE due to timeout');
         
-        this.sendMessage(byeMessage, 'CONNECTION BYE due to timeout');
+        // Notify SipClient of timeout and failure
+        this.events.onTimeout?.('CONNECTION_TIMEOUT');
+        this.events.onFailure?.('CONNECTION_TIMEOUT expired');
     }
     
     /**
@@ -389,12 +376,19 @@ export class EstablishingConnection {
         this.transitionTo(ConnectionState.FAILED, `error ${statusCode}`);
         this.isConnectionEstablished = false;
         
-        if (EstablishingConnection.RETRYABLE_ERROR_CODES.includes(statusCode)) {
+        const isRetryable = EstablishingConnection.RETRYABLE_ERROR_CODES.includes(statusCode);
+        
+        if (isRetryable) {
             this.lastError = `Retryable error ${statusCode}`;
-            return this.createConnectionBye(this.cseq++, `Error ${statusCode}`);
+            const byeMessage = this.createConnectionBye(this.cseq++, `Error ${statusCode}`);
+            this.events.onMessageToSend?.(byeMessage, `CONNECTION BYE for error ${statusCode}`);
+        } else {
+            this.lastError = `Non-retryable error ${statusCode}`;
         }
         
-        this.lastError = `Non-retryable error ${statusCode}`;
+        // Notify SipClient of failure
+        this.events.onFailure?.(this.lastError);
+        
         return undefined;
     }
     
@@ -407,19 +401,15 @@ export class EstablishingConnection {
     private handleConnectionBye(_data: string): string {
         logger.log("📥 [CONNECTION] Received CONNECTION BYE from server/peer");
         
+        this.lastByeReceived = new Date().toISOString();
         this.cancelConnectionTimeout();
-        const peerTimeRemaining = this.getPeerTimeRemaining();
         
-        if (peerTimeRemaining > 0) {
-            logger.log("✅ [CONNECTION] Sufficient time - resetting to WAITING_NOTIFY_4");
-            this.transitionTo(ConnectionState.WAITING_NOTIFY_4, 'BYE received - retry available');
-            this.lastError = "Received CONNECTION BYE - waiting for retry";
-        } else {
-            logger.log("❌ [CONNECTION] PeerRegistrationTimeout exhausted - marking as FAILED");
-            this.transitionTo(ConnectionState.FAILED, 'BYE received - no time for retry');
-            this.isConnectionEstablished = false;
-            this.lastError = "Received CONNECTION BYE with PeerRegistrationTimeout exhausted";
-        }
+        this.transitionTo(ConnectionState.FAILED, 'BYE received from server');
+        this.isConnectionEstablished = false;
+        this.lastError = "Received CONNECTION BYE from server";
+        
+        // Notify SipClient of failure
+        this.events.onFailure?.('Received CONNECTION BYE from server');
         
         return this.createConnectionBye(this.cseq++, "ACK not received");
     }

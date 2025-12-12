@@ -4,6 +4,11 @@
  * This class manages the SIP registration phase ONLY.
  * Registration phase handles CSeq 1-3 (REGISTER → 202 → ACK_3).
  * 
+ * EVENT-DRIVEN DESIGN:
+ * Uses RegistrationEvents callback interface to emit state changes and outcomes.
+ * SipClient subscribes to these events to coordinate overall connection flow.
+ * No direct coupling to Redux or external state management.
+ * 
  * REGISTRATION FLOW (Success Path):
  * ┌──────────────────────────────────────────────────────────────────────┐
  * │ Client sends REGISTER (CSeq:1) with timeout config in JSON body     │
@@ -85,6 +90,17 @@
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
+import { SipPhaseEvents } from './SipClient';
+
+/**
+ * Event callbacks for Registration phase
+ * Specialized from generic SipPhaseEvents with RegistrationState and 'RECEIVE_TIMEOUT'
+ * Note: onSuccess includes timeout configuration, onFailure includes isRetryable flag
+ */
+export interface RegistrationEvents extends Omit<SipPhaseEvents<RegistrationState, 'RECEIVE_TIMEOUT'>, 'onSuccess' | 'onFailure'> {
+    onSuccess?: (config: { peerRegistration: number; connection: number; receive: number }) => void;
+    onFailure?: (reason: string, isRetryable: boolean) => void;
+}
 
 /**
  * Registration state machine enum
@@ -133,17 +149,12 @@ export class Registration {
     // State machine and timeout management
     private registrationState: RegistrationState = RegistrationState.IDLE;
     private timeoutManager: TimeoutManager;
-    private retryCount: number = 0;
-    private readonly MAX_RETRIES = 3;
     
     // BYE tracking metadata
     public lastByeReceived: string | null = null; // Timestamp of last REGISTRATION BYE
     
-    // Callback for sending messages
-    public onSendMessage: ((message: string) => void) | null = null;
-    
-    // Callback to check connection status before retrying registration
-    public getConnectionStatus: (() => boolean) | null = null;
+    // Event callbacks for SipClient observation
+    private events: RegistrationEvents;
     
     // Timeout configuration (dynamically set from server's 202 response)
     private connectionTimeout: number = 3000;           // Default 3s, updated from server
@@ -157,8 +168,9 @@ export class Registration {
     private expectedToTag: string = ""; // To-tag from server (extracted from 202 response)
     private processedCSeqs: Set<number> = new Set(); // Track processed CSeq to detect duplicates
 
-    constructor(timeoutManager: TimeoutManager) {
+    constructor(timeoutManager: TimeoutManager, events: RegistrationEvents) {
         this.timeoutManager = timeoutManager;
+        this.events = events;
         this.generateSessionIds();
     }
 
@@ -172,7 +184,7 @@ export class Registration {
     }
 
     /**
-     * Centralized state transition helper with automatic logging
+     * Centralized state transition helper with automatic logging and event emission
      */
     private transitionTo(newState: RegistrationState, reason?: string): void {
         const oldState = this.registrationState;
@@ -182,6 +194,7 @@ export class Registration {
         } else {
             logger.log(`📤 [REGISTRATION] STATE: ${oldState} -> ${newState}`);
         }
+        this.events.onStateChange?.(newState);
     }
 
     /**
@@ -190,18 +203,7 @@ export class Registration {
     private markRegistrationFailed(reason?: string): void {
         this.isRegistered = false;
         this.transitionTo(RegistrationState.FAILED, reason);
-    }
-
-    /**
-     * Sends SIP message via onSendMessage callback with error handling
-     */
-    private sendMessage(message: string, context: string): void {
-        if (this.onSendMessage) {
-            this.onSendMessage(message);
-            logger.log(`📤 [REGISTRATION] Sent ${context} via callback`);
-        } else {
-            logger.log(`⚠️ [REGISTRATION] Cannot send ${context} - callback not configured`);
-        }
+        this.events.onStateChange?.(this.registrationState);
     }
 
     /**
@@ -220,7 +222,6 @@ export class Registration {
      */
     getInitialRegistration(): string {
         this.isRegistrationProcessFinished = false;
-        this.transitionTo(RegistrationState.REGISTER_SENT);
         
         const register = MessageFactory.createRegisterMessage({
             sipUri: this.sipUri,
@@ -239,6 +240,8 @@ export class Registration {
         
         logger.log('📤 [REGISTRATION] REGISTER message created with timeout configuration');
         
+        this.transitionTo(RegistrationState.REGISTER_SENT);
+        
         this.timeoutManager.startTimer('RECEIVE_TIMEOUT', this.receiveTimeout, () => {
             this.handleReceiveTimeout();
         });
@@ -246,40 +249,11 @@ export class Registration {
         return register;
     }
     
-    /**
-     * Attempts to retry registration after failure (max 3 attempts)
-     * Checks connection status to prevent disrupting active connections
-     * @returns true if retry was attempted, false if aborted or max retries reached
-     */
-    private attemptRetry(): boolean {
-        if (this.getConnectionStatus && this.getConnectionStatus()) {
-            logger.log('⚠️ [REGISTRATION] Connection still established/establishing - skipping retry');
-            logger.log('⚠️ [REGISTRATION] Sending new REGISTER would cause server to terminate current connection');
-            logger.log('⚠️ [REGISTRATION] Registration retry aborted - connection takes precedence');
-            this.markRegistrationFailed();
-            return false;
-        }
-        
-        if (this.retryCount >= this.MAX_RETRIES) {
-            logger.log(`❌ [REGISTRATION] Max retries (${this.MAX_RETRIES}) reached. Registration FAILED.`);
-            this.markRegistrationFailed();
-            this.timeoutManager.logActiveTimers();
-            return false;
-        }
-        
-        this.retryCount++;
-        logger.log(`🔄 [REGISTRATION] Retry attempt ${this.retryCount}/${this.MAX_RETRIES}`);
-        this.resetRegistrationState();
-        
-        const registerMsg = this.getInitialRegistration();
-        this.sendMessage(registerMsg, 'retry REGISTER');
-        
-        return true;
-    }
+
     
     /**
      * Handles RECEIVE_TIMEOUT expiry when waiting for 202 Accepted response
-     * Sends REGISTRATION BYE (CSeq:2) and triggers retry logic
+     * Notifies SipClient of timeout and failure
      */
     private handleReceiveTimeout(): void {
         this.lastError = 'ReceiveTimeout expired waiting for 202 Accepted';
@@ -288,9 +262,10 @@ export class Registration {
         this.markRegistrationFailed('timeout before receiving 202');
         
         const byeMessage = this.createRegistrationBye(Registration.CSEQ_BYE_TIMEOUT);
-        this.sendMessage(byeMessage, 'REGISTRATION BYE due to timeout');
+        this.events.onMessageToSend?.(byeMessage, 'REGISTRATION BYE due to timeout');
         
-        this.attemptRetry();
+        this.events.onTimeout?.('RECEIVE_TIMEOUT');
+        this.events.onFailure?.('RECEIVE_TIMEOUT expired', true);
     }
     
 
@@ -325,7 +300,7 @@ export class Registration {
     
     /**
      * Handles incoming REGISTRATION BYE message from server
-     * Marks registration as failed and triggers retry logic
+     * Marks registration as failed and notifies SipClient
      * @param _data - The REGISTRATION BYE message (unused but kept for consistency)
      * @returns Empty string (no response needed)
      */
@@ -336,7 +311,7 @@ export class Registration {
         this.cancelReceiveTimeout();
         
         this.markRegistrationFailed('received REGISTRATION BYE from server');
-        this.attemptRetry();
+        this.events.onFailure?.('Received REGISTRATION BYE from server', true);
         
         return "";
     }
@@ -580,12 +555,19 @@ export class Registration {
         this.isRegistered = true;
         logger.log('🎉 [REGISTRATION] Registration phase COMPLETED - transitioning to Connection Establishment');
         
+        // Notify SipClient of success with timeout configuration
+        this.events.onSuccess?.({
+            peerRegistration: this.peerRegistrationTimeout,
+            connection: this.connectionTimeout,
+            receive: this.receiveTimeout
+        });
+        
         return ack;
     }
     
     /**
      * Handles SIP error responses (4xx, 5xx, 6xx)
-     * Permanent errors (401, 403, 407): no retry | Temporary errors: send BYE and retry
+     * Permanent errors (401, 403, 407): no retry | Temporary errors: send BYE and notify for retry
      * @param data - The error response message
      * @returns REGISTRATION BYE message for temporary errors, empty string for permanent
      */
@@ -598,22 +580,25 @@ export class Registration {
             
             this.lastError = `${errorCode} ${errorReason}`;
             
-            if (errorCode === '401' || errorCode === '407' || errorCode === '403') {
+            const isPermanent = ['401', '403', '407'].includes(errorCode);
+            
+            if (isPermanent) {
                 logger.log(`⛔ [REGISTRATION] Permanent failure - ${errorCode}`);
                 this.markRegistrationFailed(`permanent error ${errorCode}`);
+                this.events.onFailure?.(`Error ${errorCode}: ${errorReason}`, false);
                 return "";
             }
             
-            logger.log(`⚠️ [REGISTRATION] Temporary error ${errorCode} - will retry after sending BYE`);
+            logger.log(`⚠️ [REGISTRATION] Temporary error ${errorCode}`);
             this.markRegistrationFailed(`temporary error ${errorCode}`);
             
             const byeMessage = this.createRegistrationBye(Registration.CSEQ_BYE_TIMEOUT);
+            this.events.onMessageToSend?.(byeMessage, `REGISTRATION BYE for error ${errorCode}`);
             
-            setTimeout(() => {
-                this.attemptRetry();
-            }, 100);
+            // Notify SipClient of retryable failure
+            this.events.onFailure?.(`Error ${errorCode}: ${errorReason}`, true);
             
-            return byeMessage;
+            return "";
         }
         
         return "";
