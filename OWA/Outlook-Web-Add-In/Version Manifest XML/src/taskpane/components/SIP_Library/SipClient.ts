@@ -108,7 +108,8 @@ export enum SipClientState {
     CONNECTING = "CONNECTING",
     CONNECTING_P2P = "CONNECTING_P2P",
     CONNECTED = "CONNECTED",
-    FAILED = "FAILED"
+    FAILED = "FAILED",
+    FAILED_PERMANENTLY = "FAILED_PERMANENTLY"
 }
 
 /**
@@ -210,11 +211,10 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
     let webrtcRetryCount = 0;
     let peerRegistrationTimeoutStarted = false;
     let clientState: SipClientState = SipClientState.DISCONNECTED;
+    let isTransitioning = false; // Guard against re-entrant state transitions
     
     // Observer pattern - list of observers to notify on state changes
     const observers: SipClientObserver[] = [];
-    
-    const socket = new WebSocket(wsUri, 'sip');
     
     /**
      * Notify all observers of state change
@@ -232,14 +232,31 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
     /**
      * Transition client state and log the change
      * Notifies all registered observers of the state change
+     * Guards against re-entrant calls during observer notification
      */
     function transitionClientState(newState: SipClientState, reason: string): void {
-        const oldState = clientState;
-        clientState = newState;
-        logWithPrefix(`Client state: ${oldState} → ${newState} (${reason})`);
+        // Prevent re-entrant state transitions
+        if (isTransitioning) {
+            logWithPrefix(`⚠️ Ignoring re-entrant state transition to ${newState} while transitioning`);
+            return;
+        }
         
-        // Notify all observers of the state change
-        notifyObservers(newState, reason);
+        const oldState = clientState;
+        if (oldState === newState) {
+            logWithPrefix(`State already ${newState}, skipping transition`);
+            return;
+        }
+        
+        isTransitioning = true;
+        try {
+            clientState = newState;
+            logWithPrefix(`Client state: ${oldState} → ${newState} (${reason})`);
+            
+            // Notify all observers of the state change
+            notifyObservers(newState, reason);
+        } finally {
+            isTransitioning = false;
+        }
     }
     
     /**
@@ -251,7 +268,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
      * - Not in REGISTERING state (already attempting registration)
      */
     function canRetryRegistration(): boolean {
-        return registrationRetryCount < maxRetries && !isConnected && !isConnecting && !isRegistering() && !isRegistered();
+        return registrationRetryCount < maxRetries && !isConnected() && !isConnecting() && !isRegistering() && !isRegistered();
     }
     
 
@@ -307,10 +324,19 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
     
     /**
      * Send message via WebSocket
+     * Checks for terminal states and socket readiness before sending
      */
     function sendMessage(message: string, context: string): void {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(message);
+        // Don't send if in terminal state
+        if (clientState === SipClientState.FAILED_PERMANENTLY || 
+            clientState === SipClientState.DISCONNECTED) {
+            logWithPrefix(`❌ Cannot send ${context} - in terminal state ${clientState}`);
+            return;
+        }
+        
+        const currentSocket = sipClientInstance.socket;
+        if (currentSocket && currentSocket.readyState === WebSocket.OPEN) {
+            currentSocket.send(message);
             logWithPrefix(`📤 Sent ${context}`);
         } else {
             logWithPrefix(`❌ Cannot send ${context} - socket not open`);
@@ -368,13 +394,21 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         resetForNewRegistration();
         
         // Transition to target state before closing socket
-        if (clientState !== targetState) {
-            transitionClientState(targetState, reason);
-        }
+        transitionClientState(targetState, reason);
         
-        // Close socket
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.close(closeCode, reason);
+        // Remove event handlers to prevent race conditions
+        // This ensures the state we set above is the final state
+        const currentSocket = sipClientInstance.socket;
+        if (currentSocket) {
+            currentSocket.onerror = null;
+            currentSocket.onclose = null;
+            currentSocket.onmessage = null;
+            currentSocket.onopen = null;
+            
+            // Close socket
+            if (currentSocket.readyState === WebSocket.OPEN) {
+                currentSocket.close(closeCode, reason);
+            }
         }
     }
     
@@ -439,7 +473,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
             
             if (!isRetryable) {
                 logWithPrefix('❌ Registration failed permanently');
-                closeConnection('Permanent registration failure', SipClientState.FAILED, 1000);
+                closeConnection('Permanent registration failure', SipClientState.FAILED_PERMANENTLY, 1000);
                 return;
             }
             
@@ -452,7 +486,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                 transitionClientState(SipClientState.REGISTERING, 'Retry after failure');
             } else {
                 logWithPrefix('❌ Max registration retries reached');
-                closeConnection('Max registration retries reached', SipClientState.FAILED, 1000);
+                closeConnection('Max registration retries reached', SipClientState.FAILED_PERMANENTLY, 1000);
             }
         },
         
@@ -516,7 +550,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                     transitionClientState(SipClientState.REGISTERING, 'Registration restart after connection failure');
                 } else {
                     logWithPrefix('❌ Max registration retries reached');
-                    closeConnection('Max registration retries after connection failure', SipClientState.FAILED, 1000);
+                    closeConnection('Max registration retries after connection failure', SipClientState.FAILED_PERMANENTLY, 1000);
                 }
             }
         },
@@ -587,7 +621,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                     } else {
                         // Max registration retries reached - fail completely
                         logWithPrefix(`❌ Max registration retries (${maxRetries}) reached - closing connection`);
-                        closeConnection('Max registration retries after WebRTC failure', SipClientState.FAILED, 1000);
+                        closeConnection('Max registration retries after WebRTC failure', SipClientState.FAILED_PERMANENTLY, 1000);
                     }
                 } else if (notConnectedAndNotConnecting && !notRegistered) {
                     // Not connected/connecting but still registered (not in DISCONNECTED/FAILED) - restart connection phase
@@ -613,7 +647,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                 } else if (isConnected()) {
                     // Still connected - max WebRTC retries reached
                     logWithPrefix(`❌ Max WebRTC retries (${maxRetries}) reached while connected - closing connection`);
-                    closeConnection(`SDP exchange failed after ${maxRetries} attempts`, SipClientState.FAILED, 1000);
+                    closeConnection(`SDP exchange failed after ${maxRetries} attempts`, SipClientState.FAILED_PERMANENTLY, 1000);
                 } else if (isConnecting()) {
                     // Still connecting - do nothing, let the connection flow complete and come back to peer2peer
                     logWithPrefix('⏳ Still establishing connection - waiting for connection phase to complete');
@@ -658,7 +692,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
             transitionClientState(SipClientState.REGISTERING, 'Retry after peer timeout');
         } else {
             logWithPrefix('❌ Max registration retries reached');
-            closeConnection('Max registration retries after peer timeout', SipClientState.FAILED, 1000);
+            closeConnection('Max registration retries after peer timeout', SipClientState.FAILED_PERMANENTLY, 1000);
         }
     }
     
@@ -748,6 +782,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                     break;
                     
                 case SipClientState.FAILED:
+                case SipClientState.FAILED_PERMANENTLY:
                 case SipClientState.DISCONNECTED:
                     // No action needed in these states
                     break;
@@ -756,30 +791,16 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         
         /**
          * WebSocket error handler
-         * Reset everything except registrationRetryCount and retry if possible
+         * Transition to FAILED_PERMANENTLY - let WebRTCConnectionManager handle reconnection
          */
         ws.onerror = (err) => {
             logWithPrefix('❌ WebSocket Error: ' + err);
-            
-            if (registrationRetryCount < maxRetries) {
-                logWithPrefix(`🔄 WebSocket error - retrying registration (attempt ${registrationRetryCount + 1}/${maxRetries})`);
-                registrationRetryCount++;
-                resetForNewRegistration();
-                setTimeout(() => {
-                    const newSocket = new WebSocket(wsUri, 'sip');
-                    setupSocketHandlers(newSocket);
-                    // Update the socket reference in the returned instance
-                    sipClientInstance.socket = newSocket;
-                    logWithPrefix('🔄 Reconnection attempted');
-                }, RECONNECT_DELAY_MS);
-            } else {
-                logWithPrefix('❌ Max registration retries reached after WebSocket error');
-            }
+            transitionClientState(SipClientState.FAILED_PERMANENTLY, 'WebSocket error');
         };
 
         /**
          * WebSocket connection closed handler
-         * Implement automatic reconnection as long as retry limit not reached
+         * Let WebRTCConnectionManager handle reconnection at a higher level
          */
         ws.onclose = (event) => {
             logWithPrefix('🔌 WebSocket Connection Closed');
@@ -790,33 +811,13 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
             
             if (isDeliberateClose) {
                 logWithPrefix('⚠️ Deliberate disconnect - no retry');
-                return; // No retry on deliberate close
+                return;
             }
             
-            // Unexpected close - attempt reconnection
-            
-            transitionClientState(SipClientState.FAILED, 'Socket closed unexpectedly');
-            if (registrationRetryCount < maxRetries) {
-                logWithPrefix(`🔄 Auto-reconnecting (attempt ${registrationRetryCount + 1}/${maxRetries})`);
-                registrationRetryCount++;
-                
-                resetForNewRegistration();
-                
-                setTimeout(() => {
-                    try {
-                        const newSocket = new WebSocket(wsUri, 'sip');
-                        setupSocketHandlers(newSocket);
-                        // Update the socket reference in the returned instance
-                        sipClientInstance.socket = newSocket;
-                        logWithPrefix('🔄 Reconnection initiated');
-                    } catch (reconnectError) {
-                        logWithPrefix('❌ Reconnection failed: ' + reconnectError);
-                    }
-                }, RECONNECT_DELAY_MS);
-            } else {
-                logWithPrefix('❌ Max registration retries reached - no automatic reconnection');
-                transitionClientState(SipClientState.DISCONNECTED, 'Max retries reached');
-            }
+            // Unexpected close - transition to FAILED_PERMANENTLY
+            // Let WebRTCConnectionManager handle higher-level reconnection
+            logWithPrefix('⚠️ Unexpected socket close - transitioning to FAILED_PERMANENTLY');
+            transitionClientState(SipClientState.FAILED_PERMANENTLY, 'Socket closed unexpectedly');
         };
     }
     
@@ -846,17 +847,14 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         }
     }
     
-    // Setup event handlers for the initial socket
-    setupSocketHandlers(socket);
-    
     // Create the instance object that will be returned
-    // Declared here so reconnection handlers can update socket reference
+    // Initialize with new WebSocket
     const sipClientInstance: SipClientInstance = {
         // Phase components
         registration: registrationObj,
         connection: establishingConnectionObject,
         peer2peer: peer2PeerConnectionObject,
-        socket,
+        socket: new WebSocket(wsUri, 'sip'),
         timeoutManager,
         
         // Public API methods
@@ -927,6 +925,10 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
             }
         }
     };
+    
+    // Setup event handlers for the socket after instance is created
+    // This allows handlers to reference sipClientInstance.socket
+    setupSocketHandlers(sipClientInstance.socket);
     
     return sipClientInstance;
 }

@@ -109,6 +109,9 @@ const connectionSlice = createSlice({
         case 'FAILED':
           state.connectionStatus = 'Connection failed';
           break;
+        case 'FAILED_PERMANENTLY':
+          state.connectionStatus = 'Connection failed permanently';
+          break;
       }
     },
   },

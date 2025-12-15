@@ -95,10 +95,11 @@ export class WebRTCConnectionManager implements SipClientObserver {
     store.dispatch(sipClientStateChanged(newState));
     
     // Handle state-specific logic
-    if (newState === SipClientState.FAILED) {
-      // FAILED indicates fatal error or max retries - trigger reconnection
-      console.log('[ConnectionManager] FAILED state detected - will attempt reconnection');
-      this.handleConnectionFailure(reason);
+    if (newState === SipClientState.FAILED_PERMANENTLY) {
+      // FAILED_PERMANENTLY indicates SipClient exhausted all its internal retries
+      // WebRTCConnectionManager should handle higher-level reconnection by creating new SipClient
+      console.log('[ConnectionManager] FAILED_PERMANENTLY state detected - will attempt full reconnection');
+      this.handlePermanentFailure(reason);
     } else if (newState === SipClientState.DISCONNECTED) {
       // DISCONNECTED indicates deliberate disconnect - do not reconnect
       console.log('[ConnectionManager] DISCONNECTED state detected - no automatic reconnection');
@@ -302,20 +303,20 @@ export class WebRTCConnectionManager implements SipClientObserver {
   }
 
   /**
-   * Handle connection failure (called when SipClient transitions to FAILED state)
-   * Triggers reconnection if auto-reconnect is enabled
+   * Handle permanent failure (called when SipClient transitions to FAILED_PERMANENTLY state)
+   * SipClient has exhausted all its internal retries, so we need to create a fresh instance
    */
-  private handleConnectionFailure(reason: string): void {
-    console.log(`[ConnectionManager] Handling connection failure: ${reason}`);
+  private handlePermanentFailure(reason: string): void {
+    console.log(`[ConnectionManager] Handling permanent failure: ${reason}`);
+
     
-    this.updateConnectionState({
-      lastError: reason,
-      connectionStatus: `Connection failed: ${reason}`
-    });
-    
-    // Trigger reconnection if enabled and not already reconnecting
+    // Trigger full reconnection (new SipClient) if enabled and not already reconnecting
     if (this.config.enableAutoReconnect && !this.isReconnecting) {
-      console.log('[ConnectionManager] Auto-reconnect enabled, scheduling reconnection...');
+      console.log('[ConnectionManager] Auto-reconnect enabled, scheduling full reconnection with new SipClient...');
+      this.updateConnectionState({
+      lastError: reason,
+      connectionStatus: `Connection failed permanently. Attempting retry..`
+    });
       this.reconnect();
     } else if (this.isReconnecting) {
       console.log('[ConnectionManager] Already reconnecting, ignoring additional failure');
