@@ -263,12 +263,16 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
      * Check if registration retry is allowed
      * Only allows retry if:
      * - Max retries not reached
-     * - Not currently in an active connection phase (CONNECTING, CONNECTING_P2P, CONNECTED)
-     *   (must wait for connection phase to complete/fail before retrying registration)
-     * - Not in REGISTERING state (already attempting registration)
+     * - Not currently registered (registration failed or not started)
+     * - Not currently in REGISTERING state (already attempting registration)
+     * - Not in an active connection phase (must allow connection to complete/fail)
      */
     function canRetryRegistration(): boolean {
-        return registrationRetryCount < maxRetries && !isConnected() && !isConnecting() && !isRegistering() && !isRegistered();
+        return registrationRetryCount < maxRetries && 
+               !isRegistered() && 
+               !isRegistering() && 
+               !isConnecting() && 
+               !isConnected();
     }
     
 
@@ -469,6 +473,10 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         
         onFailure: (reason, isRetryable) => {
             logWithPrefix(`❌ Registration failed: ${reason} (retryable: ${isRetryable})`);
+            
+            // Cancel PEER_REGISTRATION_TIMEOUT on registration failure
+            timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
+            
             transitionClientState(SipClientState.FAILED, `Registration failure: ${reason}`);
             
             if (!isRetryable) {
@@ -746,7 +754,6 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                     // Check if ready to transition to WebRTC phase
                     if (establishingConnectionObject.getState() === ConnectionState.COMPLETE) {
                         logWithPrefix('📤 OWA always creates SDP Offer - creating offer immediately');
-                        establishingConnectionObject.isEstablishingConnectionProcessFinished = true;
                         
                         if (!peer2PeerConnectionObject.isOfferSent) {
                             const callId = extractCallId(data);

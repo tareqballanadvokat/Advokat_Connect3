@@ -133,17 +133,15 @@ export class Registration {
     public tag = "";
     public callId = "";
     private cseq = 1;
-    public isRegistrationProcessFinished = false;
     public isRegistered = false;
     
     public branch = "";
     public fromDisplayName = "macc";
     public toDisplayName = "macs";
-    public fromUri = "";
-    public fromTag = "";
     
     // FROM header parsing (instance variables instead of globals)
     private parsedFromUri = "";
+
     private parsedFromTag = "";
     
     // State machine and timeout management
@@ -199,6 +197,7 @@ export class Registration {
 
     /**
      * Marks registration as failed with consistent state updates
+     * Resets isRegistered flag to allow retry
      */
     private markRegistrationFailed(reason?: string): void {
         this.isRegistered = false;
@@ -221,8 +220,6 @@ export class Registration {
      * @returns The formatted SIP REGISTER message
      */
     getInitialRegistration(): string {
-        this.isRegistrationProcessFinished = false;
-        
         const register = MessageFactory.createRegisterMessage({
             sipUri: this.sipUri,
             branch: this.branch,
@@ -256,6 +253,12 @@ export class Registration {
      * Notifies SipClient of timeout and failure
      */
     private handleReceiveTimeout(): void {
+        // State guard: only process timeout if still waiting for 202
+        if (this.registrationState !== RegistrationState.REGISTER_SENT) {
+            logger.log(`⏱️ [REGISTRATION] RECEIVE_TIMEOUT fired but state is ${this.registrationState} - ignoring`);
+            return;
+        }
+        
         this.lastError = 'ReceiveTimeout expired waiting for 202 Accepted';
         logger.log(`⏱️ [REGISTRATION] ${this.lastError}`);
         
@@ -293,8 +296,6 @@ export class Registration {
         
         logger.log('📤 [REGISTRATION] REGISTRATION BYE created');
         
-        this.timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
-        
         return bye;
     }
     
@@ -324,7 +325,6 @@ export class Registration {
         this.cancelReceiveTimeout();
         
         this.transitionTo(RegistrationState.IDLE, 'resetting for retry');
-        this.isRegistrationProcessFinished = false;
         this.isRegistered = false;
         this.lastByeReceived = null;
         
@@ -332,8 +332,6 @@ export class Registration {
         
         this.expectedToTag = "";
         this.processedCSeqs.clear();
-        this.fromUri = "";
-        this.fromTag = "";
         this.parsedFromUri = "";
         this.parsedFromTag = "";
         
@@ -470,7 +468,13 @@ export class Registration {
         }
         
         if (/^BYE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
-            return this.handleRegistrationBye(data);
+            // Only handle REGISTRATION BYE (not CONNECTION or SESSION BYE)
+            if (/Reason:\s*REGISTRATION/.test(data)) {
+                return this.handleRegistrationBye(data);
+            } else {
+                logger.log('⚠️ [REGISTRATION] BYE message without REGISTRATION reason - ignoring');
+                return "";
+            }
         }
         
         if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
@@ -543,6 +547,8 @@ export class Registration {
         if (fromTagMatch) {
             this.expectedToTag = fromTagMatch[1];
             logger.log(`🏷️ [REGISTRATION] Extracted server tag: ${this.expectedToTag}`);
+        } else {
+            logger.log('⚠️ [REGISTRATION] WARNING: Server did not provide tag in 202 response From header');
         }
         
         this.transitionTo(RegistrationState.ACCEPTED_202);
@@ -550,8 +556,10 @@ export class Registration {
         
         const ack = this.createAck(data);
         
+        // Track ACK CSeq to detect duplicates
+        this.processedCSeqs.add(3);
+        
         this.transitionTo(RegistrationState.ACK_3_SENT, 'ACK sent - registration complete');
-        this.isRegistrationProcessFinished = true;
         this.isRegistered = true;
         logger.log('🎉 [REGISTRATION] Registration phase COMPLETED - transitioning to Connection Establishment');
         
