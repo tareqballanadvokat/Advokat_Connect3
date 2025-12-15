@@ -639,7 +639,6 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                     
                     peer2PeerConnectionObject.reset();
                     establishingConnectionObject.reset();
-                    establishingConnectionObject.isEstablishingConnectionProcessFinished = false;
                     
                     const timeoutConfig = registrationObj.getTimeoutConfiguration();
                     establishingConnectionObject.updateData(

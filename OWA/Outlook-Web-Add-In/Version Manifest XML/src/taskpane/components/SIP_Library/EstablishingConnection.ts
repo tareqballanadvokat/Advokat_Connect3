@@ -112,7 +112,6 @@ export class EstablishingConnection {
     public tag = "";
     private callId = "";
     private cseq = 1;
-    public isEstablishingConnectionProcessFinished = false;
     public isConnectionEstablished = false;
     private branch = "";
     private fromDisplayName = "macc";
@@ -123,6 +122,9 @@ export class EstablishingConnection {
     private connectionTimeout: number = EstablishingConnection.DEFAULT_CONNECTION_TIMEOUT;
     private lastError: string = "";
     
+    // Session tracking for connection phase
+    private processedCSeqs: Set<number> = new Set(); // Track processed CSeqs to detect duplicates
+    
     public lastByeReceived: string | null = null;
     
     // Event callbacks for SipClient observation
@@ -131,7 +133,7 @@ export class EstablishingConnection {
     constructor(timeoutManager: TimeoutManager, events: ConnectionEvents) {
         this.timeoutManager = timeoutManager;
         this.events = events;
-        this.generateSessionIds();
+        // Session IDs will be set via updateData() from Registration phase
     }
     
     /**
@@ -203,6 +205,18 @@ export class EstablishingConnection {
     parseMessage(data: string): string | undefined {
         logger.log(`📨 [CONNECTION] Parsing message in state ${this.connectionState}`);
         
+        // Check for duplicate CSeq (except BYE which may be retransmitted)
+        if (!/^BYE/.test(data)) {
+            const cseqMatch = data.match(EstablishingConnection.REGEX_CSEQ);
+            if (cseqMatch) {
+                const cseq = parseInt(cseqMatch[1]);
+                if (this.processedCSeqs.has(cseq)) {
+                    logger.log(`⚠️ [CONNECTION] Duplicate CSeq ${cseq} detected - handling duplicate`);
+                    return this.handleDuplicateMessage(data, cseq);
+                }
+            }
+        }
+        
         if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
             return this.handleNotify(data);
         }
@@ -219,6 +233,32 @@ export class EstablishingConnection {
             return this.handleErrorResponse(data);
         }
         
+        return undefined;
+    }
+    
+    /**
+     * Handles duplicate messages (server retransmissions)
+     * Resends appropriate response for idempotent behavior
+     * @param data - The duplicate message
+     * @param cseq - The CSeq number of the duplicate
+     * @returns Response to resend or undefined
+     */
+    private handleDuplicateMessage(data: string, cseq: number): string | undefined {
+        logger.log(`🔁 [CONNECTION] Handling duplicate for CSeq: ${cseq}`);
+        
+        // Duplicate NOTIFY4 - resend ACK5
+        if (cseq === EstablishingConnection.CSEQ_NOTIFY_4 && /^NOTIFY/.test(data)) {
+            logger.log('🔁 [CONNECTION] Resending ACK5 for duplicate NOTIFY4');
+            return this.createAck5ForNotify4(data);
+        }
+        
+        // Duplicate NOTIFY6 - no response needed (already processed)
+        if (cseq === EstablishingConnection.CSEQ_NOTIFY_6 && /^NOTIFY/.test(data)) {
+            logger.log('🔁 [CONNECTION] Ignoring duplicate NOTIFY6');
+            return undefined;
+        }
+        
+        logger.log('🔁 [CONNECTION] Ignoring duplicate - no action needed');
         return undefined;
     }
     
@@ -253,6 +293,18 @@ export class EstablishingConnection {
         logger.log("🔔 [CONNECTION] NOTIFY4 RECEIVED - Connection phase starting");
         logger.log("🔔 [CONNECTION] ===============================================");
         
+        // Extract and update Call-ID from NOTIFY4 (overwrites registration Call-ID)
+        const callIdMatch = data.match(EstablishingConnection.REGEX_CALL_ID);
+        if (callIdMatch) {
+            this.callId = callIdMatch[1];
+            logger.log(`🏷️ [CONNECTION] Updated Call-ID from NOTIFY4: ${this.callId}`);
+        } else {
+            logger.log('⚠️ [CONNECTION] WARNING: NOTIFY4 missing Call-ID header');
+        }
+        
+        // Mark CSeq 4 as processed
+        this.processedCSeqs.add(EstablishingConnection.CSEQ_NOTIFY_4);
+        
         this.timeoutManager.startTimer(
             'CONNECTION_TIMEOUT',
             this.connectionTimeout,
@@ -267,14 +319,11 @@ export class EstablishingConnection {
     
     /**
      * Creates ACK (CSeq:5) in response to NOTIFY4
-     * Extracts Call-ID and swaps To/From lines for acknowledgment
+     * Swaps To/From lines for acknowledgment, uses current Call-ID
      * @param data - The NOTIFY4 message
      * @returns ACK5 message
      */
     private createAck5ForNotify4(data: string): string {
-        const callIdMatch = data.match(EstablishingConnection.REGEX_CALL_ID);
-        const callId = callIdMatch ? callIdMatch[1] : '';
-        
         const toLineMatch = data.match(EstablishingConnection.REGEX_TO_LINE);
         const toLine = toLineMatch ? toLineMatch[0] : '';
         const fromLineOrigin = toLine.replace(/^To:/i, 'From:');
@@ -286,7 +335,7 @@ export class EstablishingConnection {
         const ack5 = MessageFactory.createAckMessage({
             sipUri: this.sipUri,
             branch: this.branch,
-            callId: callId,
+            callId: this.callId,
             tag: this.tag,
             cseq: EstablishingConnection.CSEQ_ACK_5,
             toLine: toLineReplaced,
@@ -311,9 +360,11 @@ export class EstablishingConnection {
         
         this.cancelConnectionTimeout();
         
+        // Mark CSeq 6 as processed
+        this.processedCSeqs.add(EstablishingConnection.CSEQ_NOTIFY_6);
+        
         this.transitionTo(ConnectionState.COMPLETE, 'NOTIFY6 received - ready for WebRTC');
         this.isConnectionEstablished = true;
-        this.isEstablishingConnectionProcessFinished = true;
         
         logger.log("🏁 [CONNECTION] Ready for WebRTC SDP Exchange (SERVICE CSeq:1)");
         
@@ -325,12 +376,22 @@ export class EstablishingConnection {
     
     /**
      * Handles ACK received after sending ACK5
-     * Transitions to WAITING_NOTIFY_6 state
-     * @param _data - ACK message (unused, keeping for signature consistency)
+     * Validates CSeq and transitions to WAITING_NOTIFY_6 state
+     * @param data - ACK message
      * @returns undefined
      */
-    private handleAck(_data: string): undefined {
+    private handleAck(data: string): undefined {
+        // Validate ACK is CSeq 5 (response to our ACK5)
+        const cseqMatch = data.match(EstablishingConnection.REGEX_CSEQ);
+        const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
+        
+        if (cseq !== EstablishingConnection.CSEQ_ACK_5) {
+            logger.log(`⚠️ [CONNECTION] Unexpected ACK CSeq: ${cseq}, expected ${EstablishingConnection.CSEQ_ACK_5}`);
+            return undefined;
+        }
+        
         if (this.connectionState === ConnectionState.NOTIFY_4_RECEIVED) {
+            this.processedCSeqs.add(EstablishingConnection.CSEQ_ACK_5);
             this.transitionTo(ConnectionState.WAITING_NOTIFY_6, 'ACK received');
         }
         return undefined;
@@ -341,6 +402,13 @@ export class EstablishingConnection {
      * Notifies SipClient of timeout failure
      */
     private handleConnectionTimeout(): void {
+        // State guard: only process timeout if still waiting for NOTIFY6
+        if (this.connectionState !== ConnectionState.WAITING_NOTIFY_6 && 
+            this.connectionState !== ConnectionState.NOTIFY_4_RECEIVED) {
+            logger.log(`⏱️ [CONNECTION] CONNECTION_TIMEOUT fired but state is ${this.connectionState} - ignoring`);
+            return;
+        }
+        
         logger.log("⏰ [CONNECTION] ===============================================");
         logger.log("⏰ [CONNECTION] ConnectionTimeout EXPIRED - ACK not received");
         logger.log("⏰ [CONNECTION] ===============================================");
@@ -386,6 +454,8 @@ export class EstablishingConnection {
             this.lastError = `Non-retryable error ${statusCode}`;
         }
         
+        logger.log(`📋 [CONNECTION] Last error set: ${this.lastError}`);
+        
         // Notify SipClient of failure
         this.events.onFailure?.(this.lastError);
         
@@ -416,6 +486,7 @@ export class EstablishingConnection {
     
     /**
      * Creates CONNECTION BYE message to signal connection phase termination
+     * Uses current Call-ID (updated from NOTIFY4 in connection phase)
      * Used for timeouts, errors, or graceful shutdown
      * @param cseqNum - CSeq number for the BYE message
      * @param reason - Reason for sending BYE (optional)
@@ -481,8 +552,10 @@ export class EstablishingConnection {
         this.generateSessionIds();
         this.cseq = 1;
         
+        // Clear session tracking
+        this.processedCSeqs.clear();
+        
         this.transitionTo(ConnectionState.WAITING_NOTIFY_4, 'reset for retry');
-        this.isEstablishingConnectionProcessFinished = false;
         this.isConnectionEstablished = false;
         this.lastError = "";
         
