@@ -744,6 +744,12 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                     break;
                     
                 case SipClientState.CONNECTING:
+                    // Reject connection messages (including NOTIFY4) if not registered
+                    if (!isRegistered()) {
+                        logWithPrefix('⚠️ Messages in connection establishment phase rejected - not registered (after REGISTRATION BYE or timeout)');
+                        break;
+                    }
+                    
                     // Route to Connection Establishment phase
                     const connRequest = establishingConnectionObject.parseMessage(data);
                     if (connRequest) {
@@ -829,6 +835,8 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
     
     /**
      * Handle global BYE messages (REGISTRATION or CONNECTION)
+     * For Registration BYE: Cancel timers but let Registration.parseMessage() handle state and retry
+     * For Connection BYE: Transition state to allow reconnection
      */
     function handleGlobalBye(data: string): void {
         if (!REGEX_BYE.test(data)) return;
@@ -837,9 +845,8 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         const isConnectionBye = REGEX_REASON_CONNECTION.test(data);
         
         if (isRegistrationBye) {
-            logWithPrefix('REGISTRATION BYE received - transitioning to DISCONNECTED');
+            logWithPrefix('REGISTRATION BYE received - canceling timers, will process for retry');
             timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
-            transitionClientState(SipClientState.DISCONNECTED, 'REGISTRATION BYE received');
         }
         
         if (isConnectionBye) {
