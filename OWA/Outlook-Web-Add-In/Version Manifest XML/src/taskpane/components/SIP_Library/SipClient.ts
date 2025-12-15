@@ -602,7 +602,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                 const lastOfferParams = peer2PeerConnectionObject.getLastOfferParams();
                 if (lastOfferParams) {
                     const { callId, sipUri, tag, toLine } = lastOfferParams;
-                    peer2PeerConnectionObject.createAndSendOffer(callId, sipUri, tag, toLine);
+                    peer2PeerConnectionObject.createOffer(callId, sipUri, tag, toLine);
                 } else {
                     logWithPrefix('⚠️ Cannot retry WebRTC - last offer params not available');
                     // Fallback: transition to FAILED
@@ -759,7 +759,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                             const toLine = extractAndSwapFromTo(data);
                             
                             logWithPrefix('📤 Creating SDP Offer with Call-ID: ' + callId);
-                            await peer2PeerConnectionObject.createAndSendOffer(
+                            await peer2PeerConnectionObject.createOffer(
                                 callId,
                                 establishingConnectionObject.sipUri,
                                 establishingConnectionObject.tag,

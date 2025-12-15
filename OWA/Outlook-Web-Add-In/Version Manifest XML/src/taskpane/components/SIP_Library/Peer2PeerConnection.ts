@@ -126,8 +126,12 @@ export class Peer2PeerConnection {
     private static readonly CSEQ_ANSWER = 2;
     private static readonly CSEQ_CONNECTION_BYE = 7;
     private static readonly DATA_CHANNEL_LABEL = 'offer';
-    private static readonly TIMEOUT_NAME = 'RECEIVE_TIMEOUT';
+    private static readonly RECEIVE_TIMEOUT = 'RECEIVE_TIMEOUT';
+    private static readonly TIMEOUT_ICE_GATHERING = 'ICE_GATHERING_TIMEOUT';
+    private static readonly TIMEOUT_DATACHANNEL_OPEN = 'DATACHANNEL_OPEN_TIMEOUT';
     private static readonly DEFAULT_RECEIVE_TIMEOUT = 1000;
+    private static readonly ICE_GATHERING_TIMEOUT = 10000; // 10 seconds
+    private static readonly DATACHANNEL_OPEN_TIMEOUT = 5000; // 5 seconds
     
     private static readonly REGEX_SERVICE_ANSWER = /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
     private static readonly REGEX_CSEQ_ANSWER = /CSeq:\s*2 SERVICE/;
@@ -141,6 +145,9 @@ export class Peer2PeerConnection {
     private lastError: string = "";
     private timeoutManager: TimeoutManager | null = null;
     private receiveTimeout: number = Peer2PeerConnection.DEFAULT_RECEIVE_TIMEOUT;
+    
+    // Track if answer was already received to prevent duplicate processing
+    private answerReceived = false;
     
     // Store last offer parameters for retry and BYE message creation
     private lastOfferParams: {
@@ -185,9 +192,24 @@ export class Peer2PeerConnection {
      * Cancel RECEIVE_TIMEOUT if active
      */
     private cancelReceiveTimeout(): void {
-        if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_NAME)) {
-            this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_NAME);
-            this.logWithPrefix(`⏱️ Cancelled ${Peer2PeerConnection.TIMEOUT_NAME}`);
+        if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.RECEIVE_TIMEOUT)) {
+            this.timeoutManager.cancelTimer(Peer2PeerConnection.RECEIVE_TIMEOUT);
+            this.logWithPrefix(`⏱️ Cancelled ${Peer2PeerConnection.RECEIVE_TIMEOUT}`);
+        }
+    }
+    
+    /**
+     * Cancel all active timeouts
+     */
+    private cancelAllTimeouts(): void {
+        if (this.timeoutManager) {
+            const timers = [Peer2PeerConnection.RECEIVE_TIMEOUT, Peer2PeerConnection.TIMEOUT_ICE_GATHERING, Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN];
+            timers.forEach(timer => {
+                if (this.timeoutManager!.isTimerActive(timer)) {
+                    this.timeoutManager!.cancelTimer(timer);
+                    this.logWithPrefix(`⏱️ Cancelled ${timer}`);
+                }
+            });
         }
     }
     
@@ -233,12 +255,22 @@ export class Peer2PeerConnection {
         
         this.pc.onicegatheringstatechange = () => {
             if (this.pc.iceGatheringState === 'complete') {
+                // Cancel ICE gathering timeout
+                if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_ICE_GATHERING)) {
+                    this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_ICE_GATHERING);
+                }
+                
                 this.logWithPrefix('✅ ICE gathering complete (offer)');
                 const offerSDP = JSON.stringify(this.pc.localDescription);
                 const branch = Peer2PeerConnection.generateBranch();
                 const offerMsg = this.createSdpOfferMessage(offerSDP, callId, sipUri, tag, toLine, branch);
                 
-                this.logWithPrefix('📤 Emitting SDP Offer message');
+                this.logWithPrefix('📤 Sending SDP Offer message');
+                
+                // Set state and flag when actually sending the offer
+                this.isOfferSent = true;
+                this.transitionTo(SdpExchangeState.OFFER_SENT);
+                
                 this.events.onMessageToSend?.(offerMsg, 'SERVICE Offer');
                 this.startReceiveTimeout();
             }
@@ -315,10 +347,11 @@ export class Peer2PeerConnection {
     reset(): void {
         this.sdpExchangeState = SdpExchangeState.IDLE;
         this.isOfferSent = false;
+        this.answerReceived = false;
         this.lastError = "";
         this.lastOfferParams = null;
         
-        this.cancelReceiveTimeout();
+        this.cancelAllTimeouts();
         this.resetPeerConnection();
         
         this.logWithPrefix('Reset complete');
@@ -327,23 +360,19 @@ export class Peer2PeerConnection {
 
 
     /**
-     * Creates and sends WebRTC offer for establishing peer-to-peer connection
-     * Implements retry logic with RECEIVE_TIMEOUT
-     * @param socket - WebSocket connection for sending offer
+     * Creates WebRTC offer and prepares for peer-to-peer connection
+     * Offer is sent when ICE gathering completes via onMessageToSend callback
      * @param callId - SIP Call-ID
      * @param sipUri - SIP URI for this peer
      * @param tag - SIP tag
      * @param toLine - Formatted To header line
      */
-    async createAndSendOffer(callId: string, sipUri: string, tag: string, toLine: string): Promise<void> {
+    async createOffer(callId: string, sipUri: string, tag: string, toLine: string): Promise<void> {
         // Save offer parameters for retry and BYE message creation
         this.lastOfferParams = { callId, sipUri, tag, toLine };
         
         try {
             this.logWithPrefix('Creating SDP Offer');
-            
-            this.isOfferSent = true;
-            this.transitionTo(SdpExchangeState.OFFER_SENT);
             
             this.dataChannelPeer = this.pc.createDataChannel(Peer2PeerConnection.DATA_CHANNEL_LABEL);
             this.dataChannelPeer.onopen = () => {
@@ -351,6 +380,18 @@ export class Peer2PeerConnection {
                 if (this.dataChannelPeer) {
                     this.dataChannelPeer.send('Hello from OFFER side');
                 }
+                
+                // Cancel DataChannel opening timeout
+                if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN)) {
+                    this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN);
+                }
+                
+                // Transition to COMPLETE state
+                this.transitionTo(SdpExchangeState.COMPLETE);
+                
+                // Clear stale offer params
+                this.lastOfferParams = null;
+                
                 // DataChannel successfully opened - WebRTC connection established
                 this.events.onSuccess?.();
             };
@@ -362,12 +403,10 @@ export class Peer2PeerConnection {
             
             this.dataChannelPeer.onerror = (err) => {
                 this.logWithPrefix('❌ Offer DataChannel error: ' + err);
+                this.isOfferSent = false;
+                this.cancelAllTimeouts();
+                this.transitionTo(SdpExchangeState.FAILED);
                 this.events.onFailure?.(`DataChannel error: ${err}`);
-            };
-            
-            this.pc.ondatachannel = (ev) => {
-                this.logWithPrefix('📥 DataChannel found: ' + ev.channel.label);
-                this.setupDataChannelHandlers(ev.channel);
             };
             
             this.setupICEHandlers(callId, sipUri, tag, toLine);
@@ -376,9 +415,14 @@ export class Peer2PeerConnection {
             await this.pc.setLocalDescription(offer);
             
             this.logWithPrefix('📤 SDP Offer created: ' + JSON.stringify(offer));
+            
+            // Start ICE gathering timeout
+            this.startIceGatheringTimeout();
         } catch (error) {
             this.logWithPrefix(`❌ Failed to create SDP offer: ${error}`);
             this.lastError = `SDP offer creation failed: ${error}`;
+            this.isOfferSent = false;
+            this.cancelAllTimeouts();
             this.transitionTo(SdpExchangeState.FAILED);
             this.events.onFailure?.(`SDP offer creation failed: ${error}`);
         }
@@ -414,11 +458,23 @@ export class Peer2PeerConnection {
      * @param data - The SIP message containing SDP answer
      */
     async parseIncomingAnswer(data: string): Promise<void> {
-        if (Peer2PeerConnection.REGEX_SERVICE_ANSWER.test(data) && Peer2PeerConnection.REGEX_CSEQ_ANSWER.test(data)) {
-            this.cancelReceiveTimeout();
-            this.logWithPrefix('⏱️ Answer received');
-            
-            const sdpBlockMatch = data.match(Peer2PeerConnection.REGEX_SDP_BLOCK);
+        // Check for duplicate answer
+        if (this.answerReceived) {
+            this.logWithPrefix('⚠️ Duplicate SERVICE answer received - ignoring');
+            return;
+        }
+        
+        // Validate it's a SERVICE answer with CSeq 2
+        if (!Peer2PeerConnection.REGEX_SERVICE_ANSWER.test(data) || !Peer2PeerConnection.REGEX_CSEQ_ANSWER.test(data)) {
+            this.logWithPrefix('⚠️ Invalid SERVICE answer format - ignoring');
+            return;
+        }
+        
+        this.cancelReceiveTimeout();
+        this.answerReceived = true;
+        this.logWithPrefix('⏱️ Answer received');
+        
+        const sdpBlockMatch = data.match(Peer2PeerConnection.REGEX_SDP_BLOCK);
             if (sdpBlockMatch) {
                 try {
                     const sdpBlock = sdpBlockMatch[1];
@@ -427,20 +483,28 @@ export class Peer2PeerConnection {
                     this.logWithPrefix('✅ Remote SDP Answer set successfully');
                     
                     this.transitionTo(SdpExchangeState.ANSWER_RECEIVED);
+                    
+                    // Start timeout waiting for DataChannel to open
+                    this.startDataChannelOpenTimeout();
                     // Success will be emitted when DataChannel opens in createAndSendOffer
                 } catch (err) {
                     this.logWithPrefix('❌ SDP or WebRTC error: ' + err);
                     this.lastError = `SDP error: ${err}`;
+                    this.isOfferSent = false;
+                    this.answerReceived = false;
+                    this.cancelAllTimeouts();
                     this.transitionTo(SdpExchangeState.FAILED);
                     this.events.onFailure?.(`SDP parsing error: ${err}`);
                 }
             } else {
                 this.logWithPrefix('⚠️ SDP block not found in SERVICE answer');
                 this.lastError = 'SDP block not found in answer';
+                this.isOfferSent = false;
+                this.answerReceived = false;
+                this.cancelAllTimeouts();
                 this.transitionTo(SdpExchangeState.FAILED);
                 this.events.onFailure?.('SDP block not found in SERVICE answer');
             }
-        }
     }
     
     /**
@@ -448,13 +512,18 @@ export class Peer2PeerConnection {
      */
     private startReceiveTimeout(): void {
         if (!this.timeoutManager) {
-            this.logWithPrefix(`⚠️ TimeoutManager not configured - cannot start ${Peer2PeerConnection.TIMEOUT_NAME}`);
+            const error = 'TimeoutManager not configured - cannot start RECEIVE_TIMEOUT';
+            this.logWithPrefix(`❌ ${error}`);
+            this.lastError = error;
+            this.isOfferSent = false;
+            this.transitionTo(SdpExchangeState.FAILED);
+            this.events.onFailure?.(error);
             return;
         }
         
-        this.logWithPrefix(`⏱️ Starting ${Peer2PeerConnection.TIMEOUT_NAME} (${this.receiveTimeout}ms) waiting for SDP answer`);
+        this.logWithPrefix(`⏱️ Starting ${Peer2PeerConnection.RECEIVE_TIMEOUT} (${this.receiveTimeout}ms) waiting for SDP answer`);
         
-        this.timeoutManager.startTimer(Peer2PeerConnection.TIMEOUT_NAME, this.receiveTimeout, () => {
+        this.timeoutManager.startTimer(Peer2PeerConnection.RECEIVE_TIMEOUT, this.receiveTimeout, () => {
             this.handleReceiveTimeout();
         });
     }
@@ -464,13 +533,87 @@ export class Peer2PeerConnection {
      * Emits timeout and failure events - retry decision handled by SipClient
      */
     private handleReceiveTimeout(): void {
-        this.logWithPrefix(`⏱️ ${Peer2PeerConnection.TIMEOUT_NAME} expired - no answer received`);
+        // State guard: only process timeout if still waiting for answer
+        if (this.sdpExchangeState !== SdpExchangeState.OFFER_SENT) {
+            this.logWithPrefix(`⏱️ ${Peer2PeerConnection.RECEIVE_TIMEOUT} fired but state is ${this.sdpExchangeState} - ignoring`);
+            return;
+        }
+        
+        this.logWithPrefix(`⏱️ ${Peer2PeerConnection.RECEIVE_TIMEOUT} expired - no answer received`);
         
         this.lastError = 'No answer received - timeout expired';
+        this.isOfferSent = false;
         this.transitionTo(SdpExchangeState.FAILED);
         
-        this.events.onTimeout?.(Peer2PeerConnection.TIMEOUT_NAME);
+        this.events.onTimeout?.(Peer2PeerConnection.RECEIVE_TIMEOUT);
         this.events.onFailure?.('RECEIVE_TIMEOUT expired - no SDP answer received');
+    }
+    
+    /**
+     * Start ICE_GATHERING_TIMEOUT
+     */
+    private startIceGatheringTimeout(): void {
+        if (!this.timeoutManager) {
+            this.logWithPrefix('⚠️ TimeoutManager not configured - cannot start ICE gathering timeout');
+            return;
+        }
+        
+        this.logWithPrefix(`⏱️ Starting ${Peer2PeerConnection.TIMEOUT_ICE_GATHERING} (${Peer2PeerConnection.ICE_GATHERING_TIMEOUT}ms)`);
+        
+        this.timeoutManager.startTimer(Peer2PeerConnection.TIMEOUT_ICE_GATHERING, Peer2PeerConnection.ICE_GATHERING_TIMEOUT, () => {
+            this.handleIceGatheringTimeout();
+        });
+    }
+    
+    /**
+     * Handle ICE_GATHERING_TIMEOUT expiry
+     */
+    private handleIceGatheringTimeout(): void {
+        this.logWithPrefix('⏱️ ICE gathering timeout expired');
+        
+        this.lastError = 'ICE gathering timeout expired';
+        this.isOfferSent = false;
+        this.cancelAllTimeouts();
+        this.transitionTo(SdpExchangeState.FAILED);
+        
+        this.events.onFailure?.('ICE gathering timeout - connection failed');
+    }
+    
+    /**
+     * Start DATACHANNEL_OPEN_TIMEOUT
+     */
+    private startDataChannelOpenTimeout(): void {
+        if (!this.timeoutManager) {
+            this.logWithPrefix('⚠️ TimeoutManager not configured - cannot start DataChannel open timeout');
+            return;
+        }
+        
+        this.logWithPrefix(`⏱️ Starting ${Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN} (${Peer2PeerConnection.DATACHANNEL_OPEN_TIMEOUT}ms)`);
+        
+        this.timeoutManager.startTimer(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN, Peer2PeerConnection.DATACHANNEL_OPEN_TIMEOUT, () => {
+            this.handleDataChannelOpenTimeout();
+        });
+    }
+    
+    /**
+     * Handle DATACHANNEL_OPEN_TIMEOUT expiry
+     */
+    private handleDataChannelOpenTimeout(): void {
+        // State guard: only process if still in ANSWER_RECEIVED state
+        if (this.sdpExchangeState !== SdpExchangeState.ANSWER_RECEIVED) {
+            this.logWithPrefix(`⏱️ ${Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN} fired but state is ${this.sdpExchangeState} - ignoring`);
+            return;
+        }
+        
+        this.logWithPrefix('⏱️ DataChannel opening timeout expired');
+        
+        this.lastError = 'DataChannel did not open within timeout';
+        this.isOfferSent = false;
+        this.answerReceived = false;
+        this.cancelAllTimeouts();
+        this.transitionTo(SdpExchangeState.FAILED);
+        
+        this.events.onFailure?.('DataChannel opening timeout - connection failed');
     }
     
     /**
