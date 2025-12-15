@@ -237,11 +237,12 @@ export class Registration {
         
         logger.log('📤 [REGISTRATION] REGISTER message created with timeout configuration');
         
-        this.transitionTo(RegistrationState.REGISTER_SENT);
-        
+        // Start timeout before transitioning state (we're about to send and wait for response)
         this.timeoutManager.startTimer('RECEIVE_TIMEOUT', this.receiveTimeout, () => {
             this.handleReceiveTimeout();
         });
+        
+        this.transitionTo(RegistrationState.REGISTER_SENT);
         
         return register;
     }
