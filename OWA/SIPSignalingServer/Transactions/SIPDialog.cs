@@ -97,7 +97,33 @@ namespace SIPSignalingServer.Transactions
             }
 
             await base.StartRunning();
+
+            await this.StopExistingConnectionAsync();
             await this.Register();
+        }
+
+        private async Task StopExistingConnectionAsync()
+        {
+            // TODO: A replay attack of the first Register will close the connection. - FIX
+            //       Check if the tags and callid was used before maybe?
+
+            // TODO: Get Registration by from and to name
+            SIPRegistration? oldRegistration = this.Registry.GetRegisteredObject(this.InitialRequest.Header.From.FromName);
+
+            // TODO: Send bye for the old registration
+            if (oldRegistration != null)
+            {
+                this.Registry.Unregister(oldRegistration);
+            }
+
+            SIPTunnel? oldTunnel = this.ConnectionPool.GetConnection(this.InitialRequest.Header.From.FromName, this.InitialRequest.Header.To.ToName);
+
+            if (oldTunnel != null)
+            {
+                await oldTunnel.Disconnect();
+            }
+
+            // TODO: Close direct connection as well?
         }
 
         private async Task Register()

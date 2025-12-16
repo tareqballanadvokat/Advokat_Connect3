@@ -21,6 +21,6 @@ namespace SIPSignalingServer.Interfaces
 
         public bool IsConnected(SIPMessageRelay messageRelay);
 
-        public SIPTunnel? GetConnection(ServerSideTransactionParams transactionParams);
+        public SIPTunnel? GetConnection(string fromName, string toName);
     }
 }

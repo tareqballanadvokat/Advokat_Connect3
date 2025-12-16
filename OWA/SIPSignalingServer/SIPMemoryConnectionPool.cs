@@ -108,13 +108,14 @@ namespace SIPSignalingServer
             return this.GetConnection(messageRelay)?.Connected ?? false;
         }
 
-        // TODO: do we need it?
-        public SIPTunnel? GetConnection(ServerSideTransactionParams transactionParams)
+        public SIPTunnel? GetConnection(string fromName, string toName)
         {
             // lock it?
             lock (lockObject)
             {
-                return this.Connections.SingleOrDefault(t => t.Left.Params == transactionParams || t.Right?.Params == transactionParams);
+                return this.Connections.SingleOrDefault(t => 
+                    (t.Left.Params.ClientParticipant.Name == fromName && (t.Right == null || t.Right.Params.ClientParticipant.Name == toName))
+                    || (t.Left.Params.ClientParticipant.Name == toName && (t.Right == null || t.Right.Params.ClientParticipant.Name == fromName)));
             }
         }
 

@@ -2,7 +2,7 @@
 
 namespace SIPSignalingServer.Utils.CustomEventArgs
 {
-    internal class RegistrationEventArgs : EventArgs
+    public class RegistrationEventArgs : EventArgs
     {
         public SIPRegistration Registration { get; set; }
 

@@ -1,9 +1,12 @@
 ﻿using SIPSignalingServer.Models;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SIPSignalingServer.Interfaces
 {
     public interface ISIPRegistry
     {
+        public event EventHandler<RegistrationEventArgs>? Unregistered;
+
         public void Register(SIPRegistration registration);
 
         public void Unregister(SIPRegistration registration);

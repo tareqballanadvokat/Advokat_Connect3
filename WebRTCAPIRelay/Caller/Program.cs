@@ -37,6 +37,15 @@ namespace Caller
 
             string remoteName = "macs";
 
+            ILoggerFactory loggerFactory = LoggerFactory.Create(
+               (builder) => {
+                   builder.SetMinimumLevel(LogLevel.Debug);
+                   builder.AddConsole((options) => options.TimestampFormat = "[HH:mm:ss:ffff] ");
+                   //builder.AddDebug();
+               });
+
+            SIPSorcery.LogFactory.Set(loggerFactory);
+
             IPEndPoint signalingServerEndpoint = new IPEndPoint(IPAddress.Loopback, 8009);
 
             Console.WriteLine($"caller name: {callerName}");
@@ -145,6 +154,23 @@ namespace Caller
 
         private async static Task SendRequest()
         {
+
+            string? input = Console.ReadLine();
+            if (input == "c")
+            {
+                Console.WriteLine("Connecting");
+                await UserAgent.Connect();
+                return;
+            }
+
+            else if (input == "d")
+            {
+                Console.WriteLine("Disconnecting");
+                await UserAgent.Disconnect();
+                return;
+            }
+
+
             string guid = Guid.NewGuid().ToString();
             //string uri = "/akten";
             string uri = "/connect/token";

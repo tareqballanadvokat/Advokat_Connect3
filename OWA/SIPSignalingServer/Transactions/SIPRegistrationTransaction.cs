@@ -111,6 +111,7 @@ namespace SIPSignalingServer.Transactions
             this.Connection.SIPRequestReceived += this.ACKListener;
 
             this.Registry.Register(this.Registration);
+            this.Registry.Unregistered += this.OnUnregistered;
 
             // SendAcceptedResponse handles failed registration state. Stop registration in that case
             bool success = await this.SendAcceptedResponse();
@@ -252,6 +253,7 @@ namespace SIPSignalingServer.Transactions
         {
             base.StopRunning();
 
+            this.Registry.Unregistered -= this.OnUnregistered;
             this.Registry.Unregister(this.Registration);
             this.Registered = false;
         }
@@ -265,6 +267,14 @@ namespace SIPSignalingServer.Transactions
         public async Task Unregister()
         {
             await this.Stop();
+        }
+
+        private async void OnUnregistered(object? sender, RegistrationEventArgs e)
+        {
+            if (e.Registration == this.Registration)
+            {
+                await this.Stop();
+            }
         }
 
         private static SIPParticipant GetCallerParticipant(SIPRequest request)
