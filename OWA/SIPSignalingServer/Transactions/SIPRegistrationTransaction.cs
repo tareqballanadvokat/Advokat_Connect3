@@ -140,13 +140,14 @@ namespace SIPSignalingServer.Transactions
 
         private async Task<bool> SendAcceptedResponse()
         {
+            SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
+                
+            // must be before sending response. A fast response happens before Cseq can be updated
+            this.CurrentCseq++; // 3
+
             try
             {
                 // send Accepted response
-                SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
-                
-                // must be before sending response. A fast response happens before Cseq can be updated
-                this.CurrentCseq++; // 3
                 SocketError socketState = await this.Connection.SendSIPResponse(accpetedResponse, this.Ct);
 
                 if (SocketError.Success != socketState)
@@ -160,7 +161,7 @@ namespace SIPSignalingServer.Transactions
             catch (OperationCanceledException ex)
             {
                 // response did not get sent
-                // TODO: revert current cseq?
+                // this.CurrentCseq--; // 2 - accept did not get sent. Revert current cseq.
                 await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Accept not sent. Registration was cancelled.");
                 return false;
             }
@@ -208,13 +209,7 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            if (request.Header.CSeq != this.CurrentCseq)
-            {
-                // TODO: Header invalid. What to do here?
-                return;
-            }
-
-            this.CurrentCseq++;
+            this.CurrentCseq = request.Header.CSeq + 1;
             await this.Unregister();
         }
 
