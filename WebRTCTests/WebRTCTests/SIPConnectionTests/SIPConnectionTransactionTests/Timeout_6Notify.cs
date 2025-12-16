@@ -52,11 +52,11 @@ namespace SIPClientTests.SIPConnectionTests.SIPConnectionTransactionTests
             };
 
             _ = Task.Run(async () => await connectionTransaction.Start());
-            Assert.False(connectionTransaction.Connected);
+            Assert.NotEqual(SIPConnectionState.Connected, connectionTransaction.ConnectionState);
 
             await Task.Delay(150);
 
-            Assert.False(connectionTransaction.Connected);
+            Assert.NotEqual(SIPConnectionState.Connected, connectionTransaction.ConnectionState);
         }
 
         [Fact]

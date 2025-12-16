@@ -1,11 +1,14 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+﻿using Advokat.WebRTC.Client.Interfaces;
+using Advokat.WebRTC.Plugin.Chunking.DTOs;
+using Advokat.WebRTC.Plugin.DTOs;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using SIPSorcery.Net;
 using System;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Advokat.WebRTC.Plugin.Chunking.DTOs;
-using Advokat.WebRTC.Plugin.DTOs;
 using WebRTCClient;
 
 namespace Caller
@@ -157,16 +160,6 @@ namespace Caller
             Console.WriteLine($"Enter to send GET request to {uri}");
             Console.ReadLine();
 
-            byte[] calculatedHash = MD5.HashData(Encoding.UTF8.GetBytes(guid));
-;
-            StringBuilder calculatedChecksum = new StringBuilder();
-            foreach (byte h in calculatedHash[..2])
-            {
-                calculatedChecksum.Append(h.ToString("x2"));
-            }
-
-            string guidChecksum = calculatedChecksum.ToString();
-
             List<string> chunks = [
                 "eyJncmFudF90e",
                 "XBlIjoicGFzc3",
@@ -182,15 +175,15 @@ namespace Caller
 
             for (int i = 1; i <= chunks.Count; i++)
             {
-                await SendMessage(guid, guidChecksum, method, uri, headers, chunks.Count, i, chunks[i - 1]);
+                await SendMessage(guid, method, uri, headers, chunks.Count, i, chunks[i - 1]);
             }
         }
 
-        private async static Task SendMessage(string guid, string guidChecksum, string method, string uri, string headers, int totalChunks, int currentChunk, string body)
+        private async static Task SendMessage(string guid, string method, string uri, string headers, int totalChunks, int currentChunk, string body)
         {
             string requestString = $$"""
                 {
-                    "id": "{{guid}}{{guidChecksum}}",
+                    "id": "{{guid}}",
                     "messageType": "testmessagetype",
                     "timestamp": {{((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds()}},
                     "totalChunks": {{totalChunks}},
