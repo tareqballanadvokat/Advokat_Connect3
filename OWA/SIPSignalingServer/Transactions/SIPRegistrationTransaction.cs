@@ -215,9 +215,12 @@ namespace SIPSignalingServer.Transactions
 
         private async Task SendBYEMessage()
         {
+            SIPHeaderParams header = this.GetHeaderParams(this.CurrentCseq);
+            header.Reason = "REGISTRATION";
+
             SocketError result = await this.Connection.SendSIPRequest(
                 SIPMethodsEnum.BYE,
-                this.GetHeaderParams(this.CurrentCseq),
+                header,
                 CancellationToken.None);
 
             if (result != SocketError.Success)

@@ -384,6 +384,7 @@ namespace SIPSignalingServer.Transactions
             }
 
             SIPHeaderParams headerParams = this.GetHeaderParams(this.CurrentCseq);
+            headerParams.Reason = "CONNECTION";
             SocketError result;
 
             result = await this.Connection.SendSIPRequest(SIPMethodsEnum.BYE, headerParams, CancellationToken.None);
