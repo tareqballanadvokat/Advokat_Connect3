@@ -362,10 +362,8 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
      */
     function sendConnectionBye(cseq: number, reason: string): void {
         if (isConnected() || isConnecting()) {
-            const connectionByeMsg = peer2PeerConnectionObject.createConnectionBye(reason);
-            if (connectionByeMsg) {
-                sendMessage(connectionByeMsg, `CONNECTION BYE (CSeq: ${cseq}, ${reason})`);
-            }
+            const connectionByeMsg = establishingConnectionObject.createConnectionBye(cseq, reason);
+            sendMessage(connectionByeMsg, `CONNECTION BYE (CSeq: ${cseq}, ${reason})`);
         }
     }
     

@@ -124,7 +124,6 @@ export class Peer2PeerConnection {
     private static readonly LOG_PREFIX = '[PEER2PEER]';
     private static readonly CSEQ_OFFER = 1;
     private static readonly CSEQ_ANSWER = 2;
-    private static readonly CSEQ_CONNECTION_BYE = 7;
     private static readonly DATA_CHANNEL_LABEL = 'offer';
     private static readonly RECEIVE_TIMEOUT = 'RECEIVE_TIMEOUT';
     private static readonly TIMEOUT_ICE_GATHERING = 'ICE_GATHERING_TIMEOUT';
@@ -632,36 +631,4 @@ export class Peer2PeerConnection {
         return this.lastOfferParams;
     }
     
-    /**
-     * Generate SIP branch parameter
-     */
-    private static generateConnectionByeBranch(): string {
-        return 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
-    }
-    
-    /**
-     * Create CONNECTION BYE message using saved offer parameters
-     * @param reason - Reason for sending BYE
-     * @returns Formatted CONNECTION BYE message or null if parameters not available
-     */
-    createConnectionBye(reason: string): string | null {
-        if (!this.lastOfferParams) {
-            this.logWithPrefix('⚠️ Cannot create CONNECTION BYE - offer parameters not saved');
-            return null;
-        }
-        
-        const { sipUri, tag, callId } = this.lastOfferParams;
-        
-        return MessageFactory.createByeMessage({
-            sipUri: sipUri,
-            branch: Peer2PeerConnection.generateConnectionByeBranch(),
-            callId: callId,
-            tag: tag,
-            cseq: Peer2PeerConnection.CSEQ_CONNECTION_BYE,
-            toDisplayName: 'macs',
-            fromDisplayName: 'macc',
-            reasonType: 'CONNECTION',
-            reasonText: reason
-        });
-    }
 }
