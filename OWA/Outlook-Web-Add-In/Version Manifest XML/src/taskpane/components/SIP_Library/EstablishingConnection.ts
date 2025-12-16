@@ -111,7 +111,6 @@ export class EstablishingConnection {
     public sipUri = "sip:macc@127.0.0.1:8009";
     public tag = "";
     private callId = "";
-    private cseq = 1;
     public isConnectionEstablished = false;
     private branch = "";
     private fromDisplayName = "macc";
@@ -124,6 +123,7 @@ export class EstablishingConnection {
     
     // Session tracking for connection phase
     private processedCSeqs: Set<number> = new Set(); // Track processed CSeqs to detect duplicates
+    private lastSentConnectionByeCSeq: number = 0; // Counter for CONNECTION BYE CSeq (for loop prevention)
     
     public lastByeReceived: string | null = null;
     
@@ -419,7 +419,7 @@ export class EstablishingConnection {
         this.isConnectionEstablished = false;
         this.lastError = "ConnectionTimeout expired - ACK not received";
         
-        const byeMessage = this.createConnectionBye(this.cseq++, "ConnectionTimeout expired");
+        const byeMessage = this.createConnectionBye(++this.lastSentConnectionByeCSeq, "ConnectionTimeout expired");
         this.events.onMessageToSend?.(byeMessage, 'CONNECTION BYE due to timeout');
         
         // Notify SipClient of timeout and failure
@@ -448,7 +448,7 @@ export class EstablishingConnection {
         
         if (isRetryable) {
             this.lastError = `Retryable error ${statusCode}`;
-            const byeMessage = this.createConnectionBye(this.cseq++, `Error ${statusCode}`);
+            const byeMessage = this.createConnectionBye(++this.lastSentConnectionByeCSeq, `Error ${statusCode}`);
             this.events.onMessageToSend?.(byeMessage, `CONNECTION BYE for error ${statusCode}`);
         } else {
             this.lastError = `Non-retryable error ${statusCode}`;
@@ -464,24 +464,36 @@ export class EstablishingConnection {
     
     /**
      * Handles incoming CONNECTION BYE from server/peer
-     * Responds with CONNECTION BYE (per protocol), checks PeerRegistrationTimeout for retry
-     * @param _data - BYE message (unused, keeping for signature consistency)
-     * @returns CONNECTION BYE response
+     * Prevents BYE loop by checking CSeq: if incoming CSeq > our sent BYE CSeq, it's a response
+     * @param data - BYE message
+     * @returns CONNECTION BYE response only if server initiated, otherwise empty string
      */
-    private handleConnectionBye(_data: string): string {
+    private handleConnectionBye(data: string): string {
         logger.log("📥 [CONNECTION] Received CONNECTION BYE from server/peer");
         
         this.lastByeReceived = new Date().toISOString();
         this.cancelConnectionTimeout();
         
-        this.transitionTo(ConnectionState.FAILED, 'BYE received from server');
+        // Extract CSeq from incoming BYE
+        const cseqMatch = data.match(EstablishingConnection.REGEX_CSEQ);
+        const incomingCSeq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
+        
+        // Check if this is a response to our BYE (to prevent loop)
+        // If we sent a BYE and incoming CSeq > our BYE CSeq → server is responding to our BYE
+        if (this.lastSentConnectionByeCSeq > 0 && incomingCSeq > this.lastSentConnectionByeCSeq) {
+            logger.log(`📥 [CONNECTION] BYE CSeq ${incomingCSeq} > our sent BYE CSeq ${this.lastSentConnectionByeCSeq} - this is server's response (loop prevention)`);
+            return ""; // Do nothing, we already sent a bye and started processing the retry
+        }
+        
+        // Server initiated BYE (we haven't sent BYE or incoming CSeq <= our BYE CSeq)
+        logger.log(`📥 [CONNECTION] BYE CSeq ${incomingCSeq} - server initiated BYE`);
+        this.transitionTo(ConnectionState.FAILED, 'BYE initiated by server');
         this.isConnectionEstablished = false;
         this.lastError = "Received CONNECTION BYE from server";
         
-        // Notify SipClient of failure
+        logger.log('📥 [CONNECTION] Server initiated BYE - sending acknowledgment');
         this.events.onFailure?.('Received CONNECTION BYE from server');
-        
-        return this.createConnectionBye(this.cseq++, "ACK not received");
+        return this.createConnectionBye(++this.lastSentConnectionByeCSeq, "Connection dropped by server");
     }
     
     /**
@@ -520,7 +532,7 @@ export class EstablishingConnection {
         this.cancelConnectionTimeout();
         this.transitionTo(ConnectionState.TERMINATING, 'graceful termination');
         
-        return this.createConnectionBye(this.cseq++, "Graceful termination");
+        return this.createConnectionBye(++this.lastSentConnectionByeCSeq, "Graceful termination");
     }
     
     /**
@@ -550,10 +562,10 @@ export class EstablishingConnection {
         
         this.cancelConnectionTimeout();
         this.generateSessionIds();
-        this.cseq = 1;
         
         // Clear session tracking
         this.processedCSeqs.clear();
+        this.lastSentConnectionByeCSeq = 0;
         
         this.transitionTo(ConnectionState.WAITING_NOTIFY_4, 'reset for retry');
         this.isConnectionEstablished = false;

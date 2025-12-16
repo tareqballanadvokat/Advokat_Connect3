@@ -835,29 +835,22 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
     
     /**
      * Handle global BYE messages (REGISTRATION or CONNECTION)
-     * For Registration BYE: Cancel timers but let Registration.parseMessage() handle state and retry
-     * For Connection BYE: Transition state to allow reconnection
+     * Only handles SipClient-level concerns (like canceling timers)
+     * All phase-specific logic is handled by the respective phase handlers
      */
     function handleGlobalBye(data: string): void {
         if (!REGEX_BYE.test(data)) return;
         
         const isRegistrationBye = REGEX_REASON_REGISTRATION.test(data);
-        const isConnectionBye = REGEX_REASON_CONNECTION.test(data);
         
         if (isRegistrationBye) {
-            logWithPrefix('REGISTRATION BYE received - canceling timers, will process for retry');
+            logWithPrefix('REGISTRATION BYE received - canceling PEER_REGISTRATION_TIMEOUT');
             timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
+            // Let Registration.parseMessage() handle state transitions and retry logic
         }
         
-        if (isConnectionBye) {
-            logWithPrefix('CONNECTION BYE received - transitioning to CONNECTING');
-            establishingConnectionObject.lastByeReceived = new Date().toISOString();
-            // Connection was dropped, but we might still be registered
-            // Transition to CONNECTING so we can attempt reconnection
-            if (clientState === SipClientState.CONNECTED || clientState === SipClientState.CONNECTING_P2P) {
-                transitionClientState(SipClientState.CONNECTING, 'CONNECTION BYE received');
-            }
-        }
+        // CONNECTION BYE is handled entirely by EstablishingConnection.parseMessage()
+        // It has the CSeq context to determine if it's a response or needs handling
     }
     
     // Create the instance object that will be returned
