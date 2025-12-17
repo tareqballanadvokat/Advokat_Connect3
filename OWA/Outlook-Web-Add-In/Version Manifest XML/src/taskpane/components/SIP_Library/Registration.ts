@@ -159,7 +159,6 @@ export class Registration {
     private connectionTimeout: number = 3000;           // Default 3s, updated from server
     private peerRegistrationTimeout: number = 30000;    // Default 30s, updated from server
     private receiveTimeout: number = 1000;              // Default 1s, updated from server
-    private readonly TIMEOUT_SAFETY_MARGIN = 500;       // 500ms margin to timeout before server
     
     private lastError: string = "";
     
@@ -340,7 +339,7 @@ export class Registration {
         this.isRegistered = false;
         this.lastByeReceived = null;
         this.lastSentRegistrationByeCSeq = 0;
-        //this.testIncrem = 1; // Reset test counter for new registration attempt
+        this.testIncrem = 1; // Reset test counter for new registration attempt
         
         this.generateSessionIds();
         
@@ -415,13 +414,11 @@ export class Registration {
         peerRegistration: number; 
         connection: number; 
         receive: number;
-        safetyMargin: number;
     } {
         return {
             peerRegistration: this.peerRegistrationTimeout,
             connection: this.connectionTimeout,
-            receive: this.receiveTimeout,
-            safetyMargin: this.TIMEOUT_SAFETY_MARGIN
+            receive: this.receiveTimeout
         };
     }
     
@@ -503,7 +500,7 @@ export class Registration {
     
     /**
      * Parses timeout configuration from server's 202 response JSON body
-     * Updates internal timeout values with safety margin (500ms before server timeout)
+     * Updates internal timeout values directly from server configuration
      * @param data - The 202 response message with JSON body
      */
     private parseServerTimeouts(data: string): void {
@@ -522,20 +519,20 @@ export class Registration {
             logger.log('📋 [REGISTRATION] Server timeout config: ' + JSON.stringify(config));
             
             if (config.ConnectionTimeout && typeof config.ConnectionTimeout === 'number') {
-                this.connectionTimeout = Math.max(100, config.ConnectionTimeout - this.TIMEOUT_SAFETY_MARGIN);
-                logger.log(`⏱️ [REGISTRATION] ConnectionTimeout set to ${this.connectionTimeout}ms (server: ${config.ConnectionTimeout}ms)`);
+                this.connectionTimeout = Math.max(100, config.ConnectionTimeout);
+                logger.log(`⏱️ [REGISTRATION] ConnectionTimeout set to ${this.connectionTimeout}ms`);
             }
             
             if (config.PeerRegistrationTimeout && typeof config.PeerRegistrationTimeout === 'number') {
-                this.peerRegistrationTimeout = Math.max(100, config.PeerRegistrationTimeout - this.TIMEOUT_SAFETY_MARGIN);
-                logger.log(`⏱️ [REGISTRATION] PeerRegistrationTimeout set to ${this.peerRegistrationTimeout}ms (server: ${config.PeerRegistrationTimeout}ms)`);
+                this.peerRegistrationTimeout = Math.max(100, config.PeerRegistrationTimeout);
+                logger.log(`⏱️ [REGISTRATION] PeerRegistrationTimeout set to ${this.peerRegistrationTimeout}ms`);
             } else {
                 logger.log(`⏱️ [REGISTRATION] Server sent null/invalid PeerRegistrationTimeout, using default: ${this.peerRegistrationTimeout}ms`);
             }
             
             if (config.ReceiveTimeout && typeof config.ReceiveTimeout === 'number') {
-                this.receiveTimeout = Math.max(100, config.ReceiveTimeout - this.TIMEOUT_SAFETY_MARGIN);
-                logger.log(`⏱️ [REGISTRATION] ReceiveTimeout set to ${this.receiveTimeout}ms (server: ${config.ReceiveTimeout}ms)`);
+                this.receiveTimeout = Math.max(100, config.ReceiveTimeout);
+                logger.log(`⏱️ [REGISTRATION] ReceiveTimeout set to ${this.receiveTimeout}ms`);
             }
             
             logger.log('✅ [REGISTRATION] Timeout configuration updated from server');
