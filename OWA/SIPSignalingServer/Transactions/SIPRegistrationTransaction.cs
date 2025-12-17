@@ -111,6 +111,7 @@ namespace SIPSignalingServer.Transactions
             this.Connection.SIPRequestReceived += this.ACKListener;
 
             this.Registry.Register(this.Registration);
+            this.Registry.Unregistered += this.OnUnregistered;
 
             // SendAcceptedResponse handles failed registration state. Stop registration in that case
             bool success = await this.SendAcceptedResponse();
@@ -139,13 +140,14 @@ namespace SIPSignalingServer.Transactions
 
         private async Task<bool> SendAcceptedResponse()
         {
+            SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
+                
+            // must be before sending response. A fast response happens before Cseq can be updated
+            this.CurrentCseq++; // 3
+
             try
             {
                 // send Accepted response
-                SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
-                
-                // must be before sending response. A fast response happens before Cseq can be updated
-                this.CurrentCseq++; // 3
                 SocketError socketState = await this.Connection.SendSIPResponse(accpetedResponse, this.Ct);
 
                 if (SocketError.Success != socketState)
@@ -159,7 +161,7 @@ namespace SIPSignalingServer.Transactions
             catch (OperationCanceledException ex)
             {
                 // response did not get sent
-                // TODO: revert current cseq?
+                // this.CurrentCseq--; // 2 - accept did not get sent. Revert current cseq.
                 await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Accept not sent. Registration was cancelled.");
                 return false;
             }
@@ -207,21 +209,18 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            if (request.Header.CSeq != this.CurrentCseq)
-            {
-                // TODO: Header invalid. What to do here?
-                return;
-            }
-
-            this.CurrentCseq++;
+            this.CurrentCseq = request.Header.CSeq + 1;
             await this.Unregister();
         }
 
         private async Task SendBYEMessage()
         {
+            SIPHeaderParams header = this.GetHeaderParams(this.CurrentCseq);
+            header.Reason = "REGISTRATION";
+
             SocketError result = await this.Connection.SendSIPRequest(
                 SIPMethodsEnum.BYE,
-                this.GetHeaderParams(this.CurrentCseq),
+                header,
                 CancellationToken.None);
 
             if (result != SocketError.Success)
@@ -252,6 +251,7 @@ namespace SIPSignalingServer.Transactions
         {
             base.StopRunning();
 
+            this.Registry.Unregistered -= this.OnUnregistered;
             this.Registry.Unregister(this.Registration);
             this.Registered = false;
         }
@@ -265,6 +265,14 @@ namespace SIPSignalingServer.Transactions
         public async Task Unregister()
         {
             await this.Stop();
+        }
+
+        private async void OnUnregistered(object? sender, RegistrationEventArgs e)
+        {
+            if (e.Registration == this.Registration)
+            {
+                await this.Stop();
+            }
         }
 
         private static SIPParticipant GetCallerParticipant(SIPRequest request)

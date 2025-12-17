@@ -8,6 +8,7 @@ using Advokat.WebRTC.Library.SIP.Models;
 using WebRTCClient;
 using WebRTCClient.Models;
 using WebRTCClient.Utils;
+using Advokat.WebRTC.Client.Interfaces;
 
 namespace WebRTCIntegrationTests
 {
@@ -67,8 +68,8 @@ namespace WebRTCIntegrationTests
             caller.OnMessageReceived += this.CallerReceivedMessage;
             remote.OnMessageReceived += this.RemoteReceivedMessage;
 
-            _ = Task.Run(caller.Connect);
             _ = Task.Run(remote.Connect);
+            _ = Task.Run(caller.Connect);
 
             // Some time for the clients to connect
             await Task.Delay(700); // cutoff point is ~470. It always fails below that. 700 is fine most of the time

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SIPSignalingServer
 {
@@ -9,6 +10,8 @@ namespace SIPSignalingServer
         private ILogger logger;
 
         private readonly object lockObject = new object();
+
+        public event EventHandler<RegistrationEventArgs>? Unregistered;
 
         private List<SIPRegistration> RegisteredConnections { get; set; } = new List<SIPRegistration>();
 
@@ -38,6 +41,7 @@ namespace SIPSignalingServer
                 {
                     this.logger.LogDebug("Unregistering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
                     RegisteredConnections.Remove(registeredObject);
+                    this.Unregistered?.Invoke(this, new RegistrationEventArgs(registeredObject));
                 }
             }
         }

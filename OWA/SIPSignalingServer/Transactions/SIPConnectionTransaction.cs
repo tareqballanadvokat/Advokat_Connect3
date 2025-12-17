@@ -106,10 +106,13 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
+            this.messageRelay.RelayStopped += async (r) => { await this.Stop(); };
+
             await this.SetRemoteTag();
             await this.CreateConnection();
 
             this.Connection.SIPRequestReceived += this.ListenForAck;
+            this.Connection.SIPRequestReceived += this.ListenForConnectionBye;
 
             // SendNotifyRequest handles failurestate itself.
             bool notifySent = await this.SendConnectionReadyNotify();
@@ -203,6 +206,17 @@ namespace SIPSignalingServer.Transactions
             this.ConnectionAcknowledged = true;
             this.CurrentCseq++; // 3
             //this.ConnectionPool.ConnectionEstablished += this.ConnectionEstablished;
+        }
+
+        private async Task ListenForConnectionBye(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
+        {
+            if (request.Method != SIPMethodsEnum.BYE)
+            {
+                return;
+            }
+
+            this.CurrentCseq = request.Header.CSeq + 1;
+            await this.Stop();
         }
 
         private async Task ConnectionEstablished(SIPTunnel tunnel)
@@ -324,6 +338,7 @@ namespace SIPSignalingServer.Transactions
         {
             base.StopRunning();         
             this.Connection.SIPRequestReceived -= this.ListenForAck;
+            this.Connection.SIPRequestReceived -= this.ListenForConnectionBye;
 
             this.ConnectionAcknowledged = false;
             this.Connected = false;
@@ -369,6 +384,7 @@ namespace SIPSignalingServer.Transactions
             }
 
             SIPHeaderParams headerParams = this.GetHeaderParams(this.CurrentCseq);
+            headerParams.Reason = "CONNECTION";
             SocketError result;
 
             result = await this.Connection.SendSIPRequest(SIPMethodsEnum.BYE, headerParams, CancellationToken.None);

@@ -1,11 +1,14 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+﻿using Advokat.WebRTC.Client.Interfaces;
+using Advokat.WebRTC.Plugin.Chunking.DTOs;
+using Advokat.WebRTC.Plugin.DTOs;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using SIPSorcery.Net;
 using System;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Advokat.WebRTC.Plugin.Chunking.DTOs;
-using Advokat.WebRTC.Plugin.DTOs;
 using WebRTCClient;
 
 namespace Caller
@@ -33,6 +36,15 @@ namespace Caller
             IPEndPoint? callerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).LastOrDefault(), 8098);
 
             string remoteName = "macs";
+
+            ILoggerFactory loggerFactory = LoggerFactory.Create(
+               (builder) => {
+                   builder.SetMinimumLevel(LogLevel.Debug);
+                   builder.AddConsole((options) => options.TimestampFormat = "[HH:mm:ss:ffff] ");
+                   //builder.AddDebug();
+               });
+
+            SIPSorcery.LogFactory.Set(loggerFactory);
 
             IPEndPoint signalingServerEndpoint = new IPEndPoint(IPAddress.Loopback, 8009);
 
@@ -142,6 +154,23 @@ namespace Caller
 
         private async static Task SendRequest()
         {
+
+            string? input = Console.ReadLine();
+            if (input == "c")
+            {
+                Console.WriteLine("Connecting");
+                await UserAgent.Connect();
+                return;
+            }
+
+            else if (input == "d")
+            {
+                Console.WriteLine("Disconnecting");
+                await UserAgent.Disconnect();
+                return;
+            }
+
+
             string guid = Guid.NewGuid().ToString();
             //string uri = "/akten";
             string uri = "/connect/token";
@@ -156,16 +185,6 @@ namespace Caller
             Console.WriteLine();
             Console.WriteLine($"Enter to send GET request to {uri}");
             Console.ReadLine();
-
-            byte[] calculatedHash = MD5.HashData(Encoding.UTF8.GetBytes(guid));
-;
-            StringBuilder calculatedChecksum = new StringBuilder();
-            foreach (byte h in calculatedHash[..2])
-            {
-                calculatedChecksum.Append(h.ToString("x2"));
-            }
-
-            string guidChecksum = calculatedChecksum.ToString();
 
             List<string> chunks = [
                 "eyJncmFudF90e",
@@ -182,15 +201,15 @@ namespace Caller
 
             for (int i = 1; i <= chunks.Count; i++)
             {
-                await SendMessage(guid, guidChecksum, method, uri, headers, chunks.Count, i, chunks[i - 1]);
+                await SendMessage(guid, method, uri, headers, chunks.Count, i, chunks[i - 1]);
             }
         }
 
-        private async static Task SendMessage(string guid, string guidChecksum, string method, string uri, string headers, int totalChunks, int currentChunk, string body)
+        private async static Task SendMessage(string guid, string method, string uri, string headers, int totalChunks, int currentChunk, string body)
         {
             string requestString = $$"""
                 {
-                    "id": "{{guid}}{{guidChecksum}}",
+                    "id": "{{guid}}",
                     "messageType": "testmessagetype",
                     "timestamp": {{((DateTimeOffset)DateTime.UtcNow).ToUnixTimeMilliseconds()}},
                     "totalChunks": {{totalChunks}},
