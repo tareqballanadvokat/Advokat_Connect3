@@ -727,18 +727,16 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         ws.onmessage = async (event) => {
             const data = await logger.blobToStringAsync(event.data);
             logWithPrefix('📥 Received message:\n' + data);
-            // Route REGISTRATION BYE to Registration phase regardless of client state
-            // Check both Reason header AND CSeq range (1-3 = registration phase)
+            
+            // Route BYE messages based on Reason header (always present in BYE messages)
             const isByeMessage = REGEX_BYE.test(data);
             if (isByeMessage) {
                 const cseqMatch = data.match(REGEX_CSEQ);
                 const incomingCSeq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
                 
-                const hasRegistrationReason = REGEX_REASON_REGISTRATION.test(data);
-                const isRegistrationCSeqRange = incomingCSeq >= 1 && incomingCSeq <= 3;
-                
-                // It's a REGISTRATION BYE if it has the Reason header OR CSeq in registration range (1-3)
-                if (hasRegistrationReason || isRegistrationCSeqRange) {
+                // Check Reason header to determine BYE type
+                if (REGEX_REASON_REGISTRATION.test(data)) {
+                    // REGISTRATION BYE - route to Registration phase
                     // Loop prevention: Check if this is a response to our REGISTRATION BYE
                     const lastSentCSeq = registrationObj.lastSentRegistrationByeCSeq;
                     
@@ -747,7 +745,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                         return;
                     }
                     
-                    logWithPrefix(`REGISTRATION BYE received (CSeq: ${incomingCSeq}) - canceling PEER_REGISTRATION_TIMEOUT`);
+                    logWithPrefix(`📥 REGISTRATION BYE received (CSeq: ${incomingCSeq}) - canceling PEER_REGISTRATION_TIMEOUT`);
                     timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
                     
                     const regRequest = registrationObj.parseMessage(data);
@@ -755,6 +753,14 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                         sendMessage(regRequest, 'registration BYE response');
                     }
                     return; // Don't process further - REGISTRATION BYE handled
+                } else if (REGEX_REASON_CONNECTION.test(data)) {
+                    // CONNECTION BYE - route to Connection phase
+                    logWithPrefix(`📥 CONNECTION BYE received (CSeq: ${incomingCSeq})`);
+                    const connRequest = establishingConnectionObject.parseMessage(data);
+                    if (connRequest) {
+                        sendMessage(connRequest, 'connection BYE response');
+                    }
+                    return; // Don't process further - CONNECTION BYE handled
                 }
             }
             
