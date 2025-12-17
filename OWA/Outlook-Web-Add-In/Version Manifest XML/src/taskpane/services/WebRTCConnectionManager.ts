@@ -1,6 +1,5 @@
 // WebRTC Connection Manager - Robust connection management with auto-recovery
-import { SipClientInstance, SipClientState, SipClientObserver } from '../components/SIP_Library/SipClient';
-import { sipClientService } from './sipClientService';
+import { SipClientInstance, SipClientState, SipClientObserver, initializeSipClient } from '../components/SIP_Library/SipClient';
 import { webRTCApiService } from './webRTCApiService';
 import { IdleActivityMonitor } from './IdleActivityMonitor';
 import { store } from '../../store';
@@ -34,7 +33,7 @@ export interface ConnectionManagerConfig {
 }
 
 const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
-  maxReconnectAttempts: 5,
+  maxReconnectAttempts: 2,
   reconnectDelay: 3000, // 3 seconds
   enableAutoReconnect: true,
   idleTimeout: 5 * 60 * 1000, // 5 minutes
@@ -171,8 +170,8 @@ export class WebRTCConnectionManager implements SipClientObserver {
     });
 
     try {
-      // Initialize SIP client through singleton service
-      this.sipClient = await sipClientService.initialize();
+      // Initialize SIP client directly
+      this.sipClient = initializeSipClient();
       
       if (this.sipClient) {
         // Subscribe to SipClient state changes (Observer pattern)
