@@ -727,9 +727,36 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         ws.onmessage = async (event) => {
             const data = await logger.blobToStringAsync(event.data);
             logWithPrefix('📥 Received message:\n' + data);
-            
-            // Handle global BYE messages
-            handleGlobalBye(data);
+            // Route REGISTRATION BYE to Registration phase regardless of client state
+            // Check both Reason header AND CSeq range (1-3 = registration phase)
+            const isByeMessage = REGEX_BYE.test(data);
+            if (isByeMessage) {
+                const cseqMatch = data.match(REGEX_CSEQ);
+                const incomingCSeq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
+                
+                const hasRegistrationReason = REGEX_REASON_REGISTRATION.test(data);
+                const isRegistrationCSeqRange = incomingCSeq >= 1 && incomingCSeq <= 3;
+                
+                // It's a REGISTRATION BYE if it has the Reason header OR CSeq in registration range (1-3)
+                if (hasRegistrationReason || isRegistrationCSeqRange) {
+                    // Loop prevention: Check if this is a response to our REGISTRATION BYE
+                    const lastSentCSeq = registrationObj.lastSentRegistrationByeCSeq;
+                    
+                    if (lastSentCSeq > 0 && incomingCSeq > lastSentCSeq) {
+                        logWithPrefix(`✅ REGISTRATION BYE is a response (CSeq ${incomingCSeq} > ${lastSentCSeq}) - ignoring`);
+                        return;
+                    }
+                    
+                    logWithPrefix(`REGISTRATION BYE received (CSeq: ${incomingCSeq}) - canceling PEER_REGISTRATION_TIMEOUT`);
+                    timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
+                    
+                    const regRequest = registrationObj.parseMessage(data);
+                    if (regRequest) {
+                        sendMessage(regRequest, 'registration BYE response');
+                    }
+                    return; // Don't process further - REGISTRATION BYE handled
+                }
+            }
             
             // Route messages based on client state
             switch (clientState) {
@@ -829,26 +856,6 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
             logWithPrefix('⚠️ Unexpected socket close - transitioning to FAILED_PERMANENTLY');
             transitionClientState(SipClientState.FAILED_PERMANENTLY, 'Socket closed unexpectedly');
         };
-    }
-    
-    /**
-     * Handle global BYE messages (REGISTRATION or CONNECTION)
-     * Only handles SipClient-level concerns (like canceling timers)
-     * All phase-specific logic is handled by the respective phase handlers
-     */
-    function handleGlobalBye(data: string): void {
-        if (!REGEX_BYE.test(data)) return;
-        
-        const isRegistrationBye = REGEX_REASON_REGISTRATION.test(data);
-        
-        if (isRegistrationBye) {
-            logWithPrefix('REGISTRATION BYE received - canceling PEER_REGISTRATION_TIMEOUT');
-            timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
-            // Let Registration.parseMessage() handle state transitions and retry logic
-        }
-        
-        // CONNECTION BYE is handled entirely by EstablishingConnection.parseMessage()
-        // It has the CSeq context to determine if it's a response or needs handling
     }
     
     // Create the instance object that will be returned

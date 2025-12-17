@@ -150,7 +150,8 @@ export class Registration {
     
     // BYE tracking metadata
     public lastByeReceived: string | null = null; // Timestamp of last REGISTRATION BYE
-    
+    public lastSentRegistrationByeCSeq: number = 0; // Track last sent REGISTRATION BYE CSeq for loop prevention
+    public testIncrem = 0;
     // Event callbacks for SipClient observation
     private events: RegistrationEvents;
     
@@ -186,6 +187,13 @@ export class Registration {
      */
     private transitionTo(newState: RegistrationState, reason?: string): void {
         const oldState = this.registrationState;
+        
+        // Skip if already in target state
+        if (oldState === newState) {
+            logger.log(`📤 [REGISTRATION] Already in state ${newState}, skipping transition`);
+            return;
+        }
+        
         this.registrationState = newState;
         if (reason) {
             logger.log(`📤 [REGISTRATION] STATE: ${oldState} -> ${newState} (${reason})`);
@@ -283,6 +291,9 @@ export class Registration {
     public createRegistrationBye(cseqNum: number): string {
         logger.log(`🔨 [REGISTRATION] Creating REGISTRATION BYE (CSeq: ${cseqNum})`);
         
+        // Store CSeq for loop prevention
+        this.lastSentRegistrationByeCSeq = cseqNum;
+        
         const bye = MessageFactory.createByeMessage({
             sipUri: this.sipUri,
             branch: this.branch,
@@ -307,7 +318,7 @@ export class Registration {
      * @returns Empty string (no response needed)
      */
     private handleRegistrationBye(_data: string): string {
-        logger.log('📥 [REGISTRATION] Received REGISTRATION BYE');
+        logger.log('📥 [REGISTRATION] Received REGISTRATION BYE from server');
         
         this.lastByeReceived = new Date().toISOString();
         this.cancelReceiveTimeout();
@@ -328,6 +339,8 @@ export class Registration {
         this.transitionTo(RegistrationState.IDLE, 'resetting for retry');
         this.isRegistered = false;
         this.lastByeReceived = null;
+        this.lastSentRegistrationByeCSeq = 0;
+        //this.testIncrem = 1; // Reset test counter for new registration attempt
         
         this.generateSessionIds();
         
@@ -430,8 +443,14 @@ export class Registration {
             toLine: toLine,
             fromLine: fromLine
         });
-        
         logger.log('📤 [REGISTRATION] ACK created with CSeq: 3');
+        
+        // Test: Don't send ACK on first attempt (testIncrem=0), send it on second attempt
+        // if(this.testIncrem === 0){
+        //     this.testIncrem++;
+        //     logger.log('⚠️ [REGISTRATION] TEST: Skipping ACK on first attempt');
+        //     return "";
+        // }
         return ack;
     }
     
@@ -443,9 +462,14 @@ export class Registration {
      */
     parseMessage(data: string): string {
         logger.log(`📨 [REGISTRATION] Parsing message in state: ${this.registrationState}`);
-        
         if (!this.validateSession(data)) {
             return "";
+        }
+        
+        // Check for BYE FIRST before duplicate check - BYE is always a new request from server
+        if (/^BYE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
+            logger.log('📥 [REGISTRATION] BYE message detected - processing as REGISTRATION BYE');
+            return this.handleRegistrationBye(data);
         }
         
         const cseqMatch = data.match(Registration.REGEX_CSEQ);
@@ -466,16 +490,6 @@ export class Registration {
         
         if (/SIP\/2\.0 202/.test(data)) {
             return this.handle202Accepted(data);
-        }
-        
-        if (/^BYE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
-            // Only handle REGISTRATION BYE (not CONNECTION or SESSION BYE)
-            if (/Reason:\s*REGISTRATION/.test(data)) {
-                return this.handleRegistrationBye(data);
-            } else {
-                logger.log('⚠️ [REGISTRATION] BYE message without REGISTRATION reason - ignoring');
-                return "";
-            }
         }
         
         if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
@@ -570,7 +584,6 @@ export class Registration {
             connection: this.connectionTimeout,
             receive: this.receiveTimeout
         });
-        
         return ack;
     }
     

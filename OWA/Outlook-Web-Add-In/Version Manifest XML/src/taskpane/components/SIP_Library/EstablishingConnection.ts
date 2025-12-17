@@ -150,6 +150,13 @@ export class EstablishingConnection {
      */
     private transitionTo(newState: ConnectionState, reason?: string): void {
         const oldState = this.connectionState;
+        
+        // Skip if already in target state
+        if (oldState === newState) {
+            logger.log(`📤 [CONNECTION] Already in state ${newState}, skipping transition`);
+            return;
+        }
+        
         this.connectionState = newState;
         if (reason) {
             logger.log(`📤 [CONNECTION] STATE: ${oldState} -> ${newState} (${reason})`);
@@ -204,7 +211,6 @@ export class EstablishingConnection {
      */
     parseMessage(data: string): string | undefined {
         logger.log(`📨 [CONNECTION] Parsing message in state ${this.connectionState}`);
-        
         // Check for duplicate CSeq (except BYE which may be retransmitted)
         if (!/^BYE/.test(data)) {
             const cseqMatch = data.match(EstablishingConnection.REGEX_CSEQ);
