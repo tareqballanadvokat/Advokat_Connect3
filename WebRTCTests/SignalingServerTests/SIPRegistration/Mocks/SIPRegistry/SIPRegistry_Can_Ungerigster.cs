@@ -1,11 +1,14 @@
 ﻿using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SignalingServerTests.SIPRegistration.Mocks.SIPRegistry
 {
     internal class SIPRegistry_Can_Ungerigster : ISIPRegistry
     {
         List<SIPSignalingServer.Models.SIPRegistration> unregisteredRegistrations = [];
+
+        public event EventHandler<RegistrationEventArgs>? Unregistered;
 
         public void Confirm(SIPSignalingServer.Models.SIPRegistration registration)
         {

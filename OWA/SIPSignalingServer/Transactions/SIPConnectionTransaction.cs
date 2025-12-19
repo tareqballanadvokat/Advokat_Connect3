@@ -224,11 +224,8 @@ namespace SIPSignalingServer.Transactions
         {
             if (tunnel == this.SIPTunnel && (tunnel.Left == this.messageRelay || tunnel.Right == this.messageRelay))
             {
-                lock (this.isRunningLock)
-                {
-                    this.Connected = true;
-                    this.Connecting = false;
-                }
+                this.Connected = true;
+                this.Connecting = false;   
             }
         }
 

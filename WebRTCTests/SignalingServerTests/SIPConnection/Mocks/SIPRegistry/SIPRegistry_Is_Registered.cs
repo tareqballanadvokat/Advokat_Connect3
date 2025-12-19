@@ -1,10 +1,13 @@
 ﻿using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SignalingServerTests.SIPConnection.Mocks.SIPRegistry
 {
     internal class SIPRegistry_Is_Registered(ServerSideTransactionParams peerRegistrationParams) : ISIPRegistry
     {
+        public event EventHandler<RegistrationEventArgs>? Unregistered;
+
         public void Confirm(SIPSignalingServer.Models.SIPRegistration registration)
         {
             throw new NotImplementedException();

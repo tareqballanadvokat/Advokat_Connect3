@@ -1,5 +1,6 @@
 ﻿using SIPSignalingServer.Interfaces;
 using SIPSignalingServer.Models;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SignalingServerTests.SIPRegistration.Mocks.SIPRegistry
 {
@@ -7,7 +8,9 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPRegistry
     {
         public List<SIPSignalingServer.Models.SIPRegistration> AddedToRegistry = [];
         public List<SIPSignalingServer.Models.SIPRegistration> Confirmed = [];
-        public List<SIPSignalingServer.Models.SIPRegistration> Unregistered = [];
+        public List<SIPSignalingServer.Models.SIPRegistration> UnregisteredRegistrations = [];
+
+        public event EventHandler<RegistrationEventArgs>? Unregistered;
 
         public void Confirm(SIPSignalingServer.Models.SIPRegistration registration)
         {
@@ -51,7 +54,7 @@ namespace SignalingServerTests.SIPRegistration.Mocks.SIPRegistry
 
         public void Unregister(SIPSignalingServer.Models.SIPRegistration registration)
         {
-            this.Unregistered.Add(registration);
+            this.UnregisteredRegistrations.Add(registration);
         }
     }
 }

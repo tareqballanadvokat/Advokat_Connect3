@@ -11,6 +11,7 @@ using System.Text.Json;
 using Advokat.WebRTC.Library.SIP.Interfaces;
 using Advokat.WebRTC.Library.SIP.Models;
 using Advokat.WebRTC.Library.SIP.Utils;
+using Advokat.WebRTC.Library.SIP;
 
 [assembly: InternalsVisibleTo("SignalingServerTests")]
 namespace SIPSignalingServer.Transactions
@@ -21,12 +22,6 @@ namespace SIPSignalingServer.Transactions
 
         private readonly ILogger<SIPRegistrationTransaction> logger;
 
-        public override bool Running
-        {
-            get => this.Registering || this.Registered;
-            protected set => this.Registering = value;
-        }
-
         public new ISIPDialogConfig Config
         {
             get => (ISIPDialogConfig)base.Config;
@@ -34,8 +29,6 @@ namespace SIPSignalingServer.Transactions
         }
 
         public bool Registered { get; private set; }
-
-        private bool Registering { get; set; }
 
         private ISIPRegistry Registry { get; set; }
 
@@ -75,6 +68,8 @@ namespace SIPSignalingServer.Transactions
             this.InitialRequest = initialRequest;
             this.Registry = registry;
             this.Registration = new SIPRegistration(this.Params);
+
+            this.Config = new SIPDialogConfig();
         }
 
         protected async override Task StartRunning()
@@ -192,13 +187,9 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            lock (this.isRunningLock)
-            {
-                // TODO: Registry should fire an event when registration was successful or return a bool
-                this.Registry.Confirm(this.Registration);
-                this.Registered = true;
-                this.Registering = false;
-            }
+            // TODO: Registry should fire an event when registration was successful or return a bool
+            this.Registry.Confirm(this.Registration);
+            this.Registered = true;
         }
 
         private async Task BYEListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
