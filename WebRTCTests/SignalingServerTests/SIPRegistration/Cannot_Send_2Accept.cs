@@ -64,7 +64,7 @@ namespace SignalingServerTests.SIPRegistration
             await sipRegistrationTransaction.Start();
 
             // Unregister gets called twice. Should get reduced to once, but is also not a real problem
-            Assert.NotEmpty(sipRegistry.Unregistered);
+            Assert.NotEmpty(sipRegistry.UnregisteredRegistrations);
         }
 
         [Fact]

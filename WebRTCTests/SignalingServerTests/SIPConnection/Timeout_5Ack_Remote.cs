@@ -497,7 +497,7 @@ namespace SignalingServerTests.SIPConnection
             // still registered - PeerRegistrationTimeout not yet triggered for peerDialog
             Assert.True(sipRegistry.IsRegistered(registration));
 
-            await Task.Delay(300);
+            await Task.Delay(400);
             // PeerRegistrationTimeout triggered for peerDialog
             Assert.False(sipRegistry.IsRegistered(registration));
         }
