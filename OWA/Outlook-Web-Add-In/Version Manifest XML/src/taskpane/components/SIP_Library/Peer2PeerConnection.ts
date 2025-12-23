@@ -128,7 +128,7 @@ export class Peer2PeerConnection {
     private static readonly RECEIVE_TIMEOUT = 'RECEIVE_TIMEOUT';
     private static readonly TIMEOUT_ICE_GATHERING = 'ICE_GATHERING_TIMEOUT';
     private static readonly TIMEOUT_DATACHANNEL_OPEN = 'DATACHANNEL_OPEN_TIMEOUT';
-    private static readonly DEFAULT_RECEIVE_TIMEOUT = 1000;
+    private static readonly DEFAULT_RECEIVE_TIMEOUT = 1500;
     private static readonly ICE_GATHERING_TIMEOUT = 10000; // 10 seconds
     private static readonly DATACHANNEL_OPEN_TIMEOUT = 5000; // 5 seconds
     
@@ -302,6 +302,8 @@ export class Peer2PeerConnection {
     private async dispatchMessage(event: MessageEvent): Promise<void> {
         await writeMessage(event);
         
+        this.logWithPrefix(`📨 Dispatching message to ${this.messageHandlers.length} handler(s)`);
+        
         for (const handler of this.messageHandlers) {
             try {
                 await handler(event);
@@ -408,6 +410,10 @@ export class Peer2PeerConnection {
                 this.events.onFailure?.(`DataChannel error: ${err}`);
             };
             
+            this.dataChannelPeer.onclose = () => {
+                this.logWithPrefix('🔴 Offer DataChannel closed');
+            };
+
             this.setupICEHandlers(callId, sipUri, tag, toLine);
             
             const offer = await this.pc.createOffer();
