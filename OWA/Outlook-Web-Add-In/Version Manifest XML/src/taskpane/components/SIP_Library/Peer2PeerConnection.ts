@@ -128,7 +128,7 @@ export class Peer2PeerConnection {
     private static readonly RECEIVE_TIMEOUT = 'RECEIVE_TIMEOUT';
     private static readonly TIMEOUT_ICE_GATHERING = 'ICE_GATHERING_TIMEOUT';
     private static readonly TIMEOUT_DATACHANNEL_OPEN = 'DATACHANNEL_OPEN_TIMEOUT';
-    private static readonly DEFAULT_RECEIVE_TIMEOUT = 1500;
+    private static readonly DEFAULT_RECEIVE_TIMEOUT = 2000; // 2 seconds
     private static readonly ICE_GATHERING_TIMEOUT = 10000; // 10 seconds
     private static readonly DATACHANNEL_OPEN_TIMEOUT = 5000; // 5 seconds
     

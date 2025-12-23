@@ -531,7 +531,7 @@ export class Registration {
             }
             
             if (config.ReceiveTimeout && typeof config.ReceiveTimeout === 'number') {
-                this.receiveTimeout = Math.max(100, config.ReceiveTimeout);
+                this.receiveTimeout = Math.max(2000, config.ReceiveTimeout);
                 logger.log(`⏱️ [REGISTRATION] ReceiveTimeout set to ${this.receiveTimeout}ms`);
             }
             
