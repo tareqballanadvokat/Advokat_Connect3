@@ -1,168 +1,538 @@
 /**
  * SIP Client Main Controller
+ * Version: 2.1.0
  * 
- * This module provides the main initialization function for the 
- * SIP client system.
- * It orchestrates the interaction between Registration, 
- * Connection Establishment, and Peer-to-Peer connection components 
- * to provide a complete SIP communication solution.
+ * This module provides the main initialization function for the SIP client system.
+ * It orchestrates the interaction between Registration, Connection Establishment,
+ * and Peer-to-Peer connection components to provide a complete SIP communication solution.
  * 
- * The SIP client handles the complete call flow:
- * 1. WebSocket connection establishment to SIP server
- * 2. SIP registration process (REGISTER → OK → ACK)
- * 3. Connection establishment (NOTIFY4 → ACK5 → NOTIFY6)
- * 4. WebRTC SDP Exchange - OWA always creates offer (SERVICE1 → SERVICE2)
- * 5. Data channel communication between peers
+ * EVENT-DRIVEN ARCHITECTURE (Observer Pattern):
+ * Each phase (Registration, Connection, Peer2Peer) emits events via callback interfaces:
+ * - onStateChange: Internal state transitions within each phase
+ * - onSuccess: Phase completed successfully
+ * - onFailure: Phase failed with reason
+ * - onTimeout: Timeout occurred
+ * - onMessageToSend: SIP message ready to send
  * 
- * Simplified Protocol (v2.0):
- * - Removed SDP Assignment phase (NOTIFY1, ACK2, ACK3)
- * - OWA always acts as OFFERER (sends SDP Offer)
- * - Server always acts as ANSWERER (sends SDP Answer)
- * - Direct transition from NOTIFY6 to SERVICE1
+ * SipClient aggregates these events and maintains the overall SipClientState,
+ * which external observers (WebRTCConnectionManager) use to update Redux store.
+ * 
+ * Complete 3-Phase Flow:
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ Phase 1: REGISTRATION                                                   │
+ * │ ─────────────────────────────────────────────────────────────────────── │
+ * │ Client ──REGISTER→ Server                                               │
+ * │ Client ←─200 OK──── Server (with timeout config)                        │
+ * │ Client ──ACK_3────→ Server                                              │
+ * │ [Start PEER_REGISTRATION_TIMEOUT]                                       │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ *                               ↓
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ Phase 2: CONNECTION ESTABLISHMENT                                       │
+ * │ ─────────────────────────────────────────────────────────────────────── │
+ * │ Client ←─NOTIFY4──── Server                                             │
+ * │ Client ──ACK_5────→ Server                                              │
+ * │ Client ←─NOTIFY6──── Server                                             │
+ * │ [Start CONNECTION_TIMEOUT]                                              │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ *                               ↓
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ Phase 3: WEBRTC SDP EXCHANGE                                            │
+ * │ ─────────────────────────────────────────────────────────────────────── │
+ * │ Client ──SERVICE (Offer, CSeq:1)──→ Server                              │
+ * │ Client ←─SERVICE (Answer, CSeq:2)── Server                              │
+ * │ [WebRTC DataChannel established]                                        │
+ * │ Client ↔ Bidirectional Data Flow ↔ Server                               │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * Retry Strategy:
+ * ┌─────────────────────┐
+ * │ Registration Retry  │ ──> Max 3 attempts
+ * │ (Full restart)      │     Reset all phases
+ * └─────────────────────┘
+ *            ↓
+ * ┌─────────────────────┐
+ * │ Connection Retry    │ ──> Max 3 attempts
+ * │ (Within reg window) │     Keep registration
+ * └─────────────────────┘
+ *            ↓
+ * ┌─────────────────────┐
+ * │ WebRTC Retry        │ ──> Max 3 attempts (Peer2Peer)
+ * │ (Restart connection)│     Restart from Phase 2
+ * └─────────────────────┘
+ * 
+ * Timeout Coordination:
+ * PEER_REGISTRATION_TIMEOUT: Covers entire connection + WebRTC phase
+ * CONNECTION_TIMEOUT: Individual connection attempt timeout
+ * RECEIVE_TIMEOUT: WebRTC answer timeout (managed by Peer2Peer)
  * 
  * Key Features:
- * - Centralized SIP client initialization
- * - Coordinated state management across all SIP phases
- * - WebSocket message routing and handling
- * - Error handling and logging throughout the process
- * - Returns handle to all components for external control
+ * - Three-phase SIP/WebRTC orchestration
+ * - Coordinated timeout management across phases
+ * - Multi-level retry strategy (registration, connection, WebRTC)
+ * - Global BYE monitoring for graceful disconnection
+ * - Automatic reconnection with exponential backoff
+ * - Comprehensive error handling and recovery
  * 
  * @author AdvokatConnect Development Team
- * @version 2.0.0
+ * @version 2.1.0
  */
 
-import { Registration, RegistrationState } from './Registration';
-import { EstablishingConnection, ConnectionState } from './EstablishingConnection';
-import { Peer2PeerConnection } from './Peer2PeerConnection';
+import { Registration, RegistrationState, RegistrationEvents } from './Registration';
+import { EstablishingConnection, ConnectionState, ConnectionEvents } from './EstablishingConnection';
+import { Peer2PeerConnection, SdpExchangeState, Peer2PeerEvents } from './Peer2PeerConnection';
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 
-// Global variables for FROM header parsing (used across components)
-let fromUri = "";
-let fromTag = "";
+/**
+ * Generic event interface for SIP phase components
+ * Provides a consistent event callback structure across Registration, Connection, and WebRTC phases
+ * @template TState - The state enum type for the specific phase
+ * @template TTimeout - String literal type for timeout identifiers
+ */
+export interface SipPhaseEvents<TState, TTimeout extends string> {
+    onStateChange?: (state: TState) => void;
+    onSuccess?: (...args: any[]) => void;
+    onFailure?: (reason: string) => void;
+    onTimeout?: (timeoutType: TTimeout) => void;
+    onMessageToSend?: (message: string, context: string) => void;
+}
+
+/**
+ * SIP Client state machine enum
+ * Represents the overall connection lifecycle state
+ */
+export enum SipClientState {
+    DISCONNECTED = "DISCONNECTED",
+    REGISTERING = "REGISTERING",
+    CONNECTING = "CONNECTING",
+    CONNECTING_P2P = "CONNECTING_P2P",
+    CONNECTED = "CONNECTED",
+    FAILED = "FAILED",
+    FAILED_PERMANENTLY = "FAILED_PERMANENTLY"
+}
+
+/**
+ * Observer interface for SipClient state changes
+ * Implements the Observer pattern - observers subscribe to SipClient (Subject)
+ * and get notified whenever the client state changes
+ */
+export interface SipClientObserver {
+    onSipClientStateChanged(newState: SipClientState, reason: string): void;
+}
+
+const LOG_PREFIX = '[SIPCLIENT]';
+const MAX_RETRIES = 3;
+const TIMER_PEER_REGISTRATION = 'PEER_REGISTRATION_TIMEOUT';
+const TIMER_CONNECTION = 'CONNECTION_TIMEOUT';
+const CSEQ_BYE_PEER_TIMEOUT = 4;
+const CSEQ_BYE_CONNECTION_RETRY = 7;
+const CSEQ_BYE_WEBRTC_FAILURE = 8;
+const RECONNECT_DELAY_MS = 2000;
+const REGEX_BYE = /^BYE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
+const REGEX_REASON_REGISTRATION = /Reason:\s*REGISTRATION/;
+const REGEX_REASON_CONNECTION = /Reason:\s*CONNECTION/;
+const REGEX_SERVICE = /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
+const REGEX_CSEQ = /CSeq:\s*(\d+)/;
+const REGEX_CALL_ID = /^Call-ID:\s*([^\r\n]+)/m;
+const REGEX_FROM_LINE = /^From:.*$/m;
+
+/**
+ * Configuration interface for SIP client initialization
+ */
+export interface SipClientConfig {
+    sipUri: string;
+    wsUri: string;
+    maxRetries?: number;
+}
 
 /**
  * Interface defining the return type of the SIP client initialization
  */
 export interface SipClientInstance {
+    // Phase components (for direct access if needed)
     registration: Registration;
     connection: EstablishingConnection;
     peer2peer: Peer2PeerConnection;
     socket: WebSocket;
     timeoutManager: TimeoutManager;
+    
+    // Public API methods
+    getState: () => SipClientState;
+    disconnect: (targetState?: SipClientState) => void;
+    send: (message: string) => void;
+    getDataChannelStatus: () => RTCDataChannelState | 'none';
+    isHealthy: () => boolean;
+    
+    // Observer pattern methods
+    subscribe: (observer: SipClientObserver) => void;
+    unsubscribe: (observer: SipClientObserver) => void;
+}
+
+/**
+ * Helper function for standardized logging with prefix
+ */
+function logWithPrefix(message: string): void {
+    logger.log(`${LOG_PREFIX} ${message}`);
+}
+
+/**
+ * Extract Call-ID from SIP message
+ */
+function extractCallId(message: string): string {
+    const match = message.match(REGEX_CALL_ID);
+    return match ? match[1] : '';
+}
+
+/**
+ * Extract From line and swap to To line for response
+ */
+function extractAndSwapFromTo(message: string): string {
+    const fromLineMatch = message.match(REGEX_FROM_LINE);
+    const fromLine = fromLineMatch ? fromLineMatch[0] : '';
+    return fromLine.replace(/^From:/i, 'To:');
 }
 
 /**
  * Main SIP client initialization function
  * Establishes WebSocket connection and coordinates all SIP communication phases
+ * @param config - Optional configuration object
  * @returns Object containing all SIP component instances and WebSocket connection
  */
-export function initializeSipClient(): SipClientInstance {
-    const sipUri = "sip:macc@127.0.0.1:8009";
-    const wsUri = "wss://localhost:8009";
+export function initializeSipClient(config?: Partial<SipClientConfig>): SipClientInstance {
+    const sipUri = config?.sipUri || "sip:macc@127.0.0.1:8009";
+    const wsUri = config?.wsUri || "wss://localhost:8009";
+    const maxRetries = config?.maxRetries || MAX_RETRIES;
     
-    const tag = Math.random().toString(36).substring(2, 12);
-    const callId = Math.random().toString(36).substring(2, 12);
-    let cseq = 1;
-    fromUri = "";
-    fromTag = "";
-    
-    // Create centralized timeout manager
     const timeoutManager = new TimeoutManager();
     
-    // Retry counters (each phase gets 3 retries)
     let registrationRetryCount = 0;
     let connectionRetryCount = 0;
-    const MAX_RETRIES = 3;
-    
-    // Flag to track if PeerRegistrationTimeout has been started
+    let webrtcRetryCount = 0;
     let peerRegistrationTimeoutStarted = false;
+    let clientState: SipClientState = SipClientState.DISCONNECTED;
+    let isTransitioning = false; // Guard against re-entrant state transitions
     
-    // Initialize all SIP component instances
-    const registrationObj = new Registration(timeoutManager);
-    const establishingConnectionObject = new EstablishingConnection(timeoutManager);
-    const peer2PeerConnectionObject = new Peer2PeerConnection();
-    
-    // Set up callback for EstablishingConnection to query PeerRegistrationTimeout remaining time
-    establishingConnectionObject.getPeerRegistrationTimeRemaining = () => {
-        return timeoutManager.getRemainingTime('PEER_REGISTRATION_TIMEOUT');
-    };
-    
-    // Set up callback for EstablishingConnection to send messages
-    establishingConnectionObject.onSendMessage = (message: string) => {
-        socket.send(message);
-        logger.log('📤 [SIPCLIENT] Sent message from EstablishingConnection timeout handler');
-    };
-    
-    // Establish WebSocket connection with SIP protocol
-    const socket = new WebSocket(wsUri, 'sip');
+    // Observer pattern - list of observers to notify on state changes
+    const observers: SipClientObserver[] = [];
     
     /**
-     * WebSocket connection opened - start SIP registration
+     * Notify all observers of state change
      */
-    socket.onopen = () => {
-        logger.log('🔗 [SIPCLIENT] WebSocket connection established');
-        const registerMsg = registrationObj.getInitialRegistration();
-        socket.send(registerMsg);
-        logger.log('🔄 [SIPCLIENT] Sent initial REGISTER message');
-    };
-    
-    /**
-     * Main message handler - routes messages to appropriate handlers based on current state
-     */
-    socket.onmessage = async (event) => {
-        const data = await logger.blobToStringAsync(event.data);
-        logger.log('📥 [SIPCLIENT] Received message:\n' + data);
-        
-        // Phase 1: Handle Registration Process
-        if (!registrationObj.isRegistrationProcessFinished) {
-            const request = registrationObj.parseMessage(data);
-            if (request) {
-                socket.send(request);
-                logger.log('📤 [SIPCLIENT] Sent response from registration handler');
+    function notifyObservers(newState: SipClientState, reason: string): void {
+        observers.forEach(observer => {
+            try {
+                observer.onSipClientStateChanged(newState, reason);
+            } catch (error) {
+                logWithPrefix(`Error notifying observer: ${error}`);
             }
+        });
+    }
+    
+    /**
+     * Transition client state and log the change
+     * Notifies all registered observers of the state change
+     * Guards against re-entrant calls during observer notification
+     */
+    function transitionClientState(newState: SipClientState, reason: string): void {
+        // Prevent re-entrant state transitions
+        if (isTransitioning) {
+            logWithPrefix(`⚠️ Ignoring re-entrant state transition to ${newState} while transitioning`);
+            return;
+        }
+        
+        const oldState = clientState;
+        if (oldState === newState) {
+            logWithPrefix(`State already ${newState}, skipping transition`);
+            return;
+        }
+        
+        isTransitioning = true;
+        try {
+            clientState = newState;
+            logWithPrefix(`Client state: ${oldState} → ${newState} (${reason})`);
             
-            // Check if ACK_3_SENT state reached - start PeerRegistrationTimeout (EXACTLY ONCE)
-            if (registrationObj.getRegistrationState() === RegistrationState.ACK_3_SENT && !peerRegistrationTimeoutStarted) {
-                const timeoutConfig = registrationObj.getTimeoutConfiguration();
-                logger.log(`⏱️ [SIPCLIENT] ACK_3 sent - Starting PeerRegistrationTimeout (${timeoutConfig.peerRegistration}ms)`);
-                peerRegistrationTimeoutStarted = true;  // Prevent starting it multiple times
+            // Notify all observers of the state change
+            notifyObservers(newState, reason);
+        } finally {
+            isTransitioning = false;
+        }
+    }
+    
+    /**
+     * Check if registration retry is allowed
+     * Only allows retry if:
+     * - Max retries not reached
+     * - Not currently registered (registration failed or not started)
+     * - Not currently in REGISTERING state (already attempting registration)
+     * - Not in an active connection phase (must allow connection to complete/fail)
+     */
+    function canRetryRegistration(): boolean {
+        return registrationRetryCount < maxRetries && 
+               !isRegistered() && 
+               !isRegistering() && 
+               !isConnecting() && 
+               !isConnected();
+    }
+    
+
+    /**
+     * Check if connection retry is allowed
+     */
+    function canRetryConnection(): boolean {
+        return connectionRetryCount < maxRetries
+               && isRegistered() &&
+               !isConnecting() && !isConnected();
+    }
+    
+    /**
+     * Check if WebRTC retry is allowed
+     * Requires:
+     * - Not exceeded max WebRTC retry count (3)
+     * - Still in CONNECTED or CONNECTING_P2P state (connection established)
+     */
+    function canRetryWebRTC(): boolean {
+        return webrtcRetryCount < maxRetries && isConnected();
+    }
+    
+    /**
+     * Check if currently registering
+     */
+    function isRegistering(): boolean {
+        return clientState === SipClientState.REGISTERING;
+    }
+
+    /**
+     * Check if currently registered
+     */
+    function isRegistered(): boolean {
+        return registrationObj.isRegistered;
+    }
+
+    /**
+     * Check if we still have a valid connection
+     * @returns true if in CONNECTING_P2P or CONNECTED state
+     */
+    function isConnected(): boolean {
+        return clientState === SipClientState.CONNECTING_P2P ||
+               clientState === SipClientState.CONNECTED;
+    }
+    
+    /**
+     * Check if we are in the process of establishing a connection
+     * @returns true if in CONNECTING state
+     */
+    function isConnecting(): boolean {
+        return clientState === SipClientState.CONNECTING;
+    }
+    
+    /**
+     * Send message via WebSocket
+     * Checks for terminal states and socket readiness before sending
+     */
+    function sendMessage(message: string, context: string): void {
+        // Don't send if in terminal state
+        if (clientState === SipClientState.FAILED_PERMANENTLY || 
+            clientState === SipClientState.DISCONNECTED) {
+            logWithPrefix(`❌ Cannot send ${context} - in terminal state ${clientState}`);
+            return;
+        }
+        
+        const currentSocket = sipClientInstance.socket;
+        if (currentSocket && currentSocket.readyState === WebSocket.OPEN) {
+            currentSocket.send(message);
+            logWithPrefix(`📤 Sent ${context}`);
+        } else {
+            logWithPrefix(`❌ Cannot send ${context} - socket not open`);
+        }
+    }
+    
+    /**
+     * Cancel all active timers
+     */
+    function cancelAllTimers(): void {
+        timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
+        timeoutManager.cancelTimer(TIMER_CONNECTION);
+    }
+    
+    /**
+     * Send CONNECTION BYE if currently connected or connecting
+     * @param cseq - CSeq number for the BYE message
+     * @param reason - Reason for sending BYE (for logging)
+     */
+    function sendConnectionBye(cseq: number, reason: string): void {
+        if (isConnected() || isConnecting()) {
+            const connectionByeMsg = establishingConnectionObject.createConnectionBye(cseq, reason);
+            sendMessage(connectionByeMsg, `CONNECTION BYE (CSeq: ${cseq}, ${reason})`);
+        }
+    }
+    
+    /**
+     * Send REGISTRATION BYE if not in DISCONNECTED or FAILED state
+     * @param cseq - CSeq number for the BYE message
+     * @param reason - Reason for sending BYE (for logging)
+     */
+    function sendRegistrationBye(cseq: number, reason: string): void {
+        if (isRegistered()) {
+            const registrationByeMsg = registrationObj.createRegistrationBye(cseq);
+            sendMessage(registrationByeMsg, `REGISTRATION BYE (CSeq: ${cseq}, ${reason})`);
+        }
+    }
+    
+    /**
+     * Gracefully close connection with proper cleanup
+     * Sends BYE messages if needed based on current state, cancels timers, and closes socket
+     * @param reason - Reason for closing (for logging)
+     * @param targetState - Target state to transition to (DISCONNECTED or FAILED)
+     * @param closeCode - WebSocket close code (default: 1000 normal closure)
+     */
+    function closeConnection(reason: string, targetState: SipClientState = SipClientState.DISCONNECTED, closeCode: number = 1000): void {
+        logWithPrefix(`🔌 Closing connection: ${reason}`);
+
+        sendConnectionBye(CSEQ_BYE_CONNECTION_RETRY, reason);
+        sendRegistrationBye(CSEQ_BYE_WEBRTC_FAILURE, reason);
+        
+        // Cancel all timers
+        resetForNewRegistration();
+        
+        // Transition to target state before closing socket
+        transitionClientState(targetState, reason);
+        
+        // Remove event handlers to prevent race conditions
+        // This ensures the state we set above is the final state
+        const currentSocket = sipClientInstance.socket;
+        if (currentSocket) {
+            currentSocket.onerror = null;
+            currentSocket.onclose = null;
+            currentSocket.onmessage = null;
+            currentSocket.onopen = null;
+            
+            // Close socket
+            if (currentSocket.readyState === WebSocket.OPEN) {
+                currentSocket.close(closeCode, reason);
+            }
+        }
+    }
+    
+    /**
+     * Reset state for new registration attempt
+     */
+    function resetForNewRegistration(): void {
+        connectionRetryCount = 0;
+        webrtcRetryCount = 0;
+        peerRegistrationTimeoutStarted = false;
+        cancelAllTimers();
+        registrationObj.resetRegistrationState();
+        establishingConnectionObject.reset();
+        peer2PeerConnectionObject.reset();
+    }
+    
+    /**
+     * Registration event handlers
+     */
+    const registrationEvents: RegistrationEvents = {
+        onStateChange: (state: RegistrationState) => {
+            logWithPrefix(`Registration state: ${state}`);
+            if (state === RegistrationState.REGISTER_SENT && clientState !== SipClientState.REGISTERING) {
+                transitionClientState(SipClientState.REGISTERING, 'Started registration');
+            }
+        },
+        
+        onSuccess: (timeoutConfig) => {
+            logWithPrefix('✅ Registration completed successfully');
+            transitionClientState(SipClientState.CONNECTING, 'Registration complete');
+            
+            // Start PEER_REGISTRATION_TIMEOUT
+            if (!peerRegistrationTimeoutStarted) {
+                logWithPrefix(`⏱️ Starting PEER_REGISTRATION_TIMEOUT (${timeoutConfig.peerRegistration}ms)`);
+                peerRegistrationTimeoutStarted = true;
                 
-                timeoutManager.startTimer('PEER_REGISTRATION_TIMEOUT', timeoutConfig.peerRegistration, () => {
-                    logger.log('⏱️ [SIPCLIENT] PeerRegistrationTimeout expired - sending REGISTRATION BYE');
-                    const byeMessage = registrationObj.createRegistrationBye(4);
-                    socket.send(byeMessage);
-                    
-                    // Reset and retry if retries available
-                    registrationRetryCount++;
-                    peerRegistrationTimeoutStarted = false;  // Reset flag for retry
-                    if (registrationRetryCount < MAX_RETRIES) {
-                        logger.log(`🔄 [SIPCLIENT] Registration retry ${registrationRetryCount}/${MAX_RETRIES}`);
-                        const retryMsg = registrationObj.getInitialRegistration();
-                        socket.send(retryMsg);
-                    } else {
-                        logger.log('❌ [SIPCLIENT] Max registration retries reached');
-                    }
+                timeoutManager.startTimer(TIMER_PEER_REGISTRATION, timeoutConfig.peerRegistration, () => {
+                    handlePeerRegistrationTimeout();
                 });
             }
             
-            // Check if registration needs retry (timeout occurred and retry is scheduled)
-            if (registrationObj.shouldRetryRegistration()) {
-                logger.log('🔄 [SIPCLIENT] Registration retry triggered - sending new REGISTER');
+            // Initialize connection phase
+            establishingConnectionObject.updateData(
+                registrationObj.tag,
+                registrationObj.callId,
+                registrationObj.branch,
+                registrationObj.fromDisplayName,
+                registrationObj.toDisplayName,
+                timeoutConfig.connection
+            );
+            
+            // Initialize peer connection configuration
+            peer2PeerConnectionObject.updateConfiguration(
+                timeoutManager,
+                timeoutConfig.receive
+            );
+        },
+        
+        onFailure: (reason, isRetryable) => {
+            logWithPrefix(`❌ Registration failed: ${reason} (retryable: ${isRetryable})`);
+            
+            // Cancel PEER_REGISTRATION_TIMEOUT on registration failure
+            timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
+            
+            transitionClientState(SipClientState.FAILED, `Registration failure: ${reason}`);
+            
+            if (!isRetryable) {
+                logWithPrefix('❌ Registration failed permanently');
+                closeConnection('Permanent registration failure', SipClientState.FAILED_PERMANENTLY, 1000);
+                return;
+            }
+            
+            if (canRetryRegistration()) {
+                registrationRetryCount++;
+                logWithPrefix(`🔄 Retrying registration (${registrationRetryCount}/${maxRetries})`);
+                resetForNewRegistration();
                 const retryMsg = registrationObj.getInitialRegistration();
-                socket.send(retryMsg);
+                sendMessage(retryMsg, 'REGISTER (retry)');
+                transitionClientState(SipClientState.REGISTERING, 'Retry after failure');
+            } else {
+                logWithPrefix('❌ Max registration retries reached');
+                closeConnection('Max registration retries reached', SipClientState.FAILED_PERMANENTLY, 1000);
             }
+        },
+        
+        onTimeout: (timeoutType) => {
+            logWithPrefix(`⏱️ Registration timeout: ${timeoutType}`);
+            // Timeout handler will trigger onFailure
+        },
+        
+        onMessageToSend: (message, context) => {
+            sendMessage(message, context);
+        }
+    };
+    
+    /**
+     * Connection event handlers
+     */
+    const connectionEvents: ConnectionEvents = {
+        onStateChange: (state: ConnectionState) => {
+            logWithPrefix(`Connection state: ${state}`);
+        },
+        
+        onSuccess: () => {
+            logWithPrefix('✅ Connection establishment completed');
             
-            // Check if registration failed permanently
-            if (registrationObj.getRegistrationState() === RegistrationState.FAILED) {
-                logger.log('❌ [SIPCLIENT] Registration FAILED permanently');
-                logger.log(`❌ [SIPCLIENT] Error: ${registrationObj.getRegistrationError()}`);
-                socket.close();
-            }
+            // Cancel PEER_REGISTRATION_TIMEOUT as connection phase is complete
+            timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
+            logWithPrefix('⏱️ Cancelled PEER_REGISTRATION_TIMEOUT (connection complete)');
             
-            // If registration completed, update connection establishment with registration data
-            if (registrationObj.isRegistrationProcessFinished) {
-                logger.log('✅ [SIPCLIENT] Registration completed - transitioning to Connection Establishment phase');
+            transitionClientState(SipClientState.CONNECTING_P2P, 'Starting WebRTC phase');
+            connectionRetryCount = 0;
+        },
+        
+        onFailure: (reason) => {
+            logWithPrefix(`❌ Connection failed: ${reason}`);
+            
+            if (canRetryConnection()) {
+                connectionRetryCount++;
+                logWithPrefix(`🔄 Retrying connection (${connectionRetryCount}/${maxRetries})`);
+                establishingConnectionObject.reset();
+                
                 const timeoutConfig = registrationObj.getTimeoutConfiguration();
                 establishingConnectionObject.updateData(
                     registrationObj.tag,
@@ -170,72 +540,104 @@ export function initializeSipClient(): SipClientInstance {
                     registrationObj.branch,
                     registrationObj.fromDisplayName,
                     registrationObj.toDisplayName,
-                    timeoutConfig.connection  // Pass ConnectionTimeout from server
+                    timeoutConfig.connection
                 );
-            }
-        }
-        
-        // Phase 2: Handle Connection Establishment Process
-        if (registrationObj.isRegistrationProcessFinished &&
-            !establishingConnectionObject.isEstablishingConnectionProcessFinished) {
-            
-            const request = establishingConnectionObject.parseMessage(data);
-            if (request) {
-                socket.send(request);
-                logger.log('📤 [SIPCLIENT] Sent response from connection establishment handler');
-                logger.log(request);
-            }
-            
-            // Check if connection establishment completed (NOTIFY6 received)
-            if (establishingConnectionObject.getState() === ConnectionState.COMPLETE) {
-                logger.log('✅ [SIPCLIENT] Connection Establishment completed - transitioning to WebRTC phase');
-                logger.log('📤 [SIPCLIENT] OWA always creates SDP Offer - creating offer immediately');
-                establishingConnectionObject.isEstablishingConnectionProcessFinished = true;
+            } else {
+                logWithPrefix('❌ Connection retry limit reached or peer timeout expired or I received a Registration BYE so I am not registered anymore');
+                transitionClientState(SipClientState.FAILED, 'Connection retry exhausted');
                 
-                // OWA always acts as OFFERER - create and send SDP offer immediately
-                if (!peer2PeerConnectionObject.isOfferSent) {
-                    // Extract Call-ID from current message (will be in the NOTIFY6)
-                    const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
-                    const m = data.match(reCallId);
-                    const callId = m ? m[1] : '';
+                if (canRetryRegistration()) {
+                    registrationRetryCount++;
+                    logWithPrefix(`🔄 Restarting registration (${registrationRetryCount}/${maxRetries})`);
+                    resetForNewRegistration();
                     
-                    // Swap From and To from NOTIFY6 for SERVICE message
-                    const fromLineMatch = data.match(/^From:.*$/m);
-                    const fromLine = fromLineMatch ? fromLineMatch[0] : '';
-                    const toLine = fromLine.replace(/^From:/i, 'To:');
-                    
-                    logger.log('📤 [SIPCLIENT] Creating SDP Offer with Call-ID: ' + callId);
-                    logger.log('📤 [SIPCLIENT] To Line: ' + toLine);
-                    
-                    await peer2PeerConnectionObject.createAndSendOffer(
-                        socket,
-                        callId,
-                        establishingConnectionObject.sipUri,
-                        establishingConnectionObject.tag,
-                        toLine
-                    );
+                    const retryMsg = registrationObj.getInitialRegistration();
+                    sendMessage(retryMsg, 'REGISTER (after connection failure)');
+                    transitionClientState(SipClientState.REGISTERING, 'Registration restart after connection failure');
+                } else {
+                    logWithPrefix('❌ Max registration retries reached');
+                    closeConnection('Max registration retries after connection failure', SipClientState.FAILED_PERMANENTLY, 1000);
                 }
             }
+        },
+        
+        onTimeout: (timeoutType) => {
+            logWithPrefix(`⏱️ Connection timeout: ${timeoutType}`);
+            // Timeout handler will trigger onFailure
+        },
+        
+        onMessageToSend: (message, context) => {
+            sendMessage(message, context);
+        }
+    };
+    
+    /**
+     * WebRTC/Peer2Peer event handlers
+     */
+    const peer2PeerEvents: Peer2PeerEvents = {
+        onStateChange: (state: SdpExchangeState) => {
+            logWithPrefix(`WebRTC state: ${state}`);
+        },
+        
+        onSuccess: () => {
+            logWithPrefix('✅ WebRTC DataChannel established - CONNECTED');
+            transitionClientState(SipClientState.CONNECTED, 'DataChannel opened');
+            webrtcRetryCount = 0;
+        },
+        
+        onFailure: (reason) => {
+            logWithPrefix(`❌ WebRTC failed: ${reason}`);
             
-            // Check for connection phase failure
-            const connectionState = establishingConnectionObject.getState();
-            if (connectionState === ConnectionState.FAILED) {
-                const error = establishingConnectionObject.getLastError();
-                logger.log(`❌ [SIPCLIENT] Connection establishment failed: ${error}`);
+            // Case 1: Can retry WebRTC (still connected and have retries left)
+            if (canRetryWebRTC()) {
+                webrtcRetryCount++;
+                logWithPrefix(`🔄 Retrying WebRTC (attempt ${webrtcRetryCount}/${maxRetries})`);
                 
-                // Check PeerRegistrationTimeout remaining time
-                const peerTimeRemaining = timeoutManager.getRemainingTime('PEER_REGISTRATION_TIMEOUT');
-                logger.log(`⏱️ [SIPCLIENT] PeerRegistrationTimeout has ${peerTimeRemaining}ms remaining`);
+                // Only reset Peer2Peer, keep connection phase intact
+                peer2PeerConnectionObject.reset();
                 
-                if (peerTimeRemaining > 0 && connectionRetryCount < MAX_RETRIES) {
-                    // Retry connection phase
-                    connectionRetryCount++;
-                    logger.log(`🔄 [SIPCLIENT] Connection retry ${connectionRetryCount}/${MAX_RETRIES}`);
+                // Resend the offer using saved parameters
+                const lastOfferParams = peer2PeerConnectionObject.getLastOfferParams();
+                if (lastOfferParams) {
+                    const { callId, sipUri, tag, toLine } = lastOfferParams;
+                    peer2PeerConnectionObject.createOffer(callId, sipUri, tag, toLine);
+                } else {
+                    logWithPrefix('⚠️ Cannot retry WebRTC - last offer params not available');
+                    // Fallback: transition to FAILED
+                    transitionClientState(SipClientState.FAILED, 'WebRTC retry failed - no saved params');
+                }
+            } else {
+                // Case 2: Cannot retry WebRTC directly, determine retry strategy based on connection and registration state
+                
+                // Check current connection and registration status
+                const notConnectedAndNotConnecting = !isConnected() && !isConnecting();
+                const notRegistered = clientState === SipClientState.DISCONNECTED || clientState === SipClientState.FAILED;
+                
+                if (notConnectedAndNotConnecting && notRegistered) {
+                    // Not connected, not connecting, and not registered
+                    if (canRetryRegistration()) {
+                        // Can retry registration - restart from registration phase
+                        registrationRetryCount++;
+                        logWithPrefix(`🔄 Not connected/registered - restarting registration (${registrationRetryCount}/${maxRetries})`);
+                        resetForNewRegistration();
+                        
+                        const retryMsg = registrationObj.getInitialRegistration();
+                        sendMessage(retryMsg, 'REGISTER (after WebRTC failure)');
+                        transitionClientState(SipClientState.REGISTERING, 'Registration restart after WebRTC failure');
+                    } else {
+                        // Max registration retries reached - fail completely
+                        logWithPrefix(`❌ Max registration retries (${maxRetries}) reached - closing connection`);
+                        closeConnection('Max registration retries after WebRTC failure', SipClientState.FAILED_PERMANENTLY, 1000);
+                    }
+                } else if (notConnectedAndNotConnecting && !notRegistered) {
+                    // Not connected/connecting but still registered (not in DISCONNECTED/FAILED) - restart connection phase
+                    logWithPrefix('🔄 Connection lost but still registered - restarting connection phase');
+                    webrtcRetryCount = 0;
+                    connectionRetryCount = 0;
                     
-                    // Reset connection for retry
+                    peer2PeerConnectionObject.reset();
                     establishingConnectionObject.reset();
                     
-                    // Re-update with registration data (keeping same session IDs)
                     const timeoutConfig = registrationObj.getTimeoutConfiguration();
                     establishingConnectionObject.updateData(
                         registrationObj.tag,
@@ -245,145 +647,307 @@ export function initializeSipClient(): SipClientInstance {
                         registrationObj.toDisplayName,
                         timeoutConfig.connection
                     );
-                } else if (peerTimeRemaining <= 0) {
-                    // PeerRegistrationTimeout exhausted - check if we can retry registration
-                    logger.log('❌ [SIPCLIENT] PeerRegistrationTimeout exhausted');
                     
-                    if (registrationRetryCount < MAX_RETRIES) {
-                        // Can retry registration - reset connection retry count only
-                        logger.log(`🔄 [SIPCLIENT] Restarting registration (attempt ${registrationRetryCount + 1}/${MAX_RETRIES})`);
-                        registrationRetryCount++;
-                        connectionRetryCount = 0;
-                        peerRegistrationTimeoutStarted = false;  // Reset flag for new registration attempt
-                        
-                        // Cancel both timeouts
-                        timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
-                        timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
-                        
-                        // Reset EstablishingConnection for new registration attempt
-                        establishingConnectionObject.reset();
-                        
-                        // Send REGISTRATION BYE
-                        const byeMessage = registrationObj.createRegistrationBye(7);
-                        socket.send(byeMessage);
-                        
-                        // Start new registration (this will reset isRegistrationProcessFinished to false)
-                        const retryMsg = registrationObj.getInitialRegistration();
-                        socket.send(retryMsg);
-                    } else {
-                        // Max registration retries reached
-                        logger.log('❌ [SIPCLIENT] Max registration retries reached - closing socket');
-                        socket.close();
-                    }
-                } else {
-                    // Max connection retries reached
-                    logger.log('❌ [SIPCLIENT] Max connection retries reached - closing socket');
-                    socket.close();
+                    transitionClientState(SipClientState.CONNECTING, 'Retry connection after WebRTC failure');
+                } else if (isConnected()) {
+                    // Still connected - max WebRTC retries reached
+                    logWithPrefix(`❌ Max WebRTC retries (${maxRetries}) reached while connected - closing connection`);
+                    closeConnection(`SDP exchange failed after ${maxRetries} attempts`, SipClientState.FAILED_PERMANENTLY, 1000);
+                } else if (isConnecting()) {
+                    // Still connecting - do nothing, let the connection flow complete and come back to peer2peer
+                    logWithPrefix('⏳ Still establishing connection - waiting for connection phase to complete');
+                    // Connection phase will eventually complete or fail, triggering appropriate handlers
                 }
             }
+        },
+        
+        onTimeout: (timeoutType) => {
+            logWithPrefix(`⏱️ WebRTC timeout: ${timeoutType}`);
+            // Timeout handler will trigger onFailure
+        },
+        
+        onMessageToSend: (message, context) => {
+            sendMessage(message, context);
+        }
+    };
+    
+    /**
+     * Handle PEER_REGISTRATION_TIMEOUT expiry
+     */
+    function handlePeerRegistrationTimeout(): void {
+        logWithPrefix('⏱️ PEER_REGISTRATION_TIMEOUT expired');
+        
+        // Check if still connecting - if so, wait for it to finish
+        const connState = establishingConnectionObject.getState();
+        if (connState !== ConnectionState.FAILED && connState !== ConnectionState.TERMINATING) {
+            logWithPrefix('⏱️ Still in active connection state - will wait for completion');
+            return;
         }
         
-        // Phase 3: Handle WebRTC SDP Exchange (SERVICE messages)
-        // OWA always sends offer (CSeq: 1), server always sends answer (CSeq: 2)
-        if (establishingConnectionObject.isEstablishingConnectionProcessFinished) {
+        logWithPrefix('📤 Sending REGISTRATION BYE due to timeout');
+        const byeMessage = registrationObj.createRegistrationBye(CSEQ_BYE_PEER_TIMEOUT);
+        sendMessage(byeMessage, 'REGISTRATION BYE (peer timeout)');
+        
+        if (canRetryRegistration()) {
+            registrationRetryCount++;
+            logWithPrefix(`🔄 Retrying registration (${registrationRetryCount}/${maxRetries})`);
+            resetForNewRegistration();
+            const retryMsg = registrationObj.getInitialRegistration();
+            sendMessage(retryMsg, 'REGISTER (peer timeout retry)');
+            transitionClientState(SipClientState.REGISTERING, 'Retry after peer timeout');
+        } else {
+            logWithPrefix('❌ Max registration retries reached');
+            closeConnection('Max registration retries after peer timeout', SipClientState.FAILED_PERMANENTLY, 1000);
+        }
+    }
+    
+    // Initialize phase components with event callbacks
+    const registrationObj = new Registration(timeoutManager, registrationEvents);
+    const establishingConnectionObject = new EstablishingConnection(timeoutManager, connectionEvents);
+    const peer2PeerConnectionObject = new Peer2PeerConnection(peer2PeerEvents);
+    
+    /**
+     * Setup all WebSocket event handlers
+     * This function is called on initial connection and on reconnection
+     */
+    function setupSocketHandlers(ws: WebSocket): void {
+        /**
+         * WebSocket connection opened - start SIP registration
+         */
+        ws.onopen = () => {
+            logWithPrefix('🌐 WebSocket connection established');
+            transitionClientState(SipClientState.REGISTERING, 'WebSocket opened');
+            const registerMsg = registrationObj.getInitialRegistration();
+            sendMessage(registerMsg, 'initial REGISTER');
+        };
+        
+        /**
+         * Main message handler - routes messages to appropriate handlers based on current state
+         */
+        ws.onmessage = async (event) => {
+            const data = await logger.blobToStringAsync(event.data);
+            logWithPrefix('📥 Received message:\n' + data);
             
-            // Process incoming SERVICE answer from server (CSeq: 2)
-            if (peer2PeerConnectionObject.isOfferSent && /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
-                const cseqMatch = data.match(/CSeq:\s*(\d+)/);
-                const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
+            // Route BYE messages based on Reason header (always present in BYE messages)
+            const isByeMessage = REGEX_BYE.test(data);
+            if (isByeMessage) {
+                const cseqMatch = data.match(REGEX_CSEQ);
+                const incomingCSeq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
                 
-                // SERVICE CSeq: 2 is the SDP Answer from the server
-                if (cseq === 2) {
-                    logger.log('📥 [SIPCLIENT] Received SERVICE answer (CSeq: 2) - processing');
-                    await peer2PeerConnectionObject.parseIncomingAnswer(data);
+                // Check Reason header to determine BYE type
+                if (REGEX_REASON_REGISTRATION.test(data)) {
+                    // REGISTRATION BYE - route to Registration phase
+                    // Loop prevention: Check if this is a response to our REGISTRATION BYE
+                    const lastSentCSeq = registrationObj.lastSentRegistrationByeCSeq;
+                    
+                    if (lastSentCSeq > 0 && incomingCSeq > lastSentCSeq) {
+                        logWithPrefix(`✅ REGISTRATION BYE is a response (CSeq ${incomingCSeq} > ${lastSentCSeq}) - ignoring`);
+                        return;
+                    }
+                    
+                    logWithPrefix(`📥 REGISTRATION BYE received (CSeq: ${incomingCSeq}) - canceling PEER_REGISTRATION_TIMEOUT`);
+                    timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
+                    
+                    const regRequest = registrationObj.parseMessage(data);
+                    if (regRequest) {
+                        sendMessage(regRequest, 'registration BYE response');
+                    }
+                    return; // Don't process further - REGISTRATION BYE handled
+                } else if (REGEX_REASON_CONNECTION.test(data)) {
+                    // CONNECTION BYE - route to Connection phase
+                    logWithPrefix(`📥 CONNECTION BYE received (CSeq: ${incomingCSeq})`);
+                    const connRequest = establishingConnectionObject.parseMessage(data);
+                    if (connRequest) {
+                        sendMessage(connRequest, 'connection BYE response');
+                    }
+                    return; // Don't process further - CONNECTION BYE handled
                 }
             }
-        }
-    };
+            
+            // Route messages based on client state
+            switch (clientState) {
+                case SipClientState.REGISTERING:
+                    // Route to Registration phase
+                    const regRequest = registrationObj.parseMessage(data);
+                    if (regRequest) {
+                        sendMessage(regRequest, 'registration response');
+                    }
+                    break;
+                    
+                case SipClientState.CONNECTING:
+                    // Reject connection messages (including NOTIFY4) if not registered
+                    if (!isRegistered()) {
+                        logWithPrefix('⚠️ Messages in connection establishment phase rejected - not registered (after REGISTRATION BYE or timeout)');
+                        break;
+                    }
+                    
+                    // Route to Connection Establishment phase
+                    const connRequest = establishingConnectionObject.parseMessage(data);
+                    if (connRequest) {
+                        sendMessage(connRequest, 'connection response');
+                    }
+                    
+                    // Check if ready to transition to WebRTC phase
+                    if (establishingConnectionObject.getState() === ConnectionState.COMPLETE) {
+                        logWithPrefix('📤 OWA always creates SDP Offer - creating offer immediately');
+                        
+                        if (!peer2PeerConnectionObject.isOfferSent) {
+                            const callId = extractCallId(data);
+                            const toLine = extractAndSwapFromTo(data);
+                            
+                            logWithPrefix('📤 Creating SDP Offer with Call-ID: ' + callId);
+                            await peer2PeerConnectionObject.createOffer(
+                                callId,
+                                establishingConnectionObject.sipUri,
+                                establishingConnectionObject.tag,
+                                toLine
+                            );
+                        }
+                    }
+                    break;
+                    
+                case SipClientState.CONNECTING_P2P:
+                    // Route to WebRTC phase
+                    if (peer2PeerConnectionObject.isOfferSent && REGEX_SERVICE.test(data)) {
+                        const cseqMatch = data.match(REGEX_CSEQ);
+                        const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
+                        
+                        if (cseq === 2) {
+                            logWithPrefix('📥 Received SERVICE answer (CSeq: 2) - processing');
+                            await peer2PeerConnectionObject.parseIncomingAnswer(data);
+                        }
+                    }
+                    break;
+                    
+                case SipClientState.CONNECTED:
+                    // Already connected - log unexpected message
+                    logWithPrefix('⚠️ Received message in CONNECTED state - may be keep-alive or unexpected');
+                    break;
+                    
+                case SipClientState.FAILED:
+                case SipClientState.FAILED_PERMANENTLY:
+                case SipClientState.DISCONNECTED:
+                    // No action needed in these states
+                    break;
+            }
+        };
+        
+        /**
+         * WebSocket error handler
+         * Transition to FAILED_PERMANENTLY - let WebRTCConnectionManager handle reconnection
+         */
+        ws.onerror = (err) => {
+            logWithPrefix('❌ WebSocket Error: ' + err);
+            transitionClientState(SipClientState.FAILED_PERMANENTLY, 'WebSocket error');
+        };
+
+        /**
+         * WebSocket connection closed handler
+         * Let WebRTCConnectionManager handle reconnection at a higher level
+         */
+        ws.onclose = (event) => {
+            logWithPrefix('🔌 WebSocket Connection Closed');
+            logWithPrefix(`🔌 Close Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}`);
+
+            // Check if this was a deliberate close (normal closure code 1000)
+            const isDeliberateClose = event.code === 1000;
+            
+            if (isDeliberateClose) {
+                logWithPrefix('⚠️ Deliberate disconnect - no retry');
+                return;
+            }
+            
+            // Unexpected close - transition to FAILED_PERMANENTLY
+            // Let WebRTCConnectionManager handle higher-level reconnection
+            logWithPrefix('⚠️ Unexpected socket close - transitioning to FAILED_PERMANENTLY');
+            transitionClientState(SipClientState.FAILED_PERMANENTLY, 'Socket closed unexpectedly');
+        };
+    }
     
-    /**
-     * WebSocket error handler
-     * Reset everything except registrationRetryCount and retry if possible
-     */
-    socket.onerror = (err) => {
-        logger.log('❌ [SIPCLIENT] WebSocket Error: ' + err);
-        
-        // Cancel all active timers
-        timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
-        timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
-        
-        // Reset connection retry count and flags
-        connectionRetryCount = 0;
-        peerRegistrationTimeoutStarted = false;  // Reset flag
-        
-        // Check if we can retry registration
-        if (registrationRetryCount < MAX_RETRIES) {
-            logger.log(`🔄 [SIPCLIENT] WebSocket error - retrying registration (attempt ${registrationRetryCount + 1}/${MAX_RETRIES})`);
-            registrationRetryCount++;
-            
-            // Reset connection state
-            establishingConnectionObject.reset();
-            
-            // Attempt to reconnect (will trigger onopen which sends REGISTER)
-            setTimeout(() => {
-                const newSocket = new WebSocket(wsUri, 'sip');
-                // Note: In a real implementation, we'd need to replace the socket reference
-                // This is simplified - full implementation would require restructuring
-                logger.log('🔄 [SIPCLIENT] Reconnection attempted');
-            }, 1000);
-        } else {
-            logger.log('❌ [SIPCLIENT] Max registration retries reached after WebSocket error');
-        }
-    };
-    
-    /**
-     * WebSocket connection closed handler
-     * Implement automatic reconnection as long as retry limit not reached
-     */
-    socket.onclose = (event) => {
-        logger.log('🔌 [SIPCLIENT] WebSocket Connection Closed');
-        logger.log(`🔌 [SIPCLIENT] Close Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}`);
-        
-        // Cancel all active timers
-        timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
-        timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
-        
-        // Reset connection retry count and flags
-        connectionRetryCount = 0;
-        peerRegistrationTimeoutStarted = false;  // Reset flag
-        
-        // Automatic reconnection if within retry limits
-        if (registrationRetryCount < MAX_RETRIES) {
-            logger.log(`🔄 [SIPCLIENT] Auto-reconnecting (attempt ${registrationRetryCount + 1}/${MAX_RETRIES})`);
-            registrationRetryCount++;
-            
-            // Reset connection state
-            establishingConnectionObject.reset();
-            
-            // Attempt reconnection after delay
-            setTimeout(() => {
-                try {
-                    const newSocket = new WebSocket(wsUri, 'sip');
-                    // Note: In a real implementation, we'd need to properly replace socket reference
-                    // This simplified version shows the intent
-                    logger.log('🔄 [SIPCLIENT] Reconnection initiated');
-                } catch (reconnectError) {
-                    logger.log('❌ [SIPCLIENT] Reconnection failed: ' + reconnectError);
-                }
-            }, 2000);  // 2 second delay before reconnection
-        } else {
-            logger.log('❌ [SIPCLIENT] Max registration retries reached - no automatic reconnection');
-        }
-    };
-    
-    // Return all component instances for external access
-    return {
+    // Create the instance object that will be returned
+    // Initialize with new WebSocket
+    const sipClientInstance: SipClientInstance = {
+        // Phase components
         registration: registrationObj,
         connection: establishingConnectionObject,
         peer2peer: peer2PeerConnectionObject,
-        socket,
+        socket: new WebSocket(wsUri, 'sip'),
         timeoutManager,
+        
+        // Public API methods
+        /**
+         * Get current SIP client state
+         * @returns Current client state (DISCONNECTED, REGISTERING, CONNECTING, CONNECTING_P2P, CONNECTED, FAILED)
+         */
+        getState: (): SipClientState => {
+            return clientState;
+        },
+        
+        /**
+         * Gracefully disconnect - sends BYE messages if needed
+         * @param targetState - Target state after disconnect (DISCONNECTED for deliberate, FAILED for errors)
+         */
+        disconnect: (targetState: SipClientState = SipClientState.DISCONNECTED): void => {
+            logWithPrefix(`Disconnect requested (target state: ${targetState})`);
+            const reason = targetState === SipClientState.FAILED ? 'Fatal error or max retries' : 'Deliberate disconnect';
+            closeConnection(reason, targetState, 1000);
+        },
+        
+        /**
+         * Send a message via the WebSocket
+         * @param message - Message to send
+         */
+        send: (message: string): void => {
+            sendMessage(message, 'external message');
+        },
+        
+        /**
+         * Get the status of the WebRTC DataChannel
+         * @returns DataChannel state ('connecting', 'open', 'closing', 'closed') or 'none' if not established
+         */
+        getDataChannelStatus: (): RTCDataChannelState | 'none' => {
+            const dataChannel = peer2PeerConnectionObject.getActiveDataChannel();
+            return dataChannel ? dataChannel.readyState : 'none';
+        },
+        
+        /**
+         * Check if SipClient is healthy (connected with open DataChannel)
+         * @returns true if client is in CONNECTED state with open DataChannel
+         */
+        isHealthy: (): boolean => {
+            const dataChannel = peer2PeerConnectionObject.getActiveDataChannel();
+            return clientState === SipClientState.CONNECTED && dataChannel?.readyState === 'open';
+        },
+        
+        /**
+         * Subscribe an observer to receive state change notifications
+         * @param observer - Observer to register
+         */
+        subscribe: (observer: SipClientObserver): void => {
+            if (!observers.includes(observer)) {
+                observers.push(observer);
+                logWithPrefix('Observer subscribed');
+            }
+        },
+        
+        /**
+         * Unsubscribe an observer from state change notifications
+         * @param observer - Observer to unregister
+         */
+        unsubscribe: (observer: SipClientObserver): void => {
+            const index = observers.indexOf(observer);
+            if (index !== -1) {
+                observers.splice(index, 1);
+                logWithPrefix('Observer unsubscribed');
+            }
+        }
     };
+    
+    // Setup event handlers for the socket after instance is created
+    // This allows handlers to reference sipClientInstance.socket
+    setupSocketHandlers(sipClientInstance.socket);
+    
+    return sipClientInstance;
 }
 
 // Default export for convenience

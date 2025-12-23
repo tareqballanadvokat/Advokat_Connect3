@@ -7,6 +7,7 @@ import { IAuthRequest, IAuthResponse } from '../components/interfaces/IAuth';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { store } from '../../store';
 import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlice';
+import { tokenService } from './TokenService';
 import {
   createProtocolRequest,
   chunkRequest,
@@ -114,11 +115,24 @@ export class WebRTCApiService {
       const isTokenValid = selectIsTokenValid(state);
       
       if (token && isTokenValid) {
+        // Validate token expiration
+        if (tokenService.isTokenExpired(token)) {
+          console.error('❌ Token is expired or expiring soon - request may fail');
+          console.error('❌ Please refresh token before making request:', messageType);
+          tokenService.logTokenValidation(token, messageType);
+          // Continue with expired token - let server handle it and trigger refresh on 401/400
+        } else {
+          // Token is valid - log validation details in development
+          if (process.env.NODE_ENV === 'development') {
+            tokenService.logTokenValidation(token, messageType);
+          }
+        }
+        
         requestHeaders['Authorization'] = `Bearer ${token}`;
         console.log('🔑 Added Authorization header to request:', messageType);
       } else {
         console.warn('⚠️ No valid token available for authenticated request:', messageType);
-        // You might want to trigger token refresh or reject the request here
+        console.warn('⚠️ This request will likely fail with 401 Unauthorized');
       }
     }
     
@@ -252,6 +266,12 @@ export class WebRTCApiService {
       const completeResponse = reassembleChunkedResponse(pendingRequest.receivedResponseChunks, totalChunks);
       if (completeResponse) {
         console.log(`✅ Response reassembled successfully for ${pendingRequest.messageType}`);
+        console.log(`📦 Reassembled response:`, {
+          statusCode: completeResponse.statusCode,
+          headers: completeResponse.headers,
+          bodyLength: completeResponse.body?.length || 0,
+          rawBody: completeResponse.body
+        });
         // Process the complete response
         this.validateAndCompleteResponse(completeResponse, pendingRequest);
       } else {
@@ -397,35 +417,75 @@ export class WebRTCApiService {
   private validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
     const rawResponseBody = response.body || '';
     console.log(`📥 Processing single response for ${pendingRequest.messageType}`);
+    console.log(`📝 Raw response body (base64):`, rawResponseBody.substring(0, 100) + (rawResponseBody.length > 100 ? '...' : ''));
+    
+    // For binary file downloads, keep the body as base64
+    // For other responses, decode the base64 to get JSON or text
+    const isBinaryDownload = pendingRequest.messageType === 'dokument.downloadDocument';
+    const decodedBody = isBinaryDownload ? rawResponseBody : this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
+    
+    if (!isBinaryDownload) {
+      console.log(`📝 Decoded response body:`, decodedBody);
+    } else {
+      console.log(`📝 Binary download - keeping base64 encoding (length: ${decodedBody.length})`);
+    }
     
     // Check HTTP status code first
     const statusCode = response.statusCode;
-    if (statusCode >= 400) {
-      console.error(`❌ HTTP error ${statusCode} for ${pendingRequest.messageType}`);
+    const errorCode = response.errorCode; // Some responses use errorCode instead of statusCode
+    const actualStatusCode = statusCode || errorCode;
+    
+    if (actualStatusCode && actualStatusCode >= 400) {
+      console.error(`❌ HTTP error ${actualStatusCode} for ${pendingRequest.messageType}`);
+      console.error(`❌ Error response body:`, decodedBody);
+      
+      // Handle authentication/authorization errors specially
+      if (actualStatusCode === 401 || actualStatusCode === 400) {
+        console.error(`🔐 Authentication error ${actualStatusCode} - token may be expired or invalid`);
+        console.error(`🔐 Request ID: ${pendingRequest.id}`);
+        console.error(`🔐 Message type: ${pendingRequest.messageType}`);
+        
+        // Check if we have a token to validate
+        const state = store.getState();
+        const token = selectAuthToken(state);
+        if (token) {
+          console.error(`🔐 Checking token validity...`);
+          tokenService.logTokenValidation(token, pendingRequest.messageType);
+          
+          if (tokenService.isTokenExpired(token)) {
+            console.error(`🔐 Token is expired - user should re-authenticate`);
+          }
+        }
+        
+        // Fail the request with clear auth error
+        this.completeRequest(
+          pendingRequest, 
+          undefined, 
+          new Error(`Authentication failed (${actualStatusCode}): Token may be expired. Please refresh your session.`)
+        );
+        return;
+      }
       
       // For certain error codes, we want to retry (temporary errors)
       // For others, we want to fail immediately (permanent errors)
       const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
-      const permanentErrors = [400, 401, 403, 404]; // Client errors, authorization, not found
+      const permanentErrors = [403, 404, 422]; // Forbidden, not found, validation errors
       
-      if (retryableErrors.includes(statusCode)) {
-        console.log(`🔄 HTTP ${statusCode} is retryable, attempting retry for ${pendingRequest.messageType}`);
+      if (retryableErrors.includes(actualStatusCode)) {
+        console.log(`🔄 HTTP ${actualStatusCode} is retryable, attempting retry for ${pendingRequest.messageType}`);
         this.retryRequest(pendingRequest);
         return;
-      } else if (permanentErrors.includes(statusCode)) {
-        console.log(`❌ HTTP ${statusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${rawResponseBody || 'Request failed'}`));
+      } else if (permanentErrors.includes(actualStatusCode)) {
+        console.log(`❌ HTTP ${actualStatusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${actualStatusCode}: ${decodedBody || 'Request failed'}`));
         return;
       } else {
         // Unknown error code, treat as permanent
-        console.log(`❌ HTTP ${statusCode} is unknown error, failing request for ${pendingRequest.messageType}`);
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${rawResponseBody || 'Request failed'}`));
+        console.log(`❌ HTTP ${actualStatusCode} is unknown error, failing request for ${pendingRequest.messageType}`);
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${actualStatusCode}: ${decodedBody || 'Request failed'}`));
         return;
       }
     }
-    
-    // Decode base64 response body
-    const decodedBody = this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
     
     // Create response with decoded body (no checksum validation - SCTP ensures data integrity)
     const processedResponse: WebRTCApiResponse = {
@@ -772,24 +832,25 @@ export class WebRTCApiService {
   }
 
   /**
-   * Get document with content by document ID via WebRTC
-   * @param dokumentId - The ID of the document to retrieve with content
-   * @returns Promise resolving to DokumentResponse with inhalt, contentType, fileName, and fileSize
+   * Download document content (file stream as base64)
+   * @param dokumentId - The ID of the document to download
+   * @returns Promise resolving to base64 encoded file content string
    */
-  async getDocumentWithContent(dokumentId: number): Promise<DokumentResponse> {
+  async downloadDocument(dokumentId: number): Promise<string> {
     const response = await this.sendRequest(
-      'dokument.getDocumentWithContent',
+      'dokument.downloadDocument',
       'GET',
       `api/v2.0/Dokumente/${dokumentId}/download`,
       {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/octet-stream' // Expecting binary file stream
       }
     );
     
-    // Parse the document data from the response body
-    const documentData = JSON.parse(response.body || '{}');
-    return documentData as DokumentResponse;
+    // The response body is already base64-encoded (from the chunking process)
+    // The C# API returns File(stream, contentType, fileName) which sends raw bytes
+    // These bytes are base64-encoded when sent through WebRTC chunks
+    return response.body || '';
   }
 
   // ===== PERSON API METHODS =====
@@ -923,7 +984,7 @@ export class WebRTCApiService {
     const refreshRequest: IAuthRequest = {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: 'advokat.client.web'
+      client_id: 'TestClientId'
     };
 
     return this.authenticate(refreshRequest);

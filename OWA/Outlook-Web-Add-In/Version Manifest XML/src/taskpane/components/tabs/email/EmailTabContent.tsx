@@ -15,6 +15,7 @@ import { LeistungPostData } from '@components/interfaces/IService';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
+import { calculateFileSizeFromBase64 } from '@utils/fileHelpers';
 
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
@@ -180,7 +181,7 @@ const EmailTabContent: React.FC = () => {
             });
             
             // Calculate file size from base64 (approximate)
-            const fileSizeInBytes = Math.round((contentBase64.length * 3) / 4);
+            const fileSizeInBytes = calculateFileSizeFromBase64(contentBase64);
             
             // Create DokumentPostData for attachment
             const attachmentDokument: DokumentPostData = {
