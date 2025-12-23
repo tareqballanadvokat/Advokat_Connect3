@@ -78,8 +78,7 @@ import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
 import { SipPhaseEvents } from './SipClient';
-
-type MessageHandler = (event: MessageEvent) => Promise<void> | void;
+import { WebRTCDataChannelService } from '../../services/WebRTCDataChannelService';
 
 /**
  * Event callbacks for Peer2Peer WebRTC phase
@@ -99,27 +98,6 @@ export enum SdpExchangeState {
     FAILED = "FAILED"                   // SDP exchange failed
 }
 
-async function writeMessage(event: MessageEvent): Promise<void> {
-    const data = event.data;
-    let text: string;
-    
-    if (data instanceof ArrayBuffer) {
-        text = new TextDecoder("utf-8").decode(data);
-        logger.log("📨 [PEER2PEER] ArrayBuffer received: " + text);
-    } else if (data instanceof Blob) {
-        text = await data.text();
-        logger.log("📨 [PEER2PEER] Blob received: " + text);
-    } else if (typeof data === "string") {
-        logger.log("📨 [PEER2PEER] Text received: " + data);
-        text = data;
-    } else {
-        logger.log("❓ [PEER2PEER] Unknown message type: " + typeof data);
-        return;
-    }
-    
-    logger.log("📨 [PEER2PEER] DataChannel message: " + text);
-}
-
 export class Peer2PeerConnection {
     private static readonly LOG_PREFIX = '[PEER2PEER]';
     private static readonly CSEQ_OFFER = 1;
@@ -128,7 +106,7 @@ export class Peer2PeerConnection {
     private static readonly RECEIVE_TIMEOUT = 'RECEIVE_TIMEOUT';
     private static readonly TIMEOUT_ICE_GATHERING = 'ICE_GATHERING_TIMEOUT';
     private static readonly TIMEOUT_DATACHANNEL_OPEN = 'DATACHANNEL_OPEN_TIMEOUT';
-    private static readonly DEFAULT_RECEIVE_TIMEOUT = 2000; // 2 seconds
+    private static readonly DEFAULT_RECEIVE_TIMEOUT = 20000; // 5 seconds (increased for slower networks)
     private static readonly ICE_GATHERING_TIMEOUT = 10000; // 10 seconds
     private static readonly DATACHANNEL_OPEN_TIMEOUT = 5000; // 5 seconds
     
@@ -139,7 +117,6 @@ export class Peer2PeerConnection {
     private pc = new RTCPeerConnection();
     private dataChannelPeer: RTCDataChannel | undefined = undefined;
     public isOfferSent = false;
-    private messageHandlers: MessageHandler[] = [];
     private sdpExchangeState: SdpExchangeState = SdpExchangeState.IDLE;
     private lastError: string = "";
     private timeoutManager: TimeoutManager | null = null;
@@ -161,6 +138,69 @@ export class Peer2PeerConnection {
     
     constructor(events: Peer2PeerEvents) {
         this.events = events;
+        
+        // Subscribe to WebRTCDataChannelService events
+        WebRTCDataChannelService.getInstance().subscribe({
+            onDataChannelStateChanged: (state) => {
+                this.handleDataChannelStateChange(state);
+            },
+            onDataChannelError: (error) => {
+                this.handleDataChannelError(error);
+            }
+        });
+    }
+    
+    /**
+     * Handle DataChannel state changes from service
+     */
+    private handleDataChannelStateChange(state: RTCDataChannelState): void {
+        this.logWithPrefix(`📡 DataChannel state: ${state}`);
+        
+        if (state === 'open') {
+            // State guard: only process if we're in ANSWER_RECEIVED state
+            // Prevents acting on stale events from previous connection attempts
+            if (this.sdpExchangeState !== SdpExchangeState.ANSWER_RECEIVED) {
+                this.logWithPrefix(`⚠️ DataChannel opened but state is ${this.sdpExchangeState} - ignoring`);
+                return;
+            }
+            
+            // Cancel DataChannel opening timeout
+            if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN)) {
+                this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN);
+            }
+            
+            // Transition to COMPLETE state
+            this.transitionTo(SdpExchangeState.COMPLETE);
+            
+            // Clear stale offer params
+            this.lastOfferParams = null;
+            
+            // DataChannel successfully opened - WebRTC connection established
+            this.events.onSuccess?.();
+        } else if (state === 'closed') {
+            // Only log if we were in COMPLETE state (unexpected close)
+            if (this.sdpExchangeState === SdpExchangeState.COMPLETE) {
+                this.logWithPrefix('⚠️ DataChannel closed unexpectedly after connection established');
+            }
+        }
+    }
+    
+    /**
+     * Handle DataChannel errors from service
+     */
+    private handleDataChannelError(error: Event | string): void {
+        // State guard: only process if we're in an active connection attempt
+        // Ignore errors from old/stale DataChannels
+        if (this.sdpExchangeState === SdpExchangeState.IDLE || this.sdpExchangeState === SdpExchangeState.FAILED) {
+            this.logWithPrefix(`⚠️ DataChannel error in ${this.sdpExchangeState} state - ignoring`);
+            return;
+        }
+        
+        this.logWithPrefix(`❌ DataChannel error: ${error}`);
+        this.isOfferSent = false;
+        this.cancelAllTimeouts();
+        this.transitionTo(SdpExchangeState.FAILED);
+        this.events.onFailure?.(`DataChannel error: ${error}`);
     }
     
     /**
@@ -225,21 +265,14 @@ export class Peer2PeerConnection {
     
     /**
      * Setup DataChannel event handlers
+     * Registers the channel with WebRTCDataChannelService for centralized management
      */
     private setupDataChannelHandlers(channel: RTCDataChannel): void {
-        channel.onopen = () => {
-            this.logWithPrefix(`🟢 DataChannel opened: ${channel.label}`);
-        };
+        // Register the data channel with the centralized service
+        // The service will handle all event management and observer notifications
+        WebRTCDataChannelService.getInstance().setDataChannel(channel);
         
-        channel.onmessage = (event) => this.dispatchMessage(event);
-        
-        channel.onclose = () => {
-            this.logWithPrefix('🔴 DataChannel closed');
-        };
-        
-        channel.onerror = (err) => {
-            this.logWithPrefix('❌ DataChannel error: ' + err);
-        };
+        this.logWithPrefix(`📡 DataChannel registered with WebRTCDataChannelService: ${channel.label}`);
     }
     
     /**
@@ -274,43 +307,6 @@ export class Peer2PeerConnection {
                 this.startReceiveTimeout();
             }
         };
-    }
-    
-    /**
-     * Add a message handler that will be called for all incoming DataChannel messages
-     * @param handler - Function to handle incoming messages
-     */
-    addMessageHandler(handler: MessageHandler): void {
-        this.messageHandlers.push(handler);
-    }
-    
-    /**
-     * Remove a message handler
-     * @param handler - Function to remove from handlers
-     */
-    removeMessageHandler(handler: MessageHandler): void {
-        const index = this.messageHandlers.indexOf(handler);
-        if (index > -1) {
-            this.messageHandlers.splice(index, 1);
-        }
-    }
-    
-    /**
-     * Dispatch message to all registered handlers
-     * @param event - MessageEvent from DataChannel
-     */
-    private async dispatchMessage(event: MessageEvent): Promise<void> {
-        await writeMessage(event);
-        
-        this.logWithPrefix(`📨 Dispatching message to ${this.messageHandlers.length} handler(s)`);
-        
-        for (const handler of this.messageHandlers) {
-            try {
-                await handler(event);
-            } catch (error) {
-                this.logWithPrefix('❌ Error in message handler: ' + error);
-            }
-        }
     }
     
     /**
@@ -355,6 +351,9 @@ export class Peer2PeerConnection {
         this.cancelAllTimeouts();
         this.resetPeerConnection();
         
+        // Clear DataChannel from service to prevent stale events
+        WebRTCDataChannelService.getInstance().setDataChannel(null);
+        
         this.logWithPrefix('Reset complete');
     }
     
@@ -376,43 +375,10 @@ export class Peer2PeerConnection {
             this.logWithPrefix('Creating SDP Offer');
             
             this.dataChannelPeer = this.pc.createDataChannel(Peer2PeerConnection.DATA_CHANNEL_LABEL);
-            this.dataChannelPeer.onopen = () => {
-                this.logWithPrefix('🟢 DataChannel OFFER opened');
-                if (this.dataChannelPeer) {
-                    this.dataChannelPeer.send('Hello from OFFER side');
-                }
-                
-                // Cancel DataChannel opening timeout
-                if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN)) {
-                    this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN);
-                }
-                
-                // Transition to COMPLETE state
-                this.transitionTo(SdpExchangeState.COMPLETE);
-                
-                // Clear stale offer params
-                this.lastOfferParams = null;
-                
-                // DataChannel successfully opened - WebRTC connection established
-                this.events.onSuccess?.();
-            };
             
-            this.dataChannelPeer.onmessage = (event) => {
-                const text = new TextDecoder('utf-8').decode(event.data);
-                this.logWithPrefix('📨 Received on offer channel: ' + text);
-            };
-            
-            this.dataChannelPeer.onerror = (err) => {
-                this.logWithPrefix('❌ Offer DataChannel error: ' + err);
-                this.isOfferSent = false;
-                this.cancelAllTimeouts();
-                this.transitionTo(SdpExchangeState.FAILED);
-                this.events.onFailure?.(`DataChannel error: ${err}`);
-            };
-            
-            this.dataChannelPeer.onclose = () => {
-                this.logWithPrefix('🔴 Offer DataChannel closed');
-            };
+            // Register the data channel with the service
+            // Service will handle all events (onopen, onclose, onerror, onmessage)
+            this.setupDataChannelHandlers(this.dataChannelPeer);
 
             this.setupICEHandlers(callId, sipUri, tag, toLine);
             

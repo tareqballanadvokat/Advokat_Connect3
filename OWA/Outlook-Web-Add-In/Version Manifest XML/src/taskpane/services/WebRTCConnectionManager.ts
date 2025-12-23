@@ -2,6 +2,7 @@
 import { SipClientInstance, SipClientState, SipClientObserver, initializeSipClient } from '../components/SIP_Library/SipClient';
 import { webRTCApiService } from './webRTCApiService';
 import { IdleActivityMonitor } from './IdleActivityMonitor';
+import { WebRTCDataChannelService } from './WebRTCDataChannelService';
 import { store } from '../../store';
 import { 
   startAuthentication, 
@@ -441,10 +442,10 @@ export class WebRTCConnectionManager implements SipClientObserver {
           return;
         }
 
-        const dataChannel = this.sipClient.peer2peer.getActiveDataChannel();
+        // Use WebRTCDataChannelService to check if DataChannel is open
         const isFullyConnected = !!(
           this.sipClient.connection.isConnectionEstablished &&
-          dataChannel?.readyState === 'open'
+          WebRTCDataChannelService.getInstance().isOpen
         );
 
         if (isFullyConnected) {

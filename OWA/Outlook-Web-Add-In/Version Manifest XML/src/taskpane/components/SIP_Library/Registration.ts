@@ -519,19 +519,19 @@ export class Registration {
             logger.log('📋 [REGISTRATION] Server timeout config: ' + JSON.stringify(config));
             
             if (config.ConnectionTimeout && typeof config.ConnectionTimeout === 'number') {
-                this.connectionTimeout = Math.max(100, config.ConnectionTimeout);
+                this.connectionTimeout = Math.max(10000, config.ConnectionTimeout);
                 logger.log(`⏱️ [REGISTRATION] ConnectionTimeout set to ${this.connectionTimeout}ms`);
             }
             
             if (config.PeerRegistrationTimeout && typeof config.PeerRegistrationTimeout === 'number') {
-                this.peerRegistrationTimeout = Math.max(100, config.PeerRegistrationTimeout);
+                this.peerRegistrationTimeout = Math.max(10000, config.PeerRegistrationTimeout);
                 logger.log(`⏱️ [REGISTRATION] PeerRegistrationTimeout set to ${this.peerRegistrationTimeout}ms`);
             } else {
                 logger.log(`⏱️ [REGISTRATION] Server sent null/invalid PeerRegistrationTimeout, using default: ${this.peerRegistrationTimeout}ms`);
             }
             
             if (config.ReceiveTimeout && typeof config.ReceiveTimeout === 'number') {
-                this.receiveTimeout = Math.max(2000, config.ReceiveTimeout);
+                this.receiveTimeout = Math.max(10000, config.ReceiveTimeout);
                 logger.log(`⏱️ [REGISTRATION] ReceiveTimeout set to ${this.receiveTimeout}ms`);
             }
             

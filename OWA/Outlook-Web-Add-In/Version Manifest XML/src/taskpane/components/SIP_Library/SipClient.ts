@@ -373,7 +373,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
      * @param reason - Reason for sending BYE (for logging)
      */
     function sendRegistrationBye(cseq: number, reason: string): void {
-        if (isRegistered()) {
+        if (isRegistered() || isRegistering()) {
             const registrationByeMsg = registrationObj.createRegistrationBye(cseq);
             sendMessage(registrationByeMsg, `REGISTRATION BYE (CSeq: ${cseq}, ${reason})`);
         }

@@ -8,6 +8,7 @@ import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { store } from '../../store';
 import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlice';
 import { tokenService } from './TokenService';
+import { WebRTCDataChannelService } from './WebRTCDataChannelService';
 import {
   createProtocolRequest,
   chunkRequest,
@@ -150,22 +151,24 @@ export class WebRTCApiService {
 
   /**
    * Set up listener for incoming API responses via DataChannel
-   * Monitors data channel availability and registers message handlers
+   * Subscribes to WebRTCDataChannelService for centralized message handling
    */
   private setupDataChannelListener() {
-    if (!this.sipClient) return;
-    const checkDataChannel = () => {
-      const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
-      if (dataChannel && dataChannel.readyState === 'open') {
-        this.sipClient.peer2peer.addMessageHandler((event) => {
-          this.handleDataChannelMessage(event);
-        });
-      } else {
-        setTimeout(checkDataChannel, 1000);
+    console.log('[WebRTCApiService] 🎯 Setting up data channel listener');
+    
+    // Subscribe to data channel messages via the service
+    WebRTCDataChannelService.getInstance().subscribe({
+      onDataChannelMessage: (event) => {
+        console.log('[WebRTCApiService] 📥 onDataChannelMessage callback triggered');
+        this.handleDataChannelMessage(event);
+      },
+      onDataChannelStateChanged: (state) => {
+        console.log(`📡 [WebRTCApiService] DataChannel state changed: ${state}`);
+      },
+      onDataChannelError: (error) => {
+        console.error(`❌ [WebRTCApiService] DataChannel error:`, error);
       }
-    };
-
-    checkDataChannel();
+    });
   }
 
   /**
@@ -309,9 +312,8 @@ export class WebRTCApiService {
       return;
     }
 
-    const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
-    /// TODO, we need to re-establish the connection here before retrying
-    if (!dataChannel || dataChannel.readyState !== 'open') {
+    // Use WebRTCDataChannelService to check channel availability
+    if (!WebRTCDataChannelService.getInstance().isOpen) {
       console.error(`❌ Cannot retry ${pendingRequest.messageType}: DataChannel not available`);
       this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: DataChannel not available'));
       return;
@@ -333,7 +335,7 @@ export class WebRTCApiService {
         try {
           const message = JSON.stringify(chunk);
           console.log(`📤 Re-sending chunk ${chunkNumber}/${chunkingResult.totalChunks}: Size ${new TextEncoder().encode(message).length} bytes`);
-          dataChannel.send(message);
+          WebRTCDataChannelService.getInstance().send(message);
         } catch (error) {
           throw new Error(`Failed to re-send chunk ${chunkNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
@@ -541,9 +543,8 @@ export class WebRTCApiService {
         return;
       }
 
-      const dataChannel = this.sipClient.peer2peer.getActiveDataChannel();
-      
-      if (!dataChannel || dataChannel.readyState !== 'open') {
+      // Use WebRTCDataChannelService to check channel availability
+      if (!WebRTCDataChannelService.getInstance().isOpen) {
         reject(new Error('WebRTC data channel is not available'));
         return;
       }
@@ -594,7 +595,7 @@ export class WebRTCApiService {
           
           const message = JSON.stringify(chunk);
           console.log(`📤 Sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
-          dataChannel.send(message);
+          WebRTCDataChannelService.getInstance().send(message);
         }
         
         // Log pending requests content after sending
@@ -995,8 +996,7 @@ export class WebRTCApiService {
    * @returns True if data channel is open and ready for communication
    */
   isReady(): boolean {
-    const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
-    return dataChannel?.readyState === 'open' || false;
+    return WebRTCDataChannelService.getInstance().isOpen;
   }
 }
 
