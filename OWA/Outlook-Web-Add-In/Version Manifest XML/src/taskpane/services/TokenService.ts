@@ -9,7 +9,6 @@ import type { IAuthResponse } from '../components/interfaces/IAuth';
  */
 export class TokenService {
   private static readonly TOKEN_EXPIRY_BUFFER_MS = 30000; // 30 seconds
-  
   /**
    * Promise tracking an in-progress token refresh operation
    * Prevents multiple simultaneous refresh requests
@@ -213,8 +212,33 @@ export class TokenService {
     return this.refreshPromise !== null;
   }
 
+  /**
+   * Checks if an error is an authentication-related error that should trigger token refresh
+   * @param error - The error to check
+   * @returns true if error is auth-related (401, 403, or contains auth keywords)
+   */
+  isAuthenticationError(error: Error): boolean {
+    const errorMessage = error.message.toLowerCase();
+    
+    // Check for HTTP status codes
+    if (errorMessage.includes('401') || errorMessage.includes('403')) {
+      return true;
+    }
+    
+    // Check for authentication-related keywords
+    const authKeywords = [
+      'unauthorized',
+      'authentication failed',
+      'token expired',
+      'token may be expired',
+      'invalid token',
+      'token not valid'
+    ];
+    
+    return authKeywords.some(keyword => errorMessage.includes(keyword));
+  }
+
   // TODO: Add background token refresh service that monitors expiry and refreshes at 75% lifetime
-  // TODO: Implement retry logic with fresh token after auth failure
   // TODO: Implement clock skew detection and compensation
   // TODO: Add token pre-validation before critical operations
   // TODO: Implement secure token storage with encryption

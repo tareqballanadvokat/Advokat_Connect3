@@ -456,7 +456,7 @@ export class WebRTCApiService implements DataChannelObserver {
   /**
    * Validate response for single responses and complete the request
    */
-  private validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
+  private async validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
     const rawResponseBody = response.body || '';
     console.log(`📥 Processing single response for ${pendingRequest.messageType}`);
     console.log(`📝 Raw response body (base64):`, rawResponseBody.substring(0, 100) + (rawResponseBody.length > 100 ? '...' : ''));
@@ -481,29 +481,17 @@ export class WebRTCApiService implements DataChannelObserver {
       console.error(`❌ HTTP error ${actualStatusCode} for ${pendingRequest.messageType}`);
       console.error(`❌ Error response body:`, decodedBody);
       
-      // Handle authentication/authorization errors specially
+      // Handle authentication/authorization errors
+      // Note: Token is pre-validated before sending, so 401/400 indicates a server-side issue
       if (actualStatusCode === 401 || actualStatusCode === 400) {
-        console.error(`🔐 Authentication error ${actualStatusCode} - token may be expired or invalid`);
+        console.error(`🔐 Authentication error ${actualStatusCode} despite pre-validated token`);
         console.error(`🔐 Request ID: ${pendingRequest.id}`);
         console.error(`🔐 Message type: ${pendingRequest.messageType}`);
         
-        // Check if we have a token to validate
-        const state = store.getState();
-        const token = selectAuthToken(state);
-        if (token) {
-          console.error(`🔐 Checking token validity...`);
-          tokenService.logTokenValidation(token, pendingRequest.messageType);
-          
-          if (tokenService.isTokenExpired(token)) {
-            console.error(`🔐 Token is expired - user should re-authenticate`);
-          }
-        }
-        
-        // Fail the request with clear auth error
         this.completeRequest(
-          pendingRequest, 
-          undefined, 
-          new Error(`Authentication failed (${actualStatusCode}): Token may be expired. Please refresh your session.`)
+          pendingRequest,
+          undefined,
+          new Error(`Authentication failed (${actualStatusCode}): Token may have been revoked or is invalid on server.`)
         );
         return;
       }
@@ -587,6 +575,16 @@ export class WebRTCApiService implements DataChannelObserver {
       if (!WebRTCDataChannelService.getInstance().isOpen) {
         reject(new Error('WebRTC data channel is not available'));
         return;
+      }
+      
+      // For authenticated requests, ensure token is valid before sending
+      if (!messageType.includes('auth.')) {
+        const token = await tokenService.ensureValidToken();
+        if (!token) {
+          reject(new Error('No valid token available. Please authenticate.'));
+          return;
+        }
+        // Token will be added by createRequestHeaders
       }
 
       // Check if there's already a pending request of the same type
