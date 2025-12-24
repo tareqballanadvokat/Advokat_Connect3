@@ -242,6 +242,9 @@ export class WebRTCConnectionManager implements SipClientObserver {
       }
     }
     
+    // Clear DataChannel from service to prevent stale references
+    WebRTCDataChannelService.getInstance().setDataChannel(null);
+    
     this.updateConnectionState({
       reconnectAttempts: 0,
     });

@@ -106,6 +106,24 @@ export class WebRTCDataChannelService {
   }
 
   /**
+   * Unsubscribe all observers (safety net for cleanup)
+   * Use sparingly - prefer individual unsubscribe for normal flow
+   */
+  public unsubscribeAll(): void {
+    console.log(`[WebRTCDataChannelService] 🗑️ Unsubscribing all ${this.observers.size} observers`);
+    this.observers.clear();
+  }
+
+  /**
+   * Check if an observer is currently subscribed
+   * @param observer - Observer to check
+   * @returns true if observer is subscribed
+   */
+  public isSubscribed(observer: DataChannelObserver): boolean {
+    return this.observers.has(observer);
+  }
+
+  /**
    * Set the active DataChannel and attach event handlers
    * @param channel - RTCDataChannel to manage
    */
@@ -324,7 +342,7 @@ export class WebRTCDataChannelService {
   public reset(): void {
     console.log('[WebRTCDataChannelService] 🔄 Resetting service');
     this.cleanupDataChannel();
-    this.observers.clear();
+    this.unsubscribeAll();
   }
 
   /**

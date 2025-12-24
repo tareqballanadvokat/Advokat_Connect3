@@ -8,7 +8,7 @@ import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { store } from '../../store';
 import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlice';
 import { tokenService } from './TokenService';
-import { WebRTCDataChannelService } from './WebRTCDataChannelService';
+import { WebRTCDataChannelService, DataChannelObserver } from './WebRTCDataChannelService';
 import {
   createProtocolRequest,
   chunkRequest,
@@ -25,7 +25,7 @@ import {
  * Leverages existing SIP_Library for WebRTC connection management
  * Relies on SCTP for reliable delivery (built into WebRTC DataChannels)
  */
-export class WebRTCApiService {
+export class WebRTCApiService implements DataChannelObserver {
   private sipClient: SipClientInstance | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map();
 
@@ -145,6 +145,9 @@ export class WebRTCApiService {
    * @param sipClient - The initialized SIP client from SIP_Library
    */
   initialize(sipClient: SipClientInstance) {
+    // Clean up previous state first (idempotent)
+    this.cleanup();
+    
     this.sipClient = sipClient;
     this.setupDataChannelListener();
   }
@@ -156,19 +159,56 @@ export class WebRTCApiService {
   private setupDataChannelListener() {
     console.log('[WebRTCApiService] 🎯 Setting up data channel listener');
     
-    // Subscribe to data channel messages via the service
-    WebRTCDataChannelService.getInstance().subscribe({
-      onDataChannelMessage: (event) => {
-        console.log('[WebRTCApiService] 📥 onDataChannelMessage callback triggered');
-        this.handleDataChannelMessage(event);
-      },
-      onDataChannelStateChanged: (state) => {
-        console.log(`📡 [WebRTCApiService] DataChannel state changed: ${state}`);
-      },
-      onDataChannelError: (error) => {
-        console.error(`❌ [WebRTCApiService] DataChannel error:`, error);
-      }
-    });
+    const service = WebRTCDataChannelService.getInstance();
+    if (service.isSubscribed(this)) {
+      console.log('[WebRTCApiService] Already subscribed, skipping');
+      return;
+    }
+    
+    // Subscribe this service as observer
+    service.subscribe(this);
+  }
+
+  /**
+   * DataChannelObserver callback - called when DataChannel receives a message
+   */
+  onDataChannelMessage(event: MessageEvent): void {
+    console.log('[WebRTCApiService] 📥 onDataChannelMessage callback triggered');
+    this.handleDataChannelMessage(event);
+  }
+
+  /**
+   * DataChannelObserver callback - called when DataChannel state changes
+   */
+  onDataChannelStateChanged(state: RTCDataChannelState): void {
+    console.log(`📡 [WebRTCApiService] DataChannel state changed: ${state}`);
+  }
+
+  /**
+   * DataChannelObserver callback - called when DataChannel error occurs
+   */
+  onDataChannelError(error: Event | string): void {
+    console.error(`❌ [WebRTCApiService] DataChannel error:`, error);
+  }
+
+  /**
+   * Cleanup service resources
+   * Unsubscribes from DataChannel and clears references
+   */
+  cleanup(): void {
+    console.log('[WebRTCApiService] 🧹 Cleaning up service');
+    
+    // Unsubscribe from DataChannel events
+    const service = WebRTCDataChannelService.getInstance();
+    if (service.isSubscribed(this)) {
+      service.unsubscribe(this);
+    }
+    
+    // Clear SIP client reference
+    this.sipClient = null;
+    
+    // Note: pendingRequests are kept for ongoing requests to complete
+    console.log('[WebRTCApiService] ✅ Cleanup complete');
   }
 
   /**
