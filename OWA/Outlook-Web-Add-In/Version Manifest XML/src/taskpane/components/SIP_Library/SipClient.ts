@@ -167,6 +167,7 @@ export interface SipClientInstance {
     // Observer pattern methods
     subscribe: (observer: SipClientObserver) => void;
     unsubscribe: (observer: SipClientObserver) => void;
+    isSubscribed: (observer: SipClientObserver) => boolean;
 }
 
 /**
@@ -940,6 +941,15 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                 observers.splice(index, 1);
                 logWithPrefix('Observer unsubscribed');
             }
+        },
+        
+        /**
+         * Check if an observer is currently subscribed
+         * @param observer - Observer to check
+         * @returns true if observer is subscribed
+         */
+        isSubscribed: (observer: SipClientObserver): boolean => {
+            return observers.includes(observer);
         }
     };
     
