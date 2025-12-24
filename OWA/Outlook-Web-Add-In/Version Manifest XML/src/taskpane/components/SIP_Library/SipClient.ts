@@ -150,10 +150,6 @@ export interface SipClientConfig {
  * Interface defining the return type of the SIP client initialization
  */
 export interface SipClientInstance {
-    // Phase components (for direct access if needed)
-    registration: Registration;
-    connection: EstablishingConnection;
-    peer2peer: Peer2PeerConnection;
     socket: WebSocket;
     timeoutManager: TimeoutManager;
     
@@ -868,10 +864,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
     // Create the instance object that will be returned
     // Initialize with new WebSocket
     const sipClientInstance: SipClientInstance = {
-        // Phase components
-        registration: registrationObj,
-        connection: establishingConnectionObject,
-        peer2peer: peer2PeerConnectionObject,
+        // Internal components (not exposed)
         socket: new WebSocket(wsUri, 'sip'),
         timeoutManager,
         

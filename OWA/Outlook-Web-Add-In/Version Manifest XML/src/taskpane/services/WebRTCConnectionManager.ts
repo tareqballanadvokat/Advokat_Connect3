@@ -475,9 +475,10 @@ export class WebRTCConnectionManager implements SipClientObserver {
           return;
         }
 
-        // Use WebRTCDataChannelService to check if DataChannel is open
+        // Check if SipClient is in CONNECTED or CONNECTING_P2P state AND DataChannel is open
+        const sipState = this.sipClient.getState();
         const isFullyConnected = !!(
-          this.sipClient.connection.isConnectionEstablished &&
+          (sipState === SipClientState.CONNECTED || sipState === SipClientState.CONNECTING_P2P) &&
           WebRTCDataChannelService.getInstance().isOpen
         );
 
