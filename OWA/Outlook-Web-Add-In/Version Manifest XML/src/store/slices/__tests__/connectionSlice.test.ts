@@ -12,7 +12,7 @@ import connectionReducer, {
   resetConnection,
   setIdle,
   updateLastActivity,
-  setIdleDisconnected,
+  setDisconnectedDueToIdleAt,
   setAutoReconnectPending,
   sipClientStateChanged,
   selectConnectionState,
@@ -405,12 +405,12 @@ describe('connectionSlice', () => {
     });
   });
 
-  describe('setIdleDisconnected', () => {
+  describe('setDisconnectedDueToIdleAt', () => {
     it('should set idleDisconnectedAt timestamp and enable auto-reconnect', () => {
       const timestamp = new Date().toISOString();
       const state = connectionReducer(
         initialState,
-        setIdleDisconnected(timestamp)
+        setDisconnectedDueToIdleAt(timestamp)
       );
 
       expect(state.idleDisconnectedAt).toBe(timestamp);
@@ -424,7 +424,7 @@ describe('connectionSlice', () => {
         autoReconnectPending: true,
       };
 
-      const state = connectionReducer(stateWithIdle, setIdleDisconnected(undefined));
+      const state = connectionReducer(stateWithIdle, setDisconnectedDueToIdleAt(undefined));
 
       expect(state.idleDisconnectedAt).toBeUndefined();
       expect(state.autoReconnectPending).toBe(true); // Not cleared by undefined
@@ -766,7 +766,7 @@ describe('connectionSlice', () => {
 
       // Disconnect due to idle
       const idleTimestamp = new Date().toISOString();
-      state = connectionReducer(state, setIdleDisconnected(idleTimestamp));
+      state = connectionReducer(state, setDisconnectedDueToIdleAt(idleTimestamp));
       state = connectionReducer(state, sipClientStateChanged(SipClientState.DISCONNECTED));
       
       expect(state.sipClientState).toBe(SipClientState.DISCONNECTED);

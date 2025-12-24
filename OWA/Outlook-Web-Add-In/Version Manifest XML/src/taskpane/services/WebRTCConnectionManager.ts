@@ -16,7 +16,7 @@ import {
   ConnectionState,
   setIdle,
   updateLastActivity,
-  setIdleDisconnected,
+  setDisconnectedDueToIdleAt,
   setAutoReconnectPending,
   sipClientStateChanged,
   selectIsReady,
@@ -69,10 +69,11 @@ export class WebRTCConnectionManager implements SipClientObserver {
   
   // Timers
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private waitForConnectionTimer: NodeJS.Timeout | null = null;
   
   // Idle monitoring
   private idleMonitor: IdleActivityMonitor | null = null;
-  private wasIdleDisconnected: boolean = false;
+  private disconnectedDueToIdle: boolean = false;
   
   // Internal flags
   private isInitialized = false;
@@ -455,19 +456,21 @@ export class WebRTCConnectionManager implements SipClientObserver {
       const checkInterval = 500;
       let elapsedTime = 0;
 
-      const checkConnection = () => {
+      // Use setInterval instead of recursive setTimeout
+      this.waitForConnectionTimer = setInterval(() => {
         if (this.isDestroyed) {
+          this.clearWaitForConnectionTimer();
           reject(new Error('Connection manager destroyed'));
           return;
         }
 
         if (elapsedTime >= maxWaitTime) {
+          this.clearWaitForConnectionTimer();
           reject(new Error('Connection timeout'));
           return;
         }
 
         if (!this.sipClient) {
-          setTimeout(checkConnection, checkInterval);
           elapsedTime += checkInterval;
           return;
         }
@@ -479,14 +482,12 @@ export class WebRTCConnectionManager implements SipClientObserver {
         );
 
         if (isFullyConnected) {
+          this.clearWaitForConnectionTimer();
           resolve();
         } else {
-          setTimeout(checkConnection, checkInterval);
           elapsedTime += checkInterval;
         }
-      };
-
-      checkConnection();
+      }, checkInterval);
     });
   }
 
@@ -562,8 +563,8 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
     // Mark as idle and track when disconnected
     store.dispatch(setIdle(true));
-    store.dispatch(setIdleDisconnected(new Date().toISOString()));
-    this.wasIdleDisconnected = true;
+    store.dispatch(setDisconnectedDueToIdleAt(new Date().toISOString()));
+    this.disconnectedDueToIdle = true;
 
     // Update status before disconnecting
     this.updateConnectionState({ connectionStatus: 'Disconnected due to inactivity (5 min idle)' });
@@ -572,8 +573,8 @@ export class WebRTCConnectionManager implements SipClientObserver {
     this.disconnect().catch(error => {
       console.error('[ConnectionManager] Error during idle disconnect:', error);
       // Clear idle flag on error to maintain consistent state
-      this.wasIdleDisconnected = false;
-      store.dispatch(setIdleDisconnected(undefined));
+      this.disconnectedDueToIdle = false;
+      store.dispatch(setDisconnectedDueToIdleAt(undefined));
     });
   }
 
@@ -588,7 +589,12 @@ export class WebRTCConnectionManager implements SipClientObserver {
     store.dispatch(setIdle(false));
 
     // Check if we should reconnect
-    if (this.wasIdleDisconnected) {
+    if (this.disconnectedDueToIdle) {
+      // Clear flag immediately to prevent race conditions
+      this.disconnectedDueToIdle = false;
+      store.dispatch(setDisconnectedDueToIdleAt(undefined));
+      store.dispatch(setAutoReconnectPending(false));
+      
       if (this.config.reconnectOnActivity) {
         // Don't start reconnect if already reconnecting or connecting
         const state = selectConnectionState(store.getState());
@@ -610,11 +616,6 @@ export class WebRTCConnectionManager implements SipClientObserver {
           console.error('[ConnectionManager] Error during post-idle reconnect:', error);
         });
       }
-      
-      // Always clear idle disconnected state, regardless of reconnect setting
-      this.wasIdleDisconnected = false;
-      store.dispatch(setIdleDisconnected(undefined));
-      store.dispatch(setAutoReconnectPending(false));
     }
   }
 
@@ -625,8 +626,16 @@ export class WebRTCConnectionManager implements SipClientObserver {
     }
   }
 
+  private clearWaitForConnectionTimer(): void {
+    if (this.waitForConnectionTimer) {
+      clearInterval(this.waitForConnectionTimer);
+      this.waitForConnectionTimer = null;
+    }
+  }
+
   private clearAllTimers(): void {
     this.clearReconnectTimer();
+    this.clearWaitForConnectionTimer();
   }
 
   private updateConnectionState(updates: Partial<ConnectionState>): void {
@@ -639,10 +648,11 @@ let connectionManagerInstance: WebRTCConnectionManager | null = null;
 
 /**
  * Get singleton WebRTC Connection Manager instance
+ * Uses default configuration - config is internal to the singleton
  */
-export const getWebRTCConnectionManager = (config?: ConnectionManagerConfig): WebRTCConnectionManager => {
+export const getWebRTCConnectionManager = (): WebRTCConnectionManager => {
   if (!connectionManagerInstance) {
-    connectionManagerInstance = new WebRTCConnectionManager(config);
+    connectionManagerInstance = new WebRTCConnectionManager();
   }
   return connectionManagerInstance;
 };
