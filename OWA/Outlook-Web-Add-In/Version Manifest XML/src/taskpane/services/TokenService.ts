@@ -1,5 +1,7 @@
 import { store } from '../../store';
-import { selectAuthToken } from '../../store/slices/authSlice';
+import { selectAuthToken, selectRefreshToken, authenticationSuccess, startAuthentication, authenticationFailure } from '../../store/slices/authSlice';
+import { webRTCApiService } from './webRTCApiService';
+import type { IAuthResponse } from '../components/interfaces/IAuth';
 
 /**
  * Token Service for JWT token validation and management
@@ -98,7 +100,79 @@ export class TokenService {
     return this.isTokenExpired(token);
   }
 
-  // TODO: Implement automatic token refresh
+  /**
+   * Automatically refreshes the authentication token using the refresh token
+   * Updates Redux store with new token on success
+   * @returns Promise<boolean> - true if refresh was successful, false otherwise
+   * @throws Error if no refresh token is available
+   */
+  async refreshToken(): Promise<boolean> {
+    console.log('🔄 TokenService: Initiating token refresh...');
+    
+    const state = store.getState();
+    const refreshToken = selectRefreshToken(state);
+    
+    if (!refreshToken) {
+      const error = 'No refresh token available. User must re-authenticate.';
+      console.error('❌ TokenService:', error);
+      throw new Error(error);
+    }
+
+    try {
+      // Dispatch authentication start
+      store.dispatch(startAuthentication());
+      
+      // Call the WebRTC API service to refresh the token
+      const authResponse: IAuthResponse = await webRTCApiService.refreshToken(refreshToken);
+      
+      // Update Redux store with new tokens
+      store.dispatch(authenticationSuccess(authResponse));
+      
+      console.log('✅ TokenService: Token refresh successful');
+      console.log(`  New token expires in: ${authResponse.expires_in}s`);
+      console.log(`  Refresh token expires in: ${authResponse.refresh_token_lifetime}s`);
+      
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during token refresh';
+      console.error('❌ TokenService: Token refresh failed:', errorMessage);
+      
+      // Dispatch authentication failure
+      store.dispatch(authenticationFailure(errorMessage));
+      
+      return false;
+    }
+  }
+
+  /**
+   * Checks if token needs refresh and refreshes it automatically
+   * @returns Promise<string | null> - Returns fresh token or null if refresh failed
+   */
+  async ensureValidToken(): Promise<string | null> {
+    const currentToken = this.getCurrentToken();
+    
+    // No token at all - user needs to authenticate
+    if (!currentToken) {
+      console.warn('⚠️ TokenService: No token available');
+      return null;
+    }
+
+    // Token is still valid
+    if (!this.isTokenExpired(currentToken)) {
+      return currentToken;
+    }
+
+    // Token is expired, try to refresh
+    console.log('🔄 TokenService: Token expired, attempting refresh...');
+    const refreshSuccess = await this.refreshToken();
+    
+    if (refreshSuccess) {
+      return this.getCurrentToken();
+    }
+    
+    return null;
+  }
+
   // TODO: Add background token refresh service that monitors expiry and refreshes at 75% lifetime
   // TODO: Implement retry logic with fresh token after auth failure
   // TODO: Add token refresh queue to prevent multiple simultaneous refresh requests
