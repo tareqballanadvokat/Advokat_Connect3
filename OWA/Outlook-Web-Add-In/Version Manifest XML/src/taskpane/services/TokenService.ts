@@ -9,6 +9,12 @@ import type { IAuthResponse } from '../components/interfaces/IAuth';
  */
 export class TokenService {
   private static readonly TOKEN_EXPIRY_BUFFER_MS = 30000; // 30 seconds
+  
+  /**
+   * Promise tracking an in-progress token refresh operation
+   * Prevents multiple simultaneous refresh requests
+   */
+  private refreshPromise: Promise<boolean> | null = null;
 
   /**
    * Validates if a JWT token is expired or about to expire
@@ -103,12 +109,38 @@ export class TokenService {
   /**
    * Automatically refreshes the authentication token using the refresh token
    * Updates Redux store with new token on success
+   * Implements queuing to prevent multiple simultaneous refresh requests
    * @returns Promise<boolean> - true if refresh was successful, false otherwise
    * @throws Error if no refresh token is available
    */
   async refreshToken(): Promise<boolean> {
+    // If a refresh is already in progress, return the existing promise
+    if (this.refreshPromise) {
+      console.log('🔄 TokenService: Token refresh already in progress, joining queue...');
+      return this.refreshPromise;
+    }
+
     console.log('🔄 TokenService: Initiating token refresh...');
     
+    // Create new refresh promise
+    this.refreshPromise = this.performTokenRefresh();
+    
+    try {
+      const result = await this.refreshPromise;
+      return result;
+    } finally {
+      // Clear the promise when done (success or failure)
+      this.refreshPromise = null;
+    }
+  }
+
+  /**
+   * Internal method that performs the actual token refresh operation
+   * Separated from refreshToken() to enable proper queuing
+   * @returns Promise<boolean> - true if refresh was successful, false otherwise
+   * @private
+   */
+  private async performTokenRefresh(): Promise<boolean> {
     const state = store.getState();
     const refreshToken = selectRefreshToken(state);
     
@@ -173,9 +205,16 @@ export class TokenService {
     return null;
   }
 
+  /**
+   * Checks if a token refresh is currently in progress
+   * @returns true if refresh is in progress, false otherwise
+   */
+  isRefreshInProgress(): boolean {
+    return this.refreshPromise !== null;
+  }
+
   // TODO: Add background token refresh service that monitors expiry and refreshes at 75% lifetime
   // TODO: Implement retry logic with fresh token after auth failure
-  // TODO: Add token refresh queue to prevent multiple simultaneous refresh requests
   // TODO: Implement clock skew detection and compensation
   // TODO: Add token pre-validation before critical operations
   // TODO: Implement secure token storage with encryption
