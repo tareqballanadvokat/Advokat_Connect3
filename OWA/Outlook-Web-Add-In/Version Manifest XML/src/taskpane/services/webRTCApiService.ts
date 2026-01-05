@@ -104,37 +104,24 @@ export class WebRTCApiService implements DataChannelObserver {
    * Create headers for WebRTC requests with automatic authorization
    * @param baseHeaders - Base headers to include
    * @param messageType - Message type to determine if authorization is needed
+   * @param token - Decrypted authentication token (optional, for authenticated requests)
    * @returns Headers object with authorization if needed
    */
-  private createRequestHeaders(baseHeaders: Record<string, string>, messageType: string): Record<string, string> {
+  private createRequestHeaders(baseHeaders: Record<string, string>, messageType: string, token?: string | null): Record<string, string> {
     const requestHeaders = { ...baseHeaders };
     
     // Add Authorization header for all non-authentication requests
-    if (!messageType.includes('auth.')) {
-      const state = store.getState();
-      const token = selectAuthToken(state);
-      const isTokenValid = selectIsTokenValid(state);
-      
-      if (token && isTokenValid) {
-        // Validate token expiration
-        if (tokenService.isTokenExpired(token)) {
-          console.error('❌ Token is expired or expiring soon - request may fail');
-          console.error('❌ Please refresh token before making request:', messageType);
-          tokenService.logTokenValidation(token, messageType);
-          // Continue with expired token - let server handle it and trigger refresh on 401/400
-        } else {
-          // Token is valid - log validation details in development
-          if (process.env.NODE_ENV === 'development') {
-            tokenService.logTokenValidation(token, messageType);
-          }
-        }
-        
-        requestHeaders['Authorization'] = `Bearer ${token}`;
-        console.log('🔑 Added Authorization header to request:', messageType);
-      } else {
-        console.warn('⚠️ No valid token available for authenticated request:', messageType);
-        console.warn('⚠️ This request will likely fail with 401 Unauthorized');
+    if (!messageType.includes('auth.') && token) {
+      // Log token validation details in development
+      if (process.env.NODE_ENV === 'development') {
+        tokenService.logTokenValidation(token, messageType);
       }
+      
+      requestHeaders['Authorization'] = `Bearer ${token}`;
+      console.log('🔑 Added Authorization header to request:', messageType);
+    } else if (!messageType.includes('auth.') && !token) {
+      console.warn('⚠️ No valid token available for authenticated request:', messageType);
+      console.warn('⚠️ This request will likely fail with 401 Unauthorized');
     }
     
     return requestHeaders;
@@ -578,13 +565,14 @@ export class WebRTCApiService implements DataChannelObserver {
       }
       
       // For authenticated requests, ensure token is valid before sending
+      let validToken: string | null = null;
       if (!messageType.includes('auth.')) {
-        const token = await tokenService.ensureValidToken();
-        if (!token) {
+        validToken = await tokenService.ensureValidToken();
+        if (!validToken) {
           reject(new Error('No valid token available. Please authenticate.'));
           return;
         }
-        // Token will be added by createRequestHeaders
+        // Token will be passed to createRequestHeaders
       }
 
       // Check if there's already a pending request of the same type
@@ -600,8 +588,8 @@ export class WebRTCApiService implements DataChannelObserver {
         }
       }
 
-      // Create headers with automatic authorization
-      const requestHeaders = this.createRequestHeaders(headers, messageType);
+      // Create headers with automatic authorization (pass decrypted token)
+      const requestHeaders = this.createRequestHeaders(headers, messageType, validToken);
       // Create full protocol request with messageType
       const protocolRequest = createProtocolRequest(method, url, requestHeaders, body, messageType);
       console.log('📝 Created initial protocol request (before chunking):', protocolRequest);

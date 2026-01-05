@@ -1,6 +1,7 @@
 // WebRTC Connection Manager - Robust connection management with auto-recovery
 import { SipClientInstance, SipClientState, SipClientObserver, initializeSipClient } from '../components/SIP_Library/SipClient';
 import { webRTCApiService } from './webRTCApiService';
+import { tokenService } from './TokenService';
 import { IdleActivityMonitor } from './IdleActivityMonitor';
 import { WebRTCDataChannelService } from './WebRTCDataChannelService';
 import { store } from '../../store';
@@ -389,12 +390,15 @@ export class WebRTCConnectionManager implements SipClientObserver {
       // Send authentication request via WebRTC
       const authResponse = await webRTCApiService.authenticate(authRequest);
       
-      // Update Redux store with authentication success
-      store.dispatch(authenticationSuccess(authResponse));
+      // Encrypt tokens before storing in Redux
+      const encryptedAuthResponse = await tokenService.encryptAuthResponse(authResponse);
+      
+      // Update Redux store with encrypted authentication tokens
+      store.dispatch(authenticationSuccess(encryptedAuthResponse));
       
       // Authentication state is managed by authSlice
       
-      console.log('✅ Authentication successful');
+      console.log('✅ Authentication successful (tokens encrypted)');
       
     } catch (error) {
       console.error('❌ Authentication failed:', error);
