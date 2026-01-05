@@ -177,6 +177,7 @@ export class TokenService {
 
   /**
    * Checks if token needs refresh and refreshes it automatically
+   * Prevents race conditions by checking for in-progress refresh
    * @returns Promise<string | null> - Returns fresh token or null if refresh failed
    */
   async ensureValidToken(): Promise<string | null> {
@@ -191,6 +192,13 @@ export class TokenService {
     // Token is still valid
     if (!this.isTokenExpired(currentToken)) {
       return currentToken;
+    }
+
+    // If refresh is already in progress, wait for it
+    if (this.isRefreshInProgress()) {
+      console.log('🔄 TokenService: Token expired, refresh already in progress, waiting...');
+      await this.refreshToken(); // This will join the existing refresh
+      return this.getCurrentToken();
     }
 
     // Token is expired, try to refresh

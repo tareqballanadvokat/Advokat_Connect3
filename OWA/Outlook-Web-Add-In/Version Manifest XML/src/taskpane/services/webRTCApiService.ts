@@ -691,10 +691,7 @@ export class WebRTCApiService implements DataChannelObserver {
   }
 
   /**
-   * Get favorite Akten (Cases) via WebRTC
-   * @param query - Search parameters with NurFavoriten=true
-  /**
-   * Get favorite Akten with filtering options
+   * Get favorite Akten with filtering options via WebRTC
    * @param query - Filter parameters for Akten search
    * @returns Promise resolving to Akten list matching the criteria
    */
