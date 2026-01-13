@@ -106,8 +106,8 @@ export class Peer2PeerConnection {
     private static readonly RECEIVE_TIMEOUT = 'RECEIVE_TIMEOUT';
     private static readonly TIMEOUT_ICE_GATHERING = 'ICE_GATHERING_TIMEOUT';
     private static readonly TIMEOUT_DATACHANNEL_OPEN = 'DATACHANNEL_OPEN_TIMEOUT';
-    private static readonly DEFAULT_RECEIVE_TIMEOUT = 20000; // 5 seconds (increased for slower networks)
-    private static readonly ICE_GATHERING_TIMEOUT = 10000; // 10 seconds
+    private static readonly DEFAULT_RECEIVE_TIMEOUT = 20000; // 20 seconds (increased for slower networks)
+    private static readonly ICE_GATHERING_TIMEOUT = 5000; // 5 seconds (reduced, will send with partial candidates)
     private static readonly DATACHANNEL_OPEN_TIMEOUT = 5000; // 5 seconds
     
     private static readonly REGEX_SERVICE_ANSWER = /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
@@ -123,7 +123,7 @@ export class Peer2PeerConnection {
         iceTransportPolicy: "all"
     };
 
-    private pc = new RTCPeerConnection(Peer2PeerConnection.RTC_CONFIG);
+    private pc = new RTCPeerConnection();
 
     private dataChannelPeer: RTCDataChannel | undefined = undefined;
     public isOfferSent = false;
@@ -330,38 +330,84 @@ export class Peer2PeerConnection {
      * Setup ICE event handlers for peer connection
      */
     private setupICEHandlers(callId: string, sipUri: string, tag: string, toLine: string): void {
+        let candidateCount = 0;
+        let hasRelayCandidates = false;
+        
         this.pc.onicecandidate = (evt) => {
             if (evt.candidate) {
-                this.logWithPrefix('📤 ICE candidate (offer): ' + JSON.stringify(evt.candidate));
+                candidateCount++;
+                if (evt.candidate.candidate.includes('typ relay')) {
+                    hasRelayCandidates = true;
+                }
+                this.logWithPrefix(`📤 ICE candidate (offer) #${candidateCount}: ${JSON.stringify(evt.candidate)}`);
+            } else {
+                // null candidate signals end of gathering
+                this.logWithPrefix('📤 ICE candidate gathering complete (null candidate received)');
             }
         };
         
         this.pc.onicegatheringstatechange = () => {
-            if (this.pc.iceGatheringState === 'complete') {
+            const state = this.pc.iceGatheringState;
+            this.logWithPrefix(`📊 ICE gathering state changed: ${state} (candidates: ${candidateCount}, relay: ${hasRelayCandidates})`);
+            
+            if (state === 'complete') {
                 // Cancel ICE gathering timeout
                 if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_ICE_GATHERING)) {
                     this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_ICE_GATHERING);
                 }
                 
-                this.logWithPrefix('✅ ICE gathering complete (offer)');
+                this.logWithPrefix(`✅ ICE gathering complete (offer) - collected ${candidateCount} candidates`);
                 
-                // Remove mDNS candidates from SDP before sending
-                const cleanedSDP = this.removeMdnsCandidates(this.pc.localDescription);
-                const offerSDP = JSON.stringify(cleanedSDP);
-                
-                const branch = Peer2PeerConnection.generateBranch();
-                const offerMsg = this.createSdpOfferMessage(offerSDP, callId, sipUri, tag, toLine, branch);
-                
-                this.logWithPrefix('📤 Sending SDP Offer message');
-                
-                // Set state and flag when actually sending the offer
-                this.isOfferSent = true;
-                this.transitionTo(SdpExchangeState.OFFER_SENT);
-                
-                this.events.onMessageToSend?.(offerMsg, 'SERVICE Offer');
-                this.startReceiveTimeout();
+                // Send offer with collected candidates
+                this.sendOfferWithCurrentCandidates(callId, sipUri, tag, toLine);
             }
         };
+    }
+    
+    /**
+     * Send SDP offer with currently gathered ICE candidates
+     */
+    private sendOfferWithCurrentCandidates(callId: string, sipUri: string, tag: string, toLine: string): void {
+        // Log candidates before cleaning
+        if (this.pc.localDescription?.sdp) {
+            const candidates = this.extractCandidatesFromSDP(this.pc.localDescription.sdp);
+            this.logWithPrefix(`📋 ICE Candidates in SDP before cleaning (${candidates.length} total):`);
+            candidates.forEach((candidate, index) => {
+                const type = this.extractCandidateType(candidate);
+                const ip = this.extractCandidateIP(candidate);
+                const port = this.extractCandidatePort(candidate);
+                this.logWithPrefix(`  ${index + 1}. Type: ${type}, IP: ${ip}, Port: ${port}`);
+                this.logWithPrefix(`     Full: ${candidate}`);
+            });
+        }
+        
+        // Remove mDNS candidates from SDP before sending
+        const cleanedSDP = this.pc.localDescription //this.removeMdnsCandidates(this.pc.localDescription);
+        
+        // Log candidates after cleaning
+        if (cleanedSDP?.sdp) {
+            const cleanedCandidates = this.extractCandidatesFromSDP(cleanedSDP.sdp);
+            this.logWithPrefix(`📋 ICE Candidates after mDNS filtering (${cleanedCandidates.length} total):`);
+            cleanedCandidates.forEach((candidate, index) => {
+                const type = this.extractCandidateType(candidate);
+                const ip = this.extractCandidateIP(candidate);
+                const port = this.extractCandidatePort(candidate);
+                this.logWithPrefix(`  ${index + 1}. Type: ${type}, IP: ${ip}, Port: ${port}`);
+            });
+        }
+        
+        const offerSDP = JSON.stringify(cleanedSDP);
+        const branch = Peer2PeerConnection.generateBranch();
+        const offerMsg = this.createSdpOfferMessage(offerSDP, callId, sipUri, tag, toLine, branch);
+        
+        this.logWithPrefix('📤 Sending SDP Offer message');
+        
+        // Set state and flag when actually sending the offer
+        this.isOfferSent = true;
+        this.transitionTo(SdpExchangeState.OFFER_SENT);
+        
+        this.events.onMessageToSend?.(offerMsg, 'SERVICE Offer');
+        this.startReceiveTimeout();
     }
     
     /**
@@ -386,6 +432,39 @@ export class Peer2PeerConnection {
             type: description.type,
             sdp: filteredLines.join('\r\n')
         } as RTCSessionDescription;
+    }
+    
+    /**
+     * Extract all ICE candidate lines from SDP
+     */
+    private extractCandidatesFromSDP(sdp: string): string[] {
+        const lines = sdp.split('\r\n');
+        return lines.filter(line => line.startsWith('a=candidate:'));
+    }
+    
+    /**
+     * Extract candidate type (host/srflx/relay) from candidate line
+     */
+    private extractCandidateType(candidateLine: string): string {
+        const match = candidateLine.match(/typ\s+(\w+)/);
+        return match ? match[1] : 'unknown';
+    }
+    
+    /**
+     * Extract IP address from candidate line
+     */
+    private extractCandidateIP(candidateLine: string): string {
+        // Format: a=candidate:<foundation> <component-id> <transport> <priority> <ip> <port> ...
+        const parts = candidateLine.split(' ');
+        return parts.length > 4 ? parts[4] : 'unknown';
+    }
+    
+    /**
+     * Extract port from candidate line
+     */
+    private extractCandidatePort(candidateLine: string): string {
+        const parts = candidateLine.split(' ');
+        return parts.length > 5 ? parts[5] : 'unknown';
     }
     
     /**
@@ -472,12 +551,19 @@ export class Peer2PeerConnection {
             // Service will handle all events (onopen, onclose, onerror, onmessage)
             this.setupDataChannelHandlers(this.dataChannelPeer);
 
+            // Setup ICE handlers BEFORE creating offer
             this.setupICEHandlers(callId, sipUri, tag, toLine);
+            
+            // Monitor ICE connection state for diagnostics
+            this.pc.oniceconnectionstatechange = () => {
+                this.logWithPrefix(`📊 ICE connection state: ${this.pc.iceConnectionState}`);
+            };
             
             const offer = await this.pc.createOffer();
             await this.pc.setLocalDescription(offer);
             
-            this.logWithPrefix('📤 SDP Offer created: ' + JSON.stringify(offer));
+            this.logWithPrefix(`📤 SDP Offer created (type: ${offer.type})`);
+            this.logWithPrefix(`📊 Initial ICE gathering state: ${this.pc.iceGatheringState}`);
             
             // Start ICE gathering timeout
             this.startIceGatheringTimeout();
@@ -630,16 +716,28 @@ export class Peer2PeerConnection {
     
     /**
      * Handle ICE_GATHERING_TIMEOUT expiry
+     * Instead of failing, send offer with whatever candidates we have
      */
     private handleIceGatheringTimeout(): void {
-        this.logWithPrefix('⏱️ ICE gathering timeout expired');
+        const state = this.pc.iceGatheringState;
+        const connectionState = this.pc.iceConnectionState;
         
-        this.lastError = 'ICE gathering timeout expired';
-        this.isOfferSent = false;
-        this.cancelAllTimeouts();
-        this.transitionTo(SdpExchangeState.FAILED);
+        this.logWithPrefix(`⏱️ ICE gathering timeout expired (gathering state: ${state}, connection state: ${connectionState})`);
         
-        this.events.onFailure?.('ICE gathering timeout - connection failed');
+        // If we have a local description, send it even if gathering isn't complete
+        // This allows the connection to proceed with whatever candidates we have
+        if (this.pc.localDescription && this.lastOfferParams) {
+            this.logWithPrefix('⚠️ Proceeding with partial ICE candidates due to timeout');
+            const { callId, sipUri, tag, toLine } = this.lastOfferParams;
+            this.sendOfferWithCurrentCandidates(callId, sipUri, tag, toLine);
+        } else {
+            this.logWithPrefix('❌ Cannot send offer - no local description or offer params');
+            this.lastError = 'ICE gathering timeout with no local description';
+            this.isOfferSent = false;
+            this.cancelAllTimeouts();
+            this.transitionTo(SdpExchangeState.FAILED);
+            this.events.onFailure?.('ICE gathering timeout - connection failed');
+        }
     }
     
     /**
