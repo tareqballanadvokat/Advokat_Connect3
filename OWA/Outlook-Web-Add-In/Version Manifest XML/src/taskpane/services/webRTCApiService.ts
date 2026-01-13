@@ -8,6 +8,7 @@ import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { store } from '../../store';
 import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlice';
 import { tokenService } from './TokenService';
+import { WebRTCDataChannelService, DataChannelObserver } from './WebRTCDataChannelService';
 import {
   createProtocolRequest,
   chunkRequest,
@@ -24,7 +25,7 @@ import {
  * Leverages existing SIP_Library for WebRTC connection management
  * Relies on SCTP for reliable delivery (built into WebRTC DataChannels)
  */
-export class WebRTCApiService {
+export class WebRTCApiService implements DataChannelObserver {
   private sipClient: SipClientInstance | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map();
 
@@ -103,37 +104,24 @@ export class WebRTCApiService {
    * Create headers for WebRTC requests with automatic authorization
    * @param baseHeaders - Base headers to include
    * @param messageType - Message type to determine if authorization is needed
+   * @param token - Decrypted authentication token (optional, for authenticated requests)
    * @returns Headers object with authorization if needed
    */
-  private createRequestHeaders(baseHeaders: Record<string, string>, messageType: string): Record<string, string> {
+  private createRequestHeaders(baseHeaders: Record<string, string>, messageType: string, token?: string | null): Record<string, string> {
     const requestHeaders = { ...baseHeaders };
     
     // Add Authorization header for all non-authentication requests
-    if (!messageType.includes('auth.')) {
-      const state = store.getState();
-      const token = selectAuthToken(state);
-      const isTokenValid = selectIsTokenValid(state);
-      
-      if (token && isTokenValid) {
-        // Validate token expiration
-        if (tokenService.isTokenExpired(token)) {
-          console.error('❌ Token is expired or expiring soon - request may fail');
-          console.error('❌ Please refresh token before making request:', messageType);
-          tokenService.logTokenValidation(token, messageType);
-          // Continue with expired token - let server handle it and trigger refresh on 401/400
-        } else {
-          // Token is valid - log validation details in development
-          if (process.env.NODE_ENV === 'development') {
-            tokenService.logTokenValidation(token, messageType);
-          }
-        }
-        
-        requestHeaders['Authorization'] = `Bearer ${token}`;
-        console.log('🔑 Added Authorization header to request:', messageType);
-      } else {
-        console.warn('⚠️ No valid token available for authenticated request:', messageType);
-        console.warn('⚠️ This request will likely fail with 401 Unauthorized');
+    if (!messageType.includes('auth.') && token) {
+      // Log token validation details in development
+      if (process.env.NODE_ENV === 'development') {
+        tokenService.logTokenValidation(token, messageType);
       }
+      
+      requestHeaders['Authorization'] = `Bearer ${token}`;
+      console.log('🔑 Added Authorization header to request:', messageType);
+    } else if (!messageType.includes('auth.') && !token) {
+      console.warn('⚠️ No valid token available for authenticated request:', messageType);
+      console.warn('⚠️ This request will likely fail with 401 Unauthorized');
     }
     
     return requestHeaders;
@@ -144,28 +132,72 @@ export class WebRTCApiService {
    * @param sipClient - The initialized SIP client from SIP_Library
    */
   initialize(sipClient: SipClientInstance) {
+    // Clean up previous state first (idempotent)
+    this.cleanup();
+    
     this.sipClient = sipClient;
     this.setupDataChannelListener();
   }
 
   /**
    * Set up listener for incoming API responses via DataChannel
-   * Monitors data channel availability and registers message handlers
+   * Subscribes to WebRTCDataChannelService for centralized message handling
    */
   private setupDataChannelListener() {
-    if (!this.sipClient) return;
-    const checkDataChannel = () => {
-      const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
-      if (dataChannel && dataChannel.readyState === 'open') {
-        this.sipClient.peer2peer.addMessageHandler((event) => {
-          this.handleDataChannelMessage(event);
-        });
-      } else {
-        setTimeout(checkDataChannel, 1000);
-      }
-    };
+    console.log('[WebRTCApiService] 🎯 Setting up data channel listener');
+    
+    const service = WebRTCDataChannelService.getInstance();
+    if (service.isSubscribed(this)) {
+      console.log('[WebRTCApiService] Already subscribed, skipping');
+      return;
+    }
+    
+    // Subscribe this service as observer
+    service.subscribe(this);
+  }
 
-    checkDataChannel();
+  /**
+   * DataChannelObserver callback - called when DataChannel receives a message
+   */
+  onDataChannelMessage(event: MessageEvent): void {
+    console.log('[WebRTCApiService] 📥 onDataChannelMessage callback triggered');
+    this.handleDataChannelMessage(event);
+  }
+
+  /**
+   * DataChannelObserver callback - called when DataChannel state changes
+   */
+  onDataChannelStateChanged(state: RTCDataChannelState, channelType: 'offer' | 'answer'): void {
+    const prefix = channelType === 'offer' ? '📤' : '📥';
+    console.log(`${prefix} [WebRTCApiService] ${channelType} channel state changed: ${state}`);
+  }
+
+  /**
+   * DataChannelObserver callback - called when DataChannel error occurs
+   */
+  onDataChannelError(error: Event | string, channelType: 'offer' | 'answer'): void {
+    const prefix = channelType === 'offer' ? '📤' : '📥';
+    console.error(`❌ ${prefix} [WebRTCApiService] ${channelType} channel error:`, error);
+  }
+
+  /**
+   * Cleanup service resources
+   * Unsubscribes from DataChannel and clears references
+   */
+  cleanup(): void {
+    console.log('[WebRTCApiService] 🧹 Cleaning up service');
+    
+    // Unsubscribe from DataChannel events
+    const service = WebRTCDataChannelService.getInstance();
+    if (service.isSubscribed(this)) {
+      service.unsubscribe(this);
+    }
+    
+    // Clear SIP client reference
+    this.sipClient = null;
+    
+    // Note: pendingRequests are kept for ongoing requests to complete
+    console.log('[WebRTCApiService] ✅ Cleanup complete');
   }
 
   /**
@@ -309,11 +341,10 @@ export class WebRTCApiService {
       return;
     }
 
-    const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
-    /// TODO, we need to re-establish the connection here before retrying
-    if (!dataChannel || dataChannel.readyState !== 'open') {
-      console.error(`❌ Cannot retry ${pendingRequest.messageType}: DataChannel not available`);
-      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: DataChannel not available'));
+    // Ensure both channels are ready for bidirectional communication (send request + receive response)
+    if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+      console.error(`❌ Cannot retry ${pendingRequest.messageType}: Channels not ready for bidirectional communication`);
+      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: Channels not ready for bidirectional communication'));
       return;
     }
 
@@ -333,7 +364,7 @@ export class WebRTCApiService {
         try {
           const message = JSON.stringify(chunk);
           console.log(`📤 Re-sending chunk ${chunkNumber}/${chunkingResult.totalChunks}: Size ${new TextEncoder().encode(message).length} bytes`);
-          dataChannel.send(message);
+          WebRTCDataChannelService.getInstance().send(message);
         } catch (error) {
           throw new Error(`Failed to re-send chunk ${chunkNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
@@ -414,7 +445,7 @@ export class WebRTCApiService {
   /**
    * Validate response for single responses and complete the request
    */
-  private validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
+  private async validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
     const rawResponseBody = response.body || '';
     console.log(`📥 Processing single response for ${pendingRequest.messageType}`);
     console.log(`📝 Raw response body (base64):`, rawResponseBody.substring(0, 100) + (rawResponseBody.length > 100 ? '...' : ''));
@@ -439,29 +470,17 @@ export class WebRTCApiService {
       console.error(`❌ HTTP error ${actualStatusCode} for ${pendingRequest.messageType}`);
       console.error(`❌ Error response body:`, decodedBody);
       
-      // Handle authentication/authorization errors specially
+      // Handle authentication/authorization errors
+      // Note: Token is pre-validated before sending, so 401/400 indicates a server-side issue
       if (actualStatusCode === 401 || actualStatusCode === 400) {
-        console.error(`🔐 Authentication error ${actualStatusCode} - token may be expired or invalid`);
+        console.error(`🔐 Authentication error ${actualStatusCode} despite pre-validated token`);
         console.error(`🔐 Request ID: ${pendingRequest.id}`);
         console.error(`🔐 Message type: ${pendingRequest.messageType}`);
         
-        // Check if we have a token to validate
-        const state = store.getState();
-        const token = selectAuthToken(state);
-        if (token) {
-          console.error(`🔐 Checking token validity...`);
-          tokenService.logTokenValidation(token, pendingRequest.messageType);
-          
-          if (tokenService.isTokenExpired(token)) {
-            console.error(`🔐 Token is expired - user should re-authenticate`);
-          }
-        }
-        
-        // Fail the request with clear auth error
         this.completeRequest(
-          pendingRequest, 
-          undefined, 
-          new Error(`Authentication failed (${actualStatusCode}): Token may be expired. Please refresh your session.`)
+          pendingRequest,
+          undefined,
+          new Error(`Authentication failed (${actualStatusCode}): Token may have been revoked or is invalid on server.`)
         );
         return;
       }
@@ -541,11 +560,21 @@ export class WebRTCApiService {
         return;
       }
 
-      const dataChannel = this.sipClient.peer2peer.getActiveDataChannel();
-      
-      if (!dataChannel || dataChannel.readyState !== 'open') {
-        reject(new Error('WebRTC data channel is not available'));
+      // Ensure both channels are ready for bidirectional communication (send request + receive response)
+      if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+        reject(new Error('WebRTC channels not ready for bidirectional communication'));
         return;
+      }
+      
+      // For authenticated requests, ensure token is valid before sending
+      let validToken: string | null = null;
+      if (!messageType.includes('auth.')) {
+        validToken = await tokenService.ensureValidToken();
+        if (!validToken) {
+          reject(new Error('No valid token available. Please authenticate.'));
+          return;
+        }
+        // Token will be passed to createRequestHeaders
       }
 
       // Check if there's already a pending request of the same type
@@ -561,8 +590,8 @@ export class WebRTCApiService {
         }
       }
 
-      // Create headers with automatic authorization
-      const requestHeaders = this.createRequestHeaders(headers, messageType);
+      // Create headers with automatic authorization (pass decrypted token)
+      const requestHeaders = this.createRequestHeaders(headers, messageType, validToken);
       // Create full protocol request with messageType
       const protocolRequest = createProtocolRequest(method, url, requestHeaders, body, messageType);
       console.log('📝 Created initial protocol request (before chunking):', protocolRequest);
@@ -594,7 +623,7 @@ export class WebRTCApiService {
           
           const message = JSON.stringify(chunk);
           console.log(`📤 Sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
-          dataChannel.send(message);
+          WebRTCDataChannelService.getInstance().send(message);
         }
         
         // Log pending requests content after sending
@@ -652,10 +681,7 @@ export class WebRTCApiService {
   }
 
   /**
-   * Get favorite Akten (Cases) via WebRTC
-   * @param query - Search parameters with NurFavoriten=true
-  /**
-   * Get favorite Akten with filtering options
+   * Get favorite Akten with filtering options via WebRTC
    * @param query - Filter parameters for Akten search
    * @returns Promise resolving to Akten list matching the criteria
    */
@@ -992,11 +1018,10 @@ export class WebRTCApiService {
 
   /**
    * Check if WebRTC connection is ready for API calls
-   * @returns True if data channel is open and ready for communication
+   * @returns True if both channels are open and ready for bidirectional communication
    */
   isReady(): boolean {
-    const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
-    return dataChannel?.readyState === 'open' || false;
+    return WebRTCDataChannelService.getInstance().isReadyForCommunication;
   }
 }
 

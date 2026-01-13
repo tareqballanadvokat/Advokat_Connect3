@@ -150,10 +150,6 @@ export interface SipClientConfig {
  * Interface defining the return type of the SIP client initialization
  */
 export interface SipClientInstance {
-    // Phase components (for direct access if needed)
-    registration: Registration;
-    connection: EstablishingConnection;
-    peer2peer: Peer2PeerConnection;
     socket: WebSocket;
     timeoutManager: TimeoutManager;
     
@@ -167,6 +163,7 @@ export interface SipClientInstance {
     // Observer pattern methods
     subscribe: (observer: SipClientObserver) => void;
     unsubscribe: (observer: SipClientObserver) => void;
+    isSubscribed: (observer: SipClientObserver) => boolean;
 }
 
 /**
@@ -373,7 +370,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
      * @param reason - Reason for sending BYE (for logging)
      */
     function sendRegistrationBye(cseq: number, reason: string): void {
-        if (isRegistered()) {
+        if (isRegistered() || isRegistering()) {
             const registrationByeMsg = registrationObj.createRegistrationBye(cseq);
             sendMessage(registrationByeMsg, `REGISTRATION BYE (CSeq: ${cseq}, ${reason})`);
         }
@@ -796,6 +793,8 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                             const toLine = extractAndSwapFromTo(data);
                             
                             logWithPrefix('📤 Creating SDP Offer with Call-ID: ' + callId);
+                            logWithPrefix('⏳ Waiting 100ms before sending offer...');
+                            await new Promise(resolve => setTimeout(resolve, 1000));
                             await peer2PeerConnectionObject.createOffer(
                                 callId,
                                 establishingConnectionObject.sipUri,
@@ -867,10 +866,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
     // Create the instance object that will be returned
     // Initialize with new WebSocket
     const sipClientInstance: SipClientInstance = {
-        // Phase components
-        registration: registrationObj,
-        connection: establishingConnectionObject,
-        peer2peer: peer2PeerConnectionObject,
+        // Internal components (not exposed)
         socket: new WebSocket(wsUri, 'sip'),
         timeoutManager,
         
@@ -940,6 +936,15 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                 observers.splice(index, 1);
                 logWithPrefix('Observer unsubscribed');
             }
+        },
+        
+        /**
+         * Check if an observer is currently subscribed
+         * @param observer - Observer to check
+         * @returns true if observer is subscribed
+         */
+        isSubscribed: (observer: SipClientObserver): boolean => {
+            return observers.includes(observer);
         }
     };
     

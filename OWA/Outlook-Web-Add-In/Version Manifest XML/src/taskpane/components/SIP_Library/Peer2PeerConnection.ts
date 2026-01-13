@@ -78,8 +78,7 @@ import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
 import { SipPhaseEvents } from './SipClient';
-
-type MessageHandler = (event: MessageEvent) => Promise<void> | void;
+import { WebRTCDataChannelService } from '../../services/WebRTCDataChannelService';
 
 /**
  * Event callbacks for Peer2Peer WebRTC phase
@@ -99,27 +98,6 @@ export enum SdpExchangeState {
     FAILED = "FAILED"                   // SDP exchange failed
 }
 
-async function writeMessage(event: MessageEvent): Promise<void> {
-    const data = event.data;
-    let text: string;
-    
-    if (data instanceof ArrayBuffer) {
-        text = new TextDecoder("utf-8").decode(data);
-        logger.log("📨 [PEER2PEER] ArrayBuffer received: " + text);
-    } else if (data instanceof Blob) {
-        text = await data.text();
-        logger.log("📨 [PEER2PEER] Blob received: " + text);
-    } else if (typeof data === "string") {
-        logger.log("📨 [PEER2PEER] Text received: " + data);
-        text = data;
-    } else {
-        logger.log("❓ [PEER2PEER] Unknown message type: " + typeof data);
-        return;
-    }
-    
-    logger.log("📨 [PEER2PEER] DataChannel message: " + text);
-}
-
 export class Peer2PeerConnection {
     private static readonly LOG_PREFIX = '[PEER2PEER]';
     private static readonly CSEQ_OFFER = 1;
@@ -128,18 +106,27 @@ export class Peer2PeerConnection {
     private static readonly RECEIVE_TIMEOUT = 'RECEIVE_TIMEOUT';
     private static readonly TIMEOUT_ICE_GATHERING = 'ICE_GATHERING_TIMEOUT';
     private static readonly TIMEOUT_DATACHANNEL_OPEN = 'DATACHANNEL_OPEN_TIMEOUT';
-    private static readonly DEFAULT_RECEIVE_TIMEOUT = 1500;
-    private static readonly ICE_GATHERING_TIMEOUT = 10000; // 10 seconds
+    private static readonly DEFAULT_RECEIVE_TIMEOUT = 20000; // 20 seconds (increased for slower networks)
+    private static readonly ICE_GATHERING_TIMEOUT = 5000; // 5 seconds (reduced, will send with partial candidates)
     private static readonly DATACHANNEL_OPEN_TIMEOUT = 5000; // 5 seconds
     
     private static readonly REGEX_SERVICE_ANSWER = /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
     private static readonly REGEX_CSEQ_ANSWER = /CSeq:\s*2 SERVICE/;
     private static readonly REGEX_SDP_BLOCK = /(\{[\s\S]*?"sdp"[\s\S]*?\})/m;
     
+    private static readonly RTC_CONFIG: RTCConfiguration = {
+        iceServers: [{
+            urls: "turn:92.205.233.81:3478",
+            username: "test",
+            credential: "test"
+        }],
+        iceTransportPolicy: "all"
+    };
+
     private pc = new RTCPeerConnection();
+
     private dataChannelPeer: RTCDataChannel | undefined = undefined;
     public isOfferSent = false;
-    private messageHandlers: MessageHandler[] = [];
     private sdpExchangeState: SdpExchangeState = SdpExchangeState.IDLE;
     private lastError: string = "";
     private timeoutManager: TimeoutManager | null = null;
@@ -161,6 +148,108 @@ export class Peer2PeerConnection {
     
     constructor(events: Peer2PeerEvents) {
         this.events = events;
+        
+        // Subscribe to WebRTCDataChannelService events
+        WebRTCDataChannelService.getInstance().subscribe({
+            onDataChannelStateChanged: (state, channelType) => {
+                this.handleDataChannelStateChange(state, channelType);
+            },
+            onDataChannelError: (error, channelType) => {
+                this.handleDataChannelError(error, channelType);
+            }
+        });
+        
+        // Setup answer channel handler (will be attached after pc creation)
+        this.setupAnswerChannelHandler();
+    }
+    
+    /**
+     * Setup handler for incoming answer channel with validation
+     * Must be called after pc is created/reset to prevent race conditions
+     */
+    private setupAnswerChannelHandler(): void {
+        this.pc.ondatachannel = (event) => {
+            this.logWithPrefix(`📥 Answer channel received from server: ${event.channel.label}`);
+            
+            // Validate channel label - answer channel should match or complement offer channel
+            // The server may send back the same label or a different one
+            this.logWithPrefix(`🔍 Validating answer channel label: ${event.channel.label}`);
+            
+            // Register the answer channel regardless of label (server controls the label)
+            // but log if it's unexpected for debugging purposes
+            if (event.channel.label !== Peer2PeerConnection.DATA_CHANNEL_LABEL && event.channel.label !== 'answer') {
+                this.logWithPrefix(`⚠️ Unexpected answer channel label: ${event.channel.label} (expected '${Peer2PeerConnection.DATA_CHANNEL_LABEL}' or 'answer')`);
+            }
+            
+            WebRTCDataChannelService.getInstance().setAnswerChannel(event.channel);
+        };
+    }
+    
+    /**
+     * Handle DataChannel state changes from service
+     */
+    private handleDataChannelStateChange(state: RTCDataChannelState, channelType: 'offer' | 'answer'): void {
+        const prefix = channelType === 'offer' ? '📤' : '📥';
+        this.logWithPrefix(`${prefix} ${channelType} channel state: ${state}`);
+        
+        // Process 'open' state for BOTH channels (either can open first)
+        if (state === 'open') {
+            // State guard: only process if we're in ANSWER_RECEIVED state
+            // Prevents acting on stale events from previous connection attempts
+            if (this.sdpExchangeState !== SdpExchangeState.ANSWER_RECEIVED) {
+                this.logWithPrefix(`⚠️ ${channelType} channel opened but state is ${this.sdpExchangeState} - ignoring`);
+                return;
+            }
+            
+            // CRITICAL: Verify BOTH channels are open before declaring success
+            // This handles race conditions where either channel might open first
+            const channelService = WebRTCDataChannelService.getInstance();
+            if (!channelService.isReadyForCommunication) {
+                const otherChannel = channelType === 'offer' ? 'answer' : 'offer';
+                this.logWithPrefix(`⚠️ ${channelType} channel open but ${otherChannel} channel not ready yet - waiting...`);
+                this.logWithPrefix(`📊 Channel status: offer=${channelService.isOfferChannelOpen}, answer=${channelService.isAnswerChannelOpen}`);
+                return;
+            }
+            
+            // Cancel DataChannel opening timeout
+            if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN)) {
+                this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN);
+            }
+            
+            // Transition to COMPLETE state
+            this.transitionTo(SdpExchangeState.COMPLETE);
+            
+            // Clear stale offer params
+            this.lastOfferParams = null;
+            
+            // Both channels successfully opened - WebRTC connection established
+            this.logWithPrefix('✅ Both channels ready - bidirectional communication established');
+            this.events.onSuccess?.();
+        } else if (state === 'closed' && channelType === 'answer') {
+            // Only log if we were in COMPLETE state (unexpected close)
+            if (this.sdpExchangeState === SdpExchangeState.COMPLETE) {
+                this.logWithPrefix('⚠️ Answer channel closed unexpectedly after connection established');
+            }
+        }
+    }
+    
+    /**
+     * Handle DataChannel errors from service
+     */
+    private handleDataChannelError(error: Event | string, channelType: 'offer' | 'answer'): void {
+        // State guard: only process if we're in an active connection attempt
+        // Ignore errors from old/stale DataChannels
+        if (this.sdpExchangeState === SdpExchangeState.IDLE || this.sdpExchangeState === SdpExchangeState.FAILED) {
+            this.logWithPrefix(`⚠️ ${channelType} channel error in ${this.sdpExchangeState} state - ignoring`);
+            return;
+        }
+        
+        const prefix = channelType === 'offer' ? '📤' : '📥';
+        this.logWithPrefix(`❌ ${prefix} ${channelType} channel error: ${error}`);
+        this.isOfferSent = false;
+        this.cancelAllTimeouts();
+        this.transitionTo(SdpExchangeState.FAILED);
+        this.events.onFailure?.(`${channelType} channel error: ${error}`);
     }
     
     /**
@@ -211,7 +300,6 @@ export class Peer2PeerConnection {
             });
         }
     }
-    
     /**
      * Reset peer connection to fresh state
      */
@@ -219,98 +307,164 @@ export class Peer2PeerConnection {
         if (this.pc) {
             this.pc.close();
         }
-        this.pc = new RTCPeerConnection();
+        this.pc = new RTCPeerConnection(Peer2PeerConnection.RTC_CONFIG);
         this.dataChannelPeer = undefined;
+        
+        // Re-attach answer channel handler to new peer connection
+        this.setupAnswerChannelHandler();
     }
     
     /**
      * Setup DataChannel event handlers
+     * Registers the offer channel with WebRTCDataChannelService for centralized management
      */
     private setupDataChannelHandlers(channel: RTCDataChannel): void {
-        channel.onopen = () => {
-            this.logWithPrefix(`🟢 DataChannel opened: ${channel.label}`);
-        };
+        // Register the offer channel with the centralized service (for sending)
+        // The service will handle all event management and observer notifications
+        WebRTCDataChannelService.getInstance().setOfferChannel(channel);
         
-        channel.onmessage = (event) => this.dispatchMessage(event);
-        
-        channel.onclose = () => {
-            this.logWithPrefix('🔴 DataChannel closed');
-        };
-        
-        channel.onerror = (err) => {
-            this.logWithPrefix('❌ DataChannel error: ' + err);
-        };
+        this.logWithPrefix(`📤 Offer channel registered with WebRTCDataChannelService: ${channel.label}`);
     }
     
     /**
      * Setup ICE event handlers for peer connection
      */
     private setupICEHandlers(callId: string, sipUri: string, tag: string, toLine: string): void {
+        let candidateCount = 0;
+        let hasRelayCandidates = false;
+        
         this.pc.onicecandidate = (evt) => {
             if (evt.candidate) {
-                this.logWithPrefix('📤 ICE candidate (offer): ' + JSON.stringify(evt.candidate));
+                candidateCount++;
+                if (evt.candidate.candidate.includes('typ relay')) {
+                    hasRelayCandidates = true;
+                }
+                this.logWithPrefix(`📤 ICE candidate (offer) #${candidateCount}: ${JSON.stringify(evt.candidate)}`);
+            } else {
+                // null candidate signals end of gathering
+                this.logWithPrefix('📤 ICE candidate gathering complete (null candidate received)');
             }
         };
         
         this.pc.onicegatheringstatechange = () => {
-            if (this.pc.iceGatheringState === 'complete') {
+            const state = this.pc.iceGatheringState;
+            this.logWithPrefix(`📊 ICE gathering state changed: ${state} (candidates: ${candidateCount}, relay: ${hasRelayCandidates})`);
+            
+            if (state === 'complete') {
                 // Cancel ICE gathering timeout
                 if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_ICE_GATHERING)) {
                     this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_ICE_GATHERING);
                 }
                 
-                this.logWithPrefix('✅ ICE gathering complete (offer)');
-                const offerSDP = JSON.stringify(this.pc.localDescription);
-                const branch = Peer2PeerConnection.generateBranch();
-                const offerMsg = this.createSdpOfferMessage(offerSDP, callId, sipUri, tag, toLine, branch);
+                this.logWithPrefix(`✅ ICE gathering complete (offer) - collected ${candidateCount} candidates`);
                 
-                this.logWithPrefix('📤 Sending SDP Offer message');
-                
-                // Set state and flag when actually sending the offer
-                this.isOfferSent = true;
-                this.transitionTo(SdpExchangeState.OFFER_SENT);
-                
-                this.events.onMessageToSend?.(offerMsg, 'SERVICE Offer');
-                this.startReceiveTimeout();
+                // Send offer with collected candidates
+                this.sendOfferWithCurrentCandidates(callId, sipUri, tag, toLine);
             }
         };
     }
     
     /**
-     * Add a message handler that will be called for all incoming DataChannel messages
-     * @param handler - Function to handle incoming messages
+     * Send SDP offer with currently gathered ICE candidates
      */
-    addMessageHandler(handler: MessageHandler): void {
-        this.messageHandlers.push(handler);
-    }
-    
-    /**
-     * Remove a message handler
-     * @param handler - Function to remove from handlers
-     */
-    removeMessageHandler(handler: MessageHandler): void {
-        const index = this.messageHandlers.indexOf(handler);
-        if (index > -1) {
-            this.messageHandlers.splice(index, 1);
+    private sendOfferWithCurrentCandidates(callId: string, sipUri: string, tag: string, toLine: string): void {
+        // Log candidates before cleaning
+        if (this.pc.localDescription?.sdp) {
+            const candidates = this.extractCandidatesFromSDP(this.pc.localDescription.sdp);
+            this.logWithPrefix(`📋 ICE Candidates in SDP before cleaning (${candidates.length} total):`);
+            candidates.forEach((candidate, index) => {
+                const type = this.extractCandidateType(candidate);
+                const ip = this.extractCandidateIP(candidate);
+                const port = this.extractCandidatePort(candidate);
+                this.logWithPrefix(`  ${index + 1}. Type: ${type}, IP: ${ip}, Port: ${port}`);
+                this.logWithPrefix(`     Full: ${candidate}`);
+            });
         }
+        
+        // Remove mDNS candidates from SDP before sending
+        const cleanedSDP = this.pc.localDescription //this.removeMdnsCandidates(this.pc.localDescription);
+        
+        // Log candidates after cleaning
+        if (cleanedSDP?.sdp) {
+            const cleanedCandidates = this.extractCandidatesFromSDP(cleanedSDP.sdp);
+            this.logWithPrefix(`📋 ICE Candidates after mDNS filtering (${cleanedCandidates.length} total):`);
+            cleanedCandidates.forEach((candidate, index) => {
+                const type = this.extractCandidateType(candidate);
+                const ip = this.extractCandidateIP(candidate);
+                const port = this.extractCandidatePort(candidate);
+                this.logWithPrefix(`  ${index + 1}. Type: ${type}, IP: ${ip}, Port: ${port}`);
+            });
+        }
+        
+        const offerSDP = JSON.stringify(cleanedSDP);
+        const branch = Peer2PeerConnection.generateBranch();
+        const offerMsg = this.createSdpOfferMessage(offerSDP, callId, sipUri, tag, toLine, branch);
+        
+        this.logWithPrefix('📤 Sending SDP Offer message');
+        
+        // Set state and flag when actually sending the offer
+        this.isOfferSent = true;
+        this.transitionTo(SdpExchangeState.OFFER_SENT);
+        
+        this.events.onMessageToSend?.(offerMsg, 'SERVICE Offer');
+        this.startReceiveTimeout();
     }
     
     /**
-     * Dispatch message to all registered handlers
-     * @param event - MessageEvent from DataChannel
+     * Remove mDNS (.local) candidates from SDP to prevent resolution issues on server
      */
-    private async dispatchMessage(event: MessageEvent): Promise<void> {
-        await writeMessage(event);
+    private removeMdnsCandidates(description: RTCSessionDescription | null): RTCSessionDescription | null {
+        if (!description || !description.sdp) {
+            return description;
+        }
         
-        this.logWithPrefix(`📨 Dispatching message to ${this.messageHandlers.length} handler(s)`);
-        
-        for (const handler of this.messageHandlers) {
-            try {
-                await handler(event);
-            } catch (error) {
-                this.logWithPrefix('❌ Error in message handler: ' + error);
+        const sdpLines = description.sdp.split('\r\n');
+        const filteredLines = sdpLines.filter(line => {
+            // Remove lines containing .local hostnames
+            if (line.includes('.local')) {
+                this.logWithPrefix(`🚫 Removing mDNS candidate: ${line}`);
+                return false;
             }
-        }
+            return true;
+        });
+        
+        return {
+            type: description.type,
+            sdp: filteredLines.join('\r\n')
+        } as RTCSessionDescription;
+    }
+    
+    /**
+     * Extract all ICE candidate lines from SDP
+     */
+    private extractCandidatesFromSDP(sdp: string): string[] {
+        const lines = sdp.split('\r\n');
+        return lines.filter(line => line.startsWith('a=candidate:'));
+    }
+    
+    /**
+     * Extract candidate type (host/srflx/relay) from candidate line
+     */
+    private extractCandidateType(candidateLine: string): string {
+        const match = candidateLine.match(/typ\s+(\w+)/);
+        return match ? match[1] : 'unknown';
+    }
+    
+    /**
+     * Extract IP address from candidate line
+     */
+    private extractCandidateIP(candidateLine: string): string {
+        // Format: a=candidate:<foundation> <component-id> <transport> <priority> <ip> <port> ...
+        const parts = candidateLine.split(' ');
+        return parts.length > 4 ? parts[4] : 'unknown';
+    }
+    
+    /**
+     * Extract port from candidate line
+     */
+    private extractCandidatePort(candidateLine: string): string {
+        const parts = candidateLine.split(' ');
+        return parts.length > 5 ? parts[5] : 'unknown';
     }
     
     /**
@@ -355,6 +509,22 @@ export class Peer2PeerConnection {
         this.cancelAllTimeouts();
         this.resetPeerConnection();
         
+        // Clear both DataChannels from service to prevent stale events
+        // Use the service's cleanup method for proper encapsulation
+        // Note: reset() clears all observers, so we need to resubscribe
+        const service = WebRTCDataChannelService.getInstance();
+        service.reset();
+        
+        // Resubscribe to service events after reset
+        service.subscribe({
+            onDataChannelStateChanged: (state, channelType) => {
+                this.handleDataChannelStateChange(state, channelType);
+            },
+            onDataChannelError: (error, channelType) => {
+                this.handleDataChannelError(error, channelType);
+            }
+        });
+        
         this.logWithPrefix('Reset complete');
     }
     
@@ -376,50 +546,24 @@ export class Peer2PeerConnection {
             this.logWithPrefix('Creating SDP Offer');
             
             this.dataChannelPeer = this.pc.createDataChannel(Peer2PeerConnection.DATA_CHANNEL_LABEL);
-            this.dataChannelPeer.onopen = () => {
-                this.logWithPrefix('🟢 DataChannel OFFER opened');
-                if (this.dataChannelPeer) {
-                    this.dataChannelPeer.send('Hello from OFFER side');
-                }
-                
-                // Cancel DataChannel opening timeout
-                if (this.timeoutManager && this.timeoutManager.isTimerActive(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN)) {
-                    this.timeoutManager.cancelTimer(Peer2PeerConnection.TIMEOUT_DATACHANNEL_OPEN);
-                }
-                
-                // Transition to COMPLETE state
-                this.transitionTo(SdpExchangeState.COMPLETE);
-                
-                // Clear stale offer params
-                this.lastOfferParams = null;
-                
-                // DataChannel successfully opened - WebRTC connection established
-                this.events.onSuccess?.();
-            };
             
-            this.dataChannelPeer.onmessage = (event) => {
-                const text = new TextDecoder('utf-8').decode(event.data);
-                this.logWithPrefix('📨 Received on offer channel: ' + text);
-            };
-            
-            this.dataChannelPeer.onerror = (err) => {
-                this.logWithPrefix('❌ Offer DataChannel error: ' + err);
-                this.isOfferSent = false;
-                this.cancelAllTimeouts();
-                this.transitionTo(SdpExchangeState.FAILED);
-                this.events.onFailure?.(`DataChannel error: ${err}`);
-            };
-            
-            this.dataChannelPeer.onclose = () => {
-                this.logWithPrefix('🔴 Offer DataChannel closed');
-            };
+            // Register the data channel with the service
+            // Service will handle all events (onopen, onclose, onerror, onmessage)
+            this.setupDataChannelHandlers(this.dataChannelPeer);
 
+            // Setup ICE handlers BEFORE creating offer
             this.setupICEHandlers(callId, sipUri, tag, toLine);
+            
+            // Monitor ICE connection state for diagnostics
+            this.pc.oniceconnectionstatechange = () => {
+                this.logWithPrefix(`📊 ICE connection state: ${this.pc.iceConnectionState}`);
+            };
             
             const offer = await this.pc.createOffer();
             await this.pc.setLocalDescription(offer);
             
-            this.logWithPrefix('📤 SDP Offer created: ' + JSON.stringify(offer));
+            this.logWithPrefix(`📤 SDP Offer created (type: ${offer.type})`);
+            this.logWithPrefix(`📊 Initial ICE gathering state: ${this.pc.iceGatheringState}`);
             
             // Start ICE gathering timeout
             this.startIceGatheringTimeout();
@@ -572,16 +716,28 @@ export class Peer2PeerConnection {
     
     /**
      * Handle ICE_GATHERING_TIMEOUT expiry
+     * Instead of failing, send offer with whatever candidates we have
      */
     private handleIceGatheringTimeout(): void {
-        this.logWithPrefix('⏱️ ICE gathering timeout expired');
+        const state = this.pc.iceGatheringState;
+        const connectionState = this.pc.iceConnectionState;
         
-        this.lastError = 'ICE gathering timeout expired';
-        this.isOfferSent = false;
-        this.cancelAllTimeouts();
-        this.transitionTo(SdpExchangeState.FAILED);
+        this.logWithPrefix(`⏱️ ICE gathering timeout expired (gathering state: ${state}, connection state: ${connectionState})`);
         
-        this.events.onFailure?.('ICE gathering timeout - connection failed');
+        // If we have a local description, send it even if gathering isn't complete
+        // This allows the connection to proceed with whatever candidates we have
+        if (this.pc.localDescription && this.lastOfferParams) {
+            this.logWithPrefix('⚠️ Proceeding with partial ICE candidates due to timeout');
+            const { callId, sipUri, tag, toLine } = this.lastOfferParams;
+            this.sendOfferWithCurrentCandidates(callId, sipUri, tag, toLine);
+        } else {
+            this.logWithPrefix('❌ Cannot send offer - no local description or offer params');
+            this.lastError = 'ICE gathering timeout with no local description';
+            this.isOfferSent = false;
+            this.cancelAllTimeouts();
+            this.transitionTo(SdpExchangeState.FAILED);
+            this.events.onFailure?.('ICE gathering timeout - connection failed');
+        }
     }
     
     /**

@@ -70,7 +70,7 @@ const connectionSlice = createSlice({
       state.lastActivityTimestamp = new Date().toISOString();
     },
 
-    setIdleDisconnected: (state, action: PayloadAction<string | undefined>) => {
+    setDisconnectedDueToIdleAt: (state, action: PayloadAction<string | undefined>) => {
       state.idleDisconnectedAt = action.payload;
       if (action.payload) {
         state.autoReconnectPending = true;
@@ -127,7 +127,7 @@ export const {
   resetConnection,
   setIdle,
   updateLastActivity,
-  setIdleDisconnected,
+  setDisconnectedDueToIdleAt,
   setAutoReconnectPending,
   sipClientStateChanged,
 } = connectionSlice.actions;

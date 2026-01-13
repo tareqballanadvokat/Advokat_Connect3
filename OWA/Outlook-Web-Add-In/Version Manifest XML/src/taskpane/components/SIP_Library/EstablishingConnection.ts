@@ -320,6 +320,7 @@ export class EstablishingConnection {
         
         this.transitionTo(ConnectionState.NOTIFY_4_RECEIVED, 'NOTIFY4 received');
         
+        // createAck5ForNotify4 will handle state transition to WAITING_NOTIFY_6
         return this.createAck5ForNotify4(data);
     }
     
@@ -349,6 +350,8 @@ export class EstablishingConnection {
         });
         
         logger.log('📤 [CONNECTION] Created ACK5 for NOTIFY4');
+        // Transition to WAITING_NOTIFY_6 when ACK5 is sent
+        this.transitionTo(ConnectionState.WAITING_NOTIFY_6, 'ACK5 sent - waiting for NOTIFY6');
         return ack5;
     }
     
@@ -572,6 +575,7 @@ export class EstablishingConnection {
         // Clear session tracking
         this.processedCSeqs.clear();
         this.lastSentConnectionByeCSeq = 0;
+        // Note: testSkipAck5 is NOT reset here - we want to send ACK5 on retry
         
         this.transitionTo(ConnectionState.WAITING_NOTIFY_4, 'reset for retry');
         this.isConnectionEstablished = false;
