@@ -793,6 +793,8 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                             const toLine = extractAndSwapFromTo(data);
                             
                             logWithPrefix('📤 Creating SDP Offer with Call-ID: ' + callId);
+                            logWithPrefix('⏳ Waiting 100ms before sending offer...');
+                            await new Promise(resolve => setTimeout(resolve, 1000));
                             await peer2PeerConnectionObject.createOffer(
                                 callId,
                                 establishingConnectionObject.sipUri,

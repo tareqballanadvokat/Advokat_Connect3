@@ -114,7 +114,17 @@ export class Peer2PeerConnection {
     private static readonly REGEX_CSEQ_ANSWER = /CSeq:\s*2 SERVICE/;
     private static readonly REGEX_SDP_BLOCK = /(\{[\s\S]*?"sdp"[\s\S]*?\})/m;
     
-    private pc = new RTCPeerConnection();
+    private static readonly RTC_CONFIG: RTCConfiguration = {
+        iceServers: [{
+            urls: "turn:92.205.233.81:3478",
+            username: "test",
+            credential: "test"
+        }],
+        iceTransportPolicy: "all"
+    };
+
+    private pc = new RTCPeerConnection(Peer2PeerConnection.RTC_CONFIG);
+
     private dataChannelPeer: RTCDataChannel | undefined = undefined;
     public isOfferSent = false;
     private sdpExchangeState: SdpExchangeState = SdpExchangeState.IDLE;
@@ -141,26 +151,63 @@ export class Peer2PeerConnection {
         
         // Subscribe to WebRTCDataChannelService events
         WebRTCDataChannelService.getInstance().subscribe({
-            onDataChannelStateChanged: (state) => {
-                this.handleDataChannelStateChange(state);
+            onDataChannelStateChanged: (state, channelType) => {
+                this.handleDataChannelStateChange(state, channelType);
             },
-            onDataChannelError: (error) => {
-                this.handleDataChannelError(error);
+            onDataChannelError: (error, channelType) => {
+                this.handleDataChannelError(error, channelType);
             }
         });
+        
+        // Setup answer channel handler (will be attached after pc creation)
+        this.setupAnswerChannelHandler();
+    }
+    
+    /**
+     * Setup handler for incoming answer channel with validation
+     * Must be called after pc is created/reset to prevent race conditions
+     */
+    private setupAnswerChannelHandler(): void {
+        this.pc.ondatachannel = (event) => {
+            this.logWithPrefix(`📥 Answer channel received from server: ${event.channel.label}`);
+            
+            // Validate channel label - answer channel should match or complement offer channel
+            // The server may send back the same label or a different one
+            this.logWithPrefix(`🔍 Validating answer channel label: ${event.channel.label}`);
+            
+            // Register the answer channel regardless of label (server controls the label)
+            // but log if it's unexpected for debugging purposes
+            if (event.channel.label !== Peer2PeerConnection.DATA_CHANNEL_LABEL && event.channel.label !== 'answer') {
+                this.logWithPrefix(`⚠️ Unexpected answer channel label: ${event.channel.label} (expected '${Peer2PeerConnection.DATA_CHANNEL_LABEL}' or 'answer')`);
+            }
+            
+            WebRTCDataChannelService.getInstance().setAnswerChannel(event.channel);
+        };
     }
     
     /**
      * Handle DataChannel state changes from service
      */
-    private handleDataChannelStateChange(state: RTCDataChannelState): void {
-        this.logWithPrefix(`📡 DataChannel state: ${state}`);
+    private handleDataChannelStateChange(state: RTCDataChannelState, channelType: 'offer' | 'answer'): void {
+        const prefix = channelType === 'offer' ? '📤' : '📥';
+        this.logWithPrefix(`${prefix} ${channelType} channel state: ${state}`);
         
+        // Process 'open' state for BOTH channels (either can open first)
         if (state === 'open') {
             // State guard: only process if we're in ANSWER_RECEIVED state
             // Prevents acting on stale events from previous connection attempts
             if (this.sdpExchangeState !== SdpExchangeState.ANSWER_RECEIVED) {
-                this.logWithPrefix(`⚠️ DataChannel opened but state is ${this.sdpExchangeState} - ignoring`);
+                this.logWithPrefix(`⚠️ ${channelType} channel opened but state is ${this.sdpExchangeState} - ignoring`);
+                return;
+            }
+            
+            // CRITICAL: Verify BOTH channels are open before declaring success
+            // This handles race conditions where either channel might open first
+            const channelService = WebRTCDataChannelService.getInstance();
+            if (!channelService.isReadyForCommunication) {
+                const otherChannel = channelType === 'offer' ? 'answer' : 'offer';
+                this.logWithPrefix(`⚠️ ${channelType} channel open but ${otherChannel} channel not ready yet - waiting...`);
+                this.logWithPrefix(`📊 Channel status: offer=${channelService.isOfferChannelOpen}, answer=${channelService.isAnswerChannelOpen}`);
                 return;
             }
             
@@ -175,12 +222,13 @@ export class Peer2PeerConnection {
             // Clear stale offer params
             this.lastOfferParams = null;
             
-            // DataChannel successfully opened - WebRTC connection established
+            // Both channels successfully opened - WebRTC connection established
+            this.logWithPrefix('✅ Both channels ready - bidirectional communication established');
             this.events.onSuccess?.();
-        } else if (state === 'closed') {
+        } else if (state === 'closed' && channelType === 'answer') {
             // Only log if we were in COMPLETE state (unexpected close)
             if (this.sdpExchangeState === SdpExchangeState.COMPLETE) {
-                this.logWithPrefix('⚠️ DataChannel closed unexpectedly after connection established');
+                this.logWithPrefix('⚠️ Answer channel closed unexpectedly after connection established');
             }
         }
     }
@@ -188,19 +236,20 @@ export class Peer2PeerConnection {
     /**
      * Handle DataChannel errors from service
      */
-    private handleDataChannelError(error: Event | string): void {
+    private handleDataChannelError(error: Event | string, channelType: 'offer' | 'answer'): void {
         // State guard: only process if we're in an active connection attempt
         // Ignore errors from old/stale DataChannels
         if (this.sdpExchangeState === SdpExchangeState.IDLE || this.sdpExchangeState === SdpExchangeState.FAILED) {
-            this.logWithPrefix(`⚠️ DataChannel error in ${this.sdpExchangeState} state - ignoring`);
+            this.logWithPrefix(`⚠️ ${channelType} channel error in ${this.sdpExchangeState} state - ignoring`);
             return;
         }
         
-        this.logWithPrefix(`❌ DataChannel error: ${error}`);
+        const prefix = channelType === 'offer' ? '📤' : '📥';
+        this.logWithPrefix(`❌ ${prefix} ${channelType} channel error: ${error}`);
         this.isOfferSent = false;
         this.cancelAllTimeouts();
         this.transitionTo(SdpExchangeState.FAILED);
-        this.events.onFailure?.(`DataChannel error: ${error}`);
+        this.events.onFailure?.(`${channelType} channel error: ${error}`);
     }
     
     /**
@@ -251,7 +300,6 @@ export class Peer2PeerConnection {
             });
         }
     }
-    
     /**
      * Reset peer connection to fresh state
      */
@@ -259,20 +307,23 @@ export class Peer2PeerConnection {
         if (this.pc) {
             this.pc.close();
         }
-        this.pc = new RTCPeerConnection();
+        this.pc = new RTCPeerConnection(Peer2PeerConnection.RTC_CONFIG);
         this.dataChannelPeer = undefined;
+        
+        // Re-attach answer channel handler to new peer connection
+        this.setupAnswerChannelHandler();
     }
     
     /**
      * Setup DataChannel event handlers
-     * Registers the channel with WebRTCDataChannelService for centralized management
+     * Registers the offer channel with WebRTCDataChannelService for centralized management
      */
     private setupDataChannelHandlers(channel: RTCDataChannel): void {
-        // Register the data channel with the centralized service
+        // Register the offer channel with the centralized service (for sending)
         // The service will handle all event management and observer notifications
-        WebRTCDataChannelService.getInstance().setDataChannel(channel);
+        WebRTCDataChannelService.getInstance().setOfferChannel(channel);
         
-        this.logWithPrefix(`📡 DataChannel registered with WebRTCDataChannelService: ${channel.label}`);
+        this.logWithPrefix(`📤 Offer channel registered with WebRTCDataChannelService: ${channel.label}`);
     }
     
     /**
@@ -293,7 +344,11 @@ export class Peer2PeerConnection {
                 }
                 
                 this.logWithPrefix('✅ ICE gathering complete (offer)');
-                const offerSDP = JSON.stringify(this.pc.localDescription);
+                
+                // Remove mDNS candidates from SDP before sending
+                const cleanedSDP = this.removeMdnsCandidates(this.pc.localDescription);
+                const offerSDP = JSON.stringify(cleanedSDP);
+                
                 const branch = Peer2PeerConnection.generateBranch();
                 const offerMsg = this.createSdpOfferMessage(offerSDP, callId, sipUri, tag, toLine, branch);
                 
@@ -307,6 +362,30 @@ export class Peer2PeerConnection {
                 this.startReceiveTimeout();
             }
         };
+    }
+    
+    /**
+     * Remove mDNS (.local) candidates from SDP to prevent resolution issues on server
+     */
+    private removeMdnsCandidates(description: RTCSessionDescription | null): RTCSessionDescription | null {
+        if (!description || !description.sdp) {
+            return description;
+        }
+        
+        const sdpLines = description.sdp.split('\r\n');
+        const filteredLines = sdpLines.filter(line => {
+            // Remove lines containing .local hostnames
+            if (line.includes('.local')) {
+                this.logWithPrefix(`🚫 Removing mDNS candidate: ${line}`);
+                return false;
+            }
+            return true;
+        });
+        
+        return {
+            type: description.type,
+            sdp: filteredLines.join('\r\n')
+        } as RTCSessionDescription;
     }
     
     /**
@@ -351,8 +430,21 @@ export class Peer2PeerConnection {
         this.cancelAllTimeouts();
         this.resetPeerConnection();
         
-        // Clear DataChannel from service to prevent stale events
-        WebRTCDataChannelService.getInstance().setDataChannel(null);
+        // Clear both DataChannels from service to prevent stale events
+        // Use the service's cleanup method for proper encapsulation
+        // Note: reset() clears all observers, so we need to resubscribe
+        const service = WebRTCDataChannelService.getInstance();
+        service.reset();
+        
+        // Resubscribe to service events after reset
+        service.subscribe({
+            onDataChannelStateChanged: (state, channelType) => {
+                this.handleDataChannelStateChange(state, channelType);
+            },
+            onDataChannelError: (error, channelType) => {
+                this.handleDataChannelError(error, channelType);
+            }
+        });
         
         this.logWithPrefix('Reset complete');
     }

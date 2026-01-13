@@ -167,15 +167,17 @@ export class WebRTCApiService implements DataChannelObserver {
   /**
    * DataChannelObserver callback - called when DataChannel state changes
    */
-  onDataChannelStateChanged(state: RTCDataChannelState): void {
-    console.log(`📡 [WebRTCApiService] DataChannel state changed: ${state}`);
+  onDataChannelStateChanged(state: RTCDataChannelState, channelType: 'offer' | 'answer'): void {
+    const prefix = channelType === 'offer' ? '📤' : '📥';
+    console.log(`${prefix} [WebRTCApiService] ${channelType} channel state changed: ${state}`);
   }
 
   /**
    * DataChannelObserver callback - called when DataChannel error occurs
    */
-  onDataChannelError(error: Event | string): void {
-    console.error(`❌ [WebRTCApiService] DataChannel error:`, error);
+  onDataChannelError(error: Event | string, channelType: 'offer' | 'answer'): void {
+    const prefix = channelType === 'offer' ? '📤' : '📥';
+    console.error(`❌ ${prefix} [WebRTCApiService] ${channelType} channel error:`, error);
   }
 
   /**
@@ -339,10 +341,10 @@ export class WebRTCApiService implements DataChannelObserver {
       return;
     }
 
-    // Use WebRTCDataChannelService to check channel availability
-    if (!WebRTCDataChannelService.getInstance().isOpen) {
-      console.error(`❌ Cannot retry ${pendingRequest.messageType}: DataChannel not available`);
-      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: DataChannel not available'));
+    // Ensure both channels are ready for bidirectional communication (send request + receive response)
+    if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+      console.error(`❌ Cannot retry ${pendingRequest.messageType}: Channels not ready for bidirectional communication`);
+      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: Channels not ready for bidirectional communication'));
       return;
     }
 
@@ -558,9 +560,9 @@ export class WebRTCApiService implements DataChannelObserver {
         return;
       }
 
-      // Use WebRTCDataChannelService to check channel availability
-      if (!WebRTCDataChannelService.getInstance().isOpen) {
-        reject(new Error('WebRTC data channel is not available'));
+      // Ensure both channels are ready for bidirectional communication (send request + receive response)
+      if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+        reject(new Error('WebRTC channels not ready for bidirectional communication'));
         return;
       }
       
@@ -1016,10 +1018,10 @@ export class WebRTCApiService implements DataChannelObserver {
 
   /**
    * Check if WebRTC connection is ready for API calls
-   * @returns True if data channel is open and ready for communication
+   * @returns True if both channels are open and ready for bidirectional communication
    */
   isReady(): boolean {
-    return WebRTCDataChannelService.getInstance().isOpen;
+    return WebRTCDataChannelService.getInstance().isReadyForCommunication;
   }
 }
 

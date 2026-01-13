@@ -244,8 +244,9 @@ export class WebRTCConnectionManager implements SipClientObserver {
       }
     }
     
-    // Clear DataChannel from service to prevent stale references
-    WebRTCDataChannelService.getInstance().setDataChannel(null);
+    // Clear both DataChannels from service to prevent stale references
+    // Use the service's cleanup method for proper encapsulation
+    WebRTCDataChannelService.getInstance().reset();
     
     this.updateConnectionState({
       reconnectAttempts: 0,
@@ -361,12 +362,12 @@ export class WebRTCConnectionManager implements SipClientObserver {
     try {
       store.dispatch(startAuthentication());
 
-      // Verify data channel is open (should already be open from waitForFullConnection)
-      if (!WebRTCDataChannelService.getInstance().isOpen) {
-        throw new Error('Data channel not open - authentication cannot proceed');
+      // Verify offer channel is open for sending (should already be open from waitForFullConnection)
+      if (!WebRTCDataChannelService.getInstance().isOfferChannelOpen) {
+        throw new Error('Offer channel not open - authentication cannot proceed');
       }
       
-      console.log('✅ Data channel is open, proceeding with authentication');
+      console.log('✅ Offer channel is open, proceeding with authentication');
 
       // Get credentials from Redux store
       const credentials = selectAuthCredentials(store.getState());
@@ -479,11 +480,11 @@ export class WebRTCConnectionManager implements SipClientObserver {
           return;
         }
 
-        // Check if SipClient is in CONNECTED or CONNECTING_P2P state AND DataChannel is open
+        // Check if SipClient is in CONNECTED or CONNECTING_P2P state AND both channels are open
         const sipState = this.sipClient.getState();
         const isFullyConnected = !!(
           (sipState === SipClientState.CONNECTED || sipState === SipClientState.CONNECTING_P2P) &&
-          WebRTCDataChannelService.getInstance().isOpen
+          WebRTCDataChannelService.getInstance().isReadyForCommunication
         );
 
         if (isFullyConnected) {
