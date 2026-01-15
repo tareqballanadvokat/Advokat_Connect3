@@ -1,6 +1,7 @@
 // src/taskpane/components/tabs/email/RegisteredEmails.tsx
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
+import { configService } from '../../../../config/index';
 
 interface ServiceRecord {
   id: string;
@@ -20,7 +21,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
     (async () => {
       try {
     
-        const resp = await fetch('https://localhost:7231/api/service/get-services', {
+        const resp = await fetch(configService.getApiUrl('api/service/get-services'), {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         });

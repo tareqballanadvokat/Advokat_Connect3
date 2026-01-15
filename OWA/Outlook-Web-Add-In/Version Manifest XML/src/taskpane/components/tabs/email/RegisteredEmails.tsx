@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import {RegisteredEmail} from '../../interfaces/IEmail'
+import { configService } from '../../../../config/index';
 
 
 const RegisteredEmails: React.FC = () => {
@@ -10,7 +11,7 @@ const RegisteredEmails: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await fetch('https://localhost:7231/api/email/get-registered', {
+        const resp = await fetch(configService.getApiUrl('api/email/get-registered'), {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         });

@@ -1,4 +1,4 @@
-import { API_BASE } from '../../config';
+import { API_BASE } from '../../config/index';
 import { EmailModel } from '../components/interfaces/IEmail';
 import { HierarchyTree } from '../components/interfaces/ICase';
 import notify from 'devextreme/ui/notify';

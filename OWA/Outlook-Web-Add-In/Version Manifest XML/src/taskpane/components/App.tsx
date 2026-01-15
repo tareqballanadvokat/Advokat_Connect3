@@ -1,7 +1,7 @@
 import * as React from "react";
 import { makeStyles } from "@fluentui/react-components";
 import Tabs from './Tab';
-import { DEVEXPRESS_THEME, COMPACT} from '../../config';
+import { DEVEXPRESS_THEME, COMPACT} from '../../config/index';
 import { getWebRTCConnectionManager } from '../services/WebRTCConnectionManager';
 
 interface AppProps {

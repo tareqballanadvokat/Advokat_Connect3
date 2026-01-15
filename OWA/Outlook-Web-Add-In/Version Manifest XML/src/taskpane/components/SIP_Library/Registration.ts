@@ -1,3 +1,5 @@
+import { configService } from '../../../config/index';
+
 /**
  * SIP Registration Handler
  * 
@@ -129,15 +131,15 @@ export class Registration {
     private static readonly CSEQ_BYE_TIMEOUT = 2;
     private static readonly CSEQ_ACK = 3;
     
-    private sipUri = "sip:macc@127.0.0.1:8009";
+    private sipUri: string;
     public tag = "";
     public callId = "";
     private cseq = 1;
     public isRegistered = false;
     
     public branch = "";
-    public fromDisplayName = "macc";
-    public toDisplayName = "macs";
+    public fromDisplayName: string;
+    public toDisplayName: string;
     
     // FROM header parsing (instance variables instead of globals)
     private parsedFromUri = "";
@@ -167,6 +169,10 @@ export class Registration {
     private processedCSeqs: Set<number> = new Set(); // Track processed CSeq to detect duplicates
 
     constructor(timeoutManager: TimeoutManager, events: RegistrationEvents) {
+        const sipConfig = configService.getSipConfig();
+        this.sipUri = sipConfig.sipUri;
+        this.fromDisplayName = sipConfig.fromDisplayName;
+        this.toDisplayName = sipConfig.toDisplayName;
         this.timeoutManager = timeoutManager;
         this.events = events;
         this.generateSessionIds();
