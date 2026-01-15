@@ -21,13 +21,13 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
     (async () => {
       try {
     
-        const resp = await fetch(configService.getApiUrl('api/service/get-services'), {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data: ServiceRecord[] = await resp.json();
-        // Zakładamy, że zwracane entries są już posortowane malejąco po dacie.
-        setEmails(data);
+        // const resp = await fetch(configService.getApiUrl('api/service/get-services'), {
+        //   method: 'GET',
+        //   headers: { 'Content-Type': 'application/json' }
+        // });
+        // const data: ServiceRecord[] = await resp.json();
+        // // Zakładamy, że zwracane entries są już posortowane malejąco po dacie.
+        // setEmails(data);
       } catch (err) {
         console.error('Błąd podczas pobierania zarejestowanych akcji servisowych:', err);
       }

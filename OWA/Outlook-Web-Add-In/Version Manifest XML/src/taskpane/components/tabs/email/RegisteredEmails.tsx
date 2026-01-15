@@ -8,21 +8,21 @@ import { configService } from '../../../../config/index';
 const RegisteredEmails: React.FC = () => {
   const [emails, setEmails] = useState<RegisteredEmail[]>([]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const resp = await fetch(configService.getApiUrl('api/email/get-registered'), {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data: RegisteredEmail[] = await resp.json();
-        // Zakładamy, że zwracane entries są już posortowane malejąco po dacie.
-        setEmails(data);
-      } catch (err) {
-        console.error('Błąd podczas pobierania Registered E-Mails:', err);
-      }
-    })();
-  }, []);
+  // useEffect(() => {
+  //   (async () => {
+  //     try {
+  //       const resp = await fetch(configService.getApiUrl('api/email/get-registered'), {
+  //         method: 'GET',
+  //         headers: { 'Content-Type': 'application/json' }
+  //       });
+  //       const data: RegisteredEmail[] = await resp.json();
+  //       // Zakładamy, że zwracane entries są już posortowane malejąco po dacie.
+  //       setEmails(data);
+  //     } catch (err) {
+  //       console.error('Błąd podczas pobierania Registered E-Mails:', err);
+  //     }
+  //   })();
+  // }, []);
 
   return (
     <div style={{ marginTop: 24 }}>
