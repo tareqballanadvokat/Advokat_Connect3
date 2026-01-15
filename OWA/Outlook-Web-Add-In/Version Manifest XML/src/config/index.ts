@@ -145,6 +145,46 @@ export * from './types';
 export { detectEnvironment, isDevelopment, isProduction, isStaging, isTest } from './environment';
 
 // Legacy exports for backward compatibility
+// Note: These are evaluated at import time, so they won't update if config changes
+// For dynamic values, use configService.getApiBaseUrl() directly
+let _cachedApiBase: string;
+let _cachedTheme: string;
+let _cachedCompact: string;
+
+Object.defineProperty(exports, 'API_BASE', {
+  get() {
+    if (!_cachedApiBase) {
+      _cachedApiBase = configService.getApiBaseUrl();
+    }
+    return _cachedApiBase;
+  },
+  enumerable: true,
+  configurable: true
+});
+
+Object.defineProperty(exports, 'DEVEXPRESS_THEME', {
+  get() {
+    if (!_cachedTheme) {
+      _cachedTheme = configService.getConfig().theme.name;
+    }
+    return _cachedTheme;
+  },
+  enumerable: true,
+  configurable: true
+});
+
+Object.defineProperty(exports, 'COMPACT', {
+  get() {
+    if (!_cachedCompact === undefined) {
+      _cachedCompact = configService.getConfig().theme.compact ? '.compact' : '';
+    }
+    return _cachedCompact;
+  },
+  enumerable: true,
+  configurable: true
+});
+
+// Also export as named exports for ES modules
 export const API_BASE = configService.getApiBaseUrl();
 export const DEVEXPRESS_THEME = configService.getConfig().theme.name;
 export const COMPACT = configService.getConfig().theme.compact ? '.compact' : '';

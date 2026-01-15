@@ -28,21 +28,19 @@ export function detectEnvironment(): Environment {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname.toLowerCase();
     
-    // Production patterns
-    if (hostname.includes('advokatconnect.com') || 
-        hostname.includes('advokat-connect.de') ||
-        (!hostname.includes('localhost') && !hostname.includes('127.0.0.1') && !hostname.includes('.local'))) {
-      return Environment.PRODUCTION;
+    // Development patterns (check first for safety)
+    if (hostname.includes('localhost') || hostname.includes('127.0.0.1') || hostname.includes('.local')) {
+      return Environment.DEVELOPMENT;
     }
     
-    // Staging patterns
+    // Staging patterns (check before production)
     if (hostname.includes('staging') || hostname.includes('stage') || hostname.includes('test.')) {
       return Environment.STAGING;
     }
     
-    // Development patterns
-    if (hostname.includes('localhost') || hostname.includes('127.0.0.1') || hostname.includes('.local')) {
-      return Environment.DEVELOPMENT;
+    // Production patterns (explicit domains only)
+    if (hostname.includes('advokatconnect.com') || hostname.includes('advokat-connect.de')) {
+      return Environment.PRODUCTION;
     }
   }
 

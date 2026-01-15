@@ -60,6 +60,11 @@ export const PRODUCTION_CONFIG: Partial<AppConfig> = {
     timeout: 30000,
     enableLogging: false, // Disable verbose logging in production
   },
+  
+  theme: {
+    name: 'devextreme/dist/css/dx.',
+    compact: false,
+  },
 };
 
 /**
@@ -86,6 +91,11 @@ export const STAGING_CONFIG: Partial<AppConfig> = {
     baseUrl: 'https://api.staging.com',
     timeout: 30000,
     enableLogging: true,
+  },
+  
+  theme: {
+    name: 'devextreme/dist/css/dx.',
+    compact: false,
   },
 };
 
