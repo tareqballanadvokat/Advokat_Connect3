@@ -1,21 +1,22 @@
 ﻿using Advokat.WebRTC.Client.Interfaces;
 using Advokat.WebRTC.Plugin.Chunking.DTOs;
-using Advokat.WebRTC.Plugin.DTOs;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SIPSorcery.Net;
-using System;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using WebRTCClient;
+
 
 namespace Caller
 {
     internal class Program
     {
         static WebRTCPeer UserAgent { get; set; }
+
+        private static bool Running { get; set; }
 
         static async Task Main(string[] args)
         {
@@ -72,9 +73,14 @@ namespace Caller
             UserAgent.OnConnected += async sender =>
             {
                 Console.WriteLine("connected.");
-                while (true)
+                
+                if (!Running)
                 {
-                    await SendRequest();
+                    while (true)
+                    {
+                        Running = true;
+                        await SendRequest();
+                    }
                 }
             };
 
@@ -168,6 +174,12 @@ namespace Caller
                 Console.WriteLine("Disconnecting");
                 await UserAgent.Disconnect();
                 return;
+            }
+
+            else if (input == "close")
+            {
+                await UserAgent.DisposeAsync();
+                Environment.Exit(0);
             }
 
 
