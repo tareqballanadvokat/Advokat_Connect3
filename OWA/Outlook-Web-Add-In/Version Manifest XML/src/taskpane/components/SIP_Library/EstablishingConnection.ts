@@ -2,28 +2,85 @@
  * SIP Connection Establishment Handler
  * 
  * This class manages the connection establishment phase that occurs after successful SIP registration.
- * It handles the negotiation process to determine which peer will create the WebRTC offer and which
- * will create the answer for peer-to-peer communication setup.
+ * Coordinates dual timeout management (ConnectionTimeout + PeerRegistrationTimeout) and handles
+ * the NOTIFY4 → ACK5 → NOTIFY6 sequence to establish peer-to-peer connection readiness.
  * 
- * The connection establishment process involves:
- * 1. Receiving NOTIFY (CSeq: 4) - Connection phase starts, ConnectionTimeout begins
- * 2. Sending ACK (CSeq: 5) - Acknowledge NOTIFY4
- * 3. Receiving NOTIFY (CSeq: 6) - Connection establishment complete
- * 4. Coordinating with PeerRegistrationTimeout (running from Registration phase)
+ * EVENT-DRIVEN DESIGN:
+ * Uses ConnectionEvents callback interface to emit state changes and outcomes.
+ * SipClient subscribes to these events to coordinate transition to WebRTC phase.
+ * No direct coupling to Redux or external state management.
  * 
- * Key Features:
- * - Manages connection type negotiation (OFFER vs ANSWER)
- * - Dual timeout management (ConnectionTimeout + PeerRegistrationTimeout)
- * - CONNECTION BYE support for error recovery
- * - State machine for tracking connection progress
- * - Coordinates with WebRTC peer connection setup
+ * CONNECTION ESTABLISHMENT FLOW (Success Path):
+ * ┌────────────────────────────────────────────────────────────────────┐
+ * │ Server sends NOTIFY (CSeq:4) - Connection phase starts            │
+ * │   → State: WAITING_NOTIFY_4 → NOTIFY_4_RECEIVED                   │
+ * │   → Start CONNECTION_TIMEOUT (default 3000ms)                     │
+ * │   → PeerRegistrationTimeout continues running from Registration   │
+ * │   → Both timeouts now active simultaneously                       │
+ * └────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌────────────────────────────────────────────────────────────────────┐
+ * │ Client sends ACK (CSeq:5) - Acknowledge NOTIFY4                   │
+ * │   → Extract Call-ID, To/From lines from NOTIFY4                   │
+ * │   → Swap To/From for ACK response                                 │
+ * │   → State: NOTIFY_4_RECEIVED → WAITING_NOTIFY_6                   │
+ * └────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌────────────────────────────────────────────────────────────────────┐
+ * │ Server sends NOTIFY (CSeq:6) - Connection establishment complete  │
+ * │   → Cancel both CONNECTION_TIMEOUT and PEER_REGISTRATION_TIMEOUT  │
+ * │   → State: WAITING_NOTIFY_6 → COMPLETE                            │
+ * │   → isConnectionEstablished = true                                │
+ * │   → Ready for WebRTC SDP Exchange (SERVICE messages)              │
+ * └────────────────────────────────────────────────────────────────────┘
+ * 
+ * TIMEOUT HANDLING (Failure Recovery):
+ * ┌────────────────────────────────────────────────────────────────────┐
+ * │ CONNECTION_TIMEOUT Expires (ACK not received by server):          │
+ * │   → Check PeerRegistrationTimeout remaining time                  │
+ * │   → If time remaining > 0: Reset to WAITING_NOTIFY_4 (retry)      │
+ * │   → If time exhausted: Mark as FAILED (restart registration)      │
+ * │   → Send CONNECTION BYE (CSeq: incremented)                       │
+ * └────────────────────────────────────────────────────────────────────┘
+ *                              ↓
+ * ┌────────────────────────────────────────────────────────────────────┐
+ * │ CONNECTION BYE Received from server/peer:                         │
+ * │   → Cancel CONNECTION_TIMEOUT                                     │
+ * │   → Check PeerRegistrationTimeout remaining time                  │
+ * │   → If time remaining > 0: Reset to WAITING_NOTIFY_4              │
+ * │   → If time exhausted: Mark as FAILED                             │
+ * │   → Respond with CONNECTION BYE (per protocol)                    │
+ * └────────────────────────────────────────────────────────────────────┘
+ * 
+ * ERROR HANDLING:
+ *   • Retryable errors (408, 500, 503, 504): Send CONNECTION BYE, mark FAILED
+ *   • Non-retryable errors: Mark FAILED, no BYE sent
+ *   • All errors: Cancel CONNECTION_TIMEOUT
+ * 
+ * DUAL TIMEOUT COORDINATION:
+ *   • PeerRegistrationTimeout: Started in Registration phase after ACK_3
+ *   • CONNECTION_TIMEOUT: Started when NOTIFY4 received
+ *   • Both run simultaneously during connection establishment
+ *   • Both cancelled when NOTIFY6 received (success)
+ *   • CONNECTION_TIMEOUT cancelled on errors (PeerReg continues)
+ * 
+ * IMPORTANT: NOTIFY messages use NEW Call-ID and tags (SIP tunnel IDs).
+ * These are DIFFERENT from registration session IDs. No session validation needed.
  * 
  * @author AdvokatConnect Development Team
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
+import { MessageFactory } from './MessageFactory';
+import { SipPhaseEvents } from './SipClient';
+
+/**
+ * Event callbacks for Connection Establishment phase
+ * Specialized from generic SipPhaseEvents with ConnectionState and 'CONNECTION_TIMEOUT'
+ */
+export type ConnectionEvents = SipPhaseEvents<ConnectionState, 'CONNECTION_TIMEOUT'>;
 
 /**
  * Connection Establishment state machine enum
@@ -39,42 +96,96 @@ export enum ConnectionState {
 }
 
 export class EstablishingConnection {
+    private static readonly REGEX_CALL_ID = /^Call-ID:\s*([^\r\n]+)/m;
+    private static readonly REGEX_TO_LINE = /^To:.*$/m;
+    private static readonly REGEX_FROM_LINE = /^From:.*$/m;
+    private static readonly REGEX_CSEQ = /CSeq:\s*(\d+)/;
+    
+    private static readonly CSEQ_NOTIFY_4 = 4;
+    private static readonly CSEQ_ACK_5 = 5;
+    private static readonly CSEQ_NOTIFY_6 = 6;
+    
+    private static readonly RETRYABLE_ERROR_CODES = [408, 500, 503, 504];
+    private static readonly DEFAULT_CONNECTION_TIMEOUT = 3000;
+    
     public sipUri = "sip:macc@127.0.0.1:8009";
-    public tag = Math.random().toString(36).substring(2, 12);
-    private callId = Math.random().toString(36).substring(2, 12);
-    private cseq = 1;
-    public isEstablishingConnectionProcessFinished = false;
-    private branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
+    public tag = "";
+    private callId = "";
+    public isConnectionEstablished = false;
+    private branch = "";
     private fromDisplayName = "macc";
     private toDisplayName = "macs";
     
-    // State machine and timeout management
     private connectionState: ConnectionState = ConnectionState.WAITING_NOTIFY_4;
     private timeoutManager: TimeoutManager;
-    private connectionTimeout: number = 3000;  // Default 3s, updated from Registration
+    private connectionTimeout: number = EstablishingConnection.DEFAULT_CONNECTION_TIMEOUT;
     private lastError: string = "";
     
-    // Callback for querying PeerRegistrationTimeout remaining time (from SipClient)
-    public getPeerRegistrationTimeRemaining: (() => number) | null = null;
+    // Session tracking for connection phase
+    private processedCSeqs: Set<number> = new Set(); // Track processed CSeqs to detect duplicates
+    private lastSentConnectionByeCSeq: number = 0; // Counter for CONNECTION BYE CSeq (for loop prevention)
     
-    // Callback for sending messages when timeout occurs (from SipClient)
-    public onSendMessage: ((message: string) => void) | null = null;
+    public lastByeReceived: string | null = null;
     
-    constructor(timeoutManager: TimeoutManager) {
+    // Event callbacks for SipClient observation
+    private events: ConnectionEvents;
+    
+    constructor(timeoutManager: TimeoutManager, events: ConnectionEvents) {
         this.timeoutManager = timeoutManager;
+        this.events = events;
+        // Session IDs will be set via updateData() from Registration phase
     }
     
     /**
+     * Generates new session identifiers (Call-ID, branch, tag) for connection establishment
+     */
+    private generateSessionIds(): void {
+        this.callId = Math.random().toString(36).substring(2, 12);
+        this.branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
+        this.tag = Math.random().toString(36).substring(2, 12);
+    }
+    
+    /**
+     * Centralized state transition helper with automatic logging and event emission
+     */
+    private transitionTo(newState: ConnectionState, reason?: string): void {
+        const oldState = this.connectionState;
+        
+        // Skip if already in target state
+        if (oldState === newState) {
+            logger.log(`📤 [CONNECTION] Already in state ${newState}, skipping transition`);
+            return;
+        }
+        
+        this.connectionState = newState;
+        if (reason) {
+            logger.log(`📤 [CONNECTION] STATE: ${oldState} -> ${newState} (${reason})`);
+        } else {
+            logger.log(`📤 [CONNECTION] STATE: ${oldState} -> ${newState}`);
+        }
+        this.events.onStateChange?.(newState);
+    }
+    
+    /**
+     * Cancels CONNECTION_TIMEOUT timer if currently active
+     */
+    private cancelConnectionTimeout(): void {
+        if (this.timeoutManager.isTimerActive('CONNECTION_TIMEOUT')) {
+            this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
+        }
+    }
+    
+
+    
+    /**
      * Updates connection parameters from registration data
-     * Receives tag, callId, branch from successful registration
-     * Also receives updated ConnectionTimeout value from server
-     * 
+     * Receives session IDs and timeout configuration from successful registration
      * @param tag - SIP tag from registration
      * @param callId - Call ID from registration
      * @param branch - Branch parameter from registration
      * @param fromDisplay - From display name
      * @param toDisplay - To display name
-     * @param connectionTimeout - ConnectionTimeout value from server (optional, defaults to 3000ms)
+     * @param connectionTimeout - ConnectionTimeout value from server (optional)
      */
     updateData(tag: string, callId: string, branch: string, fromDisplay: string, toDisplay: string, connectionTimeout?: number): void {
         this.tag = tag;
@@ -85,42 +196,45 @@ export class EstablishingConnection {
         
         if (connectionTimeout !== undefined) {
             this.connectionTimeout = connectionTimeout;
-            logger.log(`EstablishingConnection: Updated ConnectionTimeout to ${connectionTimeout}ms`);
+            logger.log(`[CONNECTION] Updated ConnectionTimeout to ${connectionTimeout}ms`);
         }
         
-        logger.log(`EstablishingConnection: Updated data - Tag: ${tag}, CallId: ${callId}, Branch: ${branch}`);
+        logger.log(`[CONNECTION] Updated data - Tag: ${tag}, CallId: ${callId}, Branch: ${branch}`);
     }
     
     /**
-     * Parses incoming SIP messages and determines appropriate response during connection establishment
-     * Routes messages to specific handlers based on message type and current state
-     * Manages ConnectionTimeout lifecycle and coordinates with PeerRegistrationTimeout
-     * 
-     * NOTE: NOTIFY messages use NEW Call-ID and tags for the SIP tunnel between clients.
-     * These are DIFFERENT from the registration session IDs. No session validation needed here.
-     * 
+     * Central message router - analyzes incoming SIP messages and returns appropriate response
+     * Routes to specific handlers based on message type and current state
+     * NOTE: NOTIFY messages use NEW Call-ID/tags (SIP tunnel IDs), different from registration session
      * @param data - The SIP message data to parse
      * @returns The appropriate response message or undefined
      */
     parseMessage(data: string): string | undefined {
-        logger.log(`EstablishingConnection: Parsing message in state ${this.connectionState}`);
+        logger.log(`📨 [CONNECTION] Parsing message in state ${this.connectionState}`);
+        // Check for duplicate CSeq (except BYE which may be retransmitted)
+        if (!/^BYE/.test(data)) {
+            const cseqMatch = data.match(EstablishingConnection.REGEX_CSEQ);
+            if (cseqMatch) {
+                const cseq = parseInt(cseqMatch[1]);
+                if (this.processedCSeqs.has(cseq)) {
+                    logger.log(`⚠️ [CONNECTION] Duplicate CSeq ${cseq} detected - handling duplicate`);
+                    return this.handleDuplicateMessage(data, cseq);
+                }
+            }
+        }
         
-        // Handle NOTIFY (initial connection establishment)
         if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
             return this.handleNotify(data);
         }
         
-        // Handle ACK (response to our NOTIFY acknowledgment)
         if (/^ACK\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
             return this.handleAck(data);
         }
         
-        // Handle CONNECTION BYE from server or peer
         if (/^BYE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data) && /Reason:\s*CONNECTION/.test(data)) {
             return this.handleConnectionBye(data);
         }
         
-        // Handle error responses (4xx, 5xx)
         if (/^SIP\/2\.0\s+[45]\d{2}/.test(data)) {
             return this.handleErrorResponse(data);
         }
@@ -129,193 +243,203 @@ export class EstablishingConnection {
     }
     
     /**
-     * Handle NOTIFY messages during connection establishment
-     * Determines CSeq to route to NOTIFY4 or NOTIFY6 handler
-     * 
-     * @param data - NOTIFY message
-     * @returns ACK response or undefined
+     * Handles duplicate messages (server retransmissions)
+     * Resends appropriate response for idempotent behavior
+     * @param data - The duplicate message
+     * @param cseq - The CSeq number of the duplicate
+     * @returns Response to resend or undefined
      */
-    private handleNotify(data: string): string | undefined {
-        // Check CSeq to determine which NOTIFY this is
-        const cseqMatch = data.match(/CSeq:\s*(\d+)/);
-        const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
+    private handleDuplicateMessage(data: string, cseq: number): string | undefined {
+        logger.log(`🔁 [CONNECTION] Handling duplicate for CSeq: ${cseq}`);
         
-        if (cseq === 4) {
-            return this.handleNotify4(data);
-        } else if (cseq === 6) {
-            return this.handleNotify6(data);
+        // Duplicate NOTIFY4 - resend ACK5
+        if (cseq === EstablishingConnection.CSEQ_NOTIFY_4 && /^NOTIFY/.test(data)) {
+            logger.log('🔁 [CONNECTION] Resending ACK5 for duplicate NOTIFY4');
+            return this.createAck5ForNotify4(data);
         }
         
-        logger.log(`EstablishingConnection: Unexpected NOTIFY CSeq: ${cseq}`);
+        // Duplicate NOTIFY6 - no response needed (already processed)
+        if (cseq === EstablishingConnection.CSEQ_NOTIFY_6 && /^NOTIFY/.test(data)) {
+            logger.log('🔁 [CONNECTION] Ignoring duplicate NOTIFY6');
+            return undefined;
+        }
+        
+        logger.log('🔁 [CONNECTION] Ignoring duplicate - no action needed');
         return undefined;
     }
     
     /**
-     * Handle NOTIFY (CSeq: 4) - Connection establishment phase starts
-     * Starts ConnectionTimeout, keeps PeerRegistrationTimeout running
-     * Transitions to NOTIFY_4_RECEIVED state
-     * 
+     * Routes NOTIFY messages to appropriate handler based on CSeq
+     * CSeq 4: Connection phase start | CSeq 6: Connection complete
      * @param data - NOTIFY message
-     * @returns ACK message with IsOffering role
+     * @returns ACK response or undefined
+     */
+    private handleNotify(data: string): string | undefined {
+        const cseqMatch = data.match(EstablishingConnection.REGEX_CSEQ);
+        const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
+        
+        if (cseq === EstablishingConnection.CSEQ_NOTIFY_4) {
+            return this.handleNotify4(data);
+        } else if (cseq === EstablishingConnection.CSEQ_NOTIFY_6) {
+            return this.handleNotify6(data);
+        }
+        
+        logger.log(`⚠️ [CONNECTION] Unexpected NOTIFY CSeq: ${cseq}`);
+        return undefined;
+    }
+    
+    /**
+     * Handles NOTIFY (CSeq:4) - Connection establishment phase starts
+     * Starts CONNECTION_TIMEOUT, coordinates with PeerRegistrationTimeout
+     * @param data - NOTIFY4 message
+     * @returns ACK5 message
      */
     private handleNotify4(data: string): string | undefined {
         logger.log("🔔 [CONNECTION] ===============================================");
         logger.log("🔔 [CONNECTION] NOTIFY4 RECEIVED - Connection phase starting");
         logger.log("🔔 [CONNECTION] ===============================================");
         
-        // Check PeerRegistrationTimeout status BEFORE starting ConnectionTimeout
-        const peerTimeRemaining = this.getPeerRegistrationTimeRemaining?.() ?? 0;
-        logger.log(`⏱️ [CONNECTION] PeerRegistrationTimeout status: ${peerTimeRemaining}ms remaining`);
+        // Extract and update Call-ID from NOTIFY4 (overwrites registration Call-ID)
+        const callIdMatch = data.match(EstablishingConnection.REGEX_CALL_ID);
+        if (callIdMatch) {
+            this.callId = callIdMatch[1];
+            logger.log(`🏷️ [CONNECTION] Updated Call-ID from NOTIFY4: ${this.callId}`);
+        } else {
+            logger.log('⚠️ [CONNECTION] WARNING: NOTIFY4 missing Call-ID header');
+        }
         
-        // Start ConnectionTimeout (PeerRegistrationTimeout still running)
+        // Mark CSeq 4 as processed
+        this.processedCSeqs.add(EstablishingConnection.CSEQ_NOTIFY_4);
+        
         this.timeoutManager.startTimer(
             'CONNECTION_TIMEOUT',
             this.connectionTimeout,
             () => this.handleConnectionTimeout()
         );
         logger.log(`⏱️ [CONNECTION] Started ConnectionTimeout (${this.connectionTimeout}ms)`);
-        logger.log(`⏱️ [CONNECTION] Both timeouts now active: ConnectionTimeout + PeerRegistrationTimeout`);
         
-        this.connectionState = ConnectionState.NOTIFY_4_RECEIVED;
+        this.transitionTo(ConnectionState.NOTIFY_4_RECEIVED, 'NOTIFY4 received');
         
+        // createAck5ForNotify4 will handle state transition to WAITING_NOTIFY_6
         return this.createAck5ForNotify4(data);
     }
     
     /**
-     * Creates ACK (CSeq: 5) in response to NOTIFY4
-     * Simple acknowledgment without offering negotiation
-     * 
+     * Creates ACK (CSeq:5) in response to NOTIFY4
+     * Swaps To/From lines for acknowledgment, uses current Call-ID
      * @param data - The NOTIFY4 message
-     * @returns ACK message with CSeq 5
+     * @returns ACK5 message
      */
     private createAck5ForNotify4(data: string): string {
-        logger.log('🔨 [CONNECTION] Creating ACK5 for NOTIFY4');
-        
-        // Extract Call-ID from NOTIFY4
-        const reCallId = /^Call-ID:\s*([^\r\n]+)/m;
-        const callIdMatch = data.match(reCallId);
-        const callId = callIdMatch ? callIdMatch[1] : '';
-        
-        // Extract To and From lines from NOTIFY4 and swap them for ACK
-        const toLineMatch = data.match(/^To:.*$/m);
+        const toLineMatch = data.match(EstablishingConnection.REGEX_TO_LINE);
         const toLine = toLineMatch ? toLineMatch[0] : '';
         const fromLineOrigin = toLine.replace(/^To:/i, 'From:');
         
-        const fromLineMatch = data.match(/^From:.*$/m);
+        const fromLineMatch = data.match(EstablishingConnection.REGEX_FROM_LINE);
         const fromLine = fromLineMatch ? fromLineMatch[0] : '';
         const toLineReplaced = fromLine.replace(/^From:/i, 'To:');
         
-        logger.log('📥 [CONNECTION] ACK5 From Line: ' + fromLineOrigin);
-        logger.log('📥 [CONNECTION] ACK5 To Line: ' + toLineReplaced);
-        
-        const ack5 =
-            'ACK ' + this.sipUri + ' SIP/2.0\r\n' +
-            'Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=' + this.branch + '\r\n' +
-            'Max-Forwards: 70\r\n' +
-            toLineReplaced + '\r\n' +
-            fromLineOrigin + '\r\n' +
-            'Call-ID: ' + callId + '\r\n' +
-            'CSeq: 5 ACK\r\n' +
-            'Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n' +
-            'Content-Length: 0\r\n\r\n';
+        const ack5 = MessageFactory.createAckMessage({
+            sipUri: this.sipUri,
+            branch: this.branch,
+            callId: this.callId,
+            tag: this.tag,
+            cseq: EstablishingConnection.CSEQ_ACK_5,
+            toLine: toLineReplaced,
+            fromLine: fromLineOrigin
+        });
         
         logger.log('📤 [CONNECTION] Created ACK5 for NOTIFY4');
+        // Transition to WAITING_NOTIFY_6 when ACK5 is sent
+        this.transitionTo(ConnectionState.WAITING_NOTIFY_6, 'ACK5 sent - waiting for NOTIFY6');
         return ack5;
     }
     
     /**
-     * Handle NOTIFY (CSeq: 6) - Connection establishment complete
-     * NOTIFY6 marks the end of the connection establishment phase
-     * No ACK response is needed - NOTIFY6 is just an end marker
-     * Cancels both ConnectionTimeout and PeerRegistrationTimeout
-     * Transitions to COMPLETE - ready for WebRTC SDP Exchange
-     * 
-     * @param _data - NOTIFY message (unused, keeping for signature consistency)
+     * Handles NOTIFY (CSeq:6) - Connection establishment complete
+     * Cancels both timeouts, marks connection as established, transitions to COMPLETE
+     * No ACK response needed - NOTIFY6 is final marker
+     * @param _data - NOTIFY6 message (unused, keeping for signature consistency)
      * @returns undefined (no response needed)
      */
     private handleNotify6(_data: string): undefined {
         logger.log("🏁 [CONNECTION] ===============================================");
-        logger.log("🏁 [CONNECTION] NOTIFY6 RECEIVED - Connection establishment phase COMPLETE");
+        logger.log("🏁 [CONNECTION] NOTIFY6 RECEIVED - Connection establishment COMPLETE");
         logger.log("🏁 [CONNECTION] ===============================================");
         
-        // Cancel both timeouts - connection establishment complete
-        this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
-        this.timeoutManager.cancelTimer('PEER_REGISTRATION_TIMEOUT');
-        logger.log("🏁 [CONNECTION] Cancelled ConnectionTimeout and PeerRegistrationTimeout");
+        this.cancelConnectionTimeout();
         
-        this.connectionState = ConnectionState.COMPLETE;
+        // Mark CSeq 6 as processed
+        this.processedCSeqs.add(EstablishingConnection.CSEQ_NOTIFY_6);
         
-        logger.log("🏁 [CONNECTION] Connection establishment COMPLETE - Ready for WebRTC SDP Exchange");
-        logger.log("🏁 [CONNECTION] OWA will create SDP Offer immediately (SERVICE CSeq: 1)");
+        this.transitionTo(ConnectionState.COMPLETE, 'NOTIFY6 received - ready for WebRTC');
+        this.isConnectionEstablished = true;
+        
+        logger.log("🏁 [CONNECTION] Ready for WebRTC SDP Exchange (SERVICE CSeq:1)");
+        
+        // Notify SipClient of success
+        this.events.onSuccess?.();
+        
         return undefined;
     }
     
     /**
-     * Handle ACK received after we send response
-     * Transitions directly to WAITING_NOTIFY_6 state
-     * 
-     * @param _data - ACK message (unused, keeping for signature consistency)
+     * Handles ACK received after sending ACK5
+     * Validates CSeq and transitions to WAITING_NOTIFY_6 state
+     * @param data - ACK message
      * @returns undefined
      */
-    private handleAck(_data: string): undefined {
-        logger.log("EstablishingConnection: Handling ACK");
+    private handleAck(data: string): undefined {
+        // Validate ACK is CSeq 5 (response to our ACK5)
+        const cseqMatch = data.match(EstablishingConnection.REGEX_CSEQ);
+        const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
         
-        if (this.connectionState === ConnectionState.NOTIFY_4_RECEIVED) {
-            this.connectionState = ConnectionState.WAITING_NOTIFY_6;
-            logger.log("EstablishingConnection: Transitioned to WAITING_NOTIFY_6");
+        if (cseq !== EstablishingConnection.CSEQ_ACK_5) {
+            logger.log(`⚠️ [CONNECTION] Unexpected ACK CSeq: ${cseq}, expected ${EstablishingConnection.CSEQ_ACK_5}`);
+            return undefined;
         }
         
+        if (this.connectionState === ConnectionState.NOTIFY_4_RECEIVED) {
+            this.processedCSeqs.add(EstablishingConnection.CSEQ_ACK_5);
+            this.transitionTo(ConnectionState.WAITING_NOTIFY_6, 'ACK received');
+        }
         return undefined;
     }
     
     /**
-     * Handle ConnectionTimeout expiry
-     * Means ACK was not received by server - send CONNECTION BYE and reset
-     * Checks PeerRegistrationTimeout remaining time to decide retry strategy:
-     * - If peer timeout has time remaining: reset to WAITING_NOTIFY_4 for retry
-     * - If peer timeout exhausted: mark as FAILED (SipClient will restart registration)
+     * Handles CONNECTION_TIMEOUT expiry (ACK not received by server)
+     * Notifies SipClient of timeout failure
      */
     private handleConnectionTimeout(): void {
-        logger.log("⏰ [CONNECTION] ===============================================");
-        logger.log("⏰ [CONNECTION] ConnectionTimeout EXPIRED - ACK not received by server");
-        logger.log("⏰ [CONNECTION] ===============================================");
-        
-        // Check PeerRegistrationTimeout remaining time
-        const peerTimeRemaining = this.getPeerRegistrationTimeRemaining?.() ?? 0;
-        logger.log(`⏱️ [CONNECTION] Checking PeerRegistrationTimeout status...`);
-        logger.log(`⏱️ [CONNECTION] PeerRegistrationTimeout has ${peerTimeRemaining}ms remaining`);
-        
-        // Cancel ConnectionTimeout (will restart when NOTIFY4 arrives)
-        this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
-        
-        let byeMessage: string;
-        
-        if (peerTimeRemaining > 0) {
-            // Enough time for connection retry - reset to wait for NOTIFY4
-            logger.log("✅ [CONNECTION] Sufficient time for connection retry - resetting to WAITING_NOTIFY_4");
-            this.connectionState = ConnectionState.WAITING_NOTIFY_4;
-            this.lastError = "ConnectionTimeout expired - ACK not received, waiting for retry";
-            
-            byeMessage = this.createConnectionBye(this.cseq++, "ConnectionTimeout expired - ACK not received");
-        } else {
-            // Must restart from registration
-            logger.log("❌ [CONNECTION] PeerRegistrationTimeout exhausted - must restart registration");
-            this.connectionState = ConnectionState.FAILED;
-            this.lastError = "Both ConnectionTimeout and PeerRegistrationTimeout expired - restart registration";
-            
-            byeMessage = this.createConnectionBye(this.cseq++, "Both timeouts expired");
+        // State guard: only process timeout if still waiting for NOTIFY6
+        if (this.connectionState !== ConnectionState.WAITING_NOTIFY_6 && 
+            this.connectionState !== ConnectionState.NOTIFY_4_RECEIVED) {
+            logger.log(`⏱️ [CONNECTION] CONNECTION_TIMEOUT fired but state is ${this.connectionState} - ignoring`);
+            return;
         }
         
-        // Send CONNECTION BYE via callback
-        if (this.onSendMessage) {
-            this.onSendMessage(byeMessage);
-        }
+        logger.log("⏰ [CONNECTION] ===============================================");
+        logger.log("⏰ [CONNECTION] ConnectionTimeout EXPIRED - ACK not received");
+        logger.log("⏰ [CONNECTION] ===============================================");
+        
+        this.cancelConnectionTimeout();
+        
+        this.transitionTo(ConnectionState.FAILED, 'CONNECTION_TIMEOUT expired');
+        this.isConnectionEstablished = false;
+        this.lastError = "ConnectionTimeout expired - ACK not received";
+        
+        const byeMessage = this.createConnectionBye(++this.lastSentConnectionByeCSeq, "ConnectionTimeout expired");
+        this.events.onMessageToSend?.(byeMessage, 'CONNECTION BYE due to timeout');
+        
+        // Notify SipClient of timeout and failure
+        this.events.onTimeout?.('CONNECTION_TIMEOUT');
+        this.events.onFailure?.('CONNECTION_TIMEOUT expired');
     }
     
     /**
-     * Handle error responses (4xx, 5xx status codes)
-     * Retryable errors (408, 500, 503, 504) trigger CONNECTION BYE
-     * 
+     * Handles SIP error responses (4xx, 5xx status codes)
+     * Retryable errors (408, 500, 503, 504): Send CONNECTION BYE
+     * Non-retryable errors: Mark as FAILED
      * @param data - Error response message
      * @returns CONNECTION BYE message for retryable errors, undefined otherwise
      */
@@ -323,103 +447,101 @@ export class EstablishingConnection {
         const statusCodeMatch = data.match(/^SIP\/2\.0\s+(\d{3})/);
         const statusCode = statusCodeMatch ? parseInt(statusCodeMatch[1]) : 0;
         
-        logger.log(`EstablishingConnection: Received error response: ${statusCode}`);
+        logger.log(`❌ [CONNECTION] Received error response: ${statusCode}`);
         
-        // Retryable errors: 408, 500, 503, 504
-        const retryableErrors = [408, 500, 503, 504];
+        this.cancelConnectionTimeout();
+        this.transitionTo(ConnectionState.FAILED, `error ${statusCode}`);
+        this.isConnectionEstablished = false;
         
-        if (retryableErrors.includes(statusCode)) {
-            this.lastError = `Received retryable error ${statusCode}`;
-            this.connectionState = ConnectionState.FAILED;
-            
-            // Cancel active timers
-            this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
-            
-            return this.createConnectionBye(this.cseq++, `Error ${statusCode}`);
+        const isRetryable = EstablishingConnection.RETRYABLE_ERROR_CODES.includes(statusCode);
+        
+        if (isRetryable) {
+            this.lastError = `Retryable error ${statusCode}`;
+            const byeMessage = this.createConnectionBye(++this.lastSentConnectionByeCSeq, `Error ${statusCode}`);
+            this.events.onMessageToSend?.(byeMessage, `CONNECTION BYE for error ${statusCode}`);
+        } else {
+            this.lastError = `Non-retryable error ${statusCode}`;
         }
         
-        // Non-retryable errors
-        this.lastError = `Received non-retryable error ${statusCode}`;
-        this.connectionState = ConnectionState.FAILED;
-        this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
+        logger.log(`📋 [CONNECTION] Last error set: ${this.lastError}`);
+        
+        // Notify SipClient of failure
+        this.events.onFailure?.(this.lastError);
         
         return undefined;
     }
     
     /**
-     * Handle incoming CONNECTION BYE message
-     * According to protocol: respond with CONNECTION BYE (not OK)
-     * Resets ConnectionTimeout and waits for NOTIFY4 if PeerRegistrationTimeout has time remaining
-     * 
-     * @param _data - BYE message (unused, keeping for signature consistency)
-     * @returns CONNECTION BYE response
+     * Handles incoming CONNECTION BYE from server/peer
+     * Prevents BYE loop by checking CSeq: if incoming CSeq > our sent BYE CSeq, it's a response
+     * @param data - BYE message
+     * @returns CONNECTION BYE response only if server initiated, otherwise empty string
      */
-    private handleConnectionBye(_data: string): string {
-        logger.log("EstablishingConnection: Received CONNECTION BYE from server/peer");
+    private handleConnectionBye(data: string): string {
+        logger.log("📥 [CONNECTION] Received CONNECTION BYE from server/peer");
         
-        // Cancel ConnectionTimeout (will restart when NOTIFY4 arrives)
-        this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
-        logger.log("EstablishingConnection: Cancelled ConnectionTimeout");
+        this.lastByeReceived = new Date().toISOString();
+        this.cancelConnectionTimeout();
         
-        // Check PeerRegistrationTimeout remaining time
-        const peerTimeRemaining = this.getPeerRegistrationTimeRemaining?.() ?? 0;
-        logger.log(`EstablishingConnection: PeerRegistrationTimeout has ${peerTimeRemaining}ms remaining`);
+        // Extract CSeq from incoming BYE
+        const cseqMatch = data.match(EstablishingConnection.REGEX_CSEQ);
+        const incomingCSeq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
         
-        if (peerTimeRemaining > 0) {
-            // Enough time - reset to wait for NOTIFY4 again
-            logger.log("EstablishingConnection: Sufficient time - resetting to WAITING_NOTIFY_4");
-            this.connectionState = ConnectionState.WAITING_NOTIFY_4;
-            this.lastError = "Received CONNECTION BYE - ACK not received by server, waiting for retry";
-        } else {
-            // No time left - mark as failed (SipClient will handle registration restart)
-            logger.log("EstablishingConnection: PeerRegistrationTimeout exhausted - marking as FAILED");
-            this.connectionState = ConnectionState.FAILED;
-            this.lastError = "Received CONNECTION BYE with PeerRegistrationTimeout exhausted";
+        // Check if this is a response to our BYE (to prevent loop)
+        // If we sent a BYE and incoming CSeq > our BYE CSeq → server is responding to our BYE
+        if (this.lastSentConnectionByeCSeq > 0 && incomingCSeq > this.lastSentConnectionByeCSeq) {
+            logger.log(`📥 [CONNECTION] BYE CSeq ${incomingCSeq} > our sent BYE CSeq ${this.lastSentConnectionByeCSeq} - this is server's response (loop prevention)`);
+            return ""; // Do nothing, we already sent a bye and started processing the retry
         }
         
-        // Respond with CONNECTION BYE (per protocol requirement)
-        return this.createConnectionBye(this.cseq++, "ACK not received");
+        // Server initiated BYE (we haven't sent BYE or incoming CSeq <= our BYE CSeq)
+        logger.log(`📥 [CONNECTION] BYE CSeq ${incomingCSeq} - server initiated BYE`);
+        this.transitionTo(ConnectionState.FAILED, 'BYE initiated by server');
+        this.isConnectionEstablished = false;
+        this.lastError = "Received CONNECTION BYE from server";
+        
+        logger.log('📥 [CONNECTION] Server initiated BYE - sending acknowledgment');
+        this.events.onFailure?.('Received CONNECTION BYE from server');
+        return this.createConnectionBye(++this.lastSentConnectionByeCSeq, "Connection dropped by server");
     }
     
     /**
-     * Create CONNECTION BYE message to signal connection phase termination
+     * Creates CONNECTION BYE message to signal connection phase termination
+     * Uses current Call-ID (updated from NOTIFY4 in connection phase)
      * Used for timeouts, errors, or graceful shutdown
-     * 
      * @param cseqNum - CSeq number for the BYE message
      * @param reason - Reason for sending BYE (optional)
      * @returns CONNECTION BYE message
      */
     public createConnectionBye(cseqNum: number, reason?: string): string {
-        const reasonHeader = reason ? `Reason: CONNECTION - ${reason}\r\n` : `Reason: CONNECTION\r\n`;
+        const byeMessage = MessageFactory.createByeMessage({
+            sipUri: this.sipUri,
+            branch: this.branch,
+            callId: this.callId,
+            tag: this.tag,
+            cseq: cseqNum,
+            toDisplayName: this.toDisplayName,
+            fromDisplayName: this.fromDisplayName,
+            reasonType: 'CONNECTION',
+            reasonText: reason
+        });
         
-        const byeMessage = `BYE sip:${this.toDisplayName}@127.0.0.1:8009 SIP/2.0\r\n` +
-            `Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=${this.branch}\r\n` +
-            `From: <${this.sipUri}>;tag=${this.tag}\r\n` +
-            `To: <sip:${this.toDisplayName}@127.0.0.1:8009>\r\n` +
-            `Call-ID: ${this.callId}\r\n` +
-            `CSeq: ${cseqNum} BYE\r\n` +
-            reasonHeader +
-            `Content-Length: 0\r\n\r\n`;
-        
-        logger.log(`EstablishingConnection: Created CONNECTION BYE - ${reason || 'no reason specified'}`);
+        logger.log(`🔨 [CONNECTION] Created CONNECTION BYE - ${reason || 'no reason'}`);
         return byeMessage;
     }
     
     /**
-     * Terminate connection establishment gracefully
-     * Sends CONNECTION BYE, cancels all timers, and transitions to TERMINATING state
-     * 
+     * Initiates graceful termination of connection establishment
+     * Cancels active timers and sends CONNECTION BYE
      * @returns CONNECTION BYE message to send to server
      */
     public terminate(): string {
-        logger.log("EstablishingConnection: Graceful termination initiated");
+        logger.log("🛑 [CONNECTION] Graceful termination initiated");
         
-        // Cancel all active timers
-        this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
+        this.cancelConnectionTimeout();
+        this.transitionTo(ConnectionState.TERMINATING, 'graceful termination');
         
-        this.connectionState = ConnectionState.TERMINATING;
-        
-        return this.createConnectionBye(this.cseq++, "Graceful termination");
+        return this.createConnectionBye(++this.lastSentConnectionByeCSeq, "Graceful termination");
     }
     
     /**
@@ -441,26 +563,24 @@ export class EstablishingConnection {
     }
     
     /**
-     * Reset connection state for retry
-     * Generates new session identifiers and resets state to WAITING_NOTIFY_4
+     * Resets connection state for retry
+     * Generates new session identifiers and resets to WAITING_NOTIFY_4
      */
     public reset(): void {
-        logger.log("EstablishingConnection: Resetting for retry");
+        logger.log("🔄 [CONNECTION] Resetting for retry");
         
-        // Cancel any active timers
-        this.timeoutManager.cancelTimer('CONNECTION_TIMEOUT');
+        this.cancelConnectionTimeout();
+        this.generateSessionIds();
         
-        // Generate new session identifiers
-        this.tag = Math.random().toString(36).substring(2, 12);
-        this.callId = Math.random().toString(36).substring(2, 12);
-        this.branch = 'z9hG4bK' + Math.random().toString(36).substring(2, 11);
-        this.cseq = 1;
+        // Clear session tracking
+        this.processedCSeqs.clear();
+        this.lastSentConnectionByeCSeq = 0;
+        // Note: testSkipAck5 is NOT reset here - we want to send ACK5 on retry
         
-        // Reset state
-        this.connectionState = ConnectionState.WAITING_NOTIFY_4;
-        this.isEstablishingConnectionProcessFinished = false;
+        this.transitionTo(ConnectionState.WAITING_NOTIFY_4, 'reset for retry');
+        this.isConnectionEstablished = false;
         this.lastError = "";
         
-        logger.log("EstablishingConnection: Reset complete - ready for new connection attempt");
+        logger.log("🔄 [CONNECTION] Reset complete - ready for new attempt");
     }
 }

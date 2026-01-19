@@ -7,6 +7,8 @@ import { IAuthRequest, IAuthResponse } from '../components/interfaces/IAuth';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
 import { store } from '../../store';
 import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlice';
+import { tokenService } from './TokenService';
+import { WebRTCDataChannelService, DataChannelObserver } from './WebRTCDataChannelService';
 import {
   createProtocolRequest,
   chunkRequest,
@@ -23,7 +25,7 @@ import {
  * Leverages existing SIP_Library for WebRTC connection management
  * Relies on SCTP for reliable delivery (built into WebRTC DataChannels)
  */
-export class WebRTCApiService {
+export class WebRTCApiService implements DataChannelObserver {
   private sipClient: SipClientInstance | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map();
 
@@ -102,24 +104,24 @@ export class WebRTCApiService {
    * Create headers for WebRTC requests with automatic authorization
    * @param baseHeaders - Base headers to include
    * @param messageType - Message type to determine if authorization is needed
+   * @param token - Decrypted authentication token (optional, for authenticated requests)
    * @returns Headers object with authorization if needed
    */
-  private createRequestHeaders(baseHeaders: Record<string, string>, messageType: string): Record<string, string> {
+  private createRequestHeaders(baseHeaders: Record<string, string>, messageType: string, token?: string | null): Record<string, string> {
     const requestHeaders = { ...baseHeaders };
     
     // Add Authorization header for all non-authentication requests
-    if (!messageType.includes('auth.')) {
-      const state = store.getState();
-      const token = selectAuthToken(state);
-      const isTokenValid = selectIsTokenValid(state);
-      
-      if (token && isTokenValid) {
-        requestHeaders['Authorization'] = `Bearer ${token}`;
-        console.log('🔑 Added Authorization header to request:', messageType);
-      } else {
-        console.warn('⚠️ No valid token available for authenticated request:', messageType);
-        // You might want to trigger token refresh or reject the request here
+    if (!messageType.includes('auth.') && token) {
+      // Log token validation details in development
+      if (process.env.NODE_ENV === 'development') {
+        tokenService.logTokenValidation(token, messageType);
       }
+      
+      requestHeaders['Authorization'] = `Bearer ${token}`;
+      console.log('🔑 Added Authorization header to request:', messageType);
+    } else if (!messageType.includes('auth.') && !token) {
+      console.warn('⚠️ No valid token available for authenticated request:', messageType);
+      console.warn('⚠️ This request will likely fail with 401 Unauthorized');
     }
     
     return requestHeaders;
@@ -130,28 +132,72 @@ export class WebRTCApiService {
    * @param sipClient - The initialized SIP client from SIP_Library
    */
   initialize(sipClient: SipClientInstance) {
+    // Clean up previous state first (idempotent)
+    this.cleanup();
+    
     this.sipClient = sipClient;
     this.setupDataChannelListener();
   }
 
   /**
    * Set up listener for incoming API responses via DataChannel
-   * Monitors data channel availability and registers message handlers
+   * Subscribes to WebRTCDataChannelService for centralized message handling
    */
   private setupDataChannelListener() {
-    if (!this.sipClient) return;
-    const checkDataChannel = () => {
-      const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
-      if (dataChannel && dataChannel.readyState === 'open') {
-        this.sipClient.peer2peer.addMessageHandler((event) => {
-          this.handleDataChannelMessage(event);
-        });
-      } else {
-        setTimeout(checkDataChannel, 1000);
-      }
-    };
+    console.log('[WebRTCApiService] 🎯 Setting up data channel listener');
+    
+    const service = WebRTCDataChannelService.getInstance();
+    if (service.isSubscribed(this)) {
+      console.log('[WebRTCApiService] Already subscribed, skipping');
+      return;
+    }
+    
+    // Subscribe this service as observer
+    service.subscribe(this);
+  }
 
-    checkDataChannel();
+  /**
+   * DataChannelObserver callback - called when DataChannel receives a message
+   */
+  onDataChannelMessage(event: MessageEvent): void {
+    console.log('[WebRTCApiService] 📥 onDataChannelMessage callback triggered');
+    this.handleDataChannelMessage(event);
+  }
+
+  /**
+   * DataChannelObserver callback - called when DataChannel state changes
+   */
+  onDataChannelStateChanged(state: RTCDataChannelState, channelType: 'offer' | 'answer'): void {
+    const prefix = channelType === 'offer' ? '📤' : '📥';
+    console.log(`${prefix} [WebRTCApiService] ${channelType} channel state changed: ${state}`);
+  }
+
+  /**
+   * DataChannelObserver callback - called when DataChannel error occurs
+   */
+  onDataChannelError(error: Event | string, channelType: 'offer' | 'answer'): void {
+    const prefix = channelType === 'offer' ? '📤' : '📥';
+    console.error(`❌ ${prefix} [WebRTCApiService] ${channelType} channel error:`, error);
+  }
+
+  /**
+   * Cleanup service resources
+   * Unsubscribes from DataChannel and clears references
+   */
+  cleanup(): void {
+    console.log('[WebRTCApiService] 🧹 Cleaning up service');
+    
+    // Unsubscribe from DataChannel events
+    const service = WebRTCDataChannelService.getInstance();
+    if (service.isSubscribed(this)) {
+      service.unsubscribe(this);
+    }
+    
+    // Clear SIP client reference
+    this.sipClient = null;
+    
+    // Note: pendingRequests are kept for ongoing requests to complete
+    console.log('[WebRTCApiService] ✅ Cleanup complete');
   }
 
   /**
@@ -252,6 +298,12 @@ export class WebRTCApiService {
       const completeResponse = reassembleChunkedResponse(pendingRequest.receivedResponseChunks, totalChunks);
       if (completeResponse) {
         console.log(`✅ Response reassembled successfully for ${pendingRequest.messageType}`);
+        console.log(`📦 Reassembled response:`, {
+          statusCode: completeResponse.statusCode,
+          headers: completeResponse.headers,
+          bodyLength: completeResponse.body?.length || 0,
+          rawBody: completeResponse.body
+        });
         // Process the complete response
         this.validateAndCompleteResponse(completeResponse, pendingRequest);
       } else {
@@ -289,11 +341,10 @@ export class WebRTCApiService {
       return;
     }
 
-    const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
-    /// TODO, we need to re-establish the connection here before retrying
-    if (!dataChannel || dataChannel.readyState !== 'open') {
-      console.error(`❌ Cannot retry ${pendingRequest.messageType}: DataChannel not available`);
-      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: DataChannel not available'));
+    // Ensure both channels are ready for bidirectional communication (send request + receive response)
+    if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+      console.error(`❌ Cannot retry ${pendingRequest.messageType}: Channels not ready for bidirectional communication`);
+      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: Channels not ready for bidirectional communication'));
       return;
     }
 
@@ -313,7 +364,7 @@ export class WebRTCApiService {
         try {
           const message = JSON.stringify(chunk);
           console.log(`📤 Re-sending chunk ${chunkNumber}/${chunkingResult.totalChunks}: Size ${new TextEncoder().encode(message).length} bytes`);
-          dataChannel.send(message);
+          WebRTCDataChannelService.getInstance().send(message);
         } catch (error) {
           throw new Error(`Failed to re-send chunk ${chunkNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
@@ -394,38 +445,66 @@ export class WebRTCApiService {
   /**
    * Validate response for single responses and complete the request
    */
-  private validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
+  private async validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
     const rawResponseBody = response.body || '';
     console.log(`📥 Processing single response for ${pendingRequest.messageType}`);
+    console.log(`📝 Raw response body (base64):`, rawResponseBody.substring(0, 100) + (rawResponseBody.length > 100 ? '...' : ''));
+    
+    // For binary file downloads, keep the body as base64
+    // For other responses, decode the base64 to get JSON or text
+    const isBinaryDownload = pendingRequest.messageType === 'dokument.downloadDocument';
+    const decodedBody = isBinaryDownload ? rawResponseBody : this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
+    
+    if (!isBinaryDownload) {
+      console.log(`📝 Decoded response body:`, decodedBody);
+    } else {
+      console.log(`📝 Binary download - keeping base64 encoding (length: ${decodedBody.length})`);
+    }
     
     // Check HTTP status code first
     const statusCode = response.statusCode;
-    if (statusCode >= 400) {
-      console.error(`❌ HTTP error ${statusCode} for ${pendingRequest.messageType}`);
+    const errorCode = response.errorCode; // Some responses use errorCode instead of statusCode
+    const actualStatusCode = statusCode || errorCode;
+    
+    if (actualStatusCode && actualStatusCode >= 400) {
+      console.error(`❌ HTTP error ${actualStatusCode} for ${pendingRequest.messageType}`);
+      console.error(`❌ Error response body:`, decodedBody);
+      
+      // Handle authentication/authorization errors
+      // Note: Token is pre-validated before sending, so 401/400 indicates a server-side issue
+      if (actualStatusCode === 401 || actualStatusCode === 400) {
+        console.error(`🔐 Authentication error ${actualStatusCode} despite pre-validated token`);
+        console.error(`🔐 Request ID: ${pendingRequest.id}`);
+        console.error(`🔐 Message type: ${pendingRequest.messageType}`);
+        
+        this.completeRequest(
+          pendingRequest,
+          undefined,
+          new Error(`Authentication failed (${actualStatusCode}): Token may have been revoked or is invalid on server.`)
+        );
+        return;
+      }
       
       // For certain error codes, we want to retry (temporary errors)
       // For others, we want to fail immediately (permanent errors)
       const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
-      const permanentErrors = [400, 401, 403, 404]; // Client errors, authorization, not found
+      const permanentErrors = [403, 404, 422]; // Forbidden, not found, validation errors
       
-      if (retryableErrors.includes(statusCode)) {
-        console.log(`🔄 HTTP ${statusCode} is retryable, attempting retry for ${pendingRequest.messageType}`);
+      if (retryableErrors.includes(actualStatusCode)) {
+        console.log(`🔄 HTTP ${actualStatusCode} is retryable, attempting retry for ${pendingRequest.messageType}`);
         this.retryRequest(pendingRequest);
         return;
-      } else if (permanentErrors.includes(statusCode)) {
-        console.log(`❌ HTTP ${statusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${rawResponseBody || 'Request failed'}`));
+      } else if (permanentErrors.includes(actualStatusCode)) {
+        console.log(`❌ HTTP ${actualStatusCode} is permanent error, failing request for ${pendingRequest.messageType}`);
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${actualStatusCode}: ${decodedBody || 'Request failed'}`));
         return;
       } else {
         // Unknown error code, treat as permanent
-        console.log(`❌ HTTP ${statusCode} is unknown error, failing request for ${pendingRequest.messageType}`);
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${statusCode}: ${rawResponseBody || 'Request failed'}`));
+        console.log(`❌ HTTP ${actualStatusCode} is unknown error, failing request for ${pendingRequest.messageType}`);
+        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${actualStatusCode}: ${decodedBody || 'Request failed'}`));
         return;
       }
     }
-    
-    // Decode base64 response body
-    const decodedBody = this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
     
     // Create response with decoded body (no checksum validation - SCTP ensures data integrity)
     const processedResponse: WebRTCApiResponse = {
@@ -481,11 +560,21 @@ export class WebRTCApiService {
         return;
       }
 
-      const dataChannel = this.sipClient.peer2peer.getActiveDataChannel();
-      
-      if (!dataChannel || dataChannel.readyState !== 'open') {
-        reject(new Error('WebRTC data channel is not available'));
+      // Ensure both channels are ready for bidirectional communication (send request + receive response)
+      if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+        reject(new Error('WebRTC channels not ready for bidirectional communication'));
         return;
+      }
+      
+      // For authenticated requests, ensure token is valid before sending
+      let validToken: string | null = null;
+      if (!messageType.includes('auth.')) {
+        validToken = await tokenService.ensureValidToken();
+        if (!validToken) {
+          reject(new Error('No valid token available. Please authenticate.'));
+          return;
+        }
+        // Token will be passed to createRequestHeaders
       }
 
       // Check if there's already a pending request of the same type
@@ -501,8 +590,8 @@ export class WebRTCApiService {
         }
       }
 
-      // Create headers with automatic authorization
-      const requestHeaders = this.createRequestHeaders(headers, messageType);
+      // Create headers with automatic authorization (pass decrypted token)
+      const requestHeaders = this.createRequestHeaders(headers, messageType, validToken);
       // Create full protocol request with messageType
       const protocolRequest = createProtocolRequest(method, url, requestHeaders, body, messageType);
       console.log('📝 Created initial protocol request (before chunking):', protocolRequest);
@@ -534,7 +623,7 @@ export class WebRTCApiService {
           
           const message = JSON.stringify(chunk);
           console.log(`📤 Sending chunk: Size ${new TextEncoder().encode(message).length} bytes`);
-          dataChannel.send(message);
+          WebRTCDataChannelService.getInstance().send(message);
         }
         
         // Log pending requests content after sending
@@ -592,10 +681,7 @@ export class WebRTCApiService {
   }
 
   /**
-   * Get favorite Akten (Cases) via WebRTC
-   * @param query - Search parameters with NurFavoriten=true
-  /**
-   * Get favorite Akten with filtering options
+   * Get favorite Akten with filtering options via WebRTC
    * @param query - Filter parameters for Akten search
    * @returns Promise resolving to Akten list matching the criteria
    */
@@ -772,24 +858,25 @@ export class WebRTCApiService {
   }
 
   /**
-   * Get document with content by document ID via WebRTC
-   * @param dokumentId - The ID of the document to retrieve with content
-   * @returns Promise resolving to DokumentResponse with inhalt, contentType, fileName, and fileSize
+   * Download document content (file stream as base64)
+   * @param dokumentId - The ID of the document to download
+   * @returns Promise resolving to base64 encoded file content string
    */
-  async getDocumentWithContent(dokumentId: number): Promise<DokumentResponse> {
+  async downloadDocument(dokumentId: number): Promise<string> {
     const response = await this.sendRequest(
-      'dokument.getDocumentWithContent',
+      'dokument.downloadDocument',
       'GET',
       `api/v2.0/Dokumente/${dokumentId}/download`,
       {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/octet-stream' // Expecting binary file stream
       }
     );
     
-    // Parse the document data from the response body
-    const documentData = JSON.parse(response.body || '{}');
-    return documentData as DokumentResponse;
+    // The response body is already base64-encoded (from the chunking process)
+    // The C# API returns File(stream, contentType, fileName) which sends raw bytes
+    // These bytes are base64-encoded when sent through WebRTC chunks
+    return response.body || '';
   }
 
   // ===== PERSON API METHODS =====
@@ -923,7 +1010,7 @@ export class WebRTCApiService {
     const refreshRequest: IAuthRequest = {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: 'advokat.client.web'
+      client_id: 'TestClientId'
     };
 
     return this.authenticate(refreshRequest);
@@ -931,11 +1018,10 @@ export class WebRTCApiService {
 
   /**
    * Check if WebRTC connection is ready for API calls
-   * @returns True if data channel is open and ready for communication
+   * @returns True if both channels are open and ready for bidirectional communication
    */
   isReady(): boolean {
-    const dataChannel = this.sipClient?.peer2peer.getActiveDataChannel();
-    return dataChannel?.readyState === 'open' || false;
+    return WebRTCDataChannelService.getInstance().isReadyForCommunication;
   }
 }
 

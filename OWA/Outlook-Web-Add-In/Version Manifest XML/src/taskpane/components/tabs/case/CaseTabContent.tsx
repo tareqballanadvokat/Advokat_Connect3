@@ -14,8 +14,7 @@ import {
   getFavoriteAktenAsync, 
   getCaseDocumentsAsync, 
   removeAktFromFavoriteAsync,
-  selectCachedDocumentsForAkt,
-  selectHasCachedDocumentsForAkt
+  downloadDocumentAsync
 } from '../../../../store/slices/aktenSlice';
 import TreeList, {
   Column,
@@ -23,9 +22,12 @@ import TreeList, {
   Editing,
   Button,
 } from 'devextreme-react/tree-list';
-
-import { getFileContent } from '../../../utils/api'; // your API
-import { webRTCApiService } from '../../../services/webRTCApiService';
+import { 
+  getMimeTypeFromExtension, 
+  getFileExtension, 
+  createBlobFromBase64, 
+  isViewableInBrowser 
+} from '../../../utils/fileHelpers';
 
 const allowDeleting = (e) => e.row.data.ID !== 1; 
 
@@ -236,56 +238,30 @@ const CaseTabContent: React.FC = () => {
           downloadingToast = null;
         }
         
-        // Check if WebRTC connection is ready
-        if (!webRTCApiService.isReady()) {
-          if (downloadingToast && typeof downloadingToast.hide === 'function') {
-            downloadingToast.hide();
-          }
-          notify('WebRTC connection not available. Please ensure connection is established.', 'warning', 5000);
-          return;
-        }
-
-        // Get document with content via WebRTC
-        const documentData = await webRTCApiService.getDocumentWithContent(node.documentId);
+        // Get document content via WebRTC (returns base64 string directly)
+        const fileContentBase64 = await dispatch(downloadDocumentAsync(node.documentId)).unwrap();
         
         // Hide the downloading notification once we have the data
         if (downloadingToast && typeof downloadingToast.hide === 'function') {
           downloadingToast.hide();
         }
         
-        if (!documentData.inhalt) {
-          // Hide the downloading notification
-          if (downloadingToast && typeof downloadingToast.hide === 'function') {
-            downloadingToast.hide();
-          }
+        if (!fileContentBase64) {
           notify('Document content is empty', 'warning', 3000);
           return;
         }
 
-        // Convert base64 to binary data
-        const binaryString = atob(documentData.inhalt);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
+        // Use node name as filename and detect MIME type from file extension
+        const fileName = node.name;
+        const extension = getFileExtension(fileName);
+        const mimeType = getMimeTypeFromExtension(extension);
 
-        // Use the content type and filename from the API response, with fallbacks
-        const mimeType = documentData.contentType || 'application/octet-stream';
-        const fileName = documentData.fileName || node.name;
-
-        // Create blob and open/download based on file type
-        const blob = new Blob([bytes], { type: mimeType });
+        // Create blob and URL for download/viewing
+        const blob = createBlobFromBase64(fileContentBase64, mimeType);
         const url = URL.createObjectURL(blob);
         
         // Determine if file can be opened in browser
-        const viewableTypes = [
-          'application/pdf',
-          'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml',
-          'text/plain', 'text/html', 'text/css', 'text/javascript',
-          'application/json', 'application/xml'
-        ];
-        
-        const canViewInBrowser = viewableTypes.includes(mimeType) || mimeType.startsWith('text/') || mimeType.startsWith('image/');
+        const canViewInBrowser = isViewableInBrowser(mimeType);
         
         if (canViewInBrowser) {
           // Automatically open viewable files in new window/tab
@@ -357,19 +333,10 @@ const CaseTabContent: React.FC = () => {
         attachingToast = null;
       }
       
-      // Check if WebRTC connection is ready
-      if (!webRTCApiService.isReady()) {
-        if (attachingToast && typeof attachingToast.hide === 'function') {
-          attachingToast.hide();
-        }
-        notify('WebRTC connection not available. Please ensure connection is established.', 'warning', 5000);
-        return;
-      }
-
-      // Get document content via WebRTC
-      const documentData = await webRTCApiService.getDocumentWithContent(node.documentId);
+      // Get document content via WebRTC (returns base64 string directly)
+      const fileContentBase64 = await dispatch(downloadDocumentAsync(node.documentId)).unwrap();
       
-      if (!documentData.inhalt) {
+      if (!fileContentBase64) {
         if (attachingToast && typeof attachingToast.hide === 'function') {
           attachingToast.hide();
         }
@@ -377,12 +344,12 @@ const CaseTabContent: React.FC = () => {
         return;
       }
 
-      // Use filename from API response or fallback to node name
-      const fileName = documentData.fileName || node.name;
+      // Use node name as filename
+      const fileName = node.name;
 
       await new Promise<void>((resolve, reject) => {
         Office.context.mailbox.item.addFileAttachmentFromBase64Async(
-          documentData.inhalt, 
+          fileContentBase64, 
           fileName,
           { isInline: false },
           result => {

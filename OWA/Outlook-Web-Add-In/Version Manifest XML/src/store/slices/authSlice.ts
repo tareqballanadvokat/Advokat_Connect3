@@ -118,6 +118,7 @@ export const {
 export const selectAuth = (state: { auth: IAuthState }) => state.auth;
 export const selectIsAuthenticated = (state: { auth: IAuthState }) => state.auth.isAuthenticated;
 export const selectAuthToken = (state: { auth: IAuthState }) => state.auth.token;
+export const selectRefreshToken = (state: { auth: IAuthState }) => state.auth.refreshToken;
 export const selectAuthCredentials = (state: { auth: IAuthState }) => state.auth.credentials;
 export const selectIsAuthenticating = (state: { auth: IAuthState }) => state.auth.isAuthenticating;
 export const selectAuthError = (state: { auth: IAuthState }) => state.auth.error;

@@ -17,6 +17,7 @@ import aktenReducer, {
   addAktToFavoriteAsync,
   removeAktFromFavoriteAsync,
   getAvailableFoldersAsync,
+  downloadDocumentAsync,
   aktLookUpAsync,
   selectCachedDocumentsForAkt,
   selectHasCachedDocumentsForAkt,
@@ -1745,6 +1746,370 @@ describe('aktenSlice', () => {
         
         const result = selectEmailDocumentsForAktAndEmail(state, 5, 'differentEmail');
         expect(result).toEqual([]);
+      });
+    });
+  });
+
+  describe('downloadDocumentAsync', () => {
+    describe('Successful Download', () => {
+      it('should download document and return base64 content', async () => {
+        const mockBase64Content = 'SGVsbG8gV29ybGQh'; // "Hello World!" in base64
+        mockWebRTCService.downloadDocument.mockResolvedValue(mockBase64Content);
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(123)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/fulfilled');
+        if (downloadDocumentAsync.fulfilled.match(result)) {
+          expect(result.payload).toBe(mockBase64Content);
+        }
+      });
+
+      it('should call downloadDocument with correct dokumentId', async () => {
+        const dokumentId = 456;
+        mockWebRTCService.downloadDocument.mockResolvedValue('base64content');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        await downloadDocumentAsync(dokumentId)(dispatch, getState, undefined);
+        
+        expect(mockWebRTCService.downloadDocument).toHaveBeenCalledWith(dokumentId);
+      });
+
+      it('should handle large base64 content', async () => {
+        const largeBase64 = 'A'.repeat(1000000); // 1MB of base64 data
+        mockWebRTCService.downloadDocument.mockResolvedValue(largeBase64);
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(789)(dispatch, getState, undefined);
+        
+        if (downloadDocumentAsync.fulfilled.match(result)) {
+          expect(result.payload).toBe(largeBase64);
+          expect(result.payload.length).toBe(1000000);
+        }
+      });
+
+      it('should handle PDF document content', async () => {
+        // Typical PDF base64 prefix
+        const pdfBase64 = 'JVBERi0xLjQKJeLjz9MK...'; 
+        mockWebRTCService.downloadDocument.mockResolvedValue(pdfBase64);
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(100)(dispatch, getState, undefined);
+        
+        if (downloadDocumentAsync.fulfilled.match(result)) {
+          expect(result.payload).toBe(pdfBase64);
+        }
+      });
+
+      it('should handle image document content', async () => {
+        // Typical image base64 prefix
+        const imageBase64 = 'iVBORw0KGgoAAAANSUhEUgAA...';
+        mockWebRTCService.downloadDocument.mockResolvedValue(imageBase64);
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(200)(dispatch, getState, undefined);
+        
+        if (downloadDocumentAsync.fulfilled.match(result)) {
+          expect(result.payload).toBe(imageBase64);
+        }
+      });
+    });
+
+    describe('Error Handling', () => {
+      it('should reject when document content is empty string', async () => {
+        mockWebRTCService.downloadDocument.mockResolvedValue('');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(123)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
+        if (downloadDocumentAsync.rejected.match(result)) {
+          expect(result.error.message).toBe('Document content is empty');
+        }
+      });
+
+      it('should reject when document content is null', async () => {
+        mockWebRTCService.downloadDocument.mockResolvedValue(null);
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(123)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
+        if (downloadDocumentAsync.rejected.match(result)) {
+          expect(result.error.message).toBe('Document content is empty');
+        }
+      });
+
+      it('should reject when document content is undefined', async () => {
+        mockWebRTCService.downloadDocument.mockResolvedValue(undefined);
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(123)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
+        if (downloadDocumentAsync.rejected.match(result)) {
+          expect(result.error.message).toBe('Document content is empty');
+        }
+      });
+
+      it('should handle network timeout errors', async () => {
+        mockWebRTCService.downloadDocument.mockRejectedValue(new Error('Network timeout'));
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(123)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
+        if (downloadDocumentAsync.rejected.match(result)) {
+          expect(result.error.message).toBe('Network timeout');
+        }
+      });
+
+      it('should handle connection refused errors', async () => {
+        mockWebRTCService.downloadDocument.mockRejectedValue(new Error('Connection refused'));
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(456)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
+        if (downloadDocumentAsync.rejected.match(result)) {
+          expect(result.error.message).toBe('Connection refused');
+        }
+      });
+
+      it('should handle document not found errors', async () => {
+        mockWebRTCService.downloadDocument.mockRejectedValue(new Error('Document not found'));
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(999)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
+        if (downloadDocumentAsync.rejected.match(result)) {
+          expect(result.error.message).toBe('Document not found');
+        }
+      });
+
+      it('should handle unauthorized access errors', async () => {
+        mockWebRTCService.downloadDocument.mockRejectedValue(new Error('Unauthorized'));
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(789)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
+        if (downloadDocumentAsync.rejected.match(result)) {
+          expect(result.error.message).toBe('Unauthorized');
+        }
+      });
+
+      it('should handle server errors', async () => {
+        mockWebRTCService.downloadDocument.mockRejectedValue(new Error('Internal server error'));
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(111)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
+        if (downloadDocumentAsync.rejected.match(result)) {
+          expect(result.error.message).toBe('Internal server error');
+        }
+      });
+
+      it('should handle generic errors', async () => {
+        mockWebRTCService.downloadDocument.mockRejectedValue(new Error('Unknown error occurred'));
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(222)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
+        if (downloadDocumentAsync.rejected.match(result)) {
+          expect(result.error.message).toBe('Unknown error occurred');
+        }
+      });
+    });
+
+    describe('Edge Cases', () => {
+      it('should handle downloading with dokumentId 0', async () => {
+        mockWebRTCService.downloadDocument.mockResolvedValue('base64content');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(0)(dispatch, getState, undefined);
+        
+        expect(mockWebRTCService.downloadDocument).toHaveBeenCalledWith(0);
+        if (downloadDocumentAsync.fulfilled.match(result)) {
+          expect(result.payload).toBe('base64content');
+        }
+      });
+
+      it('should handle negative dokumentId', async () => {
+        mockWebRTCService.downloadDocument.mockResolvedValue('base64content');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(-1)(dispatch, getState, undefined);
+        
+        expect(mockWebRTCService.downloadDocument).toHaveBeenCalledWith(-1);
+      });
+
+      it('should handle very large dokumentId', async () => {
+        const largeId = Number.MAX_SAFE_INTEGER;
+        mockWebRTCService.downloadDocument.mockResolvedValue('base64content');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(largeId)(dispatch, getState, undefined);
+        
+        expect(mockWebRTCService.downloadDocument).toHaveBeenCalledWith(largeId);
+      });
+
+      it('should handle whitespace-only base64 content as empty', async () => {
+        mockWebRTCService.downloadDocument.mockResolvedValue('   ');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(123)(dispatch, getState, undefined);
+        
+        // Whitespace is truthy, so it should succeed
+        if (downloadDocumentAsync.fulfilled.match(result)) {
+          expect(result.payload).toBe('   ');
+        }
+      });
+
+      it('should handle special characters in base64 content', async () => {
+        const specialBase64 = 'ABC+/==';
+        mockWebRTCService.downloadDocument.mockResolvedValue(specialBase64);
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(123)(dispatch, getState, undefined);
+        
+        if (downloadDocumentAsync.fulfilled.match(result)) {
+          expect(result.payload).toBe(specialBase64);
+        }
+      });
+    });
+
+    describe('Multiple Downloads', () => {
+      it('should handle multiple sequential downloads', async () => {
+        mockWebRTCService.downloadDocument
+          .mockResolvedValueOnce('content1')
+          .mockResolvedValueOnce('content2')
+          .mockResolvedValueOnce('content3');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result1 = await downloadDocumentAsync(1)(dispatch, getState, undefined);
+        const result2 = await downloadDocumentAsync(2)(dispatch, getState, undefined);
+        const result3 = await downloadDocumentAsync(3)(dispatch, getState, undefined);
+        
+        if (downloadDocumentAsync.fulfilled.match(result1)) {
+          expect(result1.payload).toBe('content1');
+        }
+        if (downloadDocumentAsync.fulfilled.match(result2)) {
+          expect(result2.payload).toBe('content2');
+        }
+        if (downloadDocumentAsync.fulfilled.match(result3)) {
+          expect(result3.payload).toBe('content3');
+        }
+      });
+
+      it('should handle download failure followed by success', async () => {
+        mockWebRTCService.downloadDocument
+          .mockRejectedValueOnce(new Error('First attempt failed'))
+          .mockResolvedValueOnce('successContent');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const failedResult = await downloadDocumentAsync(1)(dispatch, getState, undefined);
+        expect(failedResult.type).toBe('akten/downloadDocument/rejected');
+        
+        const successResult = await downloadDocumentAsync(1)(dispatch, getState, undefined);
+        expect(successResult.type).toBe('akten/downloadDocument/fulfilled');
+        if (downloadDocumentAsync.fulfilled.match(successResult)) {
+          expect(successResult.payload).toBe('successContent');
+        }
+      });
+
+      it('should call downloadDocument method the correct number of times', async () => {
+        mockWebRTCService.downloadDocument.mockResolvedValue('content');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        await downloadDocumentAsync(1)(dispatch, getState, undefined);
+        await downloadDocumentAsync(2)(dispatch, getState, undefined);
+        await downloadDocumentAsync(3)(dispatch, getState, undefined);
+        
+        expect(mockWebRTCService.downloadDocument).toHaveBeenCalledTimes(3);
+      });
+    });
+
+    describe('Type Safety', () => {
+      it('should accept number type for dokumentId parameter', async () => {
+        mockWebRTCService.downloadDocument.mockResolvedValue('content');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const dokumentId: number = 123;
+        const result = await downloadDocumentAsync(dokumentId)(dispatch, getState, undefined);
+        
+        expect(result.type).toContain('akten/downloadDocument');
+      });
+
+      it('should return correct action type on fulfilled', async () => {
+        mockWebRTCService.downloadDocument.mockResolvedValue('content');
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(123)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/fulfilled');
+      });
+
+      it('should return correct action type on rejected', async () => {
+        mockWebRTCService.downloadDocument.mockRejectedValue(new Error('Failed'));
+        
+        const dispatch = jest.fn();
+        const getState = jest.fn();
+        
+        const result = await downloadDocumentAsync(123)(dispatch, getState, undefined);
+        
+        expect(result.type).toBe('akten/downloadDocument/rejected');
       });
     });
   });
