@@ -1,7 +1,7 @@
 import * as React from "react";
 import { makeStyles } from "@fluentui/react-components";
 import Tabs from './Tab';
-import { DEVEXPRESS_THEME, COMPACT} from '../../config';
+import { configService } from '../../config/index';
 import { getWebRTCConnectionManager } from '../services/WebRTCConnectionManager';
 
 interface AppProps {
@@ -52,9 +52,12 @@ const App: React.FC<AppProps> = () => {
   const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
   React.useEffect(() => {
-    const path =  DEVEXPRESS_THEME+`${isDarkMode ? 'dark' : 'light'}${COMPACT}.css`;
+    const theme = configService.getConfig().theme;
+    const compact = theme.compact ? '.compact' : '';
+    const themePath = `${theme.name}${isDarkMode ? 'dark' : 'light'}${compact}.css`;
+    
     import(
-        `devextreme/dist/css/dx.${isDarkMode ? 'dark' : 'light'}.css`
+        `devextreme/dist/css/dx.${isDarkMode ? 'dark' : 'light'}${compact}.css`
     );
   }, [isDarkMode]);
 

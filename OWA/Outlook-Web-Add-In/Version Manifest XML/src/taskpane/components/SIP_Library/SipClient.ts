@@ -1,3 +1,5 @@
+import { configService } from '../../../config/index';
+
 /**
  * SIP Client Main Controller
  * Version: 2.1.0
@@ -197,9 +199,10 @@ function extractAndSwapFromTo(message: string): string {
  * @returns Object containing all SIP component instances and WebSocket connection
  */
 export function initializeSipClient(config?: Partial<SipClientConfig>): SipClientInstance {
-    const sipUri = config?.sipUri || "sip:macc@127.0.0.1:8009";
-    const wsUri = config?.wsUri || "wss://localhost:8009";
-    const maxRetries = config?.maxRetries || MAX_RETRIES;
+    const sipConfig = configService.getSipConfig();
+    const sipUri = config?.sipUri || sipConfig.sipUri;
+    const wsUri = config?.wsUri || sipConfig.wsUri;
+    const maxRetries = config?.maxRetries || sipConfig.maxRetries || MAX_RETRIES;
     
     const timeoutManager = new TimeoutManager();
     

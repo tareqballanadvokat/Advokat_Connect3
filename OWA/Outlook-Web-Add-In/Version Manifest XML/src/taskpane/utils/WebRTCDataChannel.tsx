@@ -1,5 +1,6 @@
 // WebRTCDataChannel.tsx
 import React, { useEffect, useRef, useState } from 'react';
+import { getConfig } from '../../config';
 
 interface WebRTCDataChannelProps {
   isOfferer: boolean;             // true: inicjuje połączenie, false: czeka na sygnał
@@ -20,9 +21,10 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
 
   // 1) Initialize PeerConnection and - depending on the role - create DataChannel or handle ondatachannel
   useEffect(() => {
-    // a) Create new RTCPeerConnection with STUN (Google STUN)
+    // a) Create new RTCPeerConnection with ICE servers from config
+    const config = getConfig();
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: config.webrtc.iceServers
     });
     pcRef.current = pc;
 

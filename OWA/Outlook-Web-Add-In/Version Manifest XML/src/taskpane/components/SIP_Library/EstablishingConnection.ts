@@ -1,3 +1,5 @@
+import { configService } from '../../../config/index';
+
 /**
  * SIP Connection Establishment Handler
  * 
@@ -108,13 +110,13 @@ export class EstablishingConnection {
     private static readonly RETRYABLE_ERROR_CODES = [408, 500, 503, 504];
     private static readonly DEFAULT_CONNECTION_TIMEOUT = 3000;
     
-    public sipUri = "sip:macc@127.0.0.1:8009";
+    public sipUri: string;
     public tag = "";
     private callId = "";
     public isConnectionEstablished = false;
     private branch = "";
-    private fromDisplayName = "macc";
-    private toDisplayName = "macs";
+    private fromDisplayName: string;
+    private toDisplayName: string;
     
     private connectionState: ConnectionState = ConnectionState.WAITING_NOTIFY_4;
     private timeoutManager: TimeoutManager;
@@ -131,6 +133,10 @@ export class EstablishingConnection {
     private events: ConnectionEvents;
     
     constructor(timeoutManager: TimeoutManager, events: ConnectionEvents) {
+        const sipConfig = configService.getSipConfig();
+        this.sipUri = sipConfig.sipUri;
+        this.fromDisplayName = sipConfig.fromDisplayName;
+        this.toDisplayName = sipConfig.toDisplayName;
         this.timeoutManager = timeoutManager;
         this.events = events;
         // Session IDs will be set via updateData() from Registration phase

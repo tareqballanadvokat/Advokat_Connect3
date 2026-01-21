@@ -17,6 +17,7 @@
  */
 
 import { logger } from './Helper';
+import { configService } from '../../../config/index';
 
 // ========================================
 // TYPE DEFINITIONS
@@ -114,10 +115,12 @@ export class MessageFactory {
             fromLine = params.fromLine;
         } else {
             // Build standard lines
-            const toDisplay = params.toDisplayName || 'macs';
-            const fromDisplay = params.fromDisplayName || 'macc';
+            const sipConfig = configService.getSipConfig();
+            const toDisplay = params.toDisplayName || sipConfig.toDisplayName;
+            const fromDisplay = params.fromDisplayName || sipConfig.fromDisplayName;
+            const toSipUri = configService.buildSipUri(toDisplay);
             
-            toLine = `"${toDisplay}" <sip:${toDisplay}@127.0.0.1:8009>`;
+            toLine = `"${toDisplay}" <${toSipUri}>`;
             fromLine = `"${fromDisplay}" <${params.sipUri};transport=wss>;tag=${params.tag}`;
         }
         
@@ -150,11 +153,13 @@ export class MessageFactory {
     static createByeMessage(params: ByeMessageParams): string {
         logger.log(`🔨 [MessageFactory] Creating BYE message (CSeq: ${params.cseq}, Type: ${params.reasonType || 'none'})`);
         
-        const toDisplay = params.toDisplayName || 'macs';
-        const fromDisplay = params.fromDisplayName || 'macc';
+        const sipConfig = configService.getSipConfig();
+        const toDisplay = params.toDisplayName || sipConfig.toDisplayName;
+        const fromDisplay = params.fromDisplayName || sipConfig.fromDisplayName;
+        const toSipUri = configService.buildSipUri(toDisplay);
         
         // Build To header with optional tag
-        let toHeader = `"${toDisplay}" <sip:${toDisplay}@127.0.0.1:8009>`;
+        let toHeader = `"${toDisplay}" <${toSipUri}>`;
         if (params.toTag) {
             toHeader += `;tag=${params.toTag}`;
         }
@@ -250,7 +255,7 @@ export class MessageFactory {
             `REGISTER ${params.sipUri} SIP/2.0\r\n` +
             `Via: SIP/2.0/WSS fgtpfo6ru3jm.invalid;branch=${params.branch}\r\n` +
             `Max-Forwards: 70\r\n` +
-            `To: "${params.toDisplayName}" <sip:${params.toDisplayName}@127.0.0.1:8009>\r\n` +
+            `To: "${params.toDisplayName}" <${configService.buildSipUri(params.toDisplayName)}>\r\n` +
             `From: "${params.fromDisplayName}" <${params.sipUri};transport=wss>;tag=${params.tag}\r\n` +
             `Call-ID: ${params.callId}\r\n` +
             `CSeq: ${cseq} REGISTER\r\n` +

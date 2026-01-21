@@ -1,6 +1,7 @@
 // src/taskpane/components/tabs/email/RegisteredEmails.tsx
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
+import { configService } from '../../../../config/index';
 
 interface ServiceRecord {
   id: string;
@@ -20,13 +21,13 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
     (async () => {
       try {
     
-        const resp = await fetch('https://localhost:7231/api/service/get-services', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data: ServiceRecord[] = await resp.json();
-        // Zakładamy, że zwracane entries są już posortowane malejąco po dacie.
-        setEmails(data);
+        // const resp = await fetch(configService.getApiUrl('api/service/get-services'), {
+        //   method: 'GET',
+        //   headers: { 'Content-Type': 'application/json' }
+        // });
+        // const data: ServiceRecord[] = await resp.json();
+        // // Zakładamy, że zwracane entries są już posortowane malejąco po dacie.
+        // setEmails(data);
       } catch (err) {
         console.error('Błąd podczas pobierania zarejestowanych akcji servisowych:', err);
       }
