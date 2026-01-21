@@ -140,6 +140,9 @@ class ConfigService {
 // Export singleton instance
 export const configService = new ConfigService();
 
+// Export convenience function for getting config
+export const getConfig = () => configService.getConfig();
+
 // Export types and utilities
 export * from './types';
 export { detectEnvironment, isDevelopment, isProduction, isStaging, isTest } from './environment';

@@ -48,6 +48,26 @@ export interface ApiServerConfig {
 }
 
 /**
+ * ICE Server Configuration (STUN/TURN servers)
+ */
+export interface IceServerConfig {
+  /** STUN/TURN server URLs (e.g., stun:example.com:3478 or turn:example.com:3478) */
+  urls: string | string[];
+  /** Username for TURN authentication (optional, required for TURN) */
+  username?: string;
+  /** Credential/password for TURN authentication (optional, required for TURN) */
+  credential?: string;
+}
+
+/**
+ * WebRTC Configuration
+ */
+export interface WebRTCConfig {
+  /** Array of ICE servers (STUN/TURN) for peer connection */
+  iceServers: IceServerConfig[];
+}
+
+/**
  * Complete Application Configuration
  */
 export interface AppConfig {
@@ -57,6 +77,8 @@ export interface AppConfig {
   sip: SipServerConfig;
   /** API backend configuration */
   api: ApiServerConfig;
+  /** WebRTC peer connection configuration */
+  webrtc: WebRTCConfig;
   /** DevExtreme theme configuration */
   theme: {
     name: string;

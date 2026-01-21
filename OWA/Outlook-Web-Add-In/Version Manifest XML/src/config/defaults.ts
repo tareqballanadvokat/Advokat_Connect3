@@ -28,6 +28,24 @@ export const DEFAULT_CONFIG: AppConfig = {
     enableLogging: true,
   },
   
+  webrtc: {
+    iceServers: [
+      // Public Google STUN server for development
+       //{ urls: 'stun:stun.l.google.com:19302' },
+      // { urls: 'turn:YOUR_AZURE_IP:3478', username: 'advokatuser', credential: 'password' },
+      { 
+        urls: 'turn:108.143.154.176:3478',
+        username: 'advokatuser',
+        credential: '123456Advokat' // Change credentials
+      },
+      { 
+        urls: 'turns:108.143.154.176:5349',
+        username: 'advokatuser',
+        credential: '123456Advokat' // Change credentials
+      },
+    ],
+  },
+  
   theme: {
     name: 'devextreme/dist/css/dx.',
     compact: false,
@@ -36,14 +54,13 @@ export const DEFAULT_CONFIG: AppConfig = {
 
 /**
  * Production configuration
- * IMPORTANT: Update these values with your production endpoints
- * You can set these via environment variables or modify this file
+ * We can set these via environment variables or modify this file
  */
 export const PRODUCTION_CONFIG: Partial<AppConfig> = {
   environment: Environment.PRODUCTION,
   
   sip: {
-    // TODO: Set production SIP/WebRTC signaling server
+    // Update with production signaling server
     wsUri: 'wss://signaling.production.com:8009',
     sipUri: 'sip:user@signaling.production.com:8009',
     host: 'signaling.production.com',
@@ -55,10 +72,27 @@ export const PRODUCTION_CONFIG: Partial<AppConfig> = {
   },
   
   api: {
-    // TODO: Set production API server
+    // Update with production API server
     baseUrl: 'https://api.production.com',
     timeout: 30000,
     enableLogging: false, // Disable verbose logging in production
+  },
+  
+  webrtc: {
+    iceServers: [
+      // Update with Azure TURN server IP after deployment
+      { urls: 'stun:108.143.154.176:3478' },
+      { 
+        urls: 'turn:108.143.154.176:3478',
+        username: 'advokatuser',
+        credential: '123456Advokat' // Change credentials
+      },
+      { 
+        urls: 'turns:108.143.154.176:5349',
+        username: 'advokatuser',
+        credential: '123456Advokat' // Change credentials
+      },
+    ],
   },
   
   theme: {
@@ -69,13 +103,12 @@ export const PRODUCTION_CONFIG: Partial<AppConfig> = {
 
 /**
  * Staging configuration
- * IMPORTANT: Update these values with your staging endpoints
  */
 export const STAGING_CONFIG: Partial<AppConfig> = {
   environment: Environment.STAGING,
   
   sip: {
-    // TODO: Set staging SIP/WebRTC signaling server
+    // Update with staging signaling server
     wsUri: 'wss://signaling.staging.com:8009',
     sipUri: 'sip:user@signaling.staging.com:8009',
     host: 'signaling.staging.com',
@@ -87,10 +120,26 @@ export const STAGING_CONFIG: Partial<AppConfig> = {
   },
   
   api: {
-    // TODO: Set staging API server
+    // Update with staging API server
     baseUrl: 'https://api.staging.com',
     timeout: 30000,
     enableLogging: true,
+  },
+  
+  webrtc: {
+    iceServers: [
+      { urls: 'stun:108.143.154.176:3478' },
+      { 
+        urls: 'turn:108.143.154.176:3478',
+        username: 'advokatuser',
+        credential: '123456Advokat' // Change credentials
+      },
+      { 
+        urls: 'turns:108.143.154.176:5349',
+        username: 'advokatuser',
+        credential: '123456Advokat' // Change credentials
+      },
+    ],
   },
   
   theme: {
@@ -121,6 +170,12 @@ export const TEST_CONFIG: AppConfig = {
     baseUrl: 'https://localhost:7231',
     timeout: 30000,
     enableLogging: false,
+  },
+  
+  webrtc: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+    ],
   },
   
   theme: {
