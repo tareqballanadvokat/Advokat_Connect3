@@ -75,7 +75,7 @@
  */
 
 import { logger } from './Helper';
-import { getConfig } from '../../../config';
+import { getConfig } from '../../../config/index';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
 import { SipPhaseEvents } from './SipClient';
