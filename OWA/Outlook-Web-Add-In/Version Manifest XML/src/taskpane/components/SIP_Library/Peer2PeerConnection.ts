@@ -381,23 +381,8 @@ export class Peer2PeerConnection {
                 this.logWithPrefix(`     Full: ${candidate}`);
             });
         }
-        
-        // Remove mDNS candidates from SDP before sending
-        const cleanedSDP = this.pc.localDescription //this.removeMdnsCandidates(this.pc.localDescription);
-        
-        // Log candidates after cleaning
-        if (cleanedSDP?.sdp) {
-            const cleanedCandidates = this.extractCandidatesFromSDP(cleanedSDP.sdp);
-            this.logWithPrefix(`📋 ICE Candidates after mDNS filtering (${cleanedCandidates.length} total):`);
-            cleanedCandidates.forEach((candidate, index) => {
-                const type = this.extractCandidateType(candidate);
-                const ip = this.extractCandidateIP(candidate);
-                const port = this.extractCandidatePort(candidate);
-                this.logWithPrefix(`  ${index + 1}. Type: ${type}, IP: ${ip}, Port: ${port}`);
-            });
-        }
-        
-        const offerSDP = JSON.stringify(cleanedSDP);
+
+        const offerSDP = JSON.stringify(this.pc.localDescription);
         const branch = Peer2PeerConnection.generateBranch();
         const offerMsg = this.createSdpOfferMessage(offerSDP, callId, sipUri, tag, toLine, branch);
         
@@ -409,30 +394,6 @@ export class Peer2PeerConnection {
         
         this.events.onMessageToSend?.(offerMsg, 'SERVICE Offer');
         this.startReceiveTimeout();
-    }
-    
-    /**
-     * Remove mDNS (.local) candidates from SDP to prevent resolution issues on server
-     */
-    private removeMdnsCandidates(description: RTCSessionDescription | null): RTCSessionDescription | null {
-        if (!description || !description.sdp) {
-            return description;
-        }
-        
-        const sdpLines = description.sdp.split('\r\n');
-        const filteredLines = sdpLines.filter(line => {
-            // Remove lines containing .local hostnames
-            if (line.includes('.local')) {
-                this.logWithPrefix(`🚫 Removing mDNS candidate: ${line}`);
-                return false;
-            }
-            return true;
-        });
-        
-        return {
-            type: description.type,
-            sdp: filteredLines.join('\r\n')
-        } as RTCSessionDescription;
     }
     
     /**
