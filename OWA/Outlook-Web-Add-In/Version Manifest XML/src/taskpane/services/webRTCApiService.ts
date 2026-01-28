@@ -112,16 +112,20 @@ export class WebRTCApiService implements DataChannelObserver {
     
     // Add Authorization header for all non-authentication requests
     if (!messageType.includes('auth.') && token) {
+      console.log('🔑 [WebRTCApiService] Using token for request:', messageType);
+      console.log('🔑 [WebRTCApiService] Token (first 30 / last 30 chars):', 
+        token.substring(0, 30) + '...' + token.substring(token.length - 30));
+      
       // Log token validation details in development
       if (process.env.NODE_ENV === 'development') {
         tokenService.logTokenValidation(token, messageType);
       }
       
       requestHeaders['Authorization'] = `Bearer ${token}`;
-      console.log('🔑 Added Authorization header to request:', messageType);
+      console.log('🔑 [WebRTCApiService] Added Authorization header to request:', messageType);
     } else if (!messageType.includes('auth.') && !token) {
-      console.warn('⚠️ No valid token available for authenticated request:', messageType);
-      console.warn('⚠️ This request will likely fail with 401 Unauthorized');
+      console.warn('⚠️ [WebRTCApiService] No valid token available for authenticated request:', messageType);
+      console.warn('⚠️ [WebRTCApiService] This request will likely fail with 401 Unauthorized');
     }
     
     return requestHeaders;
@@ -467,15 +471,20 @@ export class WebRTCApiService implements DataChannelObserver {
     const actualStatusCode = statusCode || errorCode;
     
     if (actualStatusCode && actualStatusCode >= 400) {
-      console.error(`❌ HTTP error ${actualStatusCode} for ${pendingRequest.messageType}`);
-      console.error(`❌ Error response body:`, decodedBody);
+      console.error(`❌ [ERROR RESPONSE] ═══════════════════════════════════════`);
+      console.error(`❌ [ERROR] HTTP Status: ${actualStatusCode}`);
+      console.error(`❌ [ERROR] Message Type: ${pendingRequest.messageType}`);
+      console.error(`❌ [ERROR] Request ID: ${pendingRequest.id}`);
+      console.error(`❌ [ERROR] Response Body:`, decodedBody);
+      console.error(`❌ [ERROR] Full Response:`, JSON.stringify(response, null, 2));
+      console.error(`═══════════════════════════════════════════════════════════`);
       
       // Handle authentication/authorization errors
       // Note: Token is pre-validated before sending, so 401/400 indicates a server-side issue
       if (actualStatusCode === 401 || actualStatusCode === 400) {
         console.error(`🔐 Authentication error ${actualStatusCode} despite pre-validated token`);
-        console.error(`🔐 Request ID: ${pendingRequest.id}`);
-        console.error(`🔐 Message type: ${pendingRequest.messageType}`);
+        console.error(`🔐 This is a SERVER-SIDE issue - same token works for other requests`);
+        console.error(`🔐 Possible causes: rate limiting, resource-level permissions, server bug`);
         
         this.completeRequest(
           pendingRequest,
@@ -569,11 +578,16 @@ export class WebRTCApiService implements DataChannelObserver {
       // For authenticated requests, ensure token is valid before sending
       let validToken: string | null = null;
       if (!messageType.includes('auth.')) {
+        console.log('🔐 [WebRTCApiService] Ensuring valid token for request:', messageType);
         validToken = await tokenService.ensureValidToken();
         if (!validToken) {
+          console.error('❌ [WebRTCApiService] No valid token available for request:', messageType);
           reject(new Error('No valid token available. Please authenticate.'));
           return;
         }
+        console.log('✅ [WebRTCApiService] Valid token obtained for request:', messageType);
+        console.log('🔑 [WebRTCApiService] Token to be used (first 30 / last 30 chars):', 
+          validToken.substring(0, 30) + '...' + validToken.substring(validToken.length - 30));
         // Token will be passed to createRequestHeaders
       }
 
@@ -594,7 +608,16 @@ export class WebRTCApiService implements DataChannelObserver {
       const requestHeaders = this.createRequestHeaders(headers, messageType, validToken);
       // Create full protocol request with messageType
       const protocolRequest = createProtocolRequest(method, url, requestHeaders, body, messageType);
-      console.log('📝 Created initial protocol request (before chunking):', protocolRequest);
+      
+      // Log full request details for server debugging
+      console.log('📝 [REQUEST DETAILS] ═══════════════════════════════════════');
+      console.log('📝 [REQUEST] Message Type:', messageType);
+      console.log('📝 [REQUEST] Method:', method);
+      console.log('📝 [REQUEST] URL:', url);
+      console.log('📝 [REQUEST] Headers:', JSON.stringify(requestHeaders, null, 2));
+      console.log('📝 [REQUEST] Body:', body ? JSON.stringify(body).substring(0, 500) : 'none');
+      console.log('📝 [REQUEST] Request ID:', protocolRequest.id);
+      console.log('═══════════════════════════════════════════════════════════');
 
       console.log('📤 Preparing request for messageType:', messageType);
       console.log('📝 Pending requests before sending:', this.pendingRequests.size);

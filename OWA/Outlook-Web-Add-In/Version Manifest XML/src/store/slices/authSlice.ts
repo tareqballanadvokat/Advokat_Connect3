@@ -52,6 +52,10 @@ const authSlice = createSlice({
     authenticationSuccess: (state, action: PayloadAction<IAuthResponse>) => {
       const { access_token, token_type, expires_in, refresh_token, refresh_token_lifetime } = action.payload;
       
+      console.log('🔐 [authSlice] authenticationSuccess - storing new tokens in Redux');
+      console.log('🔐 [authSlice] Encrypted access token (first 20 chars):', access_token.substring(0, 20) + '...');
+      console.log('🔐 [authSlice] Token expires in:', expires_in, 'seconds');
+      
       state.token = access_token;
       state.tokenType = token_type || 'Bearer';
       state.expiresAt = Date.now() + (expires_in * 1000); // Convert seconds to milliseconds
@@ -60,6 +64,8 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.isAuthenticating = false;
       state.error = null;
+      
+      console.log('✅ [authSlice] Tokens stored in Redux, expiresAt:', new Date(state.expiresAt).toISOString());
     },
 
     authenticationFailure: (state, action: PayloadAction<string>) => {
