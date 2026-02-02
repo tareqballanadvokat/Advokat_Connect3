@@ -43,11 +43,6 @@ const initialState: PersonState = {
 export const personLookUpAsync = createAsyncThunk(
   'person/personLookUp',
   async (searchText: string, { getState }) => {
-    // Skip empty or whitespace-only searches
-    if (!searchText || !searchText.trim()) {
-      return [];
-    }
-
     const state = getState() as { person: PersonState };
     const cacheKey = `search_results:person:${searchText}`;
     const forceRefresh = state.person.previousSearchTerm === searchText;

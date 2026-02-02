@@ -319,11 +319,6 @@ export const getAvailableFoldersAsync = createAsyncThunk(
 export const aktLookUpAsync = createAsyncThunk(
   'akten/aktLookUp',
   async (searchText: string, { getState }) => {
-    // Skip empty or whitespace-only searches
-    if (!searchText || !searchText.trim()) {
-      return [];
-    }
-
     const state = getState() as { akten: AktenState };
     const cacheKey = `search_results:akt:${searchText}`;
     const forceRefresh = state.akten.previousSearchTerm === searchText;
