@@ -4,6 +4,7 @@ import { AktLookUpResponse, AktenQuery, AktenResponse } from '../../taskpane/com
 import { DokumentResponse } from '../../taskpane/components/interfaces/IDocument';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
+import { StorageType } from '../../services/cache/types';
 
 // Interface for folder options
 export interface FolderOption {
@@ -23,6 +24,7 @@ interface AktenState {
   // Search and lookup state
   cases: AktLookUpResponse[]; // For search results
   searchTerm: string; // Current search term in the search box
+  previousSearchTerm: string | null; // Track last executed query for refresh detection
   selectedAkt: AktLookUpResponse | null; // Currently selected Akt for operations
   loading: boolean;
   error: string | null;
@@ -62,6 +64,7 @@ const initialState: AktenState = {
   // Search and lookup state
   cases: [],
   searchTerm: '',
+  previousSearchTerm: null,
   selectedAkt: null,
   loading: false,
   error: null,
@@ -315,16 +318,78 @@ export const getAvailableFoldersAsync = createAsyncThunk(
 // and update the state with the results.
 export const aktLookUpAsync = createAsyncThunk(
   'akten/aktLookUp',
-  async (searchText: string) => {
+  async (searchText: string, { getState }) => {
+    // Skip empty or whitespace-only searches
+    if (!searchText || !searchText.trim()) {
+      return [];
+    }
+
+    const state = getState() as { akten: AktenState };
+    const cacheKey = `search_results:akt:${searchText}`;
+    const forceRefresh = state.akten.previousSearchTerm === searchText;
+
+    // 1. Check cache if not force refresh
+    if (!forceRefresh) {
+      try {
+        const cached = await cacheService.get<AktLookUpResponse[]>(
+          cacheKey,
+          { storage: StorageType.SESSION }
+        );
+
+        if (cached) {
+          console.log('📦 [aktenSlice] Using cached search results for:', searchText);
+          return cached;
+        }
+      } catch (error) {
+        console.warn('⚠️ [aktenSlice] Cache read failed:', error);
+      }
+    } else {
+      console.log('🔄 [aktenSlice] Force refresh for:', searchText);
+    }
+
+    // 2. Fetch from API
+    console.log('🌐 [aktenSlice] Fetching search results from API:', searchText);
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
-    const response = await webRTCApiService.aktLookUp(searchText);
-    
-    if (response.statusCode === 200) {
-      return JSON.parse(response.body || '[]') as AktLookUpResponse[];
-    } else {
-      throw new Error('Failed to lookup cases');
+    try {
+      const response = await webRTCApiService.aktLookUp(searchText);
+      
+      if (response.statusCode === 200) {
+        const data = JSON.parse(response.body || '[]') as AktLookUpResponse[];
+        
+        // 3. Update cache
+        try {
+          await cacheService.set(
+            cacheKey,
+            data,
+            { storage: StorageType.SESSION }
+          );
+        } catch (error) {
+          console.warn('⚠️ [aktenSlice] Cache write failed:', error);
+        }
+        
+        return data;
+      } else {
+        throw new Error('Failed to lookup cases');
+      }
+    } catch (error) {
+      // On failure during force refresh, try to return stale cached data
+      if (forceRefresh) {
+        try {
+          const staleCache = await cacheService.get<AktLookUpResponse[]>(
+            cacheKey,
+            { storage: StorageType.SESSION }
+          );
+          if (staleCache) {
+            console.warn('⚠️ [aktenSlice] API failed, returning stale cached data');
+            return staleCache;
+          }
+        } catch (cacheError) {
+          console.error('❌ [aktenSlice] Failed to retrieve stale cache:', cacheError);
+        }
+      }
+      throw error;
     }
   }
 );
@@ -526,6 +591,7 @@ const aktenSlice = createSlice({
       .addCase(aktLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
         state.cases = action.payload;
+        state.previousSearchTerm = action.meta.arg; // Track last query for refresh detection
       })
       .addCase(aktLookUpAsync.rejected, (state, action) => {
         state.loading = false;

@@ -3,12 +3,14 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { PersonLookUpResponse, PersonenQuery, PersonResponse } from '../../taskpane/components/interfaces/IPerson';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
+import { StorageType } from '../../services/cache/types';
 
 // State interface
 interface PersonState {
   // Search and lookup state
   persons: PersonLookUpResponse[];
   searchTerm: string;
+  previousSearchTerm: string | null; // Track last executed query for refresh detection
   loading: boolean;
   error: string | null;
 
@@ -25,6 +27,7 @@ const initialState: PersonState = {
   // Search and lookup state
   persons: [],
   searchTerm: '',
+  previousSearchTerm: null,
   loading: false,
   error: null,
 
@@ -39,15 +42,77 @@ const initialState: PersonState = {
 
 export const personLookUpAsync = createAsyncThunk(
   'person/personLookUp',
-  async (searchText: string) => {
+  async (searchText: string, { getState }) => {
+    // Skip empty or whitespace-only searches
+    if (!searchText || !searchText.trim()) {
+      return [];
+    }
+
+    const state = getState() as { person: PersonState };
+    const cacheKey = `search_results:person:${searchText}`;
+    const forceRefresh = state.person.previousSearchTerm === searchText;
+
+    // 1. Check cache if not force refresh
+    if (!forceRefresh) {
+      try {
+        const cached = await cacheService.get<PersonLookUpResponse[]>(
+          cacheKey,
+          { storage: StorageType.SESSION }
+        );
+
+        if (cached) {
+          console.log('📦 [personSlice] Using cached search results for:', searchText);
+          return cached;
+        }
+      } catch (error) {
+        console.warn('⚠️ [personSlice] Cache read failed:', error);
+      }
+    } else {
+      console.log('🔄 [personSlice] Force refresh for:', searchText);
+    }
+
+    // 2. Fetch from API
+    console.log('🌐 [personSlice] Fetching search results from API:', searchText);
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
-    const response = await webRTCApiService.personLookUp(searchText);
-    if (response.statusCode === 200) {
-      return JSON.parse(response.body || '[]') as PersonLookUpResponse[];
-    } else {
-      throw new Error('Failed to lookup persons');
+    try {
+      const response = await webRTCApiService.personLookUp(searchText);
+      if (response.statusCode === 200) {
+        const data = JSON.parse(response.body || '[]') as PersonLookUpResponse[];
+        
+        // 3. Update cache
+        try {
+          await cacheService.set(
+            cacheKey,
+            data,
+            { storage: StorageType.SESSION }
+          );
+        } catch (error) {
+          console.warn('⚠️ [personSlice] Cache write failed:', error);
+        }
+        
+        return data;
+      } else {
+        throw new Error('Failed to lookup persons');
+      }
+    } catch (error) {
+      // On failure during force refresh, try to return stale cached data
+      if (forceRefresh) {
+        try {
+          const staleCache = await cacheService.get<PersonLookUpResponse[]>(
+            cacheKey,
+            { storage: StorageType.SESSION }
+          );
+          if (staleCache) {
+            console.warn('⚠️ [personSlice] API failed, returning stale cached data');
+            return staleCache;
+          }
+        } catch (cacheError) {
+          console.error('❌ [personSlice] Failed to retrieve stale cache:', cacheError);
+        }
+      }
+      throw error;
     }
   }
 );
@@ -187,6 +252,7 @@ const personSlice = createSlice({
       .addCase(personLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
         state.persons = action.payload;
+        state.previousSearchTerm = action.meta.arg; // Track last query for refresh detection
       })
       .addCase(personLookUpAsync.rejected, (state, action) => {
         state.loading = false;
