@@ -55,7 +55,7 @@ export class CacheService {
       return;
     }
 
-    const cacheKey = this.buildKey(key, options.namespace);
+    const namespacedKey = this.buildKey(key, options.namespace);
     const entry = TTLManager.wrap(data, options.ttl, options.namespace);
     const serialized = JSON.stringify(entry);
     const entrySize = new Blob([serialized]).size;
@@ -71,8 +71,8 @@ export class CacheService {
       await LRUManager.evictOldest(strategy, this.EVICTION_COUNT);
     }
 
-    await strategy.setItem(cacheKey, serialized);
-    console.log(`✅ [CacheService] Cached ${cacheKey} in ${options.storage} (${entrySize} bytes)`);
+    await strategy.setItem(namespacedKey, serialized);
+    console.log(`✅ [CacheService] Cached ${namespacedKey} in ${options.storage} (${entrySize} bytes)`);
   }
 
   /**
@@ -85,8 +85,8 @@ export class CacheService {
       return null;
     }
 
-    const cacheKey = this.buildKey(key, options.namespace);
-    const serialized = await strategy.getItem(cacheKey);
+    const namespacedKey = this.buildKey(key, options.namespace);
+    const serialized = await strategy.getItem(namespacedKey);
 
     if (!serialized) {
       return null;
@@ -97,15 +97,15 @@ export class CacheService {
       const data = TTLManager.unwrap(entry);
 
       if (data === null) {
-        console.log(`⏰ [CacheService] Cache entry expired: ${cacheKey}`);
-        await strategy.removeItem(cacheKey);
+        console.log(`⏰ [CacheService] Cache entry expired: ${namespacedKey}`);
+        await strategy.removeItem(namespacedKey);
         return null;
       }
 
-      console.log(`✅ [CacheService] Retrieved ${cacheKey} from ${options.storage}`);
+      console.log(`✅ [CacheService] Retrieved ${namespacedKey} from ${options.storage}`);
       return data;
     } catch (error) {
-      console.error(`❌ [CacheService] Failed to parse cache entry: ${cacheKey}`, error);
+      console.error(`❌ [CacheService] Failed to parse cache entry: ${namespacedKey}`, error);
       return null;
     }
   }
@@ -117,9 +117,9 @@ export class CacheService {
     const strategy = this.strategies.get(options.storage);
     if (!strategy) return;
 
-    const cacheKey = this.buildKey(key, options.namespace);
-    await strategy.removeItem(cacheKey);
-    console.log(`🗑️ [CacheService] Removed ${cacheKey} from ${options.storage}`);
+    const namespacedKey = this.buildKey(key, options.namespace);
+    await strategy.removeItem(namespacedKey);
+    console.log(`🗑️ [CacheService] Removed ${namespacedKey} from ${options.storage}`);
   }
 
   /**
