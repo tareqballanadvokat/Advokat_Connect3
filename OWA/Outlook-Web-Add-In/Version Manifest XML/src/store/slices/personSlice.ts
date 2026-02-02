@@ -2,6 +2,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { PersonLookUpResponse, PersonenQuery, PersonResponse } from '../../taskpane/components/interfaces/IPerson';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
+import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
 
 // State interface
 interface PersonState {
@@ -54,12 +55,34 @@ export const personLookUpAsync = createAsyncThunk(
 export const getFavoritePersonsAsync = createAsyncThunk(
   'person/getFavoritePersons',
   async (query: PersonenQuery) => {
+    // 1. Try to get from cache first
+    const cached = await cacheService.get<PersonResponse[]>(
+      CACHE_KEYS.FAVORITES_PERSONS,
+      CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
+    );
+
+    if (cached) {
+      console.log('📦 [personSlice] Using cached favorite persons');
+      return cached;
+    }
+
+    // 2. Cache miss - fetch from API
+    console.log('🌐 [personSlice] Cache miss, fetching favorite persons from API');
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
     const response = await webRTCApiService.getFavoritePersons(query);
     if (response.statusCode === 200) {
-      return JSON.parse(response.body || '[]') as PersonResponse[];
+      const data = JSON.parse(response.body || '[]') as PersonResponse[];
+      
+      // 3. Update cache
+      await cacheService.set(
+        CACHE_KEYS.FAVORITES_PERSONS,
+        data,
+        CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
+      );
+      
+      return data;
     } else {
       throw new Error('Failed to get favorite persons');
     }
@@ -74,7 +97,18 @@ export const addPersonToFavoritesAsync = createAsyncThunk(
     const response = await webRTCApiService.addPersonToFavorites(personId);
     
     if (response.statusCode === 200) {
-      dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      // Clear cache first to force fresh fetch
+      await cacheService.remove(
+        CACHE_KEYS.FAVORITES_PERSONS,
+        CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
+      );
+      
+      // Refresh favorites from API
+      await dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      
+      // Cache will be automatically updated by getFavoritePersonsAsync
+      console.log('✅ [personSlice] Person added to favorites, cache updated');
+      
       return personId;
     } else {
       throw new Error('Failed to add person to favorites');
@@ -90,8 +124,18 @@ export const removePersonFromFavoritesAsync = createAsyncThunk(
     const response = await webRTCApiService.removePersonFromFavorites(personId);
     
     if (response.statusCode === 200) {
-      // Refresh favorites list after successful removal
-      dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      // Clear cache first to force fresh fetch
+      await cacheService.remove(
+        CACHE_KEYS.FAVORITES_PERSONS,
+        CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
+      );
+      
+      // Refresh favorites from API
+      await dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      
+      // Cache will be automatically updated by getFavoritePersonsAsync
+      console.log('✅ [personSlice] Person removed from favorites, cache updated');
+      
       return personId;
     } else {
       throw new Error('Failed to remove person from favorites');
