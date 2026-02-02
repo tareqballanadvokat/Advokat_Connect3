@@ -3,6 +3,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { AktLookUpResponse, AktenQuery, AktenResponse } from '../../taskpane/components/interfaces/IAkten';
 import { DokumentResponse } from '../../taskpane/components/interfaces/IDocument';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
+import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
 
 // Interface for folder options
 export interface FolderOption {
@@ -99,12 +100,42 @@ const initialState: AktenState = {
 export const getFavoriteAktenAsync = createAsyncThunk(
   'akten/getFavoriteAkten',
   async (query: AktenQuery) => {
+    // 1. Try to get from cache first
+    try {
+      const cached = await cacheService.get<AktenResponse[]>(
+        CACHE_KEYS.FAVORITES_AKTEN,
+        CACHE_CONFIG[CACHE_KEYS.FAVORITES_AKTEN]
+      );
+
+      if (cached) {
+        console.log('📦 [aktenSlice] Using cached favorite akten');
+        return cached;
+      }
+    } catch (error) {
+      console.warn('⚠️ [aktenSlice] Cache read failed, falling back to API:', error);
+    }
+
+    // 2. Cache miss or error - fetch from API
+    console.log('🌐 [aktenSlice] Fetching favorite akten from API');
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.getFavoriteAkten(query);
     
     if (response.statusCode === 200) {
-      return JSON.parse(response.body || '[]') as AktenResponse[]; // Use AktenResponse format (Id, AKurz, Causa)
+      const data = JSON.parse(response.body || '[]') as AktenResponse[];
+      
+      // 3. Update cache (best effort, don't fail if cache write fails)
+      try {
+        await cacheService.set(
+          CACHE_KEYS.FAVORITES_AKTEN,
+          data,
+          CACHE_CONFIG[CACHE_KEYS.FAVORITES_AKTEN]
+        );
+      } catch (error) {
+        console.warn('⚠️ [aktenSlice] Cache write failed:', error);
+      }
+      
+      return data;
     } else {
       throw new Error('Failed to get favorite cases');
     }
@@ -174,12 +205,28 @@ export const getEmailDocumentsAsync = createAsyncThunk(
 // New async thunk for adding Akt to favorites
 export const addAktToFavoriteAsync = createAsyncThunk(
   'akten/addAktToFavorite',
-  async (aktId: number) => {
+  async (aktId: number, { dispatch }) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.addAktToFavorite(aktId);
     
     if (response.statusCode === 200) {
+      // Clear cache first to force fresh fetch (best effort)
+      try {
+        await cacheService.remove(
+          CACHE_KEYS.FAVORITES_AKTEN,
+          CACHE_CONFIG[CACHE_KEYS.FAVORITES_AKTEN]
+        );
+      } catch (error) {
+        console.warn('⚠️ [aktenSlice] Cache remove failed:', error);
+      }
+      
+      // Refresh favorites from API
+      await dispatch(getFavoriteAktenAsync({ Count: 100, NurFavoriten: true }));
+      
+      // Cache will be automatically updated by getFavoriteAktenAsync
+      console.log('✅ [aktenSlice] Akt added to favorites, cache updated');
+      
       return aktId; // Return the aktId that was added to favorites
     } else {
       throw new Error('Failed to add Akt to favorites');
@@ -190,11 +237,28 @@ export const addAktToFavoriteAsync = createAsyncThunk(
 // New async thunk for removing Akt from favorites
 export const removeAktFromFavoriteAsync = createAsyncThunk(
   'akten/removeAktFromFavorite',
-  async (aktId: number) => {
+  async (aktId: number, { dispatch }) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removeAktFromFavorite(aktId);
+    
     if (response.statusCode === 200) {
+      // Clear cache first to force fresh fetch (best effort)
+      try {
+        await cacheService.remove(
+          CACHE_KEYS.FAVORITES_AKTEN,
+          CACHE_CONFIG[CACHE_KEYS.FAVORITES_AKTEN]
+        );
+      } catch (error) {
+        console.warn('⚠️ [aktenSlice] Cache remove failed:', error);
+      }
+      
+      // Refresh favorites from API
+      await dispatch(getFavoriteAktenAsync({ Count: 100, NurFavoriten: true }));
+      
+      // Cache will be automatically updated by getFavoriteAktenAsync
+      console.log('✅ [aktenSlice] Akt removed from favorites, cache updated');
+      
       return aktId; // Return the aktId that was removed from favorites
     } else {
       throw new Error('Failed to remove Akt from favorites');
