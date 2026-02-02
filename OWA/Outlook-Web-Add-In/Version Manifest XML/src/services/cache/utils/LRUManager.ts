@@ -18,7 +18,7 @@ export class LRUManager {
       const keys = await strategy.getAllKeys();
       if (keys.length === 0) return 0;
 
-      const entries: Array<{ key: string; lastAccessed: number }> = [];
+      const entries: Array<{ key: string; rawKey: string; lastAccessed: number }> = [];
 
       // Collect all entries with their lastAccessed timestamps
       for (const key of keys) {
@@ -27,9 +27,12 @@ export class LRUManager {
           if (!serialized) continue;
 
           const entry = JSON.parse(serialized) as CacheEntry<any>;
+          // Strip prefix 'advokat_connect_' to get the raw key for removeItem
+          const rawKey = key.replace(/^advokat_connect_/, '');
           entries.push({
             key,
-            lastAccessed: entry.lastAccessed || entry.createdAt
+            rawKey,
+            lastAccessed: entry.lastAccessed
           });
         } catch {
           // Skip invalid entries
@@ -40,10 +43,10 @@ export class LRUManager {
       // Sort by lastAccessed (oldest first)
       entries.sort((a, b) => a.lastAccessed - b.lastAccessed);
 
-      // Remove the oldest N entries
+      // Remove the oldest N entries using raw keys (without prefix)
       const toRemove = Math.min(count, entries.length);
       for (let i = 0; i < toRemove; i++) {
-        await strategy.removeItem(entries[i].key);
+        await strategy.removeItem(entries[i].rawKey);
       }
 
       console.log(`🗑️ [LRUManager] Evicted ${toRemove} oldest entries`);
@@ -54,13 +57,5 @@ export class LRUManager {
     }
   }
 
-  /**
-   * Update lastAccessed timestamp for an entry
-   */
-  static updateAccessTime<T>(entry: CacheEntry<T>): CacheEntry<T> {
-    return {
-      ...entry,
-      lastAccessed: Date.now()
-    };
-  }
 }
+

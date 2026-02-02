@@ -34,6 +34,10 @@ export class LocalStorageStrategy implements IStorageStrategy {
     keys.forEach(key => localStorage.removeItem(key));
   }
 
+  /**
+   * Get all keys for this strategy
+   * @returns Array of keys WITH prefix (e.g., 'advokat_connect_username:favorites')
+   */
   async getAllKeys(): Promise<string[]> {
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {

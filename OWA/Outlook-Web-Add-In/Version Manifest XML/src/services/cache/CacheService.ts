@@ -124,11 +124,14 @@ export class CacheService {
 
   /**
    * Clear all entries for a namespace (e.g., on logout)
+   * @returns Total number of entries cleared
    */
-  async clearNamespace(namespace: string, storageType?: StorageType): Promise<void> {
+  async clearNamespace(namespace: string, storageType?: StorageType): Promise<number> {
     const strategies = storageType 
       ? [this.strategies.get(storageType)].filter(Boolean)
       : Array.from(this.strategies.values());
+
+    let totalCleared = 0;
 
     for (const strategy of strategies) {
       const keys = await strategy!.getAllKeys();
@@ -137,11 +140,16 @@ export class CacheService {
       const namespacedKeys = keys.filter(k => k.startsWith(`${prefix}${namespace}:`));
 
       for (const key of namespacedKeys) {
-        await strategy!.removeItem(key);
+        // Strip prefix before removing since removeItem adds it back
+        const rawKey = key.replace(/^advokat_connect_/, '');
+        await strategy!.removeItem(rawKey);
       }
 
+      totalCleared += namespacedKeys.length;
       console.log(`🗑️ [CacheService] Cleared ${namespacedKeys.length} entries for namespace ${namespace}`);
     }
+
+    return totalCleared;
   }
 
   /**

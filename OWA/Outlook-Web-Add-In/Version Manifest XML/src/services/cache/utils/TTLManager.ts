@@ -10,6 +10,12 @@ export class TTLManager {
    * Wrap data with TTL metadata
    */
   static wrap<T>(data: T, ttl?: number, namespace?: string): CacheEntry<T> {
+    // Validate TTL: must be positive or undefined
+    if (ttl !== undefined && ttl <= 0) {
+      console.warn(`⚠️ [TTLManager] Invalid TTL value: ${ttl}. Using no expiration.`);
+      ttl = undefined;
+    }
+
     const now = Date.now();
     return {
       data,
