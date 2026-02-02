@@ -29,8 +29,8 @@ export const logoutAsync = createAsyncThunk(
     const username = state.auth.credentials.username;
     
     if (username) {
-      await cacheService.clearNamespace(username);
-      console.log('🗑️ [authSlice] Cache cleared for user:', username);
+      const clearedCount = await cacheService.clearNamespace(username);
+      console.log(`🗑️ [authSlice] Cache cleared for user: ${username} (${clearedCount} entries)`);
     }
   }
 );

@@ -6,6 +6,11 @@
 import { StorageType, CacheOptions } from './types';
 
 /**
+ * Storage Prefix for all cache keys
+ */
+export const STORAGE_PREFIX = 'advokat_connect_';
+
+/**
  * Cache Keys
  */
 export const CACHE_KEYS = {

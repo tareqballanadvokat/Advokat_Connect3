@@ -8,6 +8,7 @@ import { LocalStorageStrategy } from './strategies/LocalStorageStrategy';
 import { StorageType, CacheOptions, CacheEntry } from './types';
 import { TTLManager } from './utils/TTLManager';
 import { LRUManager } from './utils/LRUManager';
+import { STORAGE_PREFIX } from './config';
 
 export class CacheService {
   private strategies: Map<StorageType, IStorageStrategy>;
@@ -71,8 +72,21 @@ export class CacheService {
       await LRUManager.evictOldest(strategy, this.EVICTION_COUNT);
     }
 
-    await strategy.setItem(namespacedKey, serialized);
-    console.log(`✅ [CacheService] Cached ${namespacedKey} in ${options.storage} (${entrySize} bytes)`);
+    // Try to write with retry on quota error
+    try {
+      await strategy.setItem(namespacedKey, serialized);
+      console.log(`✅ [CacheService] Cached ${namespacedKey} in ${options.storage} (${entrySize} bytes)`);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('quota exceeded')) {
+        console.warn(`⚠️ [CacheService] Quota exceeded, aggressive eviction...`);
+        await LRUManager.evictOldest(strategy, this.EVICTION_COUNT * 3);
+        // Retry once
+        await strategy.setItem(namespacedKey, serialized);
+        console.log(`✅ [CacheService] Cached ${namespacedKey} after eviction (${entrySize} bytes)`);
+      } else {
+        throw error;
+      }
+    }
   }
 
   /**
@@ -135,13 +149,12 @@ export class CacheService {
 
     for (const strategy of strategies) {
       const keys = await strategy!.getAllKeys();
-      const prefix = 'advokat_connect_';
       // Use startsWith to avoid matching partial usernames (e.g., user1 vs user123)
-      const namespacedKeys = keys.filter(k => k.startsWith(`${prefix}${namespace}:`));
+      const namespacedKeys = keys.filter(k => k.startsWith(`${STORAGE_PREFIX}${namespace}:`));
 
       for (const key of namespacedKeys) {
         // Strip prefix before removing since removeItem adds it back
-        const rawKey = key.replace(/^advokat_connect_/, '');
+        const rawKey = key.substring(STORAGE_PREFIX.length);
         await strategy!.removeItem(rawKey);
       }
 

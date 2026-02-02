@@ -5,6 +5,8 @@
 
 import { CacheEntry } from '../types';
 import { IStorageStrategy } from '../strategies/IStorageStrategy';
+import { TTLManager } from './TTLManager';
+import { STORAGE_PREFIX } from '../config';
 
 export class LRUManager {
   /**
@@ -20,15 +22,23 @@ export class LRUManager {
 
       const entries: Array<{ key: string; rawKey: string; lastAccessed: number }> = [];
 
-      // Collect all entries with their lastAccessed timestamps
+      // Collect all non-expired entries with their lastAccessed timestamps
       for (const key of keys) {
         try {
           const serialized = await strategy.getItem(key);
           if (!serialized) continue;
 
           const entry = JSON.parse(serialized) as CacheEntry<any>;
-          // Strip prefix 'advokat_connect_' to get the raw key for removeItem
-          const rawKey = key.replace(/^advokat_connect_/, '');
+          
+          // Skip expired entries (they'll be cleaned up naturally)
+          if (TTLManager.isExpired(entry)) {
+            const rawKey = key.substring(STORAGE_PREFIX.length);
+            await strategy.removeItem(rawKey);
+            continue;
+          }
+
+          // Strip prefix to get the raw key for removeItem
+          const rawKey = key.substring(STORAGE_PREFIX.length);
           entries.push({
             key,
             rawKey,

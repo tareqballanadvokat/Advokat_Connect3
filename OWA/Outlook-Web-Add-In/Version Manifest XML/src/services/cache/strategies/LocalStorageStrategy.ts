@@ -5,10 +5,11 @@
 
 import { IStorageStrategy } from './IStorageStrategy';
 import { StorageUsage } from '../types';
+import { STORAGE_PREFIX } from '../config';
 
 export class LocalStorageStrategy implements IStorageStrategy {
   public readonly type = 'local';
-  private readonly prefix = 'advokat_connect_';
+  private readonly prefix = STORAGE_PREFIX;
 
   async setItem(key: string, value: string): Promise<void> {
     try {
