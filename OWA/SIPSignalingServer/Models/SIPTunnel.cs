@@ -1,82 +1,99 @@
 ﻿using SIPSignalingServer.Transactions;
+using SIPSignalingServer.Utils.CustomEventArgs;
 using System.Diagnostics.CodeAnalysis;
 
 namespace SIPSignalingServer.Models
 {
-    public class SIPTunnel
+    public class SIPTunnel(SIPMessageRelay left) : IAsyncDisposable
     {
-        public SIPMessageRelay Left { get; private set; }
+        private readonly SemaphoreSlim runningLock = new SemaphoreSlim(1, 1);
+
+        public SIPMessageRelay Left => left;
 
         public SIPMessageRelay? Right { get; private set; }
 
         [MemberNotNullWhen(true, nameof(this.Right))]
         public bool Connected { get => this.Left.Relaying && (this.Right?.Relaying ?? false); }
 
-        public delegate Task ConnectionStateChangedDelegate(SIPTunnel sender);
+        public event EventHandler<SIPTunnelConnectionStateEventArgs>? ConnectionStateChanged;
 
-        public event ConnectionStateChangedDelegate? ConnectionEstablished;
-
-        public event ConnectionStateChangedDelegate? ConnectionStopped;
-
-        //public CancellationToken Ct { get; private set; }
-
-        public SIPTunnel(SIPMessageRelay left) //, SIPMessageRelay right)
-        {
-            // TODO: Check that relays are not relaying right now?
-
-            // TODO: Check params if they match?
-            Left = left;
-            this.Left.RelayStarted += this.RelayStarted;
-            this.Left.RelayStopped += this.RelayStopped;
-        }
+        private bool Running { get; set; }
 
         [MemberNotNull(nameof(this.Right))]
         public void Connect(SIPMessageRelay right)
         {
             // TODO: Check params if they match
 
-            if (this.Connected)
+            this.runningLock.Wait();
+            try
             {
-                throw new InvalidOperationException("Cannot change relay while it is connected.");
+                if (this.Running && this.Right != right)
+                {
+                    throw new InvalidOperationException("Cannot change relay. Already running with different relay.");
+                }
+
+                this.Start(right);
+            }
+            finally
+            {
+                this.runningLock.Release();
             }
 
-            this.Right = right;
-
-            this.Left.OnRequestReceived += this.Right.RelayRequest;
-            this.Left.OnResponseReceived += this.Right.RelayResponse;
-
-            this.Right.OnRequestReceived += this.Left.RelayRequest;
-            this.Right.OnResponseReceived += this.Left.RelayResponse;
-
-            this.Right.RelayStarted += this.RelayStarted;
-            this.Right.RelayStopped += this.RelayStopped;
-        }
-
-        /// <summary> Should be called right after the Connect method.
-        ///     This should be at the end of the Connect method.
-        ///     We cannot use the connect method in a lock statement if that is that case</summary>
-        public async Task CheckForConnection()
-        {
-            if (this.Connected)
-            {
-                await (this.ConnectionEstablished?.Invoke(this) ?? Task.CompletedTask);
-            }
         }
 
         public async Task Disconnect()
         {
-            await this.Left.Stop();
-            await (this.Right?.Stop() ?? Task.CompletedTask);
+            await this.runningLock.WaitAsync();
+            try
+            {
+                if (!this.Running)
+                {
+                    return;
+                }
+
+                await this.Stop();
+               
+            }
+            finally
+            {
+                this.runningLock.Release();
+            }
         }
 
-        private async void RelayStarted(object? sender, EventArgs e)
+        private void Start(SIPMessageRelay right)
+        {
+            this.Running = true;
+            this.Right = right;
+            this.AddListeners();
+
+            if (this.Connected)
+            {
+                this.ConnectionStateChanged?.Invoke(this, new SIPTunnelConnectionStateEventArgs(true));
+            }
+
+        }
+
+        private async Task Stop()
+        {
+            await this.Left.Stop();
+
+            if (this.Right != null)
+            {
+                await this.Right.Stop();
+                this.RemoveListeners();
+                this.Right = null;
+            }
+
+            this.Running = false;
+        }
+
+        private void RelayStarted(object? sender, EventArgs e)
         {
             if (sender is SIPMessageRelay 
                 && (sender == this.Left || sender == this.Right)
                 && this.Connected)
             {
-                // TODO: remove async event
-                await (this.ConnectionEstablished?.Invoke(this) ?? Task.CompletedTask);
+                this.ConnectionStateChanged?.Invoke(this, new SIPTunnelConnectionStateEventArgs(true));
             }
         }
 
@@ -87,11 +104,45 @@ namespace SIPSignalingServer.Models
             {
                 await this.Disconnect();
 
-                // TODO: remove async event
-
                 // TODO: maybe pass wich side stopped
-                await (this.ConnectionStopped?.Invoke(this) ?? Task.CompletedTask);
+                this.ConnectionStateChanged?.Invoke(this, new SIPTunnelConnectionStateEventArgs(false));
             }
+        }
+
+        private void AddListeners()
+        {
+            this.Left.OnRequestReceived += this.Right!.RelayRequest;
+            this.Left.OnResponseReceived += this.Right.RelayResponse;
+
+            this.Left.RelayStarted += this.RelayStarted;
+            this.Left.RelayStopped += this.RelayStopped;
+
+            this.Right.OnRequestReceived += this.Left.RelayRequest;
+            this.Right.OnResponseReceived += this.Left.RelayResponse;
+
+            this.Right.RelayStarted += this.RelayStarted;
+            this.Right.RelayStopped += this.RelayStopped;
+        }
+
+        private void RemoveListeners()
+        {
+            this.Left.OnRequestReceived -= this.Right!.RelayRequest;
+            this.Left.OnResponseReceived -= this.Right.RelayResponse;
+
+            this.Left.RelayStarted -= this.RelayStarted;
+            this.Left.RelayStopped -= this.RelayStopped;
+
+            this.Right.OnRequestReceived -= this.Left.RelayRequest;
+            this.Right.OnResponseReceived -= this.Left.RelayResponse;
+
+            this.Right.RelayStarted -= this.RelayStarted;
+            this.Right.RelayStopped -= this.RelayStopped;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await this.Disconnect();
+            this.runningLock?.Dispose();
         }
     }
 }

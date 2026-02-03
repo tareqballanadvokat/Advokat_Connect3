@@ -3,6 +3,7 @@ using SIPSignalingServer.Models;
 using SIPSorcery.SIP;
 using Microsoft.Extensions.Logging;
 using SIPSignalingServer.Interfaces;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SIPSignalingServer
 {
@@ -61,7 +62,6 @@ namespace SIPSignalingServer
                 tunnel = this.Connect(tunnel, messageRelay);
             }
 
-            await tunnel.CheckForConnection();
             return tunnel;
         }
 
@@ -159,11 +159,19 @@ namespace SIPSignalingServer
 
                 //tunnel.ConnectionEstablished += 
                 
-                tunnel.ConnectionStopped += this.Disconnect;
+                tunnel.ConnectionStateChanged += SIPTunnelConnectionStateChanged;
                 this.Connections.Add(tunnel);
                 this.logger.LogDebug("Added new pending connection. From:'{caller}', to:'{remote}'.", messageRelay.Params.ClientParticipant, messageRelay.Params.RemoteParticipant);
 
                 return tunnel;
+            }
+        }
+
+        private async void SIPTunnelConnectionStateChanged(object? sender, SIPTunnelConnectionStateEventArgs e)
+        {
+            if (sender is SIPTunnel tunnel && !e.Connected)
+            {
+                await this.Disconnect(tunnel);
             }
         }
     }

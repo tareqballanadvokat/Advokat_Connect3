@@ -217,14 +217,10 @@ namespace SIPSignalingServer.Transactions
             await this.Stop();
         }
 
-        private async Task ConnectionEstablished(SIPTunnel tunnel)
-        //private async Task ConnectionEstablished(ISIPConnectionPool sender, SIPTunnel tunnel)
+        private void ConnectionEstablished()
         {
-            if (tunnel == this.SIPTunnel && (tunnel.Left == this.messageRelay || tunnel.Right == this.messageRelay))
-            {
-                this.Connected = true;
-                this.Connecting = false;   
-            }
+            this.Connected = true;
+            this.Connecting = false;   
         }
 
         private async Task SendConnectionEstablishedNotify()
@@ -264,13 +260,11 @@ namespace SIPSignalingServer.Transactions
 
         private async Task CreateConnection()
         {
-
             //this.ConnectionPool.ConnectionEstablished
 
             // adds connection, does not start it
             this.SIPTunnel = await this.ConnectionPool.Connect(this.messageRelay);
-            this.SIPTunnel.ConnectionStopped += this.Disconnected;
-            this.SIPTunnel.ConnectionEstablished += this.ConnectionEstablished;
+            this.SIPTunnel.ConnectionStateChanged += this.SIPTunnelConnectionStateChanged;
 
             this.ConnectionPool.ConnectionRemoved += this.Disconnected;
         }
@@ -292,6 +286,21 @@ namespace SIPSignalingServer.Transactions
                 );
 
             this.Connecting = false;
+        }
+
+        private async void SIPTunnelConnectionStateChanged(object? sender, SIPTunnelConnectionStateEventArgs e)
+        {
+            if (sender is SIPTunnel && this.SIPTunnel == sender)
+            {
+                if (e.Connected)
+                {
+                    this.ConnectionEstablished();
+                }
+                else
+                {
+                    await this.Stop();
+                }
+            }
         }
 
         private async Task Disconnected(SIPTunnel tunnel)
@@ -340,8 +349,7 @@ namespace SIPSignalingServer.Transactions
 
             if (this.SIPTunnel != null)
             {
-                this.SIPTunnel.ConnectionStopped -= this.Disconnected;
-                this.SIPTunnel.ConnectionEstablished -= this.ConnectionEstablished;
+                this.SIPTunnel.ConnectionStateChanged -= this.SIPTunnelConnectionStateChanged;
             }
 
             this.ConnectionPool.ConnectionRemoved -= this.Disconnected;
