@@ -96,9 +96,9 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            await base.StartRunning();
-
             await this.StopExistingConnectionAsync();
+            
+            await base.StartRunning();
             await this.Register();
         }
 
@@ -258,27 +258,6 @@ namespace SIPSignalingServer.Transactions
                 this.Params.SourceParticipant.Name,
                 this.Params.RemoteParticipant.Name);
         }
-
-        //// TODO: Move to Signaling server. Outside of this class.
-        //private async Task StartICENegotiation()
-        //{
-        //    if (this.Connected)
-        //    {
-        //        SIPTunnel? tunnel = this.ConnectionPool.GetConnection(this.SIPConnectionTransaction.Params);
-        //        if (tunnel == null)
-        //        {
-        //            // not connected
-        //            return;
-        //        }
-
-        //        if (tunnel.Left.Params == this.SIPConnectionTransaction.Params)
-        //        {
-        //            // only start negotiation once per connection
-        //            ICENegotiation iceNegotiation = new ICENegotiation(tunnel, this.loggerFactory);
-        //            await iceNegotiation.Start();
-        //        }
-        //    }
-        //}
 
         protected override void StopRunning()
         {

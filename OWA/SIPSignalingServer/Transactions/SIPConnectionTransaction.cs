@@ -106,8 +106,6 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
-            this.messageRelay.RelayStopped += async (r) => { await this.Stop(); };
-
             await this.SetRemoteTag();
             await this.CreateConnection();
 
@@ -304,14 +302,14 @@ namespace SIPSignalingServer.Transactions
             }
         }
 
-        private async Task Disconnected(ISIPConnectionPool sender, SIPTunnel tunnel)
+        private async Task Disconnected(object? sender, SIPTunnel tunnel)
         {
             await this.Disconnected(tunnel);
         }
 
-        private async Task Disconnected(SIPMessageRelay messageRelay)
+        private async void Disconnected(object? sender, EventArgs e)
         {
-            if (messageRelay == this.messageRelay)
+            if (sender is SIPMessageRelay messageRelay && messageRelay == this.messageRelay)
             {
                 await this.Stop();
             }

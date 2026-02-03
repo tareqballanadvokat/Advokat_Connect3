@@ -69,21 +69,25 @@ namespace SIPSignalingServer.Models
             await (this.Right?.Stop() ?? Task.CompletedTask);
         }
 
-        private async Task RelayStarted(SIPMessageRelay relay)
+        private async void RelayStarted(object? sender, EventArgs e)
         {
-            if ((relay == this.Left || relay == this.Right)
+            if (sender is SIPMessageRelay 
+                && (sender == this.Left || sender == this.Right)
                 && this.Connected)
             {
+                // TODO: remove async event
                 await (this.ConnectionEstablished?.Invoke(this) ?? Task.CompletedTask);
             }
         }
 
-        private async Task RelayStopped(SIPMessageRelay relay)
+        private async void RelayStopped(object? sender, EventArgs e)
         {
-            if (relay == this.Left || relay == this.Right)
-                //&& this.Connected)  uncomment if connected is its own bool property. Otherwise it would always be false
+            if (sender is SIPMessageRelay
+                && (sender == this.Left || sender == this.Right))
             {
                 await this.Disconnect();
+
+                // TODO: remove async event
 
                 // TODO: maybe pass wich side stopped
                 await (this.ConnectionStopped?.Invoke(this) ?? Task.CompletedTask);
