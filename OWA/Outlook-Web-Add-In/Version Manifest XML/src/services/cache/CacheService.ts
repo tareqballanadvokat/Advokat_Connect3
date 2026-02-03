@@ -5,6 +5,7 @@
 
 import { IStorageStrategy } from './strategies/IStorageStrategy';
 import { LocalStorageStrategy } from './strategies/LocalStorageStrategy';
+import { SessionStorageStrategy } from './strategies/SessionStorageStrategy';
 import { StorageType, CacheOptions, CacheEntry } from './types';
 import { TTLManager } from './utils/TTLManager';
 import { LRUManager } from './utils/LRUManager';
@@ -23,7 +24,8 @@ export class CacheService {
 
   private initializeStrategies(): void {
     this.strategies.set(StorageType.LOCAL, new LocalStorageStrategy());
-    // Add other strategies as needed
+    this.strategies.set(StorageType.SESSION, new SessionStorageStrategy());
+    // Add other strategies as needed (Memory, IndexedDB, etc.)
   }
 
   /**
