@@ -36,6 +36,7 @@ describe('personSlice', () => {
   const initialState = {
     persons: [],
     searchTerm: '',
+    previousSearchTerm: null,
     loading: false,
     error: null,
     favorites: [],
@@ -910,3 +911,4 @@ describe('personSlice', () => {
     });
   });
 });
+

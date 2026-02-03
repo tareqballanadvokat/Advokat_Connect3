@@ -71,6 +71,7 @@ describe('aktenSlice', () => {
   const initialState = {
     cases: [],
     searchTerm: '',
+    previousSearchTerm: null,
     selectedAkt: null,
     loading: false,
     error: null,
