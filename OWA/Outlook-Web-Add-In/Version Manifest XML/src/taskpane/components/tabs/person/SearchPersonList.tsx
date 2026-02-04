@@ -6,7 +6,7 @@ import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import type { RootState } from '../../../../store';
-import { personLookUpAsync, clearPersons, setSearchTerm } from '../../../../store/slices/personSlice';
+import { personLookUpAsync, clearPersons, setSearchTerm, clearPreviousSearchTerm } from '../../../../store/slices/personSlice';
 import { PersonLookUpResponse } from '../../interfaces/IPerson';
 import notify from 'devextreme/ui/notify';
 
@@ -18,8 +18,6 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   const dispatch = useAppDispatch();
   const personState = useAppSelector((state: RootState) => state.person);
   const { persons, loading, addToFavoriteLoading, addingToFavoritePersonId, error, searchTerm, favorites } = personState;
-  
-  const [gridVisible, setGridVisible] = useState(false);
 
   // Helper function to create display name from person data
   const getDisplayName = (person: PersonLookUpResponse) => {
@@ -44,25 +42,23 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     }
   }, [error]);
 
-  // Update grid visibility when persons change
+  // Clear previous search term on unmount to allow cache hits when returning
   useEffect(() => {
-    setGridVisible(persons.length > 0);
-  }, [persons]);
+    return () => {
+      dispatch(clearPreviousSearchTerm());
+    };
+  }, [dispatch]);
 
   const handleSearch = async () => {
     const query = searchTerm.trim();
     
     if (!query) {
       dispatch(clearPersons());
-      setGridVisible(false);
       return;
     }
     
     try {
       await dispatch(personLookUpAsync(query)).unwrap();
-      
-      setGridVisible(true);
-      
     } catch (error) {
       console.error('Search failed:', error);
       notify('Search failed', 'error', 5000);
@@ -125,7 +121,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
         dataSource={persons}
         keyExpr="id"
         showBorders={false}
-        visible={gridVisible && !loading}
+        visible={!loading}
         showColumnLines={false}
         showRowLines={true}
         columnAutoWidth={true}

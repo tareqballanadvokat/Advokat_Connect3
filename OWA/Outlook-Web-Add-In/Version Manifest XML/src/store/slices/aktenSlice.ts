@@ -120,15 +120,20 @@ export const getFavoriteAktenAsync = createAsyncThunk(
     if (response.statusCode === 200) {
       const data = JSON.parse(response.body || '[]') as AktenResponse[];
       
-      // 3. Update cache (best effort, don't fail if cache write fails)
-      try {
-        await cacheService.set(
-          CACHE_KEYS.FAVORITES_AKTEN,
-          data,
-          CACHE_CONFIG[CACHE_KEYS.FAVORITES_AKTEN]
-        );
-      } catch (error) {
-        console.warn('⚠️ [aktenSlice] Cache write failed:', error);
+      // 3. Update cache only if results are not empty
+      if (data.length > 0) {
+        try {
+          await cacheService.set(
+            CACHE_KEYS.FAVORITES_AKTEN,
+            data,
+            CACHE_CONFIG[CACHE_KEYS.FAVORITES_AKTEN]
+          );
+          console.log(`✅ [aktenSlice] Cached ${data.length} favorite akten`);
+        } catch (error) {
+          console.warn('⚠️ [aktenSlice] Cache write failed:', error);
+        }
+      } else {
+        console.log('⏭️ [aktenSlice] Skipping cache for empty favorites');
       }
       
       return data;
@@ -374,11 +379,12 @@ export const aktLookUpAsync = createAsyncThunk(
               data,
               { storage: StorageType.SESSION }
             );
+            console.log(`✅ [aktenSlice] Cached ${data.length} search results`);
           } catch (error) {
             console.warn('⚠️ [aktenSlice] Cache write failed:', error);
           }
         } else {
-          console.log('⏭️ [aktenSlice] Skipping cache for empty results');
+          console.log('⏭️ [aktenSlice] Skipping cache for empty search results');
         }
         
         return data;
@@ -587,7 +593,8 @@ const aktenSlice = createSlice({
         const searchText = action.meta.arg;
         const isSameSearchTerm = state.previousSearchTerm === searchText;
         state.previousSearchTerm = searchText;
-        state.searchCounter = isSameSearchTerm ? state.searchCounter + 1 : 0;
+        // Increment counter with max limit to prevent overflow
+        state.searchCounter = isSameSearchTerm ? Math.min(state.searchCounter + 1, 100) : 0;
       })
       .addCase(aktLookUpAsync.rejected, (state, action) => {
         state.loading = false;

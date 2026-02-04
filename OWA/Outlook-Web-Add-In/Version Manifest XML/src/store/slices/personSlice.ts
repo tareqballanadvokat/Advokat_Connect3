@@ -88,11 +88,12 @@ export const personLookUpAsync = createAsyncThunk(
               data,
               { storage: StorageType.SESSION }
             );
+            console.log(`✅ [personSlice] Cached ${data.length} search results`);
           } catch (error) {
             console.warn('⚠️ [personSlice] Cache write failed:', error);
           }
         } else {
-          console.log('⏭️ [personSlice] Skipping cache for empty results');
+          console.log('⏭️ [personSlice] Skipping cache for empty search results');
         }
         
         return data;
@@ -266,7 +267,8 @@ const personSlice = createSlice({
         const searchText = action.meta.arg;
         const isSameSearchTerm = state.previousSearchTerm === searchText;
         state.previousSearchTerm = searchText;
-        state.searchCounter = isSameSearchTerm ? state.searchCounter + 1 : 0;
+        // Increment counter with max limit to prevent overflow
+        state.searchCounter = isSameSearchTerm ? Math.min(state.searchCounter + 1, 100) : 0;
       })
       .addCase(personLookUpAsync.rejected, (state, action) => {
         state.loading = false;
