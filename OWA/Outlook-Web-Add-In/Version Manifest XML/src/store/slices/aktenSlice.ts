@@ -142,8 +142,8 @@ export const getFavoriteAktenAsync = createAsyncThunk(
 export const getCaseDocumentsAsync = createAsyncThunk(
   'akten/getCaseDocuments',
   async (params: { aktId: number; Count?: number }, { getState }) => {
-    const state = getState() as { auth: { username: string | null } };
-    const username = state.auth.username;
+    const state = getState() as { auth: { credentials: { username: string | null } } };
+    const username = state.auth.credentials.username;
     
     if (!username) {
       throw new Error('User not authenticated');
