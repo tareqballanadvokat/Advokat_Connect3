@@ -112,12 +112,12 @@ const SearchCaseList: React.FC = () => {
       dataSource={cases}
       keyExpr="id"
       showBorders={false}
-      visible={cases.length > 0 || loading}
+      visible={!loading}
       showColumnLines={false}
       showRowLines={true}
       columnAutoWidth={true}
       rowAlternationEnabled={false}
-      noDataText={loading ? "Loading..." : "No cases found. Try searching for 'demo' or enter a Kürzel."}
+      noDataText="No cases found. Try searching for 'demo' or enter a Kürzel."
     >
       <Paging defaultPageSize={5} />
       <Pager

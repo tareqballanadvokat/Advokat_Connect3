@@ -16,8 +16,6 @@ interface SearchProps {
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
   const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
-  
-  const [gridVisible, setGridVisible] = useState(false);
 
   // Handle Redux error states
   useEffect(() => {
@@ -25,11 +23,6 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
       notify(error, 'error', 5000);
     }
   }, [error]);
-
-  // Update grid visibility when cases change
-  useEffect(() => {
-    setGridVisible(cases.length > 0);
-  }, [cases]);
 
   // Clear previous search term on unmount to allow cache hits when returning
   useEffect(() => {
@@ -43,7 +36,6 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     
     if (!filter) {
       dispatch(clearCases());
-      setGridVisible(false);
       return;
     }
 
@@ -96,7 +88,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         dataSource={cases}
         keyExpr="id"               
         showBorders={false}
-        visible={gridVisible && !loading}
+        visible={!loading}
         showColumnLines={false}
         showRowLines={true}
         columnAutoWidth={true}
