@@ -4,7 +4,7 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { aktLookUpAsync, setSearchTerm, clearCases } from '../../../../store/slices/aktenSlice';
+import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
 import { AktLookUpResponse } from '../../interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
 
@@ -30,6 +30,13 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   useEffect(() => {
     setGridVisible(cases.length > 0);
   }, [cases]);
+
+  // Clear previous search term on unmount to allow cache hits when returning
+  useEffect(() => {
+    return () => {
+      dispatch(clearPreviousSearchTerm());
+    };
+  }, [dispatch]);
 
   const handleSearch = async () => {
     const filter = searchTerm.trim();
