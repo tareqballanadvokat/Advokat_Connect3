@@ -84,12 +84,14 @@ const SearchCaseList: React.FC = () => {
           value={searchTerm}
           onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
+          disabled={loading}
         />
         <Button 
           icon="search" 
           stylingMode="contained" 
           onClick={handleSearch}
           disabled={loading}
+          text={loading ? "Searching..." : ""}
         />
       </div>
 
