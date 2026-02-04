@@ -11,6 +11,7 @@ interface PersonState {
   persons: PersonLookUpResponse[];
   searchTerm: string;
   previousSearchTerm: string | null; // Track last executed query for refresh detection
+  searchCounter: number; // Count consecutive searches of same term for alternating cache/API
   loading: boolean;
   error: string | null;
 
@@ -28,6 +29,7 @@ const initialState: PersonState = {
   persons: [],
   searchTerm: '',
   previousSearchTerm: null,
+  searchCounter: 0,
   loading: false,
   error: null,
 
@@ -45,7 +47,9 @@ export const personLookUpAsync = createAsyncThunk(
   async (searchText: string, { getState }) => {
     const state = getState() as { person: PersonState };
     const cacheKey = `search_results:person:${searchText}`;
-    const forceRefresh = state.person.previousSearchTerm === searchText;
+    const isSameSearchTerm = state.person.previousSearchTerm === searchText;
+    const currentCounter = isSameSearchTerm ? state.person.searchCounter : 0;
+    const forceRefresh = currentCounter % 2 === 1; // Odd counter = force refresh
 
     // 1. Check cache if not force refresh
     if (!forceRefresh) {
@@ -76,15 +80,19 @@ export const personLookUpAsync = createAsyncThunk(
       if (response.statusCode === 200) {
         const data = JSON.parse(response.body || '[]') as PersonLookUpResponse[];
         
-        // 3. Update cache
-        try {
-          await cacheService.set(
-            cacheKey,
-            data,
-            { storage: StorageType.SESSION }
-          );
-        } catch (error) {
-          console.warn('⚠️ [personSlice] Cache write failed:', error);
+        // 3. Update cache only if results are not empty
+        if (data.length > 0) {
+          try {
+            await cacheService.set(
+              cacheKey,
+              data,
+              { storage: StorageType.SESSION }
+            );
+          } catch (error) {
+            console.warn('⚠️ [personSlice] Cache write failed:', error);
+          }
+        } else {
+          console.log('⏭️ [personSlice] Skipping cache for empty results');
         }
         
         return data;
@@ -140,14 +148,18 @@ export const getFavoritePersonsAsync = createAsyncThunk(
       const data = JSON.parse(response.body || '[]') as PersonResponse[];
       
       // 3. Update cache (best effort, don't fail if cache write fails)
-      try {
-        await cacheService.set(
-          CACHE_KEYS.FAVORITES_PERSONS,
-          data,
-          CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
-        );
-      } catch (error) {
-        console.warn('⚠️ [personSlice] Cache write failed:', error);
+      if (data.length > 0) {
+            try {
+              await cacheService.set(
+                CACHE_KEYS.FAVORITES_PERSONS,
+                data,
+                CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
+              );
+            } catch (error) {
+              console.warn('⚠️ [personSlice] Cache write failed:', error);
+            }
+        } else {
+          console.log('⏭️ [personSlice] Skipping cache for empty results');
       }
       
       return data;
@@ -233,6 +245,10 @@ const personSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    clearPreviousSearchTerm: (state) => {
+      state.previousSearchTerm = null;
+      state.searchCounter = 0;
     }
   },
   // The `extraReducers` field lets the slice handle actions defined elsewhere,
@@ -247,7 +263,10 @@ const personSlice = createSlice({
       .addCase(personLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
         state.persons = action.payload;
-        state.previousSearchTerm = action.meta.arg; // Track last query for refresh detection
+        const searchText = action.meta.arg;
+        const isSameSearchTerm = state.previousSearchTerm === searchText;
+        state.previousSearchTerm = searchText;
+        state.searchCounter = isSameSearchTerm ? state.searchCounter + 1 : 0;
       })
       .addCase(personLookUpAsync.rejected, (state, action) => {
         state.loading = false;
@@ -303,7 +322,8 @@ const personSlice = createSlice({
 export const { 
   clearPersons, 
   setSearchTerm, 
-  clearError
+  clearError,
+  clearPreviousSearchTerm
 } = personSlice.actions;
 
 export default personSlice.reducer;

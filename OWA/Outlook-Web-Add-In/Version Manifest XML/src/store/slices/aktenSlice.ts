@@ -366,15 +366,19 @@ export const aktLookUpAsync = createAsyncThunk(
       if (response.statusCode === 200) {
         const data = JSON.parse(response.body || '[]') as AktLookUpResponse[];
         
-        // 3. Update cache
-        try {
-          await cacheService.set(
-            cacheKey,
-            data,
-            { storage: StorageType.SESSION }
-          );
-        } catch (error) {
-          console.warn('⚠️ [aktenSlice] Cache write failed:', error);
+        // 3. Update cache only if results are not empty
+        if (data.length > 0) {
+          try {
+            await cacheService.set(
+              cacheKey,
+              data,
+              { storage: StorageType.SESSION }
+            );
+          } catch (error) {
+            console.warn('⚠️ [aktenSlice] Cache write failed:', error);
+          }
+        } else {
+          console.log('⏭️ [aktenSlice] Skipping cache for empty results');
         }
         
         return data;

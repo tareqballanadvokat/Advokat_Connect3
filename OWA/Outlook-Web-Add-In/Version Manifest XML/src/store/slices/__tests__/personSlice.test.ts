@@ -3,6 +3,7 @@ import personReducer, {
   clearPersons,
   setSearchTerm,
   clearError,
+  clearPreviousSearchTerm,
   personLookUpAsync,
   getFavoritePersonsAsync,
   addPersonToFavoritesAsync,
@@ -37,6 +38,7 @@ describe('personSlice', () => {
     persons: [],
     searchTerm: '',
     previousSearchTerm: null,
+    searchCounter: 0,
     loading: false,
     error: null,
     favorites: [],
@@ -126,6 +128,19 @@ describe('personSlice', () => {
         expect(actual.searchTerm).toBe('Test');
       });
     });
+
+    describe('clearPreviousSearchTerm', () => {
+      it('should clear previous search term and reset counter', () => {
+        const previousState = {
+          ...initialState,
+          previousSearchTerm: 'test',
+          searchCounter: 5
+        };
+        const actual = personReducer(previousState, clearPreviousSearchTerm());
+        expect(actual.previousSearchTerm).toBeNull();
+        expect(actual.searchCounter).toBe(0);
+      });
+    });
   });
 
   describe('Async Thunks', () => {
@@ -144,11 +159,55 @@ describe('personSlice', () => {
 
       it('should handle fulfilled state', () => {
         const payload = [createMockPersonLookUp()];
-        const action = { type: personLookUpAsync.fulfilled.type, payload };
+        const action = { 
+          type: personLookUpAsync.fulfilled.type, 
+          payload,
+          meta: { arg: 'test search' }
+        };
         const actual = personReducer(initialState, action);
 
         expect(actual.loading).toBe(false);
         expect(actual.persons).toEqual(payload);
+        expect(actual.previousSearchTerm).toBe('test search');
+        expect(actual.searchCounter).toBe(0); // First search
+      });
+
+      it('should increment searchCounter on same search term', () => {
+        const previousState = {
+          ...initialState,
+          previousSearchTerm: 'test',
+          searchCounter: 0
+        };
+        
+        const payload = [createMockPersonLookUp()];
+        const action = { 
+          type: personLookUpAsync.fulfilled.type, 
+          payload,
+          meta: { arg: 'test' }
+        };
+        const actual = personReducer(previousState, action);
+
+        expect(actual.previousSearchTerm).toBe('test');
+        expect(actual.searchCounter).toBe(1); // Incremented
+      });
+
+      it('should reset searchCounter on different search term', () => {
+        const previousState = {
+          ...initialState,
+          previousSearchTerm: 'old',
+          searchCounter: 5
+        };
+        
+        const payload = [createMockPersonLookUp()];
+        const action = { 
+          type: personLookUpAsync.fulfilled.type, 
+          payload,
+          meta: { arg: 'new' }
+        };
+        const actual = personReducer(previousState, action);
+
+        expect(actual.previousSearchTerm).toBe('new');
+        expect(actual.searchCounter).toBe(0); // Reset
       });
 
       it('should handle rejected state', () => {
