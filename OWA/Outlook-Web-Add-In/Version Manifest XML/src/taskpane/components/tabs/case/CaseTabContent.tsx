@@ -386,14 +386,6 @@ const CaseTabContent: React.FC = () => {
     }
   }, [dispatch]);
 
-  // Handler to manually reload favorite Akten (force refresh from API)
-  const handleLoadFavorites = useCallback(() => {
-    dispatch(getFavoriteAktenAsync({ 
-      NurFavoriten: true,
-      Count: 50
-    }));
-  }, [dispatch]);
-
    return (
     <div /* … */ style={{ position: 'relative', overflow: 'hidden' }}>
       {/* WebRTC Connection Status */}
@@ -402,31 +394,6 @@ const CaseTabContent: React.FC = () => {
       {/* … SearchCaseList, header, LoadPanel … */}
 
       <SearchCaseList />
-
-      {/* Reload Favorites Button */}
-      <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          margin: '10px 0',
-          padding: '5px 0'
-        }}>
-          <button
-            onClick={handleLoadFavorites}
-            disabled={favoritesLoading}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: favoritesLoading ? '#ccc' : '#0078d4',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: favoritesLoading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}
-          >
-            {favoritesLoading ? 'Loading...' : 'Reload Favorites'}
-          </button>
-        </div>
 
       <div className="case-tab-treelist-container">
         <TreeList
