@@ -5,12 +5,14 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
 import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
   const { cases, favouriteAkten, loading, favoritesLoading, favoritesLoaded, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
+  const isReady = useAppSelector(selectIsReady);
 
   // Cleanup: Reset searchCounter when component unmounts
   useEffect(() => {
@@ -77,7 +79,9 @@ const SearchCaseList: React.FC = () => {
       await dispatch(aktLookUpAsync(query)).unwrap();
     } catch (error) {
       console.error('Search failed:', error);
-      notify('Search cases failed via WebRTC', 'error', 5000);
+      if (isReady) {
+        notify('Search cases failed via WebRTC', 'error', 5000);
+      }
     }
   };
 

@@ -6,6 +6,7 @@ import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import type { RootState } from '../../../../store';
+import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { personLookUpAsync, clearPersons, setSearchTerm, clearPreviousSearchTerm } from '../../../../store/slices/personSlice';
 import { PersonLookUpResponse } from '../../interfaces/IPerson';
 import notify from 'devextreme/ui/notify';
@@ -17,6 +18,7 @@ interface Props {
 const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   const dispatch = useAppDispatch();
   const personState = useAppSelector((state: RootState) => state.person);
+  const isReady = useAppSelector(selectIsReady);
   const { persons, loading, addToFavoriteLoading, addingToFavoritePersonId, error, searchTerm, favorites } = personState;
 
   // Helper function to create display name from person data
@@ -62,7 +64,9 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
       await dispatch(personLookUpAsync(query)).unwrap();
     } catch (error) {
       console.error('Search failed:', error);
-      notify('Search failed', 'error', 5000);
+      if (isReady) {
+        notify('Search failed', 'error', 5000);
+      }
     }
   };
 

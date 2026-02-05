@@ -4,6 +4,8 @@ import { PersonLookUpResponse, PersonenQuery, PersonResponse } from '../../taskp
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
 import { StorageType } from '../../services/cache/types';
+import { selectIsReady, selectIsNavigatorOnline, selectIsConnected } from './connectionSlice';
+import type { RootState } from '../index';
 import notify from 'devextreme/ui/notify';
 
 // State interface
@@ -46,11 +48,44 @@ const initialState: PersonState = {
 export const personLookUpAsync = createAsyncThunk(
   'person/personLookUp',
   async (searchText: string, { getState }) => {
-    const state = getState() as { person: PersonState };
+    const state = getState() as RootState;
     const cacheKey = `search_results:person:${searchText}`;
     const isSameSearchTerm = state.person.previousSearchTerm === searchText;
     const currentCounter = isSameSearchTerm ? state.person.searchCounter : 0;
     const forceRefresh = currentCounter % 2 === 1; // Odd counter = force refresh
+    const isReady = selectIsReady(state);
+    const isNavigatorOnline = selectIsNavigatorOnline();
+    const isSipConnected = selectIsConnected(state);
+
+    // 0. If not ready (offline or SIP not connected), skip API and use cache immediately
+    if (!isReady) {
+      // Determine the specific reason
+      let reason = '';
+      if (!isNavigatorOnline) {
+        reason = 'Network offline';
+      } else if (!isSipConnected) {
+        reason = 'SIP not connected';
+      } else {
+        reason = 'Not connected';
+      }
+
+      try {
+        const cached = await cacheService.get<PersonLookUpResponse[]>(
+          cacheKey,
+          { storage: StorageType.SESSION }
+        );
+
+        if (cached) {
+          console.log(`📴 [personSlice] ${reason}. Using cached search results for:`, searchText);
+          notify(`⚠️ ${reason}. Showing cached results.`, 'warning', 4000);
+          return cached;
+        }
+      } catch (error) {
+        console.warn(`⚠️ [personSlice] Cache read failed while ${reason}:`, error);
+      }
+
+      throw new Error(`${reason}. No cached data available. Please try again when connected.`);
+    }
 
     // 1. Check cache if not force refresh
     if (!forceRefresh) {

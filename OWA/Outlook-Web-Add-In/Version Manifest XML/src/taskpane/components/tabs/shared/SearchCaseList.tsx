@@ -4,6 +4,7 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
 import { AktLookUpResponse } from '../../interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
@@ -16,6 +17,7 @@ interface SearchProps {
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
   const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
+  const isReady = useAppSelector(selectIsReady);
 
   // Handle Redux error states
   useEffect(() => {
@@ -46,7 +48,9 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
       await dispatch(aktLookUpAsync(filter)).unwrap();
     } catch (error) {
       console.error('Search failed:', error);
-      notify('Search cases failed', 'error', 5000);
+      if (isReady) {
+        notify('Search cases failed', 'error', 5000);
+      }
     }
   };
 
@@ -94,7 +98,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText="No cases found. Try a different search term."
+        noDataText="No cases found."
       >
         <Paging defaultPageSize={5} />
         <Pager

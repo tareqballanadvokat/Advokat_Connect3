@@ -152,9 +152,17 @@ export const selectIsFailed = (state: RootState) =>
 export const selectIsDisconnected = (state: RootState) =>
   state.connection.sipClientState === 'DISCONNECTED';
 
+// Network availability (browser online/offline)
+export const selectIsNavigatorOffline = () =>
+  typeof navigator !== 'undefined' ? !navigator.onLine : false;
+
+export const selectIsNavigatorOnline = () =>
+  typeof navigator !== 'undefined' ? navigator.onLine : true;
+
 // Cross-slice selector: connection + authentication
 export const selectIsReady = (state: RootState) => 
   state.connection.sipClientState === 'CONNECTED' && 
-  state.auth?.isAuthenticated === true;
+  state.auth?.isAuthenticated === true &&
+  selectIsNavigatorOnline();
 
 export default connectionSlice.reducer;
