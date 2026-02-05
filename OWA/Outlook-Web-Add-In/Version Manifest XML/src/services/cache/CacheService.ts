@@ -168,6 +168,31 @@ export class CacheService {
   }
 
   /**
+   * Clear all cache entries across all storage types
+   * @returns Total number of entries cleared
+   */
+  async clearAll(): Promise<number> {
+    let totalCleared = 0;
+
+    for (const [storageType, strategy] of Array.from(this.strategies.entries())) {
+      const keys = await strategy.getAllKeys();
+      // Only clear keys with our prefix
+      const ourKeys = keys.filter(k => k.startsWith(STORAGE_PREFIX));
+
+      for (const key of ourKeys) {
+        // Strip prefix before removing since removeItem adds it back
+        const rawKey = key.substring(STORAGE_PREFIX.length);
+        await strategy.removeItem(rawKey);
+      }
+
+      totalCleared += ourKeys.length;
+      console.log(`🗑️ [CacheService] Cleared ${ourKeys.length} entries from ${storageType}`);
+    }
+
+    return totalCleared;
+  }
+
+  /**
    * Get storage usage
    */
   async getUsage(storageType: StorageType) {

@@ -4,10 +4,46 @@ import App from "./components/App";
 import { FluentProvider, webLightTheme, webDarkTheme } from "@fluentui/react-components";
 import { Provider } from "react-redux";
 import { store } from "../store";
+import { APP_VERSION } from "../config";
+import { cacheService } from "../services/cache/CacheService";
 
 /* global document, Office, module, require, HTMLElement */
 
 const title = "Advokat Task Pane Add-in";
+
+/**
+ * Check and clear cache if app version has changed
+ * This prevents issues when data structures change between versions
+ */
+const CACHE_VERSION_KEY = 'advokat_connect_app_version';
+const checkAndClearCacheIfNeeded = async () => {
+  try {
+    const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
+    
+    if (storedVersion !== APP_VERSION) {
+      console.log(`🔄 [Cache Version] App version changed (${storedVersion || 'none'} → ${APP_VERSION}), clearing cache`);
+      
+      // Clear all cache data using CacheService
+      const clearedCount = await cacheService.clearAll();
+      console.log(`✅ [Cache Version] Cleared ${clearedCount} cache entries`);
+      
+      // Store new version
+      localStorage.setItem(CACHE_VERSION_KEY, APP_VERSION);
+      console.log('✅ [Cache Version] Version updated');
+    } else {
+      console.log(`✅ [Cache Version] Version ${APP_VERSION} matches, no cache clear needed`);
+    }
+  } catch (error) {
+    console.error('❌ [Cache Version] Failed to check/clear cache:', error);
+  }
+};
+
+// Run cache version check before app initialization (await it to prevent race conditions)
+(async () => {
+  await checkAndClearCacheIfNeeded();
+})().catch(err => {
+  console.error('❌ [Cache Version] Failed during initialization:', err);
+});
 
 const rootElement: HTMLElement | null = document.getElementById("container");
 const root = rootElement ? createRoot(rootElement) : undefined;

@@ -7,6 +7,12 @@ import { AppConfig, SipServerConfig, ApiServerConfig } from './types';
 import { getEnvironmentConfig, isProduction } from './environment';
 
 /**
+ * Application Version
+ * The cache will be automatically cleared when the version changes.
+ */
+export const APP_VERSION = '2.0.0';
+
+/**
  * Configuration Service Class
  * Manages application configuration with support for:
  * - Environment-based configuration
