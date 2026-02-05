@@ -3,9 +3,7 @@ import { DokumentArt, TransferAttachmentItem } from './IDocument';
 
 export interface EmailSendProps {
   caseId: string;
-  onCaseChange: (id: string) => void;
   onTransfer: () => void;
-  caseIdDisable: boolean;
   transferBtnDisable: boolean;
   transferLoading?: boolean;  // New prop for loading state
 }

@@ -165,4 +165,18 @@ export const selectIsReady = (state: RootState) =>
   state.auth?.isAuthenticated === true &&
   selectIsNavigatorOnline();
 
+// Returns the reason why connection is not ready
+export const selectNotReadyReason = (state: RootState): string => {
+  if (!selectIsNavigatorOnline()) {
+    return 'Network offline';
+  }
+  if (state.connection.sipClientState !== 'CONNECTED') {
+    return 'SIP not connected';
+  }
+  if (!state.auth?.isAuthenticated) {
+    return 'Not authenticated';
+  }
+  return 'Not connected';
+};
+
 export default connectionSlice.reducer;

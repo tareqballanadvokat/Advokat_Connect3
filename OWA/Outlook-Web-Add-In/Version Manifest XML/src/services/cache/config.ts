@@ -17,6 +17,7 @@ export const CACHE_KEYS = {
   FAVORITES_PERSONS: 'favorites_persons',
   FAVORITES_AKTEN: 'favorites_akten',
   DOCUMENTS: 'documents',
+  SERVICES: 'services',
   SEARCH_RESULTS: 'search_results',
   USER_PREFERENCES: 'user_preferences',
   SEARCH_HISTORY: 'search_history'
@@ -50,6 +51,10 @@ export const CACHE_CONFIG: Record<string, CacheOptions> = {
   [CACHE_KEYS.DOCUMENTS]: {
     storage: StorageType.LOCAL,
     ttl: CACHE_TTL.ONE_HOUR
+  },
+  [CACHE_KEYS.SERVICES]: {
+    storage: StorageType.SESSION,
+    ttl: CACHE_TTL.NEVER // Session-only, clears on Outlook restart
   },
   [CACHE_KEYS.SEARCH_RESULTS]: {
     storage: StorageType.SESSION,

@@ -233,13 +233,6 @@ const EmailTabContent: React.FC = () => {
   // We no longer need these callback functions as we're using the Redux-based ServiceSection
   // which handles its own Redux dispatching
   
-  const handleCaseChange = (value: string) => {
-    // Update the selected Akt name (aKurz) in the current selectedAkt
-    if (selectedAkt) {
-      dispatch(setSelectedAkt({ ...selectedAkt, aKurz: value }));
-    }
-  };
-
   return (
     <div>
       {/* WebRTC Connection Status */}
@@ -253,9 +246,7 @@ const EmailTabContent: React.FC = () => {
       {/* 3) Services section */}
       <EmailSend
         caseId={selectedCaseName}
-        onCaseChange={handleCaseChange}
         onTransfer={sendEmailHandler}
-        caseIdDisable={!selectedAkt}
         transferBtnDisable={!selectedAkt || attachmentSelected.length === 0}
         transferLoading={transferLoading}
       />

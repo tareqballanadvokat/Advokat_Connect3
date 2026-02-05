@@ -4,7 +4,7 @@ import { PersonLookUpResponse, PersonenQuery, PersonResponse } from '../../taskp
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
 import { StorageType } from '../../services/cache/types';
-import { selectIsReady, selectIsNavigatorOnline, selectIsConnected } from './connectionSlice';
+import { selectIsReady, selectNotReadyReason } from './connectionSlice';
 import type { RootState } from '../index';
 import notify from 'devextreme/ui/notify';
 
@@ -54,20 +54,10 @@ export const personLookUpAsync = createAsyncThunk(
     const currentCounter = isSameSearchTerm ? state.person.searchCounter : 0;
     const forceRefresh = currentCounter % 2 === 1; // Odd counter = force refresh
     const isReady = selectIsReady(state);
-    const isNavigatorOnline = selectIsNavigatorOnline();
-    const isSipConnected = selectIsConnected(state);
 
     // 0. If not ready (offline or SIP not connected), skip API and use cache immediately
     if (!isReady) {
-      // Determine the specific reason
-      let reason = '';
-      if (!isNavigatorOnline) {
-        reason = 'Network offline';
-      } else if (!isSipConnected) {
-        reason = 'SIP not connected';
-      } else {
-        reason = 'Not connected';
-      }
+      const reason = selectNotReadyReason(state);
 
       try {
         const cached = await cacheService.get<PersonLookUpResponse[]>(

@@ -36,14 +36,6 @@ const ServiceTabContent: React.FC = () => {
     dispatch(setSelectedAkt(selectedCase));
   };
   
-  // Handler for case name change
-  const handleCaseChange = (value: string) => {
-    // Update the selected Akt name (aKurz) in the current selectedAkt
-    if (selectedAkt) {
-      dispatch(setSelectedAkt({ ...selectedAkt, aKurz: value }));
-    }
-  };
-  
   // Handler for sending service
   const sendServiceHandler = async () => {
     if (selectedCaseId === -1) {
@@ -97,9 +89,7 @@ const ServiceTabContent: React.FC = () => {
       {/* Service Send Button */}
       <ServiceSend
         caseId={selectedCaseName}
-        onCaseChange={handleCaseChange}
         onTransfer={sendServiceHandler}
-        caseIdDisable={!selectedAkt}
         transferBtnDisable={!selectedAkt}
         transferLoading={transferLoading}
       />

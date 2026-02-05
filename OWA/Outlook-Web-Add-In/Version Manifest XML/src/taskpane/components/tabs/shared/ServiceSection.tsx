@@ -1,5 +1,5 @@
 // src/taskpane/components/tabs/shared/ServiceSection.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import SelectBox from 'devextreme-react/select-box';
 import { LeistungAuswahlResponse } from '@components/interfaces/IService';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
@@ -18,32 +18,20 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   // Get selected Akt from aktenSlice
   const selectedAkt = useAppSelector(state => state.akten.selectedAkt);
   const selectedAktKuerzel = selectedAkt?.aKurz;
-  
-  // Track previous Kürzel so we only reload when the Akt actually changes
-  const prevKuerzelRef = useRef<string | null>(null);
 
-  // Load services when selectedAktKuerzel changes OR when there are no services yet
+  // Load services once when component mounts (services list is global, not per-Akt)
   useEffect(() => {
     const servicesEmpty = serviceState.services.length === 0;
-    const aktChanged = prevKuerzelRef.current !== null && prevKuerzelRef.current !== selectedAktKuerzel;
 
-    if (selectedAktKuerzel) {
-      if (aktChanged || servicesEmpty) {
-        console.log(`Loading services for Akt: ${selectedAktKuerzel}`);
-        dispatch(setSelectedServiceId(0));
-        dispatch(loadServicesAsync({
-          Kürzel: null,
-          OnlyQuickListe: true,
-          Limit: null
-        }));
-        prevKuerzelRef.current = selectedAktKuerzel;
-      } else {
-        // Use cached services - nothing to do
-        // console.log(`Using cached services for Akt: ${selectedAktKuerzel}`);
-      }
-    } else {
+    if (selectedAktKuerzel && servicesEmpty) {
+      console.log('Loading global services list');
+      dispatch(loadServicesAsync({
+        Kürzel: null,
+        OnlyQuickListe: true,
+        Limit: null
+      }));
+    } else if (!selectedAktKuerzel) {
       dispatch(clearServices());
-      prevKuerzelRef.current = null;
     }
   }, [selectedAktKuerzel, dispatch, serviceState.services.length]);
   
