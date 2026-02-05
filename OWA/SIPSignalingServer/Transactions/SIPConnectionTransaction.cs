@@ -107,7 +107,7 @@ namespace SIPSignalingServer.Transactions
             }
 
             await this.SetRemoteTag();
-            await this.CreateConnection();
+            this.CreateConnection();
 
             this.Connection.SIPRequestReceived += this.ListenForAck;
             this.Connection.SIPRequestReceived += this.ListenForConnectionBye;
@@ -258,12 +258,13 @@ namespace SIPSignalingServer.Transactions
             await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.");
         }
 
-        private async Task CreateConnection()
+        private void CreateConnection()
         {
             //this.ConnectionPool.ConnectionEstablished
 
             // adds connection, does not start it
-            this.SIPTunnel = await this.ConnectionPool.Connect(this.messageRelay);
+            // TODO: Can throw argumentexception
+            this.SIPTunnel = this.ConnectionPool.Connect(this.messageRelay);
             this.SIPTunnel.ConnectionStateChanged += this.SIPTunnelConnectionStateChanged;
 
             this.ConnectionPool.ConnectionRemoved += this.Disconnected;
@@ -303,17 +304,12 @@ namespace SIPSignalingServer.Transactions
             }
         }
 
-        private async Task Disconnected(SIPTunnel tunnel)
+        private async Task Disconnected(object? sender, SIPConnectionPoolEventArgs e)
         {
-            if (tunnel == this.SIPTunnel)
+            if (sender is ISIPConnectionPool && e.Tunnel == this.SIPTunnel)
             {
                 await this.Stop();
             }
-        }
-
-        private async Task Disconnected(object? sender, SIPTunnel tunnel)
-        {
-            await this.Disconnected(tunnel);
         }
 
         private async void Disconnected(object? sender, EventArgs e)

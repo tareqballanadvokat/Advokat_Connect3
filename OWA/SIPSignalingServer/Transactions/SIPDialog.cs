@@ -116,11 +116,11 @@ namespace SIPSignalingServer.Transactions
                 this.Registry.Unregister(oldRegistration);
             }
 
-            SIPTunnel? oldTunnel = this.ConnectionPool.GetConnection(this.InitialRequest.Header.From.FromName, this.InitialRequest.Header.To.ToName);
+            IEnumerable<SIPTunnel> oldTunnels = this.ConnectionPool.GetConnections(this.InitialRequest.Header.From.FromName, this.InitialRequest.Header.To.ToName);
 
-            if (oldTunnel != null)
+            foreach(SIPTunnel oldTunnel in oldTunnels)
             {
-                await oldTunnel.Disconnect();
+               await oldTunnel.Disconnect();
             }
 
             // TODO: Close direct connection as well?

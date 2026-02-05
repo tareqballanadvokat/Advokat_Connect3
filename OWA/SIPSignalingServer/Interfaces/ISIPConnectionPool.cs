@@ -1,19 +1,14 @@
 ﻿using SIPSignalingServer.Models;
 using SIPSignalingServer.Transactions;
+using SIPSignalingServer.Utils.CustomEventArgs;
 
 namespace SIPSignalingServer.Interfaces
 {
     public interface ISIPConnectionPool
     {
-        public delegate Task ConnectionRemovedDelegate(ISIPConnectionPool sender, SIPTunnel connectionParams);
+        public event EventHandler<SIPConnectionPoolEventArgs>? ConnectionRemoved;
 
-        public event ConnectionRemovedDelegate? ConnectionRemoved;
-
-        public delegate Task ConnectionEstablishedDelegate(ISIPConnectionPool sender, SIPTunnel tunnel);
-
-        public event ConnectionEstablishedDelegate? ConnectionEstablished;
-
-        public Task<SIPTunnel> Connect(SIPMessageRelay messageRelay);
+        public SIPTunnel Connect(SIPMessageRelay messageRelay);
 
         public Task Disconnect(SIPMessageRelay messageRelay);
 
@@ -21,6 +16,6 @@ namespace SIPSignalingServer.Interfaces
 
         public bool IsConnected(SIPMessageRelay messageRelay);
 
-        public SIPTunnel? GetConnection(string fromName, string toName);
+        public IEnumerable<SIPTunnel> GetConnections(string fromName, string toName);
     }
 }
