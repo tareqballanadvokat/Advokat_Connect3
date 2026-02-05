@@ -4,6 +4,7 @@ import { PersonLookUpResponse, PersonenQuery, PersonResponse } from '../../taskp
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
 import { StorageType } from '../../services/cache/types';
+import notify from 'devextreme/ui/notify';
 
 // State interface
 interface PersonState {
@@ -101,20 +102,19 @@ export const personLookUpAsync = createAsyncThunk(
         throw new Error('Failed to lookup persons');
       }
     } catch (error) {
-      // On failure during force refresh, try to return stale cached data
-      if (forceRefresh) {
-        try {
-          const staleCache = await cacheService.get<PersonLookUpResponse[]>(
-            cacheKey,
-            { storage: StorageType.SESSION }
-          );
-          if (staleCache) {
-            console.warn('⚠️ [personSlice] API failed, returning stale cached data');
-            return staleCache;
-          }
-        } catch (cacheError) {
-          console.error('❌ [personSlice] Failed to retrieve stale cache:', cacheError);
+      // On any failure, try to return stale cached data
+      try {
+        const staleCache = await cacheService.get<PersonLookUpResponse[]>(
+          cacheKey,
+          { storage: StorageType.SESSION }
+        );
+        if (staleCache) {
+          console.warn('⚠️ [personSlice] API failed, returning stale cached data');
+          notify('Something went wrong. Showing cached results.', 'warning', 4000);
+          return staleCache;
         }
+      } catch (cacheError) {
+        console.error('❌ [personSlice] Failed to retrieve stale cache:', cacheError);
       }
       throw error;
     }
