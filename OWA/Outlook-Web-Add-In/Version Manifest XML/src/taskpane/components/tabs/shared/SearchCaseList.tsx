@@ -32,6 +32,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   }, [dispatch]);
 
   const handleSearch = async () => {
+    if(loading) return; // Prevent multiple simultaneous searches
     const filter = searchTerm.trim();
     
     if (!filter) {

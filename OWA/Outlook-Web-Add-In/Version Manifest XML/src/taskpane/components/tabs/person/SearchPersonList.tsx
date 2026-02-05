@@ -50,6 +50,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   }, [dispatch]);
 
   const handleSearch = async () => {
+    if(loading) return; // Prevent multiple simultaneous searches
     const query = searchTerm.trim();
     
     if (!query) {

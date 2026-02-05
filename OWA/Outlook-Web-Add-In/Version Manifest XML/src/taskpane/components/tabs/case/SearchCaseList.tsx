@@ -5,12 +5,19 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync } from '../../../../store/slices/aktenSlice';
+import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
 import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
   const { cases, favouriteAkten, loading, favoritesLoading, favoritesLoaded, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
+
+  // Cleanup: Reset searchCounter when component unmounts
+  useEffect(() => {
+    return () => {
+      dispatch(clearPreviousSearchTerm());
+    };
+  }, [dispatch]);
 
   // Check if an Akt is already in favorites
   const isInFavorites = (aktId: number): boolean => {
@@ -54,6 +61,11 @@ const SearchCaseList: React.FC = () => {
   };
 
   const handleSearch = async () => {
+    // Prevent multiple concurrent searches
+    if (loading) {
+      return;
+    }
+
     const query = searchTerm.trim();
     
     if (!query) {
