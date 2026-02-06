@@ -14,6 +14,7 @@ const title = "Advokat Task Pane Add-in";
 /**
  * Check and clear cache if app version has changed
  * This prevents issues when data structures change between versions
+ * Note: Only uses localStorage since sessionStorage is cleared on restart
  */
 const CACHE_VERSION_KEY = 'advokat_connect_app_version';
 const checkAndClearCacheIfNeeded = async () => {
@@ -21,35 +22,34 @@ const checkAndClearCacheIfNeeded = async () => {
     const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
     
     if (storedVersion !== APP_VERSION) {
-      console.log(`🔄 [Cache Version] App version changed (${storedVersion || 'none'} → ${APP_VERSION}), clearing cache`);
+      const oldVersion = storedVersion || 'none';
+      console.log(`🔄 [Cache Version] App version changed (${oldVersion} → ${APP_VERSION}), clearing cache`);
       
       // Clear all cache data using CacheService
       const clearedCount = await cacheService.clearAll();
       console.log(`✅ [Cache Version] Cleared ${clearedCount} cache entries`);
       
-      // Store new version
+      // Store new version in localStorage only
       localStorage.setItem(CACHE_VERSION_KEY, APP_VERSION);
       console.log('✅ [Cache Version] Version updated');
     } else {
-      console.log(`✅ [Cache Version] Version ${APP_VERSION} matches, no cache clear needed`);
+      console.log(`✅ [Cache Version] Version ${APP_VERSION} matches`);
     }
   } catch (error) {
     console.error('❌ [Cache Version] Failed to check/clear cache:', error);
   }
 };
 
-// Run cache version check before app initialization (await it to prevent race conditions)
-(async () => {
-  await checkAndClearCacheIfNeeded();
-})().catch(err => {
-  console.error('❌ [Cache Version] Failed during initialization:', err);
-});
-
 const rootElement: HTMLElement | null = document.getElementById("container");
 const root = rootElement ? createRoot(rootElement) : undefined;
 
 /* Render application after Office initializes */
-Office.onReady(() => {
+Office.onReady(async () => {
+  try {
+    await checkAndClearCacheIfNeeded();
+  } catch (error) {
+    console.error('❌ [App Init] Critical cache initialization error:', error);
+  }
 
  // 1) Spróbuj użyć Office.context.officeTheme (Office.js 1.1+ i niektóre hosty)
   const officeTh = (Office.context as any).officeTheme;
@@ -66,6 +66,7 @@ Office.onReady(() => {
 
   const chosenTheme = isDark ? webDarkTheme : webLightTheme;
 
+  // Render application
   root?.render(
     <Provider store={store}>
       <FluentProvider theme={chosenTheme}>
@@ -73,13 +74,6 @@ Office.onReady(() => {
       </FluentProvider>
     </Provider>
   );
-
-
-  // root?.render(
-  //   <FluentProvider theme={webLightTheme}>
-  //     <App title={title} />
-  //   </FluentProvider>
-  // );
 });
 
 if ((module as any).hot) {

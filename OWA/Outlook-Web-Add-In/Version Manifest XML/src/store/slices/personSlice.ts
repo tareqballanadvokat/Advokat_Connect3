@@ -7,6 +7,7 @@ import { StorageType } from '../../services/cache/types';
 import { selectIsReady, selectNotReadyReason } from './connectionSlice';
 import type { RootState } from '../index';
 import notify from 'devextreme/ui/notify';
+import { getErrorMessage } from '../../utils/errorHelpers';
 
 // State interface
 interface PersonState {
@@ -70,8 +71,8 @@ export const personLookUpAsync = createAsyncThunk(
           notify(`⚠️ ${reason}. Showing cached results.`, 'warning', 4000);
           return cached;
         }
-      } catch (error) {
-        console.warn(`⚠️ [personSlice] Cache read failed while ${reason}:`, error);
+      } catch (error: unknown) {
+        console.warn(`⚠️ [personSlice] Cache read failed while ${reason}:`, getErrorMessage(error));
       }
 
       throw new Error(`${reason}. No cached data available. Please try again when connected.`);
@@ -89,8 +90,8 @@ export const personLookUpAsync = createAsyncThunk(
           console.log('📦 [personSlice] Using cached search results for:', searchText);
           return cached;
         }
-      } catch (error) {
-        console.warn('⚠️ [personSlice] Cache read failed:', error);
+      } catch (error: unknown) {
+        console.warn('⚠️ [personSlice] Cache read failed:', getErrorMessage(error));
       }
     } else {
       console.log('🔄 [personSlice] Force refresh for:', searchText);
@@ -115,8 +116,8 @@ export const personLookUpAsync = createAsyncThunk(
               { storage: StorageType.SESSION }
             );
             console.log(`✅ [personSlice] Cached ${data.length} search results`);
-          } catch (error) {
-            console.warn('⚠️ [personSlice] Cache write failed:', error);
+          } catch (error: unknown) {
+            console.warn('⚠️ [personSlice] Cache write failed:', getErrorMessage(error));
           }
         } else {
           console.log('⏭️ [personSlice] Skipping cache for empty search results');
@@ -126,7 +127,7 @@ export const personLookUpAsync = createAsyncThunk(
       } else {
         throw new Error('Failed to lookup persons');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       // On any failure, try to return stale cached data
       try {
         const staleCache = await cacheService.get<PersonLookUpResponse[]>(
@@ -138,8 +139,8 @@ export const personLookUpAsync = createAsyncThunk(
           notify('Something went wrong. Showing cached results.', 'warning', 4000);
           return staleCache;
         }
-      } catch (cacheError) {
-        console.error('❌ [personSlice] Failed to retrieve stale cache:', cacheError);
+      } catch (cacheError: unknown) {
+        console.error('❌ [personSlice] Failed to retrieve stale cache:', getErrorMessage(cacheError));
       }
       throw error;
     }
@@ -160,8 +161,8 @@ export const getFavoritePersonsAsync = createAsyncThunk(
         console.log('📦 [personSlice] Using cached favorite persons');
         return cached;
       }
-    } catch (error) {
-      console.warn('⚠️ [personSlice] Cache read failed, falling back to API:', error);
+    } catch (error: unknown) {
+      console.warn('⚠️ [personSlice] Cache read failed, falling back to API:', getErrorMessage(error));
     }
 
     // 2. Cache miss or error - fetch from API
@@ -181,8 +182,8 @@ export const getFavoritePersonsAsync = createAsyncThunk(
                 data,
                 CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
               );
-            } catch (error) {
-              console.warn('⚠️ [personSlice] Cache write failed:', error);
+            } catch (error: unknown) {
+              console.warn('⚠️ [personSlice] Cache write failed:', getErrorMessage(error));
             }
         } else {
           console.log('⏭️ [personSlice] Skipping cache for empty results');
@@ -197,24 +198,25 @@ export const getFavoritePersonsAsync = createAsyncThunk(
 
 export const addPersonToFavoritesAsync = createAsyncThunk(
   'person/addToFavorites',
-  async (personId: number, { dispatch }) => {
+  async (personId: number, thunkAPI) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.addPersonToFavorites(personId);
     
     if (response.statusCode === 200) {
-      // Clear cache first to force fresh fetch (best effort)
+      // Clear favorites cache to force fresh fetch
       try {
-        await cacheService.remove(
-          CACHE_KEYS.FAVORITES_PERSONS,
-          CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
-        );
-      } catch (error) {
-        console.warn('⚠️ [personSlice] Cache remove failed:', error);
+        const username = (thunkAPI.getState() as RootState).auth?.credentials?.username;
+        if (username) {
+          await cacheService.clearCacheType(CACHE_KEYS.FAVORITES_PERSONS, { namespace: username });
+          console.log('🗑️ [personSlice] Cleared favorites cache after adding to favorites');
+        }
+      } catch (error: unknown) {
+        console.warn('⚠️ [personSlice] Cache clear failed:', error instanceof Error ? error.message : String(error));
       }
       
       // Refresh favorites from API
-      await dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      await thunkAPI.dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
       
       // Cache will be automatically updated by getFavoritePersonsAsync
       console.log('✅ [personSlice] Person added to favorites, cache updated');
@@ -228,24 +230,25 @@ export const addPersonToFavoritesAsync = createAsyncThunk(
 
 export const removePersonFromFavoritesAsync = createAsyncThunk(
   'person/removeFromFavorites',
-  async (personId: number, { dispatch }) => {
+  async (personId: number, thunkAPI) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removePersonFromFavorites(personId);
     
     if (response.statusCode === 200) {
-      // Clear cache first to force fresh fetch (best effort)
+      // Clear favorites cache to force fresh fetch
       try {
-        await cacheService.remove(
-          CACHE_KEYS.FAVORITES_PERSONS,
-          CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
-        );
-      } catch (error) {
-        console.warn('⚠️ [personSlice] Cache remove failed:', error);
+        const username = (thunkAPI.getState() as RootState).auth?.credentials?.username;
+        if (username) {
+          await cacheService.clearCacheType(CACHE_KEYS.FAVORITES_PERSONS, { namespace: username });
+          console.log('🗑️ [personSlice] Cleared favorites cache after removing from favorites');
+        }
+      } catch (error: unknown) {
+        console.warn('⚠️ [personSlice] Cache clear failed:', error instanceof Error ? error.message : String(error));
       }
       
       // Refresh favorites from API
-      await dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      await thunkAPI.dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
       
       // Cache will be automatically updated by getFavoritePersonsAsync
       console.log('✅ [personSlice] Person removed from favorites, cache updated');

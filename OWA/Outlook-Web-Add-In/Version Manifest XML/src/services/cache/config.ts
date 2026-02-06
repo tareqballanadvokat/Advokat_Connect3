@@ -18,9 +18,7 @@ export const CACHE_KEYS = {
   FAVORITES_AKTEN: 'favorites_akten',
   DOCUMENTS: 'documents',
   SERVICES: 'services',
-  SEARCH_RESULTS: 'search_results',
-  USER_PREFERENCES: 'user_preferences',
-  SEARCH_HISTORY: 'search_history'
+  SEARCH_RESULTS: 'search_results'
 } as const;
 
 /**
@@ -59,13 +57,5 @@ export const CACHE_CONFIG: Record<string, CacheOptions> = {
   [CACHE_KEYS.SEARCH_RESULTS]: {
     storage: StorageType.SESSION,
     ttl: CACHE_TTL.NEVER // Session-only
-  },
-  [CACHE_KEYS.USER_PREFERENCES]: {
-    storage: StorageType.LOCAL,
-    ttl: CACHE_TTL.NEVER // No expiration
-  },
-  [CACHE_KEYS.SEARCH_HISTORY]: {
-    storage: StorageType.LOCAL,
-    ttl: CACHE_TTL.THIRTY_DAYS
   }
 } as const;

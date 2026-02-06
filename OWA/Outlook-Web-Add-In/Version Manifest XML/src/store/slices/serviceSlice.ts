@@ -6,6 +6,7 @@ import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
 import { selectIsReady, selectNotReadyReason } from './connectionSlice';
 import type { RootState } from '../index';
 import notify from 'devextreme/ui/notify';
+import { getErrorMessage } from '../../utils/errorHelpers';
 
 interface ServiceState {
   // Service form data
@@ -46,17 +47,9 @@ export const loadServicesAsync = createAsyncThunk(
   'service/loadServices',
   async (query: LeistungenAuswahlQuery, { getState }) => {
     const state = getState() as RootState;
-    const username = state.auth?.credentials?.username;
-    
-    if (!username) {
-      throw new Error('User not authenticated');
-    }
     
     const cacheKey = `${CACHE_KEYS.SERVICES}_${query.Kürzel || 'all'}`;
-    const cacheOptions = {
-      ...CACHE_CONFIG[CACHE_KEYS.SERVICES],
-      namespace: username
-    };
+    const cacheOptions = CACHE_CONFIG[CACHE_KEYS.SERVICES]; // No namespace needed for sessionStorage
     
     const isReady = selectIsReady(state);
 
@@ -72,8 +65,8 @@ export const loadServicesAsync = createAsyncThunk(
           notify(`⚠️ ${reason}. Showing cached services.`, 'warning', 4000);
           return cached;
         }
-      } catch (error) {
-        console.warn(`⚠️ [serviceSlice] Cache read failed while ${reason}:`, error);
+      } catch (error: unknown) {
+        console.warn(`⚠️ [serviceSlice] Cache read failed while ${reason}:`, getErrorMessage(error));
       }
 
       throw new Error(`${reason}. No cached data available. Please try again when connected.`);
@@ -87,8 +80,8 @@ export const loadServicesAsync = createAsyncThunk(
         console.log(`📦 [serviceSlice] Using cached services for Kürzel ${query.Kürzel || 'all'}`);
         return cached;
       }
-    } catch (error) {
-      console.warn('⚠️ [serviceSlice] Cache read failed, falling back to API:', error);
+    } catch (error: unknown) {
+      console.warn('⚠️ [serviceSlice] Cache read failed, falling back to API:', getErrorMessage(error));
     }
     
     // 2. Cache miss or error - fetch from API
@@ -107,8 +100,8 @@ export const loadServicesAsync = createAsyncThunk(
           try {
             await cacheService.set(cacheKey, data, cacheOptions);
             console.log(`✅ [serviceSlice] Cached ${data.length} services for Kürzel ${query.Kürzel || 'all'}`);
-          } catch (error) {
-            console.warn('⚠️ [serviceSlice] Cache write failed:', error);
+          } catch (error: unknown) {
+            console.warn('⚠️ [serviceSlice] Cache write failed:', getErrorMessage(error));
           }
         } else {
           console.log('⏭️ [serviceSlice] Skipping cache for empty services list');
@@ -127,8 +120,8 @@ export const loadServicesAsync = createAsyncThunk(
           notify('⚠️ API unavailable. Showing cached services.', 'warning', 4000);
           return staleCache;
         }
-      } catch (cacheError) {
-        console.error('❌ [serviceSlice] Failed to retrieve stale cache:', cacheError);
+      } catch (cacheError: unknown) {
+        console.error('❌ [serviceSlice] Failed to retrieve stale cache:', getErrorMessage(cacheError));
       }
       throw error;
     }
