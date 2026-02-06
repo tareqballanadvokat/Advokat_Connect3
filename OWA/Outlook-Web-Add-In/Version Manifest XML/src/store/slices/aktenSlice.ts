@@ -355,7 +355,7 @@ export const aktLookUpAsync = createAsyncThunk(
       try {
         const cached = await cacheService.get<AktLookUpResponse[]>(
           cacheKey,
-          { storage: StorageType.SESSION }
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
         );
 
         if (cached) {
@@ -375,7 +375,7 @@ export const aktLookUpAsync = createAsyncThunk(
       try {
         const cached = await cacheService.get<AktLookUpResponse[]>(
           cacheKey,
-          { storage: StorageType.SESSION }
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
         );
 
         if (cached) {
@@ -406,7 +406,7 @@ export const aktLookUpAsync = createAsyncThunk(
             await cacheService.set(
               cacheKey,
               data,
-              { storage: StorageType.SESSION }
+              CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
             );
             console.log(`✅ [aktenSlice] Cached ${data.length} search results`);
           } catch (error: unknown) {

@@ -63,7 +63,7 @@ export const personLookUpAsync = createAsyncThunk(
       try {
         const cached = await cacheService.get<PersonLookUpResponse[]>(
           cacheKey,
-          { storage: StorageType.SESSION }
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
         );
 
         if (cached) {
@@ -83,7 +83,7 @@ export const personLookUpAsync = createAsyncThunk(
       try {
         const cached = await cacheService.get<PersonLookUpResponse[]>(
           cacheKey,
-          { storage: StorageType.SESSION }
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
         );
 
         if (cached) {
@@ -113,7 +113,7 @@ export const personLookUpAsync = createAsyncThunk(
             await cacheService.set(
               cacheKey,
               data,
-              { storage: StorageType.SESSION }
+              CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
             );
             console.log(`✅ [personSlice] Cached ${data.length} search results`);
           } catch (error: unknown) {
@@ -132,7 +132,7 @@ export const personLookUpAsync = createAsyncThunk(
       try {
         const staleCache = await cacheService.get<PersonLookUpResponse[]>(
           cacheKey,
-          { storage: StorageType.SESSION }
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
         );
         if (staleCache) {
           console.warn('⚠️ [personSlice] API failed, returning stale cached data');

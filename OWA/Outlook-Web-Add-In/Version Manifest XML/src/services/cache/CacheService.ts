@@ -9,6 +9,7 @@ import { SessionStorageStrategy } from './strategies/SessionStorageStrategy';
 import { StorageType, CacheOptions, CacheEntry } from './types';
 import { TTLManager } from './utils/TTLManager';
 import { LRUManager } from './utils/LRUManager';
+import { CompressionManager } from './utils/CompressionManager';
 import { STORAGE_PREFIX } from './config';
 
 export class CacheService {
@@ -60,8 +61,26 @@ export class CacheService {
 
     const namespacedKey = this.buildKey(key, options.namespace);
     const entry = TTLManager.wrap(data, options.ttl, options.namespace);
-    const serialized = JSON.stringify(entry);
-    const entrySize = new Blob([serialized]).size;
+    let serialized = JSON.stringify(entry);
+    let entrySize = new Blob([serialized]).size;
+
+    if (options.compress && CompressionManager.shouldCompress(serialized, options.compressionThreshold)) {
+      const originalData = serialized;
+      const originalSize = entrySize;
+      serialized = CompressionManager.compress(serialized);
+      const compressedSize = new Blob([serialized]).size;
+      
+      // Check if compression increased size (can happen with small/random data)
+      if (compressedSize >= originalSize) {
+        console.log(`⚠️ [CacheService] Compression expanded data for ${namespacedKey}, using original`);
+        serialized = originalData;
+        entrySize = originalSize;
+      } else {
+        const ratio = CompressionManager.getCompressionRatio(originalSize, compressedSize);
+        console.log(`🗜️ [CacheService] Compressed ${namespacedKey}: ${originalSize}B → ${compressedSize}B (${ratio.toFixed(1)}% saved)`);
+        entrySize = compressedSize;
+      }
+    }
 
     // Check storage usage with actual entry size
     const usage = await strategy.getUsage();
@@ -102,10 +121,27 @@ export class CacheService {
     }
 
     const namespacedKey = this.buildKey(key, options.namespace);
-    const serialized = await strategy.getItem(namespacedKey);
+    let serialized = await strategy.getItem(namespacedKey);
 
     if (!serialized) {
       return null;
+    }
+    
+    // Handle decompression if data is compressed
+    if (CompressionManager.isCompressed(serialized)) {
+      console.log(`🔄 [CacheService] Detected compressed data for ${namespacedKey}, decompressing...`);
+      const decompressed = CompressionManager.decompress(serialized);
+      if (decompressed === null) {
+        console.error(`❌ [CacheService] Failed to decompress: ${namespacedKey} - removing corrupted cache entry`, {
+          storage: options.storage,
+          dataLength: serialized?.length
+        });
+        await strategy.removeItem(namespacedKey);
+        return null;
+      }
+      serialized = decompressed;
+    } else {
+      console.log(`ℹ️ [CacheService] Retrieved uncompressed data for ${namespacedKey}`);
     }
 
     try {
@@ -121,7 +157,8 @@ export class CacheService {
       console.log(`✅ [CacheService] Retrieved ${namespacedKey} from ${options.storage}`);
       return data;
     } catch (error) {
-      console.error(`❌ [CacheService] Failed to parse cache entry: ${namespacedKey}`, error);
+      console.error(`❌ [CacheService] Failed to parse cache entry: ${namespacedKey} - removing corrupted entry`, error);
+      await strategy.removeItem(namespacedKey);
       return null;
     }
   }

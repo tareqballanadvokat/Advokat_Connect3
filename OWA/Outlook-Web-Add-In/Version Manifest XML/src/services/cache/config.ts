@@ -14,6 +14,7 @@ export const STORAGE_PREFIX = 'advokat_connect_';
  * Cache Keys
  */
 export const CACHE_KEYS = {
+  APP_VERSION: 'app_version',
   FAVORITES_PERSONS: 'favorites_persons',
   FAVORITES_AKTEN: 'favorites_akten',
   DOCUMENTS: 'documents',
@@ -38,17 +39,28 @@ export const CACHE_TTL = {
  * Cache Configuration for each data type
  */
 export const CACHE_CONFIG: Record<string, CacheOptions> = {
+  [CACHE_KEYS.APP_VERSION]: {
+    storage: StorageType.LOCAL,
+    ttl: CACHE_TTL.NEVER, // Never expire
+    compress: false // Small string, no need to compress
+  },
   [CACHE_KEYS.FAVORITES_PERSONS]: {
     storage: StorageType.LOCAL,
-    ttl: CACHE_TTL.ONE_DAY
+    ttl: CACHE_TTL.ONE_DAY,
+    compress: true,
+    compressionThreshold: 2048 // Only compress if > 2KB
   },
   [CACHE_KEYS.FAVORITES_AKTEN]: {
     storage: StorageType.LOCAL,
-    ttl: CACHE_TTL.ONE_DAY
+    ttl: CACHE_TTL.ONE_DAY,
+    compress: true,
+    compressionThreshold: 2048
   },
   [CACHE_KEYS.DOCUMENTS]: {
     storage: StorageType.LOCAL,
-    ttl: CACHE_TTL.ONE_HOUR
+    ttl: CACHE_TTL.ONE_HOUR,
+    compress: true,
+    compressionThreshold: 1024
   },
   [CACHE_KEYS.SERVICES]: {
     storage: StorageType.SESSION,
@@ -56,6 +68,8 @@ export const CACHE_CONFIG: Record<string, CacheOptions> = {
   },
   [CACHE_KEYS.SEARCH_RESULTS]: {
     storage: StorageType.SESSION,
-    ttl: CACHE_TTL.NEVER // Session-only
+    ttl: CACHE_TTL.NEVER, // Session-only
+    compress: true,
+    compressionThreshold: 1024
   }
 } as const;

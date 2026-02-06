@@ -6,6 +6,7 @@ import { Provider } from "react-redux";
 import { store } from "../store";
 import { APP_VERSION } from "../config";
 import { cacheService } from "../services/cache/CacheService";
+import { CACHE_KEYS, CACHE_CONFIG } from "../services/cache/config";
 
 /* global document, Office, module, require, HTMLElement */
 
@@ -14,12 +15,13 @@ const title = "Advokat Task Pane Add-in";
 /**
  * Check and clear cache if app version has changed
  * This prevents issues when data structures change between versions
- * Note: Only uses localStorage since sessionStorage is cleared on restart
  */
-const CACHE_VERSION_KEY = 'advokat_connect_app_version';
 const checkAndClearCacheIfNeeded = async () => {
   try {
-    const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
+    const storedVersion = await cacheService.get<string>(
+      CACHE_KEYS.APP_VERSION,
+      CACHE_CONFIG[CACHE_KEYS.APP_VERSION]
+    );
     
     if (storedVersion !== APP_VERSION) {
       const oldVersion = storedVersion || 'none';
@@ -29,8 +31,12 @@ const checkAndClearCacheIfNeeded = async () => {
       const clearedCount = await cacheService.clearAll();
       console.log(`✅ [Cache Version] Cleared ${clearedCount} cache entries`);
       
-      // Store new version in localStorage only
-      localStorage.setItem(CACHE_VERSION_KEY, APP_VERSION);
+      // Store new version using cache service
+      await cacheService.set(
+        CACHE_KEYS.APP_VERSION,
+        APP_VERSION,
+        CACHE_CONFIG[CACHE_KEYS.APP_VERSION]
+      );
       console.log('✅ [Cache Version] Version updated');
     } else {
       console.log(`✅ [Cache Version] Version ${APP_VERSION} matches`);

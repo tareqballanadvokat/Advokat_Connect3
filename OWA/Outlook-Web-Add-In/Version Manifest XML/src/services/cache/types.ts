@@ -13,6 +13,8 @@ export interface CacheOptions {
   storage: StorageType;
   ttl?: number; // milliseconds, undefined = no expiration
   namespace?: string; // user ID for isolation
+  compress?: boolean; // Enable compression for this cache entry
+  compressionThreshold?: number; // Min bytes to compress (default: 1024)
 }
 
 export interface CacheEntry<T> {
