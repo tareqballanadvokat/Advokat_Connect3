@@ -1,12 +1,16 @@
-﻿using SIPSignalingServer.Transactions;
-using SIPSignalingServer.Utils.CustomEventArgs;
-using System.Diagnostics.CodeAnalysis;
-
-namespace SIPSignalingServer.Models
+﻿namespace SIPSignalingServer.Models
 {
+    using System.Diagnostics.CodeAnalysis;
+    using SIPSignalingServer.Transactions;
+    using SIPSignalingServer.Utils.CustomEventArgs;
+
     public class SIPTunnel(SIPMessageRelay left) : IAsyncDisposable
     {
         private readonly SemaphoreSlim runningLock = new SemaphoreSlim(1, 1);
+
+        private bool disposed;
+
+        public event EventHandler<SIPTunnelConnectionStateEventArgs>? ConnectionStateChanged;
 
         public SIPMessageRelay Left => left;
 
@@ -15,15 +19,14 @@ namespace SIPSignalingServer.Models
         [MemberNotNullWhen(true, nameof(this.Right))]
         public bool Connected { get => this.Left.Relaying && (this.Right?.Relaying ?? false); }
 
-        public event EventHandler<SIPTunnelConnectionStateEventArgs>? ConnectionStateChanged;
-
         private bool Running { get; set; }
 
         [MemberNotNull(nameof(this.Right))]
         public void Connect(SIPMessageRelay right)
         {
-            // TODO: Check params if they match
+            ObjectDisposedException.ThrowIf(this.disposed, this);
 
+            // TODO: Check params if they match
             this.runningLock.Wait();
             try
             {
@@ -38,11 +41,12 @@ namespace SIPSignalingServer.Models
             {
                 this.runningLock.Release();
             }
-
         }
 
         public async Task Disconnect()
         {
+            ObjectDisposedException.ThrowIf(this.disposed, this);
+
             await this.runningLock.WaitAsync();
             try
             {
@@ -51,15 +55,24 @@ namespace SIPSignalingServer.Models
                     return;
                 }
 
-                await this.Stop();
-               
+                await this.StopAsync();
             }
             finally
             {
-                this.runningLock.Release();
+                try
+                {
+                    this.runningLock.Release();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Disconnect was triggered by dispose first - closes tunnel and a listener was still active.
+                    // Listener tries to close tunnel and triggeres an ObjectDisposedException.
+                    // can be safely ignored. Tunnel is already closed and disposed.
+                }
             }
         }
 
+        [MemberNotNull(nameof(this.Right))]
         private void Start(SIPMessageRelay right)
         {
             this.Running = true;
@@ -70,10 +83,9 @@ namespace SIPSignalingServer.Models
             {
                 this.ConnectionStateChanged?.Invoke(this, new SIPTunnelConnectionStateEventArgs(true));
             }
-
         }
 
-        private async Task Stop()
+        private async Task StopAsync()
         {
             await this.Left.Stop();
 
@@ -141,8 +153,23 @@ namespace SIPSignalingServer.Models
 
         public async ValueTask DisposeAsync()
         {
-            await this.Disconnect();
-            this.runningLock?.Dispose();
+            await this.DisposeAsync(true);
+        }
+
+        protected virtual async ValueTask DisposeAsync(bool disposing)
+        {
+            if (this.disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                await this.Disconnect();
+                this.runningLock.Dispose();
+            }
+
+            this.disposed = true;
         }
     }
 }

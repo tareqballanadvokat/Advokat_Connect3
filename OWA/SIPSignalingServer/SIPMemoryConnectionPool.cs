@@ -124,6 +124,7 @@ namespace SIPSignalingServer
         private async Task LockedDisconnect(SIPTunnel tunnel)
         {
             bool success = this.Connections.Remove(tunnel);
+            tunnel.ConnectionStateChanged -= this.SIPTunnelConnectionStateChanged;
             await tunnel.Disconnect();
 
             if (success)

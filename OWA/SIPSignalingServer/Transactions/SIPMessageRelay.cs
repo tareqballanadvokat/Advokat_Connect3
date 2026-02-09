@@ -51,6 +51,7 @@ namespace SIPSignalingServer.Transactions
                 headerParams.ToTag);
 
             // TODO: maybe check if request matches transactionParams?
+            // TODO: catch Cancellation
             SocketError sendingStatus = await this.Connection.SendSIPRequest(
                 e.Request.Method,
                 headerParams,
@@ -88,6 +89,7 @@ namespace SIPSignalingServer.Transactions
                 headerParams.ToTag);
 
             // TODO: maybe check if request matches transactionParams?
+            // TODO: catch Cancellation
             SocketError sendingStatus = await this.Connection.SendSIPResponse(
                     e.Response.Status,
                     headerParams,
