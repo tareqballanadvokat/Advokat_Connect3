@@ -1,12 +1,12 @@
-﻿using SIPSignalingServer.Transactions;
-using SIPSignalingServer.Models;
-using SIPSorcery.SIP;
-using Microsoft.Extensions.Logging;
-using SIPSignalingServer.Interfaces;
-using SIPSignalingServer.Utils.CustomEventArgs;
-
-namespace SIPSignalingServer
+﻿namespace SIPSignalingServer
 {
+    using Microsoft.Extensions.Logging;
+    using SIPSignalingServer.Interfaces;
+    using SIPSignalingServer.Models;
+    using SIPSignalingServer.Transactions;
+    using SIPSignalingServer.Utils.CustomEventArgs;
+    using SIPSorcery.SIP;
+
     internal class SIPMemoryConnectionPool : ISIPConnectionPool
     {
         private readonly ILogger<SIPMemoryConnectionPool> logger;
@@ -29,7 +29,6 @@ namespace SIPSignalingServer
                 // params are invalid - cannot create any connection
                 throw new ArgumentException("Invalid params. Cannot connect");
             }
-
 
             this.connectionPoolLock.Wait();
 

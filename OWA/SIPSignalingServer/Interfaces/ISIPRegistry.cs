@@ -1,11 +1,17 @@
-﻿using SIPSignalingServer.Models;
-using SIPSignalingServer.Utils.CustomEventArgs;
+﻿// <copyright file="ISIPRegistry.cs" company="Advokat GmbH">
+// Copyright (c) Advokat GmbH. Alle Rechte vorbehalten.
+// </copyright>
 
 namespace SIPSignalingServer.Interfaces
 {
+    using SIPSignalingServer.Models;
+    using SIPSignalingServer.Utils.CustomEventArgs;
+
     public interface ISIPRegistry
     {
         public event EventHandler<RegistrationEventArgs>? Unregistered;
+
+        public event EventHandler<RegistrationEventArgs>? Registered;
 
         public void Register(SIPRegistration registration);
 

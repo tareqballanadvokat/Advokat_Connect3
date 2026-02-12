@@ -1,11 +1,15 @@
-﻿using Advokat.WebRTC.Library.SIP.Interfaces;
-using Microsoft.Extensions.Logging;
-using SIPSignalingServer.Models;
-using SIPSorcery.SIP;
+﻿// <copyright file="ServerSideSIPTransaction.cs" company="Advokat GmbH">
+// Copyright (c) Advokat GmbH. Alle Rechte vorbehalten.
+// </copyright>
 
 namespace SIPSignalingServer.Transactions
 {
-    public abstract class ServerSideSIPTransaction : Advokat.WebRTC.Library.SIP.SIPTransaction, ISIPTransaction
+    using Advokat.WebRTC.Library.SIP.Interfaces;
+    using Microsoft.Extensions.Logging;
+    using SIPSignalingServer.Models;
+    using SIPSorcery.SIP;
+
+    public abstract class ServerSideSIPTransaction : Advokat.WebRTC.Library.SIP.SIPTransaction
     {
         public new ServerSideTransactionParams Params
         {

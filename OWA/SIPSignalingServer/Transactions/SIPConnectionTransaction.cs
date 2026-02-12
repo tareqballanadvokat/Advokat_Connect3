@@ -75,6 +75,7 @@
             this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
 
             this.ServerSideTransactionParams = signalingServerTransactionParams;
+            // TODO: Don't pass Registry, pass registration and peerRegistration
             this.Registry = registry;
             this.ConnectionPool = connectionPool;
 
@@ -121,6 +122,7 @@
                 return;
             }
 
+            // TOOD: Throws TaskCanceledException when cancelled
             await this.ConnectAsync();
         }
 
@@ -245,7 +247,6 @@
             this.SIPTunnel.ConnectionStateChanged += this.SIPTunnelConnectionStateChanged;
 
             this.ConnectionPool.ConnectionRemoved += this.Disconnected;
-
         }
 
         private async void SIPTunnelConnectionStateChanged(object? sender, SIPTunnelConnectionStateEventArgs e)

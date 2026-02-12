@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36212.18
+# Visual Studio Version 18
+VisualStudioVersion = 18.2.11430.68 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestAPI", "TestAPI\TestAPI.csproj", "{F3CD829B-A6EC-449B-94D5-D06C1AB1995E}"
 EndProject
@@ -28,6 +28,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSignalingServer", "..\OWA\SIPSignalingServer\SIPSignalingServer.csproj", "{224C356D-8599-BC95-A270-C0DF00A0BF78}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SIPSorcery", "..\..\sipsorcery.fork\src\SIPSorcery.csproj", "{1BE4A474-0DAA-4473-6FC7-D7332226A0E9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Caller2", "Caller2\Caller2.csproj", "{7DC109D7-8193-4F5C-84F4-399DC8813F88}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -71,6 +73,10 @@ Global
 		{1BE4A474-0DAA-4473-6FC7-D7332226A0E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1BE4A474-0DAA-4473-6FC7-D7332226A0E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1BE4A474-0DAA-4473-6FC7-D7332226A0E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7DC109D7-8193-4F5C-84F4-399DC8813F88}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DC109D7-8193-4F5C-84F4-399DC8813F88}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DC109D7-8193-4F5C-84F4-399DC8813F88}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DC109D7-8193-4F5C-84F4-399DC8813F88}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -83,6 +89,7 @@ Global
 		{0A8D9ABD-B247-77E5-D897-0A066494FE22} = {CDCE2919-CD53-4A43-8F7F-9FADB3985334}
 		{38355E69-0948-1333-CE0D-2C3DBABFABB5} = {CDCE2919-CD53-4A43-8F7F-9FADB3985334}
 		{FB19EF16-F8BA-C488-C802-2D153C4F9639} = {4D8FF082-FA05-4957-948A-2462225D6ED5}
+		{7DC109D7-8193-4F5C-84F4-399DC8813F88} = {1D003E02-714A-4DF3-A889-45DC7FF3C803}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {69E08E6A-0527-4861-AA26-8BD5CC45A4CA}

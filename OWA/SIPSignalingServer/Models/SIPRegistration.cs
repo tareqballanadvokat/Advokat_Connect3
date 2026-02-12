@@ -30,6 +30,24 @@ namespace SIPSignalingServer.Models
             this.CallID = transactionParams.CallId;
         }
 
+        public bool IsPeer(ServerSideTransactionParams other)
+        {
+            return this.IsPeer(new SIPRegistration(other));
+        }
+
+        public bool IsPeer(SIPRegistration other)
+        {
+            if (this.RemoteUser == null && other.RemoteUser == null)
+            {
+                // Both registrations allow for multiple connections - we do not allow m2m connecition
+                // Without this check anybody could connect to all remotes by omitting the remote name
+                return false;
+            }
+
+            return (other.RemoteUser == null || this.SourceParticipant.Name == other.RemoteUser)
+                && (this.RemoteUser == null || this.RemoteUser == other.SourceParticipant.Name);
+        }
+
         public override bool Equals(object? obj)
         {
             if (base.Equals(obj))
