@@ -4,6 +4,7 @@
  */
 
 import { compress, decompress } from 'lz-string';
+import { cacheStatistics } from './CacheStatistics';
 
 export class CompressionManager {
   private static readonly COMPRESSION_MARKER = '__LZ__';
@@ -19,8 +20,10 @@ export class CompressionManager {
     }
 
     const originalLength = data.length;
-    console.log(`🔄 [CompressionManager] Starting compression (${originalLength} chars, ~${originalLength * 2} bytes)`);
+    const originalSize = originalLength * 2; // UTF-16 estimation
+    console.log(`🔄 [CompressionManager] Starting compression (${originalLength} chars, ~${originalSize} bytes)`);
 
+    const startTime = performance.now();
     try {
       const compressed = compress(data);
       
@@ -30,7 +33,13 @@ export class CompressionManager {
       }
 
       const result = this.COMPRESSION_MARKER + compressed;
-      console.log(`✅ [CompressionManager] Compression successful (${originalLength} → ${result.length} chars)`);
+      const compressedSize = result.length * 2;
+      const timeMs = performance.now() - startTime;
+      
+      // Record statistics (will check for expansion in CacheService)
+      cacheStatistics.recordCompression(originalSize, compressedSize, timeMs, false);
+      
+      console.log(`✅ [CompressionManager] Compression successful (${originalLength} → ${result.length} chars, ${timeMs.toFixed(2)}ms)`);
       return result;
     } catch (error) {
       console.error('❌ [CompressionManager] Compression failed:', error);
@@ -55,9 +64,11 @@ export class CompressionManager {
       
       console.log(`🔄 [CompressionManager] Starting decompression (${data.length} chars)`);
       
+      const startTime = performance.now();
       // Remove marker and decompress
       const compressedData = data.substring(this.COMPRESSION_MARKER.length);
       const decompressed = decompress(compressedData);
+      const timeMs = performance.now() - startTime;
       
       if (decompressed === null || decompressed === undefined) {
         console.error('❌ [CompressionManager] Decompression returned null - data may be corrupted', {
@@ -67,7 +78,8 @@ export class CompressionManager {
         return null;
       }
       
-      console.log(`✅ [CompressionManager] Decompression successful (${data.length} → ${decompressed.length} chars)`);
+      cacheStatistics.recordDecompression(timeMs);
+      console.log(`✅ [CompressionManager] Decompression successful (${data.length} → ${decompressed.length} chars, ${timeMs.toFixed(2)}ms)`);
       return decompressed;
     } catch (error) {
       console.error('❌ [CompressionManager] Decompression failed - data corrupted or invalid format:', error, {

@@ -64,9 +64,9 @@ const App: React.FC<AppProps> = () => {
 
   return (
     <div className={styles.root}>
-    <div> 
-       <Tabs />
-     </div>
+      <div> 
+        <Tabs />
+      </div>
     </div>
   );
 };

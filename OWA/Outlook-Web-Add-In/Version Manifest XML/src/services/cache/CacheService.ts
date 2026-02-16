@@ -10,6 +10,7 @@ import { StorageType, CacheOptions, CacheEntry } from './types';
 import { TTLManager } from './utils/TTLManager';
 import { LRUManager } from './utils/LRUManager';
 import { CompressionManager } from './utils/CompressionManager';
+import { cacheStatistics } from './utils/CacheStatistics';
 import { STORAGE_PREFIX } from './config';
 
 export class CacheService {
@@ -75,6 +76,8 @@ export class CacheService {
         console.log(`⚠️ [CacheService] Compression expanded data for ${namespacedKey}, using original`);
         serialized = originalData;
         entrySize = originalSize;
+        // Update stats to mark as expansion
+        cacheStatistics.recordCompression(originalSize, compressedSize, 0, true);
       } else {
         const ratio = CompressionManager.getCompressionRatio(originalSize, compressedSize);
         console.log(`🗜️ [CacheService] Compressed ${namespacedKey}: ${originalSize}B → ${compressedSize}B (${ratio.toFixed(1)}% saved)`);
@@ -91,20 +94,56 @@ export class CacheService {
       const bytesToFree = spaceNeeded - threshold;
       console.warn(`⚠️ [CacheService] Storage ${options.storage} needs ${bytesToFree} bytes, evicting entries`);
       await LRUManager.evictOldest(strategy, this.EVICTION_COUNT);
+      for (let i = 0; i < this.EVICTION_COUNT; i++) {
+        cacheStatistics.recordEviction();
+      }
+      // Update storage stats after eviction
+      const updatedUsage = await strategy.getUsage();
+      cacheStatistics.updateStorageStats(
+        options.storage,
+        await this.getEntryCount(strategy, options.namespace),
+        updatedUsage.used,
+        updatedUsage.quota
+      );
     }
 
     // Try to write with retry on quota error
     try {
       await strategy.setItem(namespacedKey, serialized);
       console.log(`✅ [CacheService] Cached ${namespacedKey} in ${options.storage} (${entrySize} bytes)`);
+      cacheStatistics.recordWrite(key, entrySize);
+      
+      // Update storage stats after write
+      const updatedUsage = await strategy.getUsage();
+      const keys = await strategy.getAllKeys();
+      cacheStatistics.updateStorageStats(
+        options.storage,
+        keys.length,
+        updatedUsage.used,
+        updatedUsage.quota
+      );
     } catch (error) {
       if (error instanceof Error && error.message.includes('quota exceeded')) {
         console.warn(`⚠️ [CacheService] Quota exceeded, aggressive eviction...`);
         await LRUManager.evictOldest(strategy, this.EVICTION_COUNT * 3);
+        for (let i = 0; i < this.EVICTION_COUNT * 3; i++) {
+          cacheStatistics.recordEviction();
+        }
         // Retry once
         await strategy.setItem(namespacedKey, serialized);
         console.log(`✅ [CacheService] Cached ${namespacedKey} after eviction (${entrySize} bytes)`);
+        cacheStatistics.recordWrite(key, entrySize);
+        
+        // Update storage stats after aggressive eviction and write
+        const retryUsage = await strategy.getUsage();
+        cacheStatistics.updateStorageStats(
+          options.storage,
+          await this.getEntryCount(strategy, options.namespace),
+          retryUsage.used,
+          retryUsage.quota
+        );
       } else {
+        cacheStatistics.recordError();
         throw error;
       }
     }
@@ -124,6 +163,7 @@ export class CacheService {
     let serialized = await strategy.getItem(namespacedKey);
 
     if (!serialized) {
+      cacheStatistics.recordMiss(key);
       return null;
     }
     
@@ -151,14 +191,17 @@ export class CacheService {
       if (data === null) {
         console.log(`⏰ [CacheService] Cache entry expired: ${namespacedKey}`);
         await strategy.removeItem(namespacedKey);
+        cacheStatistics.recordMiss(key);
         return null;
       }
 
       console.log(`✅ [CacheService] Retrieved ${namespacedKey} from ${options.storage}`);
+      cacheStatistics.recordHit(key);
       return data;
     } catch (error) {
       console.error(`❌ [CacheService] Failed to parse cache entry: ${namespacedKey} - removing corrupted entry`, error);
       await strategy.removeItem(namespacedKey);
+      cacheStatistics.recordError();
       return null;
     }
   }
@@ -173,6 +216,15 @@ export class CacheService {
     const namespacedKey = this.buildKey(key, options.namespace);
     await strategy.removeItem(namespacedKey);
     console.log(`🗑️ [CacheService] Removed ${namespacedKey} from ${options.storage}`);
+    
+    // Update storage stats after removal
+    const usage = await strategy.getUsage();
+    cacheStatistics.updateStorageStats(
+      options.storage,
+      await this.getEntryCount(strategy, options.namespace),
+      usage.used,
+      usage.quota
+    );
   }
 
   /**
@@ -199,6 +251,19 @@ export class CacheService {
 
       totalCleared += namespacedKeys.length;
       console.log(`🗑️ [CacheService] Cleared ${namespacedKeys.length} entries for namespace ${namespace}`);
+      
+      // Update storage stats after clearing namespace
+      const usage = await strategy!.getUsage();
+      const storageTypeStr = Array.from(this.strategies.entries())
+        .find(([_, s]) => s === strategy)?.[0];
+      if (storageTypeStr) {
+        cacheStatistics.updateStorageStats(
+          storageTypeStr,
+          await this.getEntryCount(strategy!, namespace),
+          usage.used,
+          usage.quota
+        );
+      }
     }
 
     return totalCleared;
@@ -224,6 +289,15 @@ export class CacheService {
 
       totalCleared += ourKeys.length;
       console.log(`🗑️ [CacheService] Cleared ${ourKeys.length} entries from ${storageType}`);
+      
+      // Update storage stats after clearing all
+      const usage = await strategy.getUsage();
+      cacheStatistics.updateStorageStats(
+        storageType,
+        0, // All entries cleared
+        usage.used,
+        usage.quota
+      );
     }
 
     return totalCleared;
@@ -365,6 +439,35 @@ export class CacheService {
       throw new Error(`Storage strategy not found: ${storageType}`);
     }
     return await strategy.getUsage();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStatistics() {
+    return cacheStatistics.getStats();
+  }
+
+  /**
+   * Log cache statistics summary
+   */
+  logStatistics() {
+    cacheStatistics.logSummary();
+  }
+
+  /**
+   * Helper method: Get entry count for a specific storage strategy and namespace
+   */
+  private async getEntryCount(strategy: IStorageStrategy, namespace?: string): Promise<number> {
+    const keys = await strategy.getAllKeys();
+    if (!namespace) {
+      // Count all keys with our prefix
+      return keys.filter(k => k.startsWith(STORAGE_PREFIX)).length;
+    }
+    
+    // Count only keys for this namespace
+    const prefix = `${STORAGE_PREFIX}${namespace}:`;
+    return keys.filter(k => k.startsWith(prefix)).length;
   }
 }
 

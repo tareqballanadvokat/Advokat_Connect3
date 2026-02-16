@@ -13,6 +13,11 @@ import { getEnvironmentConfig, isProduction } from './environment';
 export const APP_VERSION = '1.0.0';
 
 /**
+ * Feature Flags
+ */
+export const ENABLE_CACHE_STATS = process.env.NODE_ENV !== 'production'; // Hide in production
+
+/**
  * Configuration Service Class
  * Manages application configuration with support for:
  * - Environment-based configuration

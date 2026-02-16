@@ -80,6 +80,13 @@ Office.onReady(async () => {
       </FluentProvider>
     </Provider>
   );
+
+  // Expose cache statistics to window for console debugging
+  (window as any).__cacheStats = () => {
+    cacheService.logStatistics();
+    return cacheService.getStatistics();
+  };
+  console.log('💡 Tip: Use window.__cacheStats() in console to view cache statistics');
 });
 
 if ((module as any).hot) {
