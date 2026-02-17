@@ -18,7 +18,7 @@ export interface DokumentPostData {
   inhalt: string; // Base64 encoded content (byte[] in C# becomes string in TypeScript)
   sachbearbeiterKürzel?: string;
   dokumentArt: DokumentArt;
-  outlookId?: string;
+  outlookEmailId?: string; // Changed from outlookId to match server expectation
   anzahlMailAnhänge: number;
   dateiName?: string;
   ordnerName?: string;
@@ -37,7 +37,7 @@ export interface DokumentResponse {
   datum?: Date;
   erledigtDatum?: Date;
   betreff?: string;
-  dokumentArt: DokumentArt;
+  dokumentArt: DokumentArt | string; // Server returns string representation, not numeric
   mailAdresse?: string;
   mailZeitpunkt?: Date;
   anzahlMailAnhänge: number;

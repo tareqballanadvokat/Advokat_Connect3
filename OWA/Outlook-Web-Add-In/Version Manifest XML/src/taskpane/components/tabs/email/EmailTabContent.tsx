@@ -81,7 +81,7 @@ const EmailTabContent: React.FC = () => {
       notify('Please select a case first', 'warning', 3000);
       return;
     }
-
+    console.log(`📤 Starting transfer for case ${selectedCaseName} (ID: ${selectedCaseId}) with message ID: ${messageId}`)  ;
     if (!messageId) {
       notify('Email message ID not available', 'warning', 3000);
       return;
@@ -108,7 +108,8 @@ const EmailTabContent: React.FC = () => {
           honorartext: text || null,
           memo: text || null,
           sbZeitVerrechenbarInMinuten: time ? parseInt(time) : null,
-          sbZeitNichtVerrechenbarInMinuten: 0
+          sbZeitNichtVerrechenbarInMinuten: 0,
+          outlookEmailId: messageId || undefined // Link leistung to email for retrieval
         };
         
         // Send Leistung to API via WebRTC using Redux thunk
@@ -146,7 +147,7 @@ const EmailTabContent: React.FC = () => {
           memo: `Email transferred from Outlook: ${messageId}`,
           inhalt: emailContent,
           dokumentArt: emailDokumentArt, // Properly detected: sent vs received
-          outlookId: messageId,
+          outlookEmailId: messageId,
           anzahlMailAnhänge: attachmentSelected.filter(i => i.type === 'A').length,
           dateiName: `${email.subject || 'Email'}.eml`,
           ordnerName: getFolderName(firstE)
@@ -192,7 +193,7 @@ const EmailTabContent: React.FC = () => {
               memo: `Attachment from email: ${messageId}`,
               inhalt: contentBase64, // Store the base64 content
               dokumentArt: DokumentArt.Keine, // Normal attachment
-              outlookId: messageId,
+              outlookEmailId: messageId,
               anzahlMailAnhänge: 0, // This is an attachment, not an email with attachments
               dateiName: attachment.name,
               ordnerName: getFolderName(attachment)

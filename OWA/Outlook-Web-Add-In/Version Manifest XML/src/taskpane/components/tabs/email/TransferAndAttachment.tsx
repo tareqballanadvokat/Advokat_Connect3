@@ -25,6 +25,34 @@ const TransferAndAttachment: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
+  /**
+   * Extract folder name from the document's file path by going backwards from filename
+   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Email\\Keine\\file.png → "Email"
+   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Default\\MailEmpfangen\\file.eml → "Default"
+   */
+  const extractFolderFromPath = (dateipfad: string | undefined): string => {
+    if (!dateipfad) return "Default";
+
+    const parts = dateipfad.split(/[\\/]/).filter(p => p.length > 0);
+    
+    if (parts.length < 2) return "Default";
+    
+    // DokumentArt subfolders that should be skipped
+    const dokumentArtFolders = ["MailEmpfangen", "MailGesendet", "Keine"];
+    
+    // Start from the end (filename is last) and go backwards
+    // Skip the filename itself (last element)
+    for (let i = parts.length - 2; i >= 0; i--) {
+      const folder = parts[i];
+      // Skip DokumentArt folders, return the first non-DokumentArt folder
+      if (!dokumentArtFolders.includes(folder)) {
+        return folder;
+      }
+    }
+    
+    return "Default";
+  };
+
   // Clear folders and errors ONLY when selectedAkt actually changes
   useEffect(() => {
     const currentAktId = selectedAkt?.id;
@@ -150,8 +178,16 @@ const TransferAndAttachment: React.FC = () => {
 
         // If email is already saved, mark it as disabled and readonly
         if (savedEmailDoc) {
-          newEmailRow.option = 1; // Default to first folder for now
-          newEmailRow.folderName = "Default"; // We'll need to map this from the folder structure
+          const folderName = extractFolderFromPath(savedEmailDoc.dateipfad);
+          console.log(`📁 Extracted folder for email from path "${savedEmailDoc.dateipfad}": "${folderName}"`);
+          
+          // Find the matching folder option by name
+          const matchingFolder = folderOptions.find(f => f.text === folderName);
+          const optionId = matchingFolder?.id ?? folderOptions[0]?.id ?? 1;
+          console.log(`📁 Matched folder "${folderName}" to option ID: ${optionId}`);
+          
+          newEmailRow.option = optionId;
+          newEmailRow.folderName = folderName;
           newEmailRow.label = savedEmailDoc.betreff || emailSubject;
           newEmailRow.checked = true;
           newEmailRow.readonly = true;
@@ -164,7 +200,10 @@ const TransferAndAttachment: React.FC = () => {
           // Match by outlookEmailId (email context) and attachment name
           const savedAttachmentDoc = savedDocuments.find(doc => {
             // Must be a file attachment (not an email)
-            const isAttachment = doc.dokumentArt === DokumentArt.Keine;
+            // Handle both string and numeric enum values from server
+            const isAttachment = doc.dokumentArt === DokumentArt.Keine || 
+                               doc.dokumentArt === "Keine" || 
+                               (doc.dokumentArt as any) === 0;
             // Must belong to the same email (via outlookEmailId)
             const belongsToThisEmail = doc.outlookEmailId && doc.outlookEmailId === messageId;
             // Must match the attachment name
@@ -192,8 +231,16 @@ const TransferAndAttachment: React.FC = () => {
 
           // If attachment is already saved, mark it as disabled and readonly
           if (savedAttachmentDoc) {
-            attachmentItem.option = 1; // Default to first folder for now
-            attachmentItem.folderName = "Default"; // We'll need to map this from the folder structure
+            const folderName = extractFolderFromPath(savedAttachmentDoc.dateipfad);
+            console.log(`📁 Extracted folder for attachment "${att.name}" from path "${savedAttachmentDoc.dateipfad}": "${folderName}"`);
+            
+            // Find the matching folder option by name
+            const matchingFolder = folderOptions.find(f => f.text === folderName);
+            const optionId = matchingFolder?.id ?? folderOptions[0]?.id ?? 1;
+            console.log(`📁 Matched folder "${folderName}" to option ID: ${optionId}`);
+            
+            attachmentItem.option = optionId;
+            attachmentItem.folderName = folderName;
             attachmentItem.label = savedAttachmentDoc.betreff || att.name;
             attachmentItem.checked = true;
             attachmentItem.readonly = true;
