@@ -1,6 +1,6 @@
 // src/store/slices/serviceSlice.ts
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { LeistungenAuswahlQuery, LeistungAuswahlResponse, LeistungPostData } from '../../taskpane/components/interfaces/IService';
+import { LeistungenAuswahlQuery, LeistungAuswahlResponse, LeistungPostData, LeistungenQuery, LeistungResponse } from '../../taskpane/components/interfaces/IService';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
 import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
 import { selectIsReady, selectNotReadyReason } from './connectionSlice';
@@ -23,6 +23,11 @@ interface ServiceState {
   // Save Leistung state
   saveLeistungLoading: boolean;
   saveLeistungError: string | null;
+  
+  // Saved Leistungen data
+  savedLeistungen: LeistungResponse[];
+  savedLeistungenLoading: boolean;
+  savedLeistungenError: string | null;
 }
 
 // Initial state
@@ -41,6 +46,11 @@ const initialState: ServiceState = {
   // Save Leistung state
   saveLeistungLoading: false,
   saveLeistungError: null,
+  
+  // Saved Leistungen data
+  savedLeistungen: [],
+  savedLeistungenLoading: false,
+  savedLeistungenError: null,
 };
 
 export const loadServicesAsync = createAsyncThunk(
@@ -144,6 +154,36 @@ export const saveLeistungAsync = createAsyncThunk(
   }
 );
 
+// Async thunk for loading saved Leistungen via WebRTC
+export const loadLeistungenAsync = createAsyncThunk(
+  'service/loadLeistungen',
+  async (query: LeistungenQuery, { getState }) => {
+    const state = getState() as RootState;
+    const isReady = selectIsReady(state);
+
+    if (!isReady) {
+      const reason = selectNotReadyReason(state);
+      throw new Error(`${reason}. Cannot load Leistungen.`);
+    }
+    
+    const connectionManager = getWebRTCConnectionManager();
+    const webRTCApiService = connectionManager.getWebRTCApiService();
+    
+    try {
+      const response = await webRTCApiService.getLeistungenByAkt(query);
+      
+      if (response.statusCode === 200) {
+        const data = JSON.parse(response.body || '[]') as LeistungResponse[];
+        return data;
+      } else {
+        throw new Error('Failed to load Leistungen');
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+);
+
 const serviceSlice = createSlice({
   name: 'service',
   initialState,
@@ -214,6 +254,19 @@ const serviceSlice = createSlice({
       .addCase(saveLeistungAsync.rejected, (state, action) => {
         state.saveLeistungLoading = false;
         state.saveLeistungError = action.error.message || 'Failed to save service';
+      })
+      .addCase(loadLeistungenAsync.pending, (state) => {
+        state.savedLeistungenLoading = true;
+        state.savedLeistungenError = null;
+      })
+      .addCase(loadLeistungenAsync.fulfilled, (state, action) => {
+        state.savedLeistungenLoading = false;
+        state.savedLeistungen = action.payload;
+        state.savedLeistungenError = null;
+      })
+      .addCase(loadLeistungenAsync.rejected, (state, action) => {
+        state.savedLeistungenLoading = false;
+        state.savedLeistungenError = action.error.message || 'Failed to load Leistungen';
       });
   },
 });

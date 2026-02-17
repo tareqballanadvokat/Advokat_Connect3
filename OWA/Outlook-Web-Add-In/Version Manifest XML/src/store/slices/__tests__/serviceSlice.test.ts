@@ -35,7 +35,10 @@ describe('serviceSlice', () => {
     servicesLoading: false,
     servicesError: null,
     saveLeistungLoading: false,
-    saveLeistungError: null
+    saveLeistungError: null,
+    savedLeistungen: [],
+    savedLeistungenLoading: false,
+    savedLeistungenError: null
   };
 
   beforeEach(() => {

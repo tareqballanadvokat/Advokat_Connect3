@@ -1,54 +1,75 @@
-// src/taskpane/components/tabs/email/RegisteredEmails.tsx
-import React, { useState, useEffect } from 'react';
-import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { configService } from '../../../../config/index';
 
-interface ServiceRecord {
-  id: string;
-  date: string;
-  subject: string;
-}
+import React, { useEffect } from 'react';
+import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
+import { useAppSelector, useAppDispatch } from '@store/hooks';
+import { loadLeistungenAsync } from '@store/slices/serviceSlice';
+import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
 
 interface RegisteredServiceProps {
-  /** Z każdą zmianą odświeża listę */
+  /** Refresh trigger */
   refreshTrigger?: any;
 }
 
 const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger }) => {
-  const [emails, setEmails] = useState<ServiceRecord[]>([]);
+  const dispatch = useAppDispatch();
+  
+  // Get the selected Akt and saved Leistungen from Redux state
+  const { selectedAkt } = useAppSelector(state => state.akten);
+  const { savedLeistungen, savedLeistungenLoading, savedLeistungenError } = useAppSelector(state => state.service);
 
   useEffect(() => {
-    (async () => {
-      try {
-    
-        // const resp = await fetch(configService.getApiUrl('api/service/get-services'), {
-        //   method: 'GET',
-        //   headers: { 'Content-Type': 'application/json' }
-        // });
-        // const data: ServiceRecord[] = await resp.json();
-        // // Zakładamy, że zwracane entries są już posortowane malejąco po dacie.
-        // setEmails(data);
-      } catch (err) {
-        console.error('Błąd podczas pobierania zarejestowanych akcji servisowych:', err);
+    // Load Leistungen when the Akt changes or refresh is triggered
+    const loadLeistungen = async () => {
+      if (selectedAkt?.id) {
+        const isCompose = IsComposeMode();
+        
+        if (isCompose) {
+          // Compose mode: only use aktId
+          console.log('📧 Compose mode - loading Leistungen by aktId only');
+          dispatch(loadLeistungenAsync({ 
+            aktId: selectedAkt.id,
+            count: 10 
+          }));
+        } else {
+          // Read mode: use outlookEmailId
+          try {
+            const email = Office.context.mailbox.item;
+            const outlookEmailId = await getInternetMessageIdAsync(email);
+            console.log('📧 Read mode - loading Leistungen by email ID:', outlookEmailId);
+            
+            dispatch(loadLeistungenAsync({ 
+              outlookEmailId: outlookEmailId,
+              count: 10 
+            }));
+          } catch (error) {
+            console.warn('⚠️ Could not get email ID, loading by aktId instead:', error);
+            dispatch(loadLeistungenAsync({ 
+              aktId: selectedAkt.id,
+              count: 10 
+            }));
+          }
+        }
       }
-    })();
-}, [refreshTrigger]);
+    };
+    
+    loadLeistungen();
+  }, [selectedAkt, refreshTrigger, dispatch]);
 
   return (
     <div style={{ marginTop: 24 }}>
-      <h3 style={{  alignItems: 'baseline', gap: 8 }}>
-        Registered Services (last 7 days) 
+      <h3 style={{ alignItems: 'baseline', gap: 8 }}>
+        Registered Services (last 10 entries) 
       </h3>
 
       <DataGrid
-        dataSource={emails}
+        dataSource={savedLeistungen}
         keyExpr="id"
         showBorders={false}
         showColumnLines={false}
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText="No service found"
+        noDataText={savedLeistungenLoading ? "Loading..." : savedLeistungenError || "No service found"}
         height={250}
       >
         <Paging defaultPageSize={7} />
@@ -59,19 +80,19 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
           showInfo
         />
         <Column
-          dataField="insertDate"
+          dataField="datum"
           caption="Date"
           dataType="date"
           format="yyyy-MM-dd"
           alignment="left"
         />
         <Column
-          dataField="serviceText"
+          dataField="honorartext"
           caption="Text"  
           alignment="left"
         />
         <Column
-          dataField="serviceSB"
+          dataField="bearbeitungsInfoErstelltVon"
           caption="SB"
           alignment="left"
         />

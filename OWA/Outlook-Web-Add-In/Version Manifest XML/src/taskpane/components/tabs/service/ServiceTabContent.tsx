@@ -5,7 +5,7 @@ import ServiceSection from '../shared/ServiceSection';
 import SearchCaseList from '../shared/SearchCaseList';
 import { setSelectedAkt } from '@store/slices/aktenSlice';
 import { saveLeistungAsync } from '@store/slices/serviceSlice';
-import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
+import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import { LeistungPostData } from '@components/interfaces/IService';
 import { AktLookUpResponse } from '@components/interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
@@ -51,6 +51,22 @@ const ServiceTabContent: React.FC = () => {
       const selectedService = services.find(service => service.id === selectedServiceId);
       const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
       
+      // Get Outlook email ID (only in read mode)
+      const isCompose = IsComposeMode();
+      let outlookEmailId: string | null = null;
+      
+      if (!isCompose) {
+        try {
+          const email = Office.context.mailbox.item;
+          outlookEmailId = await getInternetMessageIdAsync(email);
+          console.log('📧 Saving Leistung with email ID:', outlookEmailId);
+        } catch (error) {
+          console.warn('⚠️ Could not get email ID, saving without it:', error);
+        }
+      } else {
+        console.log('📧 Compose mode - saving Leistung without email ID');
+      }
+      
       // Create payload using LeistungPostData interface matching C# model
       const payload: LeistungPostData = {
         aktId: selectedCaseId !== -1 ? selectedCaseId : null,
@@ -60,7 +76,8 @@ const ServiceTabContent: React.FC = () => {
         honorartext: text || null,
         memo: null,
         sbZeitVerrechenbarInMinuten: time ? parseInt(time) : null,
-        sbZeitNichtVerrechenbarInMinuten: 0
+        sbZeitNichtVerrechenbarInMinuten: 0,
+        outlookEmailId: outlookEmailId
       };
       
       // Send to API via WebRTC using Redux thunk
