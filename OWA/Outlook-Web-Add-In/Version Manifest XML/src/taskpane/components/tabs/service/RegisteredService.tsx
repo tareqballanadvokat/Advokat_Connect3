@@ -61,6 +61,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
             
             dispatch(loadLeistungenAsync({ 
               outlookEmailId: outlookEmailId,
+              aktId: selectedAkt.id,
               count: 10 
             }));
           } catch (error) {
