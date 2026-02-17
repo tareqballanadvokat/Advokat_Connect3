@@ -75,6 +75,13 @@ const EmailTabContent: React.FC = () => {
     dispatch(setSelectedAkt(selectedCase));
   }
   
+  // Helper function to convert HH:MM to minutes
+  const convertTimeToMinutes = (timeStr: string): number | null => {
+    if (!timeStr || !timeStr.includes(':')) return null;
+    const [hours, minutes] = timeStr.split(':').map(s => parseInt(s) || 0);
+    return hours * 60 + minutes;
+  };
+  
   // Handler for sending email
   const sendEmailHandler = async () => {
     if (selectedCaseId === -1) {
@@ -87,12 +94,32 @@ const EmailTabContent: React.FC = () => {
       return;
     }
 
+    // Validate that all checked items have a folder assigned
+    const checkedItems = attachmentSelected.filter(i => i.checked);
+    const itemsWithoutFolder = checkedItems.filter(i => i.option === -1);
+    
+    if (itemsWithoutFolder.length > 0) {
+      notify('Please select a folder for all items before transferring', 'error', 4000);
+      return;
+    }
+
     // Set loading state
     setTransferLoading(true);
 
     try {
       // STEP 1: Save Leistung first (if service is selected)
       if (selectedServiceId && selectedServiceId > 0) {
+        // Validate that either SB or time is provided (or both are empty)
+        const hasSb = sb && sb.trim() !== '';
+        const hasTime = time && time.trim() !== '';
+        
+        // If one is provided, both must be provided
+        if ((hasSb && !hasTime) || (!hasSb && hasTime)) {
+          notify('Please provide both SB and time, or leave both empty', 'error', 4000);
+          setTransferLoading(false);
+          return;
+        }
+        
         console.log('📤 Saving Leistung via WebRTC...');
         
         // Find the selected service to get its kürzel
@@ -100,6 +127,18 @@ const EmailTabContent: React.FC = () => {
         const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
         
         // Create payload using LeistungPostData interface matching C# model
+        const timeInMinutes = convertTimeToMinutes(time);
+        
+        // Build sachbearbeiter array with SB and time information
+        const sachbearbeiter = [];
+        if (sb && sb.trim() !== '' && timeInMinutes !== null) {
+          sachbearbeiter.push({
+            sb: sb.trim(),
+            zeitVerrechenbarInMinuten: timeInMinutes,
+            zeitNichtVerrechenbarInMinuten: 0
+          });
+        }
+        
         const leistungPayload: LeistungPostData = {
           aktId: selectedCaseId !== -1 ? selectedCaseId : null,
           aKurz: selectedCaseName || null,
@@ -107,9 +146,8 @@ const EmailTabContent: React.FC = () => {
           datum: new Date().toISOString(), // Current date in ISO format
           honorartext: text || null,
           memo: text || null,
-          sbZeitVerrechenbarInMinuten: time ? parseInt(time) : null,
-          sbZeitNichtVerrechenbarInMinuten: 0,
-          outlookEmailId: messageId || undefined // Link leistung to email for retrieval
+          outlookEmailId: messageId || undefined, // Link leistung to email for retrieval
+          sachbearbeiter: sachbearbeiter.length > 0 ? sachbearbeiter : undefined
         };
         
         // Send Leistung to API via WebRTC using Redux thunk

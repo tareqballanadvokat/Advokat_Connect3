@@ -1,24 +1,27 @@
+export interface LeistungSachbearbeiter {
+  sb: string;  // SB-Kürzel (max 3 chars)
+  zeitVerrechenbarInMinuten: number;
+  zeitNichtVerrechenbarInMinuten: number;
+}
 
 export interface LeistungPostData {
-  aktId: number | null;                           // Always send, use null if not set
-  aKurz: string | null;                          // Always send, use null if not set
-  leistungKurz: string;                          // Required
-  datum: string;                                 // Required - ISO date string
-  honorartext: string | null;                    // Always send, use null if not set
-  memo: string | null;                           // Always send, use null if not set
-  sbZeitVerrechenbarInMinuten: number | null;    // Always send, use null if not set
-  sbZeitNichtVerrechenbarInMinuten: number | null; // Always send, use null if not set
+  aktId: number | null;                          
+  aKurz: string | null;                          
+  leistungKurz: string;                          
+  datum: string;                                 
+  honorartext: string | null;                    
+  memo: string | null;                           
   outlookEmailId?: string | null;                // Outlook email message ID for tracking
+  sachbearbeiter?: LeistungSachbearbeiter[];     
+  barauslagen?: any[];                           
 }
 
-// Matches LeistungenAuswahlQuery class - search for services
 export interface LeistungenAuswahlQuery {
-  Kürzel?: string;           // Case Kürzel to get services for
-  OnlyQuickListe: boolean;   // Only services marked for quick list
-  Limit?: number;            // Limit number of results
+  Kürzel?: string;           
+  OnlyQuickListe: boolean;
+  Limit?: number;            
 }
 
-// Matches LeistungAuswahlResponse class - service information
 export interface LeistungAuswahlResponse {
   id: number;
   kürzel: string;
@@ -28,7 +31,6 @@ export interface LeistungAuswahlResponse {
   anzeigenInQuicklisteOutlook?: boolean;
 }
 
-// Registered service item
 export interface RegisteredService {
   id: string;
   date: string;
@@ -41,6 +43,29 @@ export interface LeistungenQuery {
   aktId?: number | null;
   outlookEmailId?: string | null;
   count?: number | null;
+}
+
+export interface LeistungSachbearbeiterResponse {
+  id: number;
+  index: number;
+  sachbearbeiter?: string | null;
+  fürSachbearbeiter?: string | null;
+  zeitVerrechenbar?: string | null;
+  zeitNichtVerrechenbar?: string | null;
+  honorar?: number | null;
+  zeitVerrechenbarInMinuten: number;
+  zeitNichtVerrechenbarInMinuten: number;
+}
+
+export interface LeistungBarauslageResponse {
+  id: number;
+  index: number;
+  art?: string | null;
+  uStSatz?: number | null;
+  ansprechbar?: boolean | null;
+  betrag?: number | null;
+  lokalwährungszeichen?: string | null;
+  lokalwährungsbetrag?: number | null;
 }
 
 export interface LeistungResponse {
@@ -76,8 +101,11 @@ export interface LeistungResponse {
   // From LeistungBase (inherited properties)
   aktId?: number | null;
   aKurz?: string | null;
-  leistungKurz: string;  // Required
-  datum: string;         // Required
+  leistungKurz: string; 
+  datum: string; 
   honorartext?: string | null;
   memo?: string | null;
+
+  barauslagen: LeistungBarauslageResponse[];
+  sachbearbeiter: LeistungSachbearbeiterResponse[];
 }

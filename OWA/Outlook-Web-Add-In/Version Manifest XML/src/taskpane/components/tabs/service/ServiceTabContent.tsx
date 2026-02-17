@@ -1,4 +1,3 @@
-// src/taskpane/components/tabs/service/ServiceTabContent.tsx
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '../shared/ServiceSection';
@@ -36,10 +35,27 @@ const ServiceTabContent: React.FC = () => {
     dispatch(setSelectedAkt(selectedCase));
   };
   
+  // Helper function to convert HH:MM to minutes
+  const convertTimeToMinutes = (timeStr: string): number | null => {
+    if (!timeStr || !timeStr.includes(':')) return null;
+    const [hours, minutes] = timeStr.split(':').map(s => parseInt(s) || 0);
+    return hours * 60 + minutes;
+  };
+  
   // Handler for sending service
   const sendServiceHandler = async () => {
     if (selectedCaseId === -1) {
       notify('Please select a case first', 'warning', 3000);
+      return;
+    }
+    
+    // Validate that either SB or time is provided (or both are empty)
+    const hasSb = sb && sb.trim() !== '';
+    const hasTime = time && time.trim() !== '';
+    
+    // If one is provided, both must be provided
+    if ((hasSb && !hasTime) || (!hasSb && hasTime)) {
+      notify('Please provide both SB and time, or leave both empty', 'error', 4000);
       return;
     }
     
@@ -67,7 +83,17 @@ const ServiceTabContent: React.FC = () => {
         console.log('📧 Compose mode - saving Leistung without email ID');
       }
       
-      // Create payload using LeistungPostData interface matching C# model
+      const timeInMinutes = convertTimeToMinutes(time);
+
+      const sachbearbeiter = [];
+      if (sb && sb.trim() !== '' && timeInMinutes !== null) {
+        sachbearbeiter.push({
+          sb: sb.trim(),
+          zeitVerrechenbarInMinuten: timeInMinutes,
+          zeitNichtVerrechenbarInMinuten: 0
+        });
+      }
+      
       const payload: LeistungPostData = {
         aktId: selectedCaseId !== -1 ? selectedCaseId : null,
         aKurz: selectedCaseName || null,
@@ -75,9 +101,8 @@ const ServiceTabContent: React.FC = () => {
         datum: new Date().toISOString(), // Current date in ISO format
         honorartext: text || null,
         memo: null,
-        sbZeitVerrechenbarInMinuten: time ? parseInt(time) : null,
-        sbZeitNichtVerrechenbarInMinuten: 0,
-        outlookEmailId: outlookEmailId
+        outlookEmailId: outlookEmailId,
+        sachbearbeiter: sachbearbeiter.length > 0 ? sachbearbeiter : undefined
       };
       
       // Send to API via WebRTC using Redux thunk
@@ -107,7 +132,7 @@ const ServiceTabContent: React.FC = () => {
       <ServiceSend
         caseId={selectedCaseName}
         onTransfer={sendServiceHandler}
-        transferBtnDisable={!selectedAkt}
+        transferBtnDisable={!selectedAkt || selectedServiceId === 0}
         transferLoading={transferLoading}
       />
       

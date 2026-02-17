@@ -4,6 +4,7 @@ import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { loadLeistungenAsync } from '@store/slices/serviceSlice';
 import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
+import { LeistungResponse } from '@components/interfaces/IService';
 
 interface RegisteredServiceProps {
   /** Refresh trigger */
@@ -13,9 +14,30 @@ interface RegisteredServiceProps {
 const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger }) => {
   const dispatch = useAppDispatch();
   
-  // Get the selected Akt and saved Leistungen from Redux state
   const { selectedAkt } = useAppSelector(state => state.akten);
   const { savedLeistungen, savedLeistungenLoading, savedLeistungenError } = useAppSelector(state => state.service);
+
+  // Get formatted time string from sachbearbeiter array
+  const getTimeDisplay = (rowData: LeistungResponse): string => {
+    if (!rowData.sachbearbeiter || rowData.sachbearbeiter.length === 0) {
+      return '';
+    }
+    // Use the formatted time string from the first sachbearbeiter entry
+    return rowData.sachbearbeiter[0]?.zeitVerrechenbar || '';
+  };
+
+  // Get SB from sachbearbeiter array
+  const getSbDisplay = (rowData: LeistungResponse): string => {
+    if (!rowData.sachbearbeiter || rowData.sachbearbeiter.length === 0) {
+      return '';
+    }
+    // Get all SB from sachbearbeiter entries and join them
+    const sbs = rowData.sachbearbeiter
+      .map(sb => sb.sachbearbeiter || sb.fürSachbearbeiter)
+      .filter(Boolean)
+      .join(', ');
+    return sbs;
+  };
 
   useEffect(() => {
     // Load Leistungen when the Akt changes or refresh is triggered
@@ -80,6 +102,13 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
           showInfo
         />
         <Column
+          dataField="leistungKurz"
+          caption="Kurzel"
+          dataType="date"
+          format="yyyy-MM-dd"
+          alignment="left"
+        />
+        <Column
           dataField="datum"
           caption="Date"
           dataType="date"
@@ -92,9 +121,14 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
           alignment="left"
         />
         <Column
-          dataField="bearbeitungsInfoErstelltVon"
+          caption="Time"
+          alignment="left"
+          calculateCellValue={getTimeDisplay}
+        />
+        <Column
           caption="SB"
           alignment="left"
+          calculateCellValue={getSbDisplay}
         />
       </DataGrid>
     </div>

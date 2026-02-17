@@ -88,8 +88,13 @@ export const createMockLeistungPostData = (overrides: Partial<LeistungPostData> 
   datum: '2024-01-15',
   honorartext: 'Legal consultation',
   memo: 'Client meeting',
-  sbZeitVerrechenbarInMinuten: 60,
-  sbZeitNichtVerrechenbarInMinuten: 15,
+  sachbearbeiter: [
+    {
+      sb: 'JDO',
+      zeitVerrechenbarInMinuten: 60,
+      zeitNichtVerrechenbarInMinuten: 15
+    }
+  ],
   ...overrides
 });
 
