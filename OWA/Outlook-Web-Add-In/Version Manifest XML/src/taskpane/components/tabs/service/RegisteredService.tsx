@@ -76,7 +76,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
     };
     
     loadLeistungen();
-  }, [selectedAkt, refreshTrigger, dispatch]);
+  }, [selectedAkt?.id, refreshTrigger, dispatch]);
 
   return (
     <div style={{ marginTop: 24 }}>

@@ -19,22 +19,21 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   // Get selected Akt from aktenSlice
   const selectedAkt = useAppSelector(state => state.akten.selectedAkt);
   const selectedAktKuerzel = selectedAkt?.aKurz;
+  const selectedAktId = selectedAkt?.id;
 
-  // Load services once when component mounts (services list is global, not per-Akt)
+  // Load services whenever an Akt is selected (uses cache after first load)
   useEffect(() => {
-    const servicesEmpty = serviceState.services.length === 0;
-
-    if (selectedAktKuerzel && servicesEmpty) {
-      console.log('Loading global services list');
+    if (selectedAktId) {
+      console.log('Loading global services list for Akt', selectedAktId);
       dispatch(loadServicesAsync({
         Kürzel: null,
         OnlyQuickListe: true,
         Limit: null
       }));
-    } else if (!selectedAktKuerzel) {
+    } else {
       dispatch(clearServices());
     }
-  }, [selectedAktKuerzel, dispatch, serviceState.services.length]);
+  }, [selectedAktId, dispatch]);
   
   // Handle value changes using Redux dispatch
   const handleServiceChange = (value: number) => {

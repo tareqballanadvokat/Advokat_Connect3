@@ -28,6 +28,9 @@ interface ServiceState {
   savedLeistungen: LeistungResponse[];
   savedLeistungenLoading: boolean;
   savedLeistungenError: string | null;
+  
+  loadCounter: number;
+  previousLoadKey: string | null; // Track aktId to detect changes
 }
 
 // Initial state
@@ -51,6 +54,9 @@ const initialState: ServiceState = {
   savedLeistungen: [],
   savedLeistungenLoading: false,
   savedLeistungenError: null,
+  
+  loadCounter: 0,
+  previousLoadKey: null,
 };
 
 export const loadServicesAsync = createAsyncThunk(
@@ -141,12 +147,31 @@ export const loadServicesAsync = createAsyncThunk(
 // Async thunk for saving Leistung via WebRTC
 export const saveLeistungAsync = createAsyncThunk(
   'service/saveLeistung',
-  async (leistungData: LeistungPostData) => {
+  async (leistungData: LeistungPostData, thunkAPI) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.saveLeistung(leistungData);
     
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      // Clear cache for this aktId to force fresh fetch
+      if (leistungData.aktId) {
+        try {
+          const state = thunkAPI.getState() as RootState;
+          const username = state.auth?.credentials?.username;
+          if (username) {
+            const cacheKey = `${CACHE_KEYS.REGISTERED_SERVICES}_${leistungData.aktId}`;
+            const cacheOptions = {
+              ...CACHE_CONFIG[CACHE_KEYS.REGISTERED_SERVICES],
+              namespace: username
+            };
+            await cacheService.remove(cacheKey, cacheOptions);
+            console.log(`🗑️ [serviceSlice] Cleared registered services cache for aktId ${leistungData.aktId}`);
+          }
+        } catch (error: unknown) {
+          console.warn('⚠️ [serviceSlice] Cache clear failed:', getErrorMessage(error));
+        }
+      }
+      
       return response;
     } else {
       throw new Error(response.body || 'Failed to save service');
@@ -166,6 +191,45 @@ export const loadLeistungenAsync = createAsyncThunk(
       throw new Error(`${reason}. Cannot load Leistungen.`);
     }
     
+    // Only cache by aktId
+    if (!query.aktId) {
+      throw new Error('AktId is required for loading Leistungen');
+    }
+    
+    const cacheKey = `${CACHE_KEYS.REGISTERED_SERVICES}_${query.aktId}`;
+    const loadKey = query.aktId.toString();
+    const isSameLoad = state.service.previousLoadKey === loadKey;
+    const currentCounter = isSameLoad ? state.service.loadCounter : 0;
+    const forceRefresh = currentCounter % 2 === 1; // Odd counter = force refresh
+    
+    const username = state.auth?.credentials?.username;
+    if (!username) {
+      throw new Error('User not authenticated');
+    }
+    
+    const cacheOptions = {
+      ...CACHE_CONFIG[CACHE_KEYS.REGISTERED_SERVICES],
+      namespace: username
+    };
+    
+    // 1. Check cache if not force refresh
+    if (!forceRefresh) {
+      try {
+        const cached = await cacheService.get<LeistungResponse[]>(cacheKey, cacheOptions);
+
+        if (cached) {
+          console.log(`📦 [serviceSlice] Using cached registered services for aktId ${query.aktId}`);
+          return cached;
+        }
+      } catch (error: unknown) {
+        console.warn('⚠️ [serviceSlice] Cache read failed, falling back to API:', getErrorMessage(error));
+      }
+    } else {
+      console.log(`🔄 [serviceSlice] Force refresh for aktId ${query.aktId}`);
+    }
+    
+    // 2. Fetch from API
+    console.log(`🌐 [serviceSlice] Fetching registered services from API for aktId ${query.aktId}`);
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
@@ -174,11 +238,35 @@ export const loadLeistungenAsync = createAsyncThunk(
       
       if (response.statusCode === 200) {
         const data = JSON.parse(response.body || '[]') as LeistungResponse[];
+        
+        // 3. Update cache (best effort)
+        if (data.length > 0) {
+          try {
+            await cacheService.set(cacheKey, data, cacheOptions);
+            console.log(`✅ [serviceSlice] Cached ${data.length} registered services for aktId ${query.aktId}`);
+          } catch (error: unknown) {
+            console.warn('⚠️ [serviceSlice] Cache write failed:', getErrorMessage(error));
+          }
+        } else {
+          console.log('⏭️ [serviceSlice] Skipping cache for empty Leistungen list');
+        }
+        
         return data;
       } else {
         throw new Error('Failed to load Leistungen');
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      // On any failure, try to return stale cached data
+      try {
+        const staleCache = await cacheService.get<LeistungResponse[]>(cacheKey, cacheOptions);
+        if (staleCache) {
+          console.warn('⚠️ [serviceSlice] API failed, returning stale cached data');
+          notify('⚠️ API unavailable. Showing cached services.', 'warning', 4000);
+          return staleCache;
+        }
+      } catch (cacheError: unknown) {
+        console.error('❌ [serviceSlice] Failed to retrieve stale cache:', getErrorMessage(cacheError));
+      }
       throw error;
     }
   }
@@ -227,6 +315,10 @@ const serviceSlice = createSlice({
     clearSaveLeistungError: (state) => {
       state.saveLeistungError = null;
     },
+    resetLoadCounter: (state) => {
+      state.loadCounter = 0;
+      state.previousLoadKey = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -250,6 +342,8 @@ const serviceSlice = createSlice({
       .addCase(saveLeistungAsync.fulfilled, (state) => {
         state.saveLeistungLoading = false;
         state.saveLeistungError = null;
+        // Reset load counter to force cache refresh on next load
+        state.loadCounter = 0;
       })
       .addCase(saveLeistungAsync.rejected, (state, action) => {
         state.saveLeistungLoading = false;
@@ -263,6 +357,13 @@ const serviceSlice = createSlice({
         state.savedLeistungenLoading = false;
         state.savedLeistungen = action.payload;
         state.savedLeistungenError = null;
+        
+        // Update load counter for alternating cache/API pattern
+        const query = action.meta.arg;
+        const loadKey = query.aktId?.toString() || '';
+        const isSameLoad = state.previousLoadKey === loadKey;
+        state.loadCounter = isSameLoad ? Math.min(state.loadCounter + 1, 100) : 0;
+        state.previousLoadKey = loadKey;
       })
       .addCase(loadLeistungenAsync.rejected, (state, action) => {
         state.savedLeistungenLoading = false;
@@ -280,6 +381,7 @@ export const {
   setServiceData,
   clearServices,
   clearSaveLeistungError,
+  resetLoadCounter,
 } = serviceSlice.actions;
 
 export default serviceSlice.reducer;

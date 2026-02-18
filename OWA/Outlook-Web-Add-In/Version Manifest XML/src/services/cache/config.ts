@@ -19,7 +19,8 @@ export const CACHE_KEYS = {
   FAVORITES_AKTEN: 'favorites_akten',
   DOCUMENTS: 'documents',
   SERVICES: 'services',
-  SEARCH_RESULTS: 'search_results'
+  SEARCH_RESULTS: 'search_results',
+  REGISTERED_SERVICES: 'registered_services'
 } as const;
 
 /**
@@ -42,7 +43,7 @@ export const CACHE_CONFIG: Record<string, CacheOptions> = {
   [CACHE_KEYS.APP_VERSION]: {
     storage: StorageType.LOCAL,
     ttl: CACHE_TTL.NEVER, // Never expire
-    compress: false // Small string, no need to compress
+    compress: false
   },
   [CACHE_KEYS.FAVORITES_PERSONS]: {
     storage: StorageType.LOCAL,
@@ -69,6 +70,12 @@ export const CACHE_CONFIG: Record<string, CacheOptions> = {
   [CACHE_KEYS.SEARCH_RESULTS]: {
     storage: StorageType.SESSION,
     ttl: CACHE_TTL.NEVER, // Session-only
+    compress: true,
+    compressionThreshold: 1024
+  },
+  [CACHE_KEYS.REGISTERED_SERVICES]: {
+    storage: StorageType.LOCAL,
+    ttl: CACHE_TTL.ONE_HOUR,
     compress: true,
     compressionThreshold: 1024
   }

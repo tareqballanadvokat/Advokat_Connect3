@@ -3,7 +3,7 @@ import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '../shared/ServiceSection';
 import SearchCaseList from '../shared/SearchCaseList';
 import { setSelectedAkt } from '@store/slices/aktenSlice';
-import { saveLeistungAsync } from '@store/slices/serviceSlice';
+import { saveLeistungAsync, resetLoadCounter } from '@store/slices/serviceSlice';
 import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import { LeistungPostData } from '@components/interfaces/IService';
 import { AktLookUpResponse } from '@components/interfaces/IAkten';
@@ -14,11 +14,8 @@ import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 
 const ServiceTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
-  
-  // Local state for transfer loading
   const [transferLoading, setTransferLoading] = useState(false);
   
-  // Get the relevant state from Redux
   const { selectedServiceId, time, text, sb, services } = useAppSelector(state => state.service);
   const { selectedAkt, cases } = useAppSelector(state => state.akten);
   
@@ -31,8 +28,18 @@ const ServiceTabContent: React.FC = () => {
 
   // Handler for case selection
   const setCaseHandler = (selectedCase: AktLookUpResponse) => {
+    const isNewAkt = selectedAkt?.id !== selectedCase.id;
+    
     // Dispatch the entire selected case object to aktenSlice
     dispatch(setSelectedAkt(selectedCase));
+    
+    if (isNewAkt) {
+      // Different Akt: Reset counter to start fresh (cache first)
+      dispatch(resetLoadCounter());
+    } else {
+      // Same Akt clicked again: Trigger refresh to force API call
+      setRefreshFlag(f => f + 1);
+    }
   };
   
   // Helper function to convert HH:MM to minutes

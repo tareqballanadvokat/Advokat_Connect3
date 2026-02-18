@@ -19,9 +19,9 @@ import { calculateFileSizeFromBase64 } from '@utils/fileHelpers';
 
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { setSelectedAkt } from '@store/slices/aktenSlice';
+import { setSelectedAkt, clearFolders, clearEmailDocuments } from '@store/slices/aktenSlice';
 import { saveDokumentAsync } from '@store/slices/emailSlice';
-import { saveLeistungAsync } from '@store/slices/serviceSlice';
+import { saveLeistungAsync, resetLoadCounter } from '@store/slices/serviceSlice';
 
 const EmailTabContent: React.FC = () => {
   // Get Redux dispatch function
@@ -71,8 +71,20 @@ const EmailTabContent: React.FC = () => {
 
   // Handler for case selection
   const setCaseHandler = async (selectedCase: AktLookUpResponse) => {
+    const isNewAkt = selectedAkt?.id !== selectedCase.id;
+    
     // Set the selected case object directly in aktenSlice
     dispatch(setSelectedAkt(selectedCase));
+    
+    if (isNewAkt) {
+      // Different Akt: Reset service load counter to start fresh (cache first)
+      dispatch(resetLoadCounter());
+    } else {
+      // Same Akt clicked again: Clear tracking to force reload of folders and documents
+      dispatch(clearFolders());
+      dispatch(clearEmailDocuments());
+      dispatch(resetLoadCounter());
+    }
   }
   
   // Helper function to convert HH:MM to minutes
