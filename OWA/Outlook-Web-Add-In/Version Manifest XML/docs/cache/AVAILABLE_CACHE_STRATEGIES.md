@@ -36,6 +36,12 @@ This document outlines the caching options available for our Outlook Add-in and 
 - User credentials
 - Highly sensitive data without encryption
 
+**Security notes:**
+- Scoped by domain/origin, NOT by Office user or add-in
+- Multiple add-ins from the same domain CAN access each other's data
+- Vulnerable to XSS attacks
+- Encryption provides minimal protection (keys are in JavaScript)
+
 **Implementation notes:**
 - String-based storage requires JSON serialization
 - Synchronous API can block UI if overused
@@ -65,6 +71,11 @@ This document outlines the caching options available for our Outlook Add-in and 
 - Data that needs to survive page reloads
 - Long-term storage
 - User preferences that should persist
+
+**Security notes:**
+- Scoped by domain/origin, NOT by Office user or add-in
+- Multiple add-ins from the same domain CAN access each other's data
+- Cleared when taskpane closes (limits attack window)
 
 **Implementation notes:**
 - Ideal for temporary data during active session
@@ -124,6 +135,11 @@ This document outlines the caching options available for our Outlook Add-in and 
 - Frequently changing data
 - Authentication tokens (use memory instead)
 
+**Security notes:**
+- Automatically encrypted by Office platform
+- Isolated per add-in (other add-ins cannot access)
+- Safe from cross-add-in data leakage
+
 **Implementation notes:**
 - Automatically encrypted and synced by Office
 - Must call saveAsync() to persist changes
@@ -154,10 +170,15 @@ This document outlines the caching options available for our Outlook Add-in and 
 - Long-term storage
 - Large datasets that could cause memory issues
 
+**Security notes:**
+- Isolated to this add-in's JavaScript context
+- Other add-ins cannot access memory
+- Vulnerable only to XSS within this add-in
+- Cleared automatically on refresh (limits attack window)
+
 **Implementation notes:**
 - Currently used for authentication state
 - Fastest access but no persistence
-- Cleared automatically on refresh
 
 ---
 
@@ -169,14 +190,14 @@ This document outlines the caching options available for our Outlook Add-in and 
 - Storage: Memory only (Redux)
 - Reason: Short-lived, highly sensitive
 - TTL: Match API expires_in value
-- Encryption: Not needed (never persisted)
+- Security: Isolated to add-in context, safe from other add-ins
 
 **Refresh Tokens:**
-- Storage: Memory (recommended) or encrypted localStorage (optional)
-- Reason: Long-lived, very sensitive
+- Storage: Memory only (Redux)
+- Reason: Long-lived, extremely sensitive
 - TTL: Match API refresh_token_lifetime
-- Encryption: Required if persisted (AES-GCM)
-- Note: Persistence is optional - provides convenience but requires careful security implementation
+- Security: Never persist to localStorage (accessible by other add-ins from same domain)
+- Note: Users must re-authenticate after taskpane reload - this is acceptable for security
 
 **User Credentials:**
 - Storage: Never cache
@@ -295,28 +316,69 @@ This document outlines the caching options available for our Outlook Add-in and 
 
 ### Sensitive Data Guidelines
 
-**High Risk Data:**
-- Access tokens: Keep in memory only
-- Refresh tokens: Memory preferred, encrypted localStorage optional
+**High Risk Data (Never Persist):**
+- Access tokens: Memory only
+- Refresh tokens: Memory only
 - User credentials: Never store
+- API keys: Memory only
 
-**Encryption Requirements:**
+**Why Encryption Doesn't Protect Tokens:**
+- Encryption keys must be in JavaScript (accessible via XSS)
+- Other add-ins from same domain can access localStorage
+- Provides false sense of security
+
+**When Encryption Is Useful:**
+- Large cached datasets that are not immediately sensitive
+- Protection against physical disk access (stolen device)
+- Defense-in-depth for non-token data
+
+**Encryption Requirements (for non-token data):**
 - Algorithm: AES-GCM (via Web Crypto API)
 - Key length: 256 bits
 - IV: 12 bytes (96 bits)
-- Key storage: Memory only (non-extractable)
-- Use case: Only for sensitive persisted data (e.g., optional refresh token caching)
+- Key derivation: From user password or server-provided key
+- Use case: Large cached datasets, not authentication tokens
 
 ### XSS Protection
 
-LocalStorage and sessionStorage are accessible via JavaScript, making them vulnerable to XSS attacks.
+**Critical Understanding:**
+If an attacker can execute JavaScript in your add-in (XSS), they can access:
+- Memory (Redux store, variables)
+- localStorage
+- sessionStorage
+- Any encryption keys in JavaScript
+
+**Defense Strategy:**
+Prevention is the only real defense. Client-side encryption provides minimal security because the key must be in JavaScript.
 
 **Mitigations:**
 - Use Content Security Policy (CSP) in manifest
 - Sanitize all user inputs
 - Avoid eval() and innerHTML with untrusted data
 - Use React's built-in XSS protection
-- Encrypt sensitive cached data
+- Never persist tokens (removes attack surface)
+
+### Cross-Add-In Security
+
+**Important:** localStorage and sessionStorage are scoped by **domain/origin**, not by add-in.
+
+**Risk:**
+If you host multiple add-ins from the same domain:
+- They CAN read each other's localStorage
+- They CAN read each other's sessionStorage
+- Encryption doesn't help (keys are in JavaScript)
+
+**Safe Storage:**
+- Memory (Redux): Isolated per add-in ✅
+- Office.context.roamingSettings: Isolated per add-in ✅
+- localStorage: Shared across all add-ins from same domain ❌
+- sessionStorage: Shared across all add-ins from same domain ❌
+
+**Recommendation:**
+- Never store tokens in localStorage/sessionStorage
+- Use memory for sensitive data
+- Use Office.context.roamingSettings for cross-device preferences (if needed)
+- Implement proper domain isolation if hosting multiple add-ins
 
 ### Data Privacy (GDPR)
 
@@ -444,9 +506,10 @@ Available via `window.__cacheStats()` in browser console for detailed statistics
 4. Consider **RoamingSettings** for cross-device preferences (future enhancement)
 
 **Security Principles:**
+- Never persist authentication tokens (memory only)
 - Never cache user credentials
-- Keep tokens in memory when possible
-- Encrypt sensitive data if persistence is required
+- Understand that localStorage is shared across add-ins from same domain
+- XSS prevention is the primary defense (encryption provides minimal protection)
 - Clear cache on logout
 - Implement appropriate TTLs
 
