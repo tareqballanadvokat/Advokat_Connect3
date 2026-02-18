@@ -19,9 +19,9 @@ import { calculateFileSizeFromBase64 } from '@utils/fileHelpers';
 
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { setSelectedAkt } from '@store/slices/aktenSlice';
+import { setSelectedAkt, clearFolders, clearEmailDocuments } from '@store/slices/aktenSlice';
 import { saveDokumentAsync } from '@store/slices/emailSlice';
-import { saveLeistungAsync } from '@store/slices/serviceSlice';
+import { saveLeistungAsync, resetLoadCounter } from '@store/slices/serviceSlice';
 
 const EmailTabContent: React.FC = () => {
   // Get Redux dispatch function
@@ -71,9 +71,28 @@ const EmailTabContent: React.FC = () => {
 
   // Handler for case selection
   const setCaseHandler = async (selectedCase: AktLookUpResponse) => {
+    const isNewAkt = selectedAkt?.id !== selectedCase.id;
+    
     // Set the selected case object directly in aktenSlice
     dispatch(setSelectedAkt(selectedCase));
+    
+    if (isNewAkt) {
+      // Different Akt: Reset service load counter to start fresh (cache first)
+      dispatch(resetLoadCounter());
+    } else {
+      // Same Akt clicked again: Clear tracking to force reload of folders and documents
+      dispatch(clearFolders());
+      dispatch(clearEmailDocuments());
+      dispatch(resetLoadCounter());
+    }
   }
+  
+  // Helper function to convert HH:MM to minutes
+  const convertTimeToMinutes = (timeStr: string): number | null => {
+    if (!timeStr || !timeStr.includes(':')) return null;
+    const [hours, minutes] = timeStr.split(':').map(s => parseInt(s) || 0);
+    return hours * 60 + minutes;
+  };
   
   // Handler for sending email
   const sendEmailHandler = async () => {
@@ -81,9 +100,18 @@ const EmailTabContent: React.FC = () => {
       notify('Please select a case first', 'warning', 3000);
       return;
     }
-
+    console.log(`📤 Starting transfer for case ${selectedCaseName} (ID: ${selectedCaseId}) with message ID: ${messageId}`)  ;
     if (!messageId) {
       notify('Email message ID not available', 'warning', 3000);
+      return;
+    }
+
+    // Validate that all checked items have a folder assigned
+    const checkedItems = attachmentSelected.filter(i => i.checked);
+    const itemsWithoutFolder = checkedItems.filter(i => i.option === -1);
+    
+    if (itemsWithoutFolder.length > 0) {
+      notify('Please select a folder for all items before transferring', 'error', 4000);
       return;
     }
 
@@ -93,6 +121,17 @@ const EmailTabContent: React.FC = () => {
     try {
       // STEP 1: Save Leistung first (if service is selected)
       if (selectedServiceId && selectedServiceId > 0) {
+        // Validate that either SB or time is provided (or both are empty)
+        const hasSb = sb && sb.trim() !== '';
+        const hasTime = time && time.trim() !== '';
+        
+        // If one is provided, both must be provided
+        if ((hasSb && !hasTime) || (!hasSb && hasTime)) {
+          notify('Please provide both SB and time, or leave both empty', 'error', 4000);
+          setTransferLoading(false);
+          return;
+        }
+        
         console.log('📤 Saving Leistung via WebRTC...');
         
         // Find the selected service to get its kürzel
@@ -100,6 +139,18 @@ const EmailTabContent: React.FC = () => {
         const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
         
         // Create payload using LeistungPostData interface matching C# model
+        const timeInMinutes = convertTimeToMinutes(time);
+        
+        // Build sachbearbeiter array with SB and time information
+        const sachbearbeiter = [];
+        if (sb && sb.trim() !== '' && timeInMinutes !== null) {
+          sachbearbeiter.push({
+            sb: sb.trim(),
+            zeitVerrechenbarInMinuten: timeInMinutes,
+            zeitNichtVerrechenbarInMinuten: 0
+          });
+        }
+        
         const leistungPayload: LeistungPostData = {
           aktId: selectedCaseId !== -1 ? selectedCaseId : null,
           aKurz: selectedCaseName || null,
@@ -107,8 +158,8 @@ const EmailTabContent: React.FC = () => {
           datum: new Date().toISOString(), // Current date in ISO format
           honorartext: text || null,
           memo: text || null,
-          sbZeitVerrechenbarInMinuten: time ? parseInt(time) : null,
-          sbZeitNichtVerrechenbarInMinuten: 0
+          outlookEmailId: messageId || undefined, // Link leistung to email for retrieval
+          sachbearbeiter: sachbearbeiter.length > 0 ? sachbearbeiter : undefined
         };
         
         // Send Leistung to API via WebRTC using Redux thunk
@@ -146,7 +197,7 @@ const EmailTabContent: React.FC = () => {
           memo: `Email transferred from Outlook: ${messageId}`,
           inhalt: emailContent,
           dokumentArt: emailDokumentArt, // Properly detected: sent vs received
-          outlookId: messageId,
+          outlookEmailId: messageId,
           anzahlMailAnhänge: attachmentSelected.filter(i => i.type === 'A').length,
           dateiName: `${email.subject || 'Email'}.eml`,
           ordnerName: getFolderName(firstE)
@@ -192,7 +243,7 @@ const EmailTabContent: React.FC = () => {
               memo: `Attachment from email: ${messageId}`,
               inhalt: contentBase64, // Store the base64 content
               dokumentArt: DokumentArt.Keine, // Normal attachment
-              outlookId: messageId,
+              outlookEmailId: messageId,
               anzahlMailAnhänge: 0, // This is an attachment, not an email with attachments
               dateiName: attachment.name,
               ordnerName: getFolderName(attachment)
@@ -233,13 +284,6 @@ const EmailTabContent: React.FC = () => {
   // We no longer need these callback functions as we're using the Redux-based ServiceSection
   // which handles its own Redux dispatching
   
-  const handleCaseChange = (value: string) => {
-    // Update the selected Akt name (aKurz) in the current selectedAkt
-    if (selectedAkt) {
-      dispatch(setSelectedAkt({ ...selectedAkt, aKurz: value }));
-    }
-  };
-
   return (
     <div>
       {/* WebRTC Connection Status */}
@@ -253,9 +297,7 @@ const EmailTabContent: React.FC = () => {
       {/* 3) Services section */}
       <EmailSend
         caseId={selectedCaseName}
-        onCaseChange={handleCaseChange}
         onTransfer={sendEmailHandler}
-        caseIdDisable={!selectedAkt}
         transferBtnDisable={!selectedAkt || attachmentSelected.length === 0}
         transferLoading={transferLoading}
       />

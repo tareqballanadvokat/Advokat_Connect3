@@ -7,7 +7,6 @@
  */
 
 import {
-  CachedAktDocuments,
   FolderOption,
 } from '../aktenSlice';
 import { AktLookUpResponse } from '../../../taskpane/components/interfaces/IAkten';
@@ -33,15 +32,6 @@ export const createMockDocument = (overrides: Partial<DokumentResponse> = {}): D
   dateipfad: 'C:\\Documents\\test.pdf',
   dokumentArt: 0,
   anzahlMailAnhänge: 0,
-  ...overrides,
-});
-
-export const createMockCachedAktDocuments = (overrides: Partial<CachedAktDocuments> = {}): CachedAktDocuments => ({
-  aktId: 1,
-  documents: overrides.documents ?? [
-    createMockDocument({ id: 1, aktId: 1, betreff: 'Cached Document' })
-  ],
-  loadedAt: Date.now(),
   ...overrides,
 });
 
@@ -98,8 +88,13 @@ export const createMockLeistungPostData = (overrides: Partial<LeistungPostData> 
   datum: '2024-01-15',
   honorartext: 'Legal consultation',
   memo: 'Client meeting',
-  sbZeitVerrechenbarInMinuten: 60,
-  sbZeitNichtVerrechenbarInMinuten: 15,
+  sachbearbeiter: [
+    {
+      sb: 'JDO',
+      zeitVerrechenbarInMinuten: 60,
+      zeitNichtVerrechenbarInMinuten: 15
+    }
+  ],
   ...overrides
 });
 

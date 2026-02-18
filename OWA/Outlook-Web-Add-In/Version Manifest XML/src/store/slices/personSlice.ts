@@ -2,12 +2,20 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { PersonLookUpResponse, PersonenQuery, PersonResponse } from '../../taskpane/components/interfaces/IPerson';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
+import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
+import { StorageType } from '../../services/cache/types';
+import { selectIsReady, selectNotReadyReason } from './connectionSlice';
+import type { RootState } from '../index';
+import notify from 'devextreme/ui/notify';
+import { getErrorMessage } from '../../utils/errorHelpers';
 
 // State interface
 interface PersonState {
   // Search and lookup state
   persons: PersonLookUpResponse[];
   searchTerm: string;
+  previousSearchTerm: string | null; // Track last executed query for refresh detection
+  searchCounter: number; // Count consecutive searches of same term for alternating cache/API
   loading: boolean;
   error: string | null;
 
@@ -24,6 +32,8 @@ const initialState: PersonState = {
   // Search and lookup state
   persons: [],
   searchTerm: '',
+  previousSearchTerm: null,
+  searchCounter: 0,
   loading: false,
   error: null,
 
@@ -38,15 +48,101 @@ const initialState: PersonState = {
 
 export const personLookUpAsync = createAsyncThunk(
   'person/personLookUp',
-  async (searchText: string) => {
+  async (searchText: string, { getState }) => {
+    const state = getState() as RootState;
+    const cacheKey = `search_results:person:${searchText}`;
+    const isSameSearchTerm = state.person.previousSearchTerm === searchText;
+    const currentCounter = isSameSearchTerm ? state.person.searchCounter : 0;
+    const forceRefresh = currentCounter % 2 === 1; // Odd counter = force refresh
+    const isReady = selectIsReady(state);
+
+    // 0. If not ready (offline or SIP not connected), skip API and use cache immediately
+    if (!isReady) {
+      const reason = selectNotReadyReason(state);
+
+      try {
+        const cached = await cacheService.get<PersonLookUpResponse[]>(
+          cacheKey,
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
+        );
+
+        if (cached) {
+          console.log(`📴 [personSlice] ${reason}. Using cached search results for:`, searchText);
+          notify(`⚠️ ${reason}. Showing cached results.`, 'warning', 4000);
+          return cached;
+        }
+      } catch (error: unknown) {
+        console.warn(`⚠️ [personSlice] Cache read failed while ${reason}:`, getErrorMessage(error));
+      }
+
+      throw new Error(`${reason}. No cached data available. Please try again when connected.`);
+    }
+
+    // 1. Check cache if not force refresh
+    if (!forceRefresh) {
+      try {
+        const cached = await cacheService.get<PersonLookUpResponse[]>(
+          cacheKey,
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
+        );
+
+        if (cached) {
+          console.log('📦 [personSlice] Using cached search results for:', searchText);
+          return cached;
+        }
+      } catch (error: unknown) {
+        console.warn('⚠️ [personSlice] Cache read failed:', getErrorMessage(error));
+      }
+    } else {
+      console.log('🔄 [personSlice] Force refresh for:', searchText);
+    }
+
+    // 2. Fetch from API
+    console.log('🌐 [personSlice] Fetching search results from API:', searchText);
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
-    const response = await webRTCApiService.personLookUp(searchText);
-    if (response.statusCode === 200) {
-      return JSON.parse(response.body || '[]') as PersonLookUpResponse[];
-    } else {
-      throw new Error('Failed to lookup persons');
+    try {
+      const response = await webRTCApiService.personLookUp(searchText);
+      if (response.statusCode === 200) {
+        const data = JSON.parse(response.body || '[]') as PersonLookUpResponse[];
+        
+        // 3. Update cache only if results are not empty
+        if (data.length > 0) {
+          try {
+            await cacheService.set(
+              cacheKey,
+              data,
+              CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
+            );
+            console.log(`✅ [personSlice] Cached ${data.length} search results`);
+          } catch (error: unknown) {
+            console.warn('⚠️ [personSlice] Cache write failed:', getErrorMessage(error));
+          }
+        } else {
+          console.log('⏭️ [personSlice] Skipping cache for empty search results');
+        }
+        
+        return data;
+      } else {
+        throw new Error('Failed to lookup persons');
+      }
+    } catch (error: unknown) {
+      // On any failure, try to return stale cached data
+      try {
+        const staleCache = await cacheService.get<PersonLookUpResponse[]>(
+          cacheKey,
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
+        );
+        if (staleCache) {
+          console.warn('⚠️ [personSlice] API failed, returning stale cached data');
+          notify('Something went wrong. Showing cached results.', 'warning', 4000);
+          return staleCache;
+        }
+      } catch (cacheError: unknown) {
+        console.error('❌ [personSlice] Failed to retrieve stale cache:', getErrorMessage(cacheError));
+      }
+      throw error;
     }
   }
 );
@@ -54,12 +150,46 @@ export const personLookUpAsync = createAsyncThunk(
 export const getFavoritePersonsAsync = createAsyncThunk(
   'person/getFavoritePersons',
   async (query: PersonenQuery) => {
+    // 1. Try to get from cache first
+    try {
+      const cached = await cacheService.get<PersonResponse[]>(
+        CACHE_KEYS.FAVORITES_PERSONS,
+        CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
+      );
+
+      if (cached) {
+        console.log('📦 [personSlice] Using cached favorite persons');
+        return cached;
+      }
+    } catch (error: unknown) {
+      console.warn('⚠️ [personSlice] Cache read failed, falling back to API:', getErrorMessage(error));
+    }
+
+    // 2. Cache miss or error - fetch from API
+    console.log('🌐 [personSlice] Fetching favorite persons from API');
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
     const response = await webRTCApiService.getFavoritePersons(query);
     if (response.statusCode === 200) {
-      return JSON.parse(response.body || '[]') as PersonResponse[];
+      const data = JSON.parse(response.body || '[]') as PersonResponse[];
+      
+      // 3. Update cache (best effort, don't fail if cache write fails)
+      if (data.length > 0) {
+            try {
+              await cacheService.set(
+                CACHE_KEYS.FAVORITES_PERSONS,
+                data,
+                CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
+              );
+            } catch (error: unknown) {
+              console.warn('⚠️ [personSlice] Cache write failed:', getErrorMessage(error));
+            }
+        } else {
+          console.log('⏭️ [personSlice] Skipping cache for empty results');
+      }
+      
+      return data;
     } else {
       throw new Error('Failed to get favorite persons');
     }
@@ -68,13 +198,29 @@ export const getFavoritePersonsAsync = createAsyncThunk(
 
 export const addPersonToFavoritesAsync = createAsyncThunk(
   'person/addToFavorites',
-  async (personId: number, { dispatch }) => {
+  async (personId: number, thunkAPI) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.addPersonToFavorites(personId);
     
     if (response.statusCode === 200) {
-      dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      // Clear favorites cache to force fresh fetch
+      try {
+        const username = (thunkAPI.getState() as RootState).auth?.credentials?.username;
+        if (username) {
+          await cacheService.clearCacheType(CACHE_KEYS.FAVORITES_PERSONS, { namespace: username });
+          console.log('🗑️ [personSlice] Cleared favorites cache after adding to favorites');
+        }
+      } catch (error: unknown) {
+        console.warn('⚠️ [personSlice] Cache clear failed:', error instanceof Error ? error.message : String(error));
+      }
+      
+      // Refresh favorites from API
+      await thunkAPI.dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      
+      // Cache will be automatically updated by getFavoritePersonsAsync
+      console.log('✅ [personSlice] Person added to favorites, cache updated');
+      
       return personId;
     } else {
       throw new Error('Failed to add person to favorites');
@@ -84,14 +230,29 @@ export const addPersonToFavoritesAsync = createAsyncThunk(
 
 export const removePersonFromFavoritesAsync = createAsyncThunk(
   'person/removeFromFavorites',
-  async (personId: number, { dispatch }) => {
+  async (personId: number, thunkAPI) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removePersonFromFavorites(personId);
     
     if (response.statusCode === 200) {
-      // Refresh favorites list after successful removal
-      dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      // Clear favorites cache to force fresh fetch
+      try {
+        const username = (thunkAPI.getState() as RootState).auth?.credentials?.username;
+        if (username) {
+          await cacheService.clearCacheType(CACHE_KEYS.FAVORITES_PERSONS, { namespace: username });
+          console.log('🗑️ [personSlice] Cleared favorites cache after removing from favorites');
+        }
+      } catch (error: unknown) {
+        console.warn('⚠️ [personSlice] Cache clear failed:', error instanceof Error ? error.message : String(error));
+      }
+      
+      // Refresh favorites from API
+      await thunkAPI.dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
+      
+      // Cache will be automatically updated by getFavoritePersonsAsync
+      console.log('✅ [personSlice] Person removed from favorites, cache updated');
+      
       return personId;
     } else {
       throw new Error('Failed to remove person from favorites');
@@ -113,6 +274,10 @@ const personSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    clearPreviousSearchTerm: (state) => {
+      state.previousSearchTerm = null;
+      state.searchCounter = 0;
     }
   },
   // The `extraReducers` field lets the slice handle actions defined elsewhere,
@@ -127,6 +292,11 @@ const personSlice = createSlice({
       .addCase(personLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
         state.persons = action.payload;
+        const searchText = action.meta.arg;
+        const isSameSearchTerm = state.previousSearchTerm === searchText;
+        state.previousSearchTerm = searchText;
+        // Increment counter with max limit to prevent overflow
+        state.searchCounter = isSameSearchTerm ? Math.min(state.searchCounter + 1, 100) : 0;
       })
       .addCase(personLookUpAsync.rejected, (state, action) => {
         state.loading = false;
@@ -182,7 +352,8 @@ const personSlice = createSlice({
 export const { 
   clearPersons, 
   setSearchTerm, 
-  clearError
+  clearError,
+  clearPreviousSearchTerm
 } = personSlice.actions;
 
 export default personSlice.reducer;

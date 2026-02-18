@@ -27,18 +27,14 @@ if (!document.getElementById('transfer-button-styles-service')) {
 
 interface ServiceSendProps {
   caseId: string;
-  onCaseChange: (id: string) => void;
   onTransfer: () => void;
-  caseIdDisable: boolean;
   transferBtnDisable: boolean;
   transferLoading?: boolean;  // New prop for loading state
 }
 
 const ServiceSend: React.FC<ServiceSendProps> = ({ 
     caseId,
-    onCaseChange,
     onTransfer,
-    caseIdDisable,
     transferBtnDisable,
     transferLoading = false
 }) => ( <div>  <h3>Case</h3>
@@ -49,14 +45,15 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
       placeholder="Case ID"
       value={caseId}
       width={80}
-      disabled={caseIdDisable}
-      onChange={e => onCaseChange(e.target.value)}
+      readOnly
       style={{ 
         width:150,
         padding: '8px 12px',
         fontSize: 14,
         border: '1px solid #ccc',
-        borderRadius: 4
+        borderRadius: 4,
+        backgroundColor: '#f5f5f5',
+        cursor: 'default'
       }}
     />
     <Button

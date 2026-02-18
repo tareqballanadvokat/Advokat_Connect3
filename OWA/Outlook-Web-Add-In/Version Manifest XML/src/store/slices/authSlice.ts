@@ -1,6 +1,7 @@
 // src/store/slices/authSlice.ts
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { IAuthState, IAuthCredentials, IAuthResponse } from '../../taskpane/components/interfaces/IAuth';
+import { cacheService } from '../../services/cache';
 
 const initialState: IAuthState = {
   credentials: {
@@ -19,6 +20,20 @@ const initialState: IAuthState = {
   isAuthenticating: false,
   error: null,
 };
+
+// Async thunk for logout to properly clear cache
+export const logoutAsync = createAsyncThunk(
+  'auth/logout',
+  async (_, { getState }) => {
+    const state = getState() as { auth: IAuthState };
+    const username = state.auth.credentials.username;
+    
+    if (username) {
+      const clearedCount = await cacheService.clearNamespace(username);
+      console.log(`🗑️ [authSlice] Cache cleared for user: ${username} (${clearedCount} entries)`);
+    }
+  }
+);
 
 const authSlice = createSlice({
   name: 'auth',
@@ -60,6 +75,12 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.isAuthenticating = false;
       state.error = null;
+      
+      // Set cache namespace for user isolation
+      cacheService.setNamespace(state.credentials.username);
+      console.log('🗄️ [authSlice] Cache namespace set to:', state.credentials.username);
+      
+      console.log('✅ [authSlice] Tokens stored in Redux, expiresAt:', new Date(state.expiresAt).toISOString());
     },
 
     authenticationFailure: (state, action: PayloadAction<string>) => {
@@ -99,6 +120,17 @@ const authSlice = createSlice({
       }
     },
   },
+  extraReducers: (builder) => {
+    builder
+      .addCase(logoutAsync.fulfilled, () => {
+        // Cache cleared successfully, logout reducer will handle state reset
+        console.log('✅ [authSlice] Logout completed with cache cleared');
+      })
+      .addCase(logoutAsync.rejected, (action) => {
+        console.error('❌ [authSlice] Failed to clear cache on logout:', action.error);
+        // Still proceed with logout even if cache clear fails
+      });
+  }
 });
 
 export const {

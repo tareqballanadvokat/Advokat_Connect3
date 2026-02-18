@@ -3,6 +3,12 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { AktLookUpResponse, AktenQuery, AktenResponse } from '../../taskpane/components/interfaces/IAkten';
 import { DokumentResponse } from '../../taskpane/components/interfaces/IDocument';
 import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
+import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
+import { StorageType } from '../../services/cache/types';
+import { selectIsReady, selectNotReadyReason } from './connectionSlice';
+import type { RootState } from '../index';
+import notify from 'devextreme/ui/notify';
+import { getErrorMessage } from '../../utils/errorHelpers';
 
 // Interface for folder options
 export interface FolderOption {
@@ -10,18 +16,13 @@ export interface FolderOption {
   text: string;
 }
 
-// Interface for cached documents with metadata
-export interface CachedAktDocuments {
-  aktId: number;
-  documents: DokumentResponse[];
-  loadedAt: number; // Timestamp for LRU management
-}
-
 // State interface
 interface AktenState {
   // Search and lookup state
   cases: AktLookUpResponse[]; // For search results
   searchTerm: string; // Current search term in the search box
+  previousSearchTerm: string | null; // Track last executed query for refresh detection
+  searchCounter: number; // Count consecutive searches of same term for alternating cache/API
   selectedAkt: AktLookUpResponse | null; // Currently selected Akt for operations
   loading: boolean;
   error: string | null;
@@ -35,8 +36,7 @@ interface AktenState {
   removeFromFavoriteLoading: boolean;
   removingFromFavoriteAktId: number | null; // Track which akt is being removed from favorites
 
-  // Case Tab Documents state (cached for multiple Akts)
-  caseDocumentsCache: CachedAktDocuments[]; // Cache documents for up to 5 Akts
+  // Case Tab Documents state (cached in localStorage via cacheService)
   caseDocumentsLoading: boolean;
   loadingCaseDocumentsForAktId: number | null; // Track which akt is loading documents in case tab
   caseDocumentsError: string | null;
@@ -61,6 +61,8 @@ const initialState: AktenState = {
   // Search and lookup state
   cases: [],
   searchTerm: '',
+  previousSearchTerm: null,
+  searchCounter: 0,
   selectedAkt: null,
   loading: false,
   error: null,
@@ -74,8 +76,7 @@ const initialState: AktenState = {
   removeFromFavoriteLoading: false,
   removingFromFavoriteAktId: null,
 
-  // Case Tab Documents state (cached for multiple Akts)
-  caseDocumentsCache: [],
+  // Case Tab Documents state (cached in localStorage via cacheService)
   caseDocumentsLoading: false,
   loadingCaseDocumentsForAktId: null,
   caseDocumentsError: null,
@@ -99,36 +100,84 @@ const initialState: AktenState = {
 export const getFavoriteAktenAsync = createAsyncThunk(
   'akten/getFavoriteAkten',
   async (query: AktenQuery) => {
+    // 1. Try to get from cache first
+    try {
+      const cached = await cacheService.get<AktenResponse[]>(
+        CACHE_KEYS.FAVORITES_AKTEN,
+        CACHE_CONFIG[CACHE_KEYS.FAVORITES_AKTEN]
+      );
+
+      if (cached) {
+        console.log('📦 [aktenSlice] Using cached favorite akten');
+        return cached;
+      }
+    } catch (error: unknown) {
+      console.warn('⚠️ [aktenSlice] Cache read failed, falling back to API:', getErrorMessage(error));
+    }
+
+    // 2. Cache miss or error - fetch from API
+    console.log('🌐 [aktenSlice] Fetching favorite akten from API');
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.getFavoriteAkten(query);
     
     if (response.statusCode === 200) {
-      return JSON.parse(response.body || '[]') as AktenResponse[]; // Use AktenResponse format (Id, AKurz, Causa)
+      const data = JSON.parse(response.body || '[]') as AktenResponse[];
+      
+      // 3. Update cache only if results are not empty
+      if (data.length > 0) {
+        try {
+          await cacheService.set(
+            CACHE_KEYS.FAVORITES_AKTEN,
+            data,
+            CACHE_CONFIG[CACHE_KEYS.FAVORITES_AKTEN]
+          );
+          console.log(`✅ [aktenSlice] Cached ${data.length} favorite akten`);
+        } catch (error: unknown) {
+          console.warn('⚠️ [aktenSlice] Cache write failed:', getErrorMessage(error));
+        }
+      } else {
+        console.log('⏭️ [aktenSlice] Skipping cache for empty favorites');
+      }
+      
+      return data;
     } else {
       throw new Error('Failed to get favorite cases');
     }
   }
 );
 
-// Async thunk for getting documents for case tab (with caching)
+// Async thunk for getting documents for case tab (with localStorage caching - 1 hour TTL)
 export const getCaseDocumentsAsync = createAsyncThunk(
   'akten/getCaseDocuments',
   async (params: { aktId: number; Count?: number }, { getState }) => {
-    const state = getState() as { akten: AktenState };
+    const state = getState() as { auth: { credentials: { username: string | null } } };
+    const username = state.auth.credentials.username;
     
-    // Check if documents are already cached for this aktId
-    const existingCache = state.akten.caseDocumentsCache.find(cache => cache.aktId === params.aktId);
-    if (existingCache) {
-      // Update the timestamp to mark as recently accessed (LRU)
-      return {
-        aktId: params.aktId,
-        documents: existingCache.documents,
-        fromCache: true
-      };
+    if (!username) {
+      throw new Error('User not authenticated');
     }
     
-    // If not cached, fetch from API
+    const cacheKey = `${CACHE_KEYS.DOCUMENTS}_${params.aktId}`;
+    const cacheOptions = {
+      ...CACHE_CONFIG[CACHE_KEYS.DOCUMENTS],
+      namespace: username
+    };
+    
+    // 1. Try to get from cache first
+    try {
+      const cached = await cacheService.get<DokumentResponse[]>(cacheKey, cacheOptions);
+
+      if (cached) {
+        console.log(`📦 [aktenSlice] Using cached documents for aktId ${params.aktId}`);
+        return { aktId: params.aktId, documents: cached };
+      }
+    } catch (error: unknown) {
+      console.warn('⚠️ [aktenSlice] Cache read failed, falling back to API:', getErrorMessage(error));
+    }
+    
+    // 2. Cache miss or error - fetch from API
+    console.log(`🌐 [aktenSlice] Fetching documents from API for aktId ${params.aktId}`);
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.GetDocuments({
@@ -137,11 +186,16 @@ export const getCaseDocumentsAsync = createAsyncThunk(
     });
     
     if (response.statusCode === 200) {
-      return {
-        aktId: params.aktId,
-        documents: JSON.parse(response.body || '[]') as DokumentResponse[],
-        fromCache: false
-      };
+      const documents = JSON.parse(response.body || '[]') as DokumentResponse[];
+      
+      // 3. Update cache (best effort, don't fail if cache write fails)
+      try {
+        await cacheService.set(cacheKey, documents, cacheOptions);
+      } catch (error: unknown) {
+        console.warn('⚠️ [aktenSlice] Cache write failed:', getErrorMessage(error));
+      }
+      
+      return { aktId: params.aktId, documents };
     } else {
       throw new Error('Failed to get documents for Akt');
     }
@@ -174,12 +228,29 @@ export const getEmailDocumentsAsync = createAsyncThunk(
 // New async thunk for adding Akt to favorites
 export const addAktToFavoriteAsync = createAsyncThunk(
   'akten/addAktToFavorite',
-  async (aktId: number) => {
+  async (aktId: number, thunkAPI) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.addAktToFavorite(aktId);
     
     if (response.statusCode === 200) {
+      // Clear favorites cache to force fresh fetch
+      try {
+        const username = (thunkAPI.getState() as RootState).auth?.credentials?.username;
+        if (username) {
+          await cacheService.clearCacheType(CACHE_KEYS.FAVORITES_AKTEN, { namespace: username });
+          console.log('🗑️ [aktenSlice] Cleared favorites cache after adding to favorites');
+        }
+      } catch (error: unknown) {
+        console.warn('⚠️ [aktenSlice] Cache clear failed:', error instanceof Error ? error.message : String(error));
+      }
+      
+      // Refresh favorites from API
+      await thunkAPI.dispatch(getFavoriteAktenAsync({ Count: 100, NurFavoriten: true }));
+      
+      // Cache will be automatically updated by getFavoriteAktenAsync
+      console.log('✅ [aktenSlice] Akt added to favorites, cache updated');
+      
       return aktId; // Return the aktId that was added to favorites
     } else {
       throw new Error('Failed to add Akt to favorites');
@@ -190,11 +261,29 @@ export const addAktToFavoriteAsync = createAsyncThunk(
 // New async thunk for removing Akt from favorites
 export const removeAktFromFavoriteAsync = createAsyncThunk(
   'akten/removeAktFromFavorite',
-  async (aktId: number) => {
+  async (aktId: number, thunkAPI) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removeAktFromFavorite(aktId);
+    
     if (response.statusCode === 200) {
+      // Clear favorites cache to force fresh fetch
+      try {
+        const username = (thunkAPI.getState() as RootState).auth?.credentials?.username;
+        if (username) {
+          await cacheService.clearCacheType(CACHE_KEYS.FAVORITES_AKTEN, { namespace: username });
+          console.log('🗑️ [aktenSlice] Cleared favorites cache after removing from favorites');
+        }
+      } catch (error: unknown) {
+        console.warn('⚠️ [aktenSlice] Cache clear failed:', error instanceof Error ? error.message : String(error));
+      }
+      
+      // Refresh favorites from API
+      await thunkAPI.dispatch(getFavoriteAktenAsync({ Count: 100, NurFavoriten: true }));
+      
+      // Cache will be automatically updated by getFavoriteAktenAsync
+      console.log('✅ [aktenSlice] Akt removed from favorites, cache updated');
+      
       return aktId; // Return the aktId that was removed from favorites
     } else {
       throw new Error('Failed to remove Akt from favorites');
@@ -251,16 +340,102 @@ export const getAvailableFoldersAsync = createAsyncThunk(
 // and update the state with the results.
 export const aktLookUpAsync = createAsyncThunk(
   'akten/aktLookUp',
-  async (searchText: string) => {
+  async (searchText: string, { getState }) => {
+    const state = getState() as RootState;
+    const cacheKey = `search_results:akt:${searchText}`;
+    const isSameSearchTerm = state.akten.previousSearchTerm === searchText;
+    const currentCounter = isSameSearchTerm ? state.akten.searchCounter : 0;
+    const forceRefresh = currentCounter % 2 === 1; // Odd counter = force refresh
+    const isReady = selectIsReady(state);
+
+    // 0. If not ready (offline or SIP not connected), skip API and use cache immediately
+    if (!isReady) {
+      const reason = selectNotReadyReason(state);
+
+      try {
+        const cached = await cacheService.get<AktLookUpResponse[]>(
+          cacheKey,
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
+        );
+
+        if (cached) {
+          console.log(`📴 [aktenSlice] ${reason}. Using cached search results for:`, searchText);
+          notify(`⚠️ ${reason}. Showing cached results.`, 'warning', 4000);
+          return cached;
+        }
+      } catch (error: unknown) {
+        console.warn(`⚠️ [aktenSlice] Cache read failed while ${reason}:`, getErrorMessage(error));
+      }
+
+      throw new Error(`${reason}. No cached data available. Please try again when connected.`);
+    }
+
+    // 1. Check cache if not force refresh
+    if (!forceRefresh) {
+      try {
+        const cached = await cacheService.get<AktLookUpResponse[]>(
+          cacheKey,
+          CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
+        );
+
+        if (cached) {
+          console.log('📦 [aktenSlice] Using cached search results for:', searchText);
+          return cached;
+        }
+      } catch (error: unknown) {
+        console.warn('⚠️ [aktenSlice] Cache read failed:', getErrorMessage(error));
+      }
+    } else {
+      console.log('🔄 [aktenSlice] Force refresh for:', searchText);
+    }
+
+    // 2. Fetch from API
+    console.log('🌐 [aktenSlice] Fetching search results from API:', searchText);
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
-    const response = await webRTCApiService.aktLookUp(searchText);
-    
-    if (response.statusCode === 200) {
-      return JSON.parse(response.body || '[]') as AktLookUpResponse[];
-    } else {
-      throw new Error('Failed to lookup cases');
+    try {
+      const response = await webRTCApiService.aktLookUp(searchText);
+      
+      if (response.statusCode === 200) {
+        const data = JSON.parse(response.body || '[]') as AktLookUpResponse[];
+        
+        // 3. Update cache only if results are not empty
+        if (data.length > 0) {
+          try {
+            await cacheService.set(
+              cacheKey,
+              data,
+              CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
+            );
+            console.log(`✅ [aktenSlice] Cached ${data.length} search results`);
+          } catch (error: unknown) {
+            console.warn('⚠️ [aktenSlice] Cache write failed:', getErrorMessage(error));
+          }
+        } else {
+          console.log('⏭️ [aktenSlice] Skipping cache for empty search results');
+        }
+        
+        return data;
+      } else {
+        throw new Error('Failed to lookup cases');
+      }
+    } catch (error: unknown) {
+      // On any failure, try to return stale cached data
+      try {
+        const staleCache = await cacheService.get<AktLookUpResponse[]>(
+          cacheKey,
+          { storage: StorageType.SESSION }
+        );
+        if (staleCache) {
+          console.warn('⚠️ [aktenSlice] API failed, returning stale cached data');
+          notify('Something went wrong. Showing cached results.', 'warning', 4000);
+          return staleCache;
+        }
+      } catch (cacheError: unknown) {
+        console.error('❌ [aktenSlice] Failed to retrieve stale cache:', getErrorMessage(cacheError));
+      }
+      throw error;
     }
   }
 );
@@ -288,7 +463,6 @@ const aktenSlice = createSlice({
       state.cases = [];
       // DON'T clear favouriteAkten here - it should be managed separately
       // state.favouriteAkten = []; // ← REMOVED: This was clearing favorites unexpectedly
-      state.caseDocumentsCache = [];
       state.selectedAkt = null; // Clear selected Akt when clearing search results
       state.error = null;
       state.caseDocumentsError = null;
@@ -300,16 +474,14 @@ const aktenSlice = createSlice({
       state.emailDocumentsLoadedForEmailId = null;
       state.emailDocumentsError = null;
     },
-    // Clear case documents cache
+    // Clear case documents cache - note: actual cache clearing happens in thunk
     clearCaseDocuments: (state) => {
-      state.caseDocumentsCache = [];
       state.caseDocumentsError = null;
     },
     // Clear favorite Akten
     clearFavorites: (state) => {
       state.favouriteAkten = [];
       state.favoritesLoaded = false;
-      state.caseDocumentsCache = []; // Clear documents cache as they depend on favorites
     },
     // Clear folder options
     clearFolders: (state) => {
@@ -325,6 +497,11 @@ const aktenSlice = createSlice({
     // Use the PayloadAction type to declare the contents of `action.payload`
     setSearchTerm: (state, action: PayloadAction<string>) => {
       state.searchTerm = action.payload;
+    },
+    // Clear previous search term (call when unmounting search component)
+    clearPreviousSearchTerm: (state) => {
+      state.previousSearchTerm = null;
+      state.searchCounter = 0;
     }
   },
   // The `extraReducers` field lets the slice handle actions defined elsewhere,
@@ -345,7 +522,7 @@ const aktenSlice = createSlice({
         state.favoritesLoading = false;
         state.error = action.error.message || 'Failed to get favorite cases via WebRTC';
       })
-      // Get case documents handlers (with caching)
+      // Get case documents handlers (with localStorage caching)
       .addCase(getCaseDocumentsAsync.pending, (state, action) => {
         state.caseDocumentsLoading = true;
         state.loadingCaseDocumentsForAktId = action.meta.arg.aktId;
@@ -354,28 +531,7 @@ const aktenSlice = createSlice({
       .addCase(getCaseDocumentsAsync.fulfilled, (state, action) => {
         state.caseDocumentsLoading = false;
         state.loadingCaseDocumentsForAktId = null;
-        
-        const { aktId, documents, fromCache } = action.payload;
-        const timestamp = Date.now();
-        
-        // Remove existing entry for this aktId (if any)
-        state.caseDocumentsCache = state.caseDocumentsCache.filter(cache => cache.aktId !== aktId);
-        
-        // Add new entry (or update timestamp for cached entry)
-        state.caseDocumentsCache.push({
-          aktId,
-          documents,
-          loadedAt: timestamp
-        });
-        
-        // Implement LRU: Keep only the 5 most recently used entries
-        if (state.caseDocumentsCache.length > 5) {
-          // Sort by loadedAt and keep the 5 most recent ones
-          state.caseDocumentsCache.sort((a, b) => b.loadedAt - a.loadedAt);
-          state.caseDocumentsCache = state.caseDocumentsCache.slice(0, 5);
-        }
-        
-        console.log(`📄 Case documents ${fromCache ? 'retrieved from cache' : 'loaded from API'} for Akt ${aktId}: ${documents.length} documents`);
+        console.log(`📄 Case documents loaded for Akt ${action.payload.aktId}: ${action.payload.documents.length} documents`);
       })
       .addCase(getCaseDocumentsAsync.rejected, (state, action) => {
         state.caseDocumentsLoading = false;
@@ -462,6 +618,11 @@ const aktenSlice = createSlice({
       .addCase(aktLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
         state.cases = action.payload;
+        const searchText = action.meta.arg;
+        const isSameSearchTerm = state.previousSearchTerm === searchText;
+        state.previousSearchTerm = searchText;
+        // Increment counter with max limit to prevent overflow
+        state.searchCounter = isSameSearchTerm ? Math.min(state.searchCounter + 1, 100) : 0;
       })
       .addCase(aktLookUpAsync.rejected, (state, action) => {
         state.loading = false;
@@ -471,18 +632,9 @@ const aktenSlice = createSlice({
 });
 
 // Export actions
-export const { clearCases, clearEmailDocuments, clearCaseDocuments, clearFavorites, clearFolders, setSelectedAkt, setSearchTerm } = aktenSlice.actions;
+export const { clearCases, clearEmailDocuments, clearCaseDocuments, clearFavorites, clearFolders, setSelectedAkt, setSearchTerm, clearPreviousSearchTerm } = aktenSlice.actions;
 
-// Selectors for easy access to cached documents
-export const selectCachedDocumentsForAkt = (state: { akten: AktenState }, aktId: number): DokumentResponse[] => {
-  const cachedEntry = state.akten.caseDocumentsCache.find(cache => cache.aktId === aktId);
-  return cachedEntry ? cachedEntry.documents : [];
-};
-
-export const selectHasCachedDocumentsForAkt = (state: { akten: AktenState }, aktId: number): boolean => {
-  return state.akten.caseDocumentsCache.some(cache => cache.aktId === aktId);
-};
-
+// Selectors
 export const selectEmailDocuments = (state: { akten: AktenState }) => state.akten.emailDocuments;
 
 export const selectEmailDocumentsForAktAndEmail = (state: { akten: AktenState }, aktId: number, emailId?: string): DokumentResponse[] => {

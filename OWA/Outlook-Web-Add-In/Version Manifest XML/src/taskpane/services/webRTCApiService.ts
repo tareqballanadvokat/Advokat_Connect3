@@ -1,12 +1,10 @@
 import { AktenQuery } from '../components/interfaces/IAkten';
 import { WebRTCApiRequest, WebRTCApiResponse, PendingRequest, ChunkInfo, ReceivedResponseChunk } from '../components/interfaces/IWebRTC';
-import { LeistungenAuswahlQuery, LeistungPostData } from '../components/interfaces/IService';
+import { LeistungenAuswahlQuery, LeistungPostData, LeistungenQuery } from '../components/interfaces/IService';
 import { DokumentPostData, DokumenteQuery, DokumentResponse } from '../components/interfaces/IDocument';
 import { PersonenQuery } from '../components/interfaces/IPerson';
 import { IAuthRequest, IAuthResponse } from '../components/interfaces/IAuth';
 import { SipClientInstance } from '../components/SIP_Library/SipClient';
-import { store } from '../../store';
-import { selectAuthToken, selectIsTokenValid } from '../../store/slices/authSlice';
 import { tokenService } from './TokenService';
 import { WebRTCDataChannelService, DataChannelObserver } from './WebRTCDataChannelService';
 import {
@@ -794,6 +792,29 @@ export class WebRTCApiService implements DataChannelObserver {
         'Accept': 'text/plain'
       },
       leistungData
+    );
+  }
+
+  /**
+   * Get all Leistungen by Akt via WebRTC
+   * @param query - Query parameters (aktId, outlookEmailId, count)
+   * @returns Promise resolving to array of LeistungResponse
+   */
+  async getLeistungenByAkt(query: LeistungenQuery) {
+    const queryParams = new URLSearchParams();
+    
+    if (query.aktId != null) queryParams.append('AktId', query.aktId.toString());
+    if (query.outlookEmailId != null) queryParams.append('OutlookEmailId', query.outlookEmailId);
+    if (query.count != null) queryParams.append('Count', query.count.toString());
+
+    return this.sendRequest(
+      'service.getLeistungenByAkt',
+      'GET',
+      `api/v1.1/Leistungen?${queryParams.toString()}`,
+      {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
     );
   }
 

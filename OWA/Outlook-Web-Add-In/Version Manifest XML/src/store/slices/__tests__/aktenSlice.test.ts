@@ -11,6 +11,7 @@ import aktenReducer, {
   clearFolders,
   setSelectedAkt,
   setSearchTerm,
+  clearPreviousSearchTerm,
   getFavoriteAktenAsync,
   getCaseDocumentsAsync,
   getEmailDocumentsAsync,
@@ -19,12 +20,9 @@ import aktenReducer, {
   getAvailableFoldersAsync,
   downloadDocumentAsync,
   aktLookUpAsync,
-  selectCachedDocumentsForAkt,
-  selectHasCachedDocumentsForAkt,
   selectEmailDocuments,
   selectEmailDocumentsForAktAndEmail,
   FolderOption,
-  CachedAktDocuments,
 } from '../aktenSlice';
 import { AktLookUpResponse, AktenResponse } from '../../../taskpane/components/interfaces/IAkten';
 import { DokumentResponse } from '../../../taskpane/components/interfaces/IDocument';
@@ -32,7 +30,6 @@ import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests, createT
 import {
   createMockAkt,
   createMockDocument,
-  createMockCachedAktDocuments,
   createMockFolderOption,
 } from './testFactories';
 
@@ -71,6 +68,8 @@ describe('aktenSlice', () => {
   const initialState = {
     cases: [],
     searchTerm: '',
+    previousSearchTerm: null,
+    searchCounter: 0,
     selectedAkt: null,
     loading: false,
     error: null,
@@ -81,7 +80,6 @@ describe('aktenSlice', () => {
     addingToFavoriteAktId: null,
     removeFromFavoriteLoading: false,
     removingFromFavoriteAktId: null,
-    caseDocumentsCache: [],
     caseDocumentsLoading: false,
     loadingCaseDocumentsForAktId: null,
     caseDocumentsError: null,
@@ -114,7 +112,6 @@ describe('aktenSlice', () => {
           ...initialState,
           cases: [mockAktLookup],
           selectedAkt: mockAktLookup,
-          caseDocumentsCache: [createMockCachedAktDocuments()],
           error: 'Some error',
           caseDocumentsError: 'Document error',
         };
@@ -123,7 +120,6 @@ describe('aktenSlice', () => {
 
         expect(actual.cases).toEqual([]);
         expect(actual.selectedAkt).toBeNull();
-        expect(actual.caseDocumentsCache).toEqual([]);
         expect(actual.error).toBeNull();
         expect(actual.caseDocumentsError).toBeNull();
       });
@@ -161,34 +157,30 @@ describe('aktenSlice', () => {
     });
 
     describe('clearCaseDocuments', () => {
-      it('should clear case documents cache', () => {
-        const stateWithCache = {
+      it('should clear case documents error', () => {
+        const stateWithError = {
           ...initialState,
-          caseDocumentsCache: [createMockCachedAktDocuments()],
           caseDocumentsError: 'Error',
         };
 
-        const actual = aktenReducer(stateWithCache, clearCaseDocuments());
+        const actual = aktenReducer(stateWithError, clearCaseDocuments());
 
-        expect(actual.caseDocumentsCache).toEqual([]);
         expect(actual.caseDocumentsError).toBeNull();
       });
     });
 
     describe('clearFavorites', () => {
-      it('should clear favorites and case documents cache', () => {
+      it('should clear favorites', () => {
         const stateWithFavorites = {
           ...initialState,
           favouriteAkten: [mockAktenResponse],
           favoritesLoaded: true,
-          caseDocumentsCache: [createMockCachedAktDocuments()],
         };
 
         const actual = aktenReducer(stateWithFavorites, clearFavorites());
 
         expect(actual.favouriteAkten).toEqual([]);
         expect(actual.favoritesLoaded).toBe(false);
-        expect(actual.caseDocumentsCache).toEqual([]);
       });
     });
 
@@ -244,6 +236,21 @@ describe('aktenSlice', () => {
         const actual = aktenReducer(stateWithSearch, setSearchTerm('new search'));
 
         expect(actual.searchTerm).toBe('new search');
+      });
+    });
+
+    describe('clearPreviousSearchTerm', () => {
+      it('should clear previous search term', () => {
+        const stateWithPreviousSearch = {
+          ...initialState,
+          previousSearchTerm: 'test',
+          searchCounter: 5,
+        };
+
+        const actual = aktenReducer(stateWithPreviousSearch, clearPreviousSearchTerm());
+
+        expect(actual.previousSearchTerm).toBeNull();
+        expect(actual.searchCounter).toBe(0);
       });
     });
   });
@@ -327,61 +334,16 @@ describe('aktenSlice', () => {
         expect(actual.caseDocumentsError).toBeNull();
       });
 
-      it('should handle fulfilled state and add to cache', () => {
-        const payload = { aktId: 1, documents: [mockDocument], fromCache: false };
+      it('should handle fulfilled state', () => {
+        const payload = { aktId: 1, documents: [mockDocument] };
         const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
         const actual = aktenReducer(initialState, action);
 
         expect(actual.caseDocumentsLoading).toBe(false);
         expect(actual.loadingCaseDocumentsForAktId).toBeNull();
-        expect(actual.caseDocumentsCache).toHaveLength(1);
-        expect(actual.caseDocumentsCache[0].aktId).toBe(1);
-        expect(actual.caseDocumentsCache[0].documents).toEqual([mockDocument]);
       });
 
-      it('should update existing cache entry for same aktId', () => {
-        const existingCache = {
-          ...initialState,
-          caseDocumentsCache: [
-            createMockCachedAktDocuments({ loadedAt: Date.now() - 1000 }),
-          ],
-        };
 
-        const newDocument = createMockDocument({ id: 2, betreff: 'New Document' });
-        const payload = { aktId: 1, documents: [newDocument], fromCache: false };
-        const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-        const actual = aktenReducer(existingCache, action);
-
-        expect(actual.caseDocumentsCache).toHaveLength(1);
-        expect(actual.caseDocumentsCache[0].documents).toEqual([newDocument]);
-      });
-
-      it('should implement LRU cache (keep only 5 most recent)', () => {
-        const oldTimestamp = Date.now() - 10000;
-        const stateWith5Cached = {
-          ...initialState,
-          caseDocumentsCache: [
-            createMockCachedAktDocuments({ aktId: 1, documents: [], loadedAt: oldTimestamp }), // Oldest
-            createMockCachedAktDocuments({ aktId: 2, documents: [], loadedAt: oldTimestamp + 1000 }),
-            createMockCachedAktDocuments({ aktId: 3, documents: [], loadedAt: oldTimestamp + 2000 }),
-            createMockCachedAktDocuments({ aktId: 4, documents: [], loadedAt: oldTimestamp + 3000 }),
-            createMockCachedAktDocuments({ aktId: 5, documents: [], loadedAt: oldTimestamp + 4000 }), // Newest of existing
-          ],
-        };
-
-        const payload = { aktId: 6, documents: [mockDocument], fromCache: false };
-        const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-        const actual = aktenReducer(stateWith5Cached, action);
-
-        expect(actual.caseDocumentsCache).toHaveLength(5);
-        // Verify the oldest (aktId: 1) was removed
-        expect(actual.caseDocumentsCache.find(c => c.aktId === 1)).toBeUndefined();
-        // Verify the new entry was added
-        expect(actual.caseDocumentsCache.find(c => c.aktId === 6)).toBeDefined();
-        // Verify newest entry has most recent timestamp
-        const newestEntry = actual.caseDocumentsCache.find(c => c.aktId === 6);
-        expect(newestEntry?.loadedAt).toBeGreaterThan(oldTimestamp + 4000);
-      });
 
       it('should handle rejected state', () => {
         const action = {
@@ -660,11 +622,55 @@ describe('aktenSlice', () => {
 
       it('should handle fulfilled state', () => {
         const payload = [mockAktLookup];
-        const action = { type: aktLookUpAsync.fulfilled.type, payload };
+        const action = { 
+          type: aktLookUpAsync.fulfilled.type, 
+          payload,
+          meta: { arg: 'test search' }
+        };
         const actual = aktenReducer(initialState, action);
 
         expect(actual.loading).toBe(false);
         expect(actual.cases).toEqual(payload);
+        expect(actual.previousSearchTerm).toBe('test search');
+        expect(actual.searchCounter).toBe(0); // First search
+      });
+
+      it('should increment searchCounter on same search term', () => {
+        const stateWithPreviousSearch = {
+          ...initialState,
+          previousSearchTerm: 'test',
+          searchCounter: 0,
+        };
+        
+        const payload = [mockAktLookup];
+        const action = { 
+          type: aktLookUpAsync.fulfilled.type, 
+          payload,
+          meta: { arg: 'test' }
+        };
+        const actual = aktenReducer(stateWithPreviousSearch, action);
+
+        expect(actual.previousSearchTerm).toBe('test');
+        expect(actual.searchCounter).toBe(1); // Incremented
+      });
+
+      it('should reset searchCounter on different search term', () => {
+        const stateWithPreviousSearch = {
+          ...initialState,
+          previousSearchTerm: 'old',
+          searchCounter: 5,
+        };
+        
+        const payload = [mockAktLookup];
+        const action = { 
+          type: aktLookUpAsync.fulfilled.type, 
+          payload,
+          meta: { arg: 'new' }
+        };
+        const actual = aktenReducer(stateWithPreviousSearch, action);
+
+        expect(actual.previousSearchTerm).toBe('new');
+        expect(actual.searchCounter).toBe(0); // Reset
       });
 
       it('should handle rejected state', () => {
@@ -706,39 +712,11 @@ describe('aktenSlice', () => {
     const mockState = {
       akten: {
         ...initialState,
-        caseDocumentsCache: [
-          createMockCachedAktDocuments({ aktId: 1, documents: [mockDocument] }),
-          createMockCachedAktDocuments({ aktId: 2, documents: [] }),
-        ],
         emailDocuments: [mockDocument],
         emailDocumentsLoadedForAktId: 1,
         emailDocumentsLoadedForEmailId: 'email123',
       },
     };
-
-    describe('selectCachedDocumentsForAkt', () => {
-      it('should return documents for cached aktId', () => {
-        const result = selectCachedDocumentsForAkt(mockState, 1);
-        expect(result).toEqual([mockDocument]);
-      });
-
-      it('should return empty array for non-cached aktId', () => {
-        const result = selectCachedDocumentsForAkt(mockState, 999);
-        expect(result).toEqual([]);
-      });
-    });
-
-    describe('selectHasCachedDocumentsForAkt', () => {
-      it('should return true for cached aktId', () => {
-        const result = selectHasCachedDocumentsForAkt(mockState, 1);
-        expect(result).toBe(true);
-      });
-
-      it('should return false for non-cached aktId', () => {
-        const result = selectHasCachedDocumentsForAkt(mockState, 999);
-        expect(result).toBe(false);
-      });
-    });
 
     describe('selectEmailDocuments', () => {
       it('should return email documents', () => {
@@ -770,12 +748,6 @@ describe('aktenSlice', () => {
     });
 
     describe('Edge cases', () => {
-      it('should handle empty cache in selectCachedDocumentsForAkt', () => {
-        const emptyState = { akten: { ...initialState, caseDocumentsCache: [] } };
-        const result = selectCachedDocumentsForAkt(emptyState, 1);
-        expect(result).toEqual([]);
-      });
-
       it('should handle empty email documents', () => {
         const emptyState = { akten: { ...initialState, emailDocuments: [] } };
         const result = selectEmailDocuments(emptyState);
@@ -830,28 +802,7 @@ describe('aktenSlice', () => {
       expect(state.removeFromFavoriteLoading).toBe(false);
     });
 
-    it('should handle document caching workflow', () => {
-      let state = initialState;
 
-      // Load documents for Akt 1
-      state = aktenReducer(state, {
-        type: getCaseDocumentsAsync.fulfilled.type,
-        payload: { aktId: 1, documents: [mockDocument], fromCache: false },
-      });
-      expect(state.caseDocumentsCache).toHaveLength(1);
-
-      // Load documents for Akt 2
-      const doc2 = createMockDocument({ id: 2, aktId: 2 });
-      state = aktenReducer(state, {
-        type: getCaseDocumentsAsync.fulfilled.type,
-        payload: { aktId: 2, documents: [doc2], fromCache: false },
-      });
-      expect(state.caseDocumentsCache).toHaveLength(2);
-
-      // Clear cache
-      state = aktenReducer(state, clearCaseDocuments());
-      expect(state.caseDocumentsCache).toEqual([]);
-    });
 
     it('should handle search and selection workflow', () => {
       let state = initialState;
@@ -878,19 +829,7 @@ describe('aktenSlice', () => {
     });
   });
 
-  describe('Boundary Conditions', () => {
-    it('should handle very large number of cached documents', () => {
-      const largeDocumentArray = Array.from({ length: 1000 }, (_, i) => 
-        createMockDocument({ id: i + 1 })
-      );
-      
-      const payload = { aktId: 1, documents: largeDocumentArray, fromCache: false };
-      const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-      const state = aktenReducer(initialState, action);
-      
-      expect(state.caseDocumentsCache[0].documents).toHaveLength(1000);
-    });
-  });
+
 
   describe('Concurrent Operations', () => {
     it('should handle multiple pending states independently', () => {
@@ -918,44 +857,7 @@ describe('aktenSlice', () => {
     });
   });
 
-  describe('Cache Management', () => {
-    it('should handle cache timestamp updates correctly', () => {
-      const oldTimestamp = Date.now() - 5000;
-      const stateWithCache = {
-        ...initialState,
-        caseDocumentsCache: [
-          createMockCachedAktDocuments({ loadedAt: oldTimestamp })
-        ]
-      };
 
-      const updatedDoc = createMockDocument({ betreff: 'Updated Document' });
-      const payload = { aktId: 1, documents: [updatedDoc], fromCache: false };
-      const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-      const state = aktenReducer(stateWithCache, action);
-
-      expect(state.caseDocumentsCache[0].loadedAt).toBeGreaterThan(oldTimestamp);
-      expect(state.caseDocumentsCache[0].documents[0].betreff).toBe('Updated Document');
-    });
-
-    it('should prevent duplicate aktIds in cache', () => {
-      const stateWithDuplicates = {
-        ...initialState,
-        caseDocumentsCache: [
-          createMockCachedAktDocuments({ aktId: 1, documents: [mockDocument], loadedAt: Date.now() }),
-          createMockCachedAktDocuments({ aktId: 1, documents: [createMockDocument({ id: 2 })], loadedAt: Date.now() + 1000 })
-        ]
-      };
-
-      const payload = { aktId: 1, documents: [createMockDocument({ id: 3 })], fromCache: false };
-      const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-      const state = aktenReducer(stateWithDuplicates, action);
-
-      // Should have only one entry for aktId 1 with the newest documents
-      const entriesForAkt1 = state.caseDocumentsCache.filter(c => c.aktId === 1);
-      expect(entriesForAkt1).toHaveLength(1);
-      expect(entriesForAkt1[0].documents[0].id).toBe(3);
-    });
-  });
 
   describe('Error Recovery', () => {
     it('should recover from error state on subsequent successful calls', () => {
@@ -992,31 +894,7 @@ describe('aktenSlice', () => {
     });
   });
 
-  describe('Selector Performance', () => {
-    it('should efficiently handle large state in selectCachedDocumentsForAkt', () => {
-      const largeCache = Array.from({ length: 100 }, (_, i) => 
-        createMockCachedAktDocuments({
-          aktId: i + 1,
-          documents: [createMockDocument({ id: i + 1 })],
-          loadedAt: Date.now() + i
-        })
-      );
 
-      const largeState = {
-        akten: {
-          ...initialState,
-          caseDocumentsCache: largeCache
-        }
-      };
-
-      const startTime = performance.now();
-      const result = selectCachedDocumentsForAkt(largeState, 50);
-      const endTime = performance.now();
-
-      expect(result).toHaveLength(1);
-      expect(endTime - startTime).toBeLessThan(10); // Should be very fast
-    });
-  });
 
   describe('Partial State Updates', () => {
     it('should preserve unrelated state during updates', () => {
@@ -1053,62 +931,12 @@ describe('aktenSlice', () => {
       expect(newState.searchTerm).toBe('New Search');
     });
 
-    it('should not mutate original state when adding to cache', () => {
-      const originalState = { ...initialState };
-      const payload = { aktId: 1, documents: [mockDocument], fromCache: false };
-      const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-      const newState = aktenReducer(originalState, action);
-      
-      expect(originalState.caseDocumentsCache).toHaveLength(0); // Unchanged
-      expect(newState.caseDocumentsCache).toHaveLength(1);
-    });
 
-    it('should return new object references for cache array', () => {
-      const originalState = {
-        ...initialState,
-        caseDocumentsCache: [
-          { aktId: 1, documents: [mockDocument], loadedAt: Date.now() }
-        ]
-      };
-      
-      const payload = { aktId: 2, documents: [createMockDocument({ id: 2 })], fromCache: false };
-      const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-      const newState = aktenReducer(originalState, action);
-      
-      expect(newState.caseDocumentsCache).not.toBe(originalState.caseDocumentsCache);
-      expect(newState.caseDocumentsCache).toHaveLength(2);
-    });
-
-    it('should not mutate nested document arrays in cache', () => {
-      const originalDocuments = [mockDocument];
-      const originalState = {
-        ...initialState,
-        caseDocumentsCache: [
-          { aktId: 1, documents: originalDocuments, loadedAt: Date.now() }
-        ]
-      };
-      
-      const updatedDoc = createMockDocument({ id: 2, betreff: 'Updated' });
-      const payload = { aktId: 1, documents: [updatedDoc], fromCache: false };
-      const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-      const newState = aktenReducer(originalState, action);
-      
-      // Original array unchanged
-      expect(originalDocuments).toHaveLength(1);
-      expect(originalDocuments[0].id).toBe(1);
-      
-      // New state has updated documents
-      expect(newState.caseDocumentsCache[0].documents).toHaveLength(1);
-      expect(newState.caseDocumentsCache[0].documents[0].id).toBe(2);
-    });
 
     it('should preserve unmodified state when updating selected Akt', () => {
       const originalState = {
         ...initialState,
         favouriteAkten: [createMockAkt()],
-        caseDocumentsCache: [
-          { aktId: 1, documents: [mockDocument], loadedAt: Date.now() }
-        ],
         searchTerm: 'existing',
       };
       
@@ -1117,27 +945,10 @@ describe('aktenSlice', () => {
       
       // These should be unchanged
       expect(newState.favouriteAkten).toBe(originalState.favouriteAkten);
-      expect(newState.caseDocumentsCache).toBe(originalState.caseDocumentsCache);
       expect(newState.searchTerm).toBe('existing');
       
       // Only selectedAkt changed
       expect(newState.selectedAkt).toEqual(newAkt);
-    });
-
-    it('should create new cache array reference when clearing', () => {
-      const originalCache = [
-        { aktId: 1, documents: [mockDocument], loadedAt: Date.now() }
-      ];
-      const originalState = {
-        ...initialState,
-        caseDocumentsCache: originalCache,
-      };
-      
-      const newState = aktenReducer(originalState, clearCaseDocuments());
-      
-      expect(newState.caseDocumentsCache).not.toBe(originalCache);
-      expect(newState.caseDocumentsCache).toEqual([]);
-      expect(originalCache).toHaveLength(1); // Original unchanged
     });
 
     it('should preserve favorites when clearing cases', () => {
@@ -1207,7 +1018,7 @@ describe('aktenSlice', () => {
         mockWebRTCService.GetDocuments.mockRejectedValue(new Error('Network timeout'));
         
         const dispatch = jest.fn();
-        const getState = jest.fn(() => ({ akten: initialState }));
+        const getState = jest.fn(() => ({ akten: initialState, auth: { username: 'testuser' } }));
         
         const result = await getCaseDocumentsAsync({ aktId: 1 })(dispatch, getState, undefined);
         
@@ -1221,7 +1032,7 @@ describe('aktenSlice', () => {
         mockWebRTCService.GetDocuments.mockRejectedValue(new Error('Connection refused'));
         
         const dispatch = jest.fn();
-        const getState = jest.fn(() => ({ akten: initialState }));
+        const getState = jest.fn(() => ({ akten: initialState, auth: { username: 'testuser' } }));
         
         const result = await getCaseDocumentsAsync({ aktId: 1 })(dispatch, getState, undefined);
         
@@ -1238,7 +1049,7 @@ describe('aktenSlice', () => {
         });
         
         const dispatch = jest.fn();
-        const getState = jest.fn(() => ({ akten: initialState }));
+        const getState = jest.fn(() => ({ akten: initialState, auth: { username: 'testuser' } }));
         
         const result = await getCaseDocumentsAsync({ aktId: 1 })(dispatch, getState, undefined);
         
@@ -1340,189 +1151,7 @@ describe('aktenSlice', () => {
     });
   });
 
-  describe('CachedAktDocuments Type and Structure', () => {
-    describe('Factory Function', () => {
-      it('should create valid CachedAktDocuments with default values', () => {
-        const cached = createMockCachedAktDocuments();
-        
-        expect(cached).toHaveProperty('aktId');
-        expect(cached).toHaveProperty('documents');
-        expect(cached).toHaveProperty('loadedAt');
-        expect(typeof cached.aktId).toBe('number');
-        expect(Array.isArray(cached.documents)).toBe(true);
-        expect(typeof cached.loadedAt).toBe('number');
-      });
 
-      it('should create CachedAktDocuments with custom aktId', () => {
-        const cached = createMockCachedAktDocuments({ aktId: 999 });
-        
-        expect(cached.aktId).toBe(999);
-      });
-
-      it('should create CachedAktDocuments with empty documents array', () => {
-        const cached = createMockCachedAktDocuments({ documents: [] });
-        
-        expect(cached.documents).toEqual([]);
-      });
-
-      it('should create CachedAktDocuments with multiple documents', () => {
-        const docs = [
-          createMockDocument({ id: 1 }),
-          createMockDocument({ id: 2 }),
-          createMockDocument({ id: 3 })
-        ];
-        const cached = createMockCachedAktDocuments({ documents: docs });
-        
-        expect(cached.documents).toHaveLength(3);
-        expect(cached.documents[0].id).toBe(1);
-        expect(cached.documents[2].id).toBe(3);
-      });
-
-      it('should create CachedAktDocuments with specific timestamp', () => {
-        const specificTime = Date.now() - 100000;
-        const cached = createMockCachedAktDocuments({ loadedAt: specificTime });
-        
-        expect(cached.loadedAt).toBe(specificTime);
-      });
-    });
-
-    describe('Cache Entry Validation', () => {
-      it('should maintain correct structure when added to state', () => {
-        const cached = createMockCachedAktDocuments({ aktId: 5 });
-        const payload = { aktId: 5, documents: cached.documents, fromCache: false };
-        const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-        const state = aktenReducer(initialState, action);
-        
-        const addedEntry = state.caseDocumentsCache[0];
-        expect(addedEntry).toHaveProperty('aktId');
-        expect(addedEntry).toHaveProperty('documents');
-        expect(addedEntry).toHaveProperty('loadedAt');
-        expect(addedEntry.aktId).toBe(5);
-      });
-
-      it('should preserve all CachedAktDocuments properties during updates', () => {
-        const oldCache = createMockCachedAktDocuments({ 
-          aktId: 1, 
-          documents: [createMockDocument({ id: 1 })],
-          loadedAt: Date.now() - 5000
-        });
-        
-        const stateWithCache = {
-          ...initialState,
-          caseDocumentsCache: [oldCache]
-        };
-
-        const newDoc = createMockDocument({ id: 2, betreff: 'Updated' });
-        const payload = { aktId: 1, documents: [newDoc], fromCache: false };
-        const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-        const newState = aktenReducer(stateWithCache, action);
-        
-        const updatedEntry = newState.caseDocumentsCache[0];
-        expect(updatedEntry.aktId).toBe(1);
-        expect(updatedEntry.documents).toHaveLength(1);
-        expect(updatedEntry.documents[0].id).toBe(2);
-        expect(updatedEntry.loadedAt).toBeGreaterThan(oldCache.loadedAt);
-      });
-
-      it('should handle CachedAktDocuments with different aktId values', () => {
-        const cache1 = createMockCachedAktDocuments({ aktId: 1 });
-        const cache2 = createMockCachedAktDocuments({ aktId: 2 });
-        const cache3 = createMockCachedAktDocuments({ aktId: 3 });
-        
-        const stateWithMultipleCached = {
-          ...initialState,
-          caseDocumentsCache: [cache1, cache2, cache3]
-        };
-        
-        expect(stateWithMultipleCached.caseDocumentsCache).toHaveLength(3);
-        expect(stateWithMultipleCached.caseDocumentsCache[0].aktId).toBe(1);
-        expect(stateWithMultipleCached.caseDocumentsCache[1].aktId).toBe(2);
-        expect(stateWithMultipleCached.caseDocumentsCache[2].aktId).toBe(3);
-      });
-    });
-
-    describe('Timestamp Management', () => {
-      it('should use recent timestamp when creating new cache entry', () => {
-        const beforeTime = Date.now();
-        const cached = createMockCachedAktDocuments();
-        const afterTime = Date.now();
-        
-        expect(cached.loadedAt).toBeGreaterThanOrEqual(beforeTime);
-        expect(cached.loadedAt).toBeLessThanOrEqual(afterTime);
-      });
-
-      it('should update loadedAt timestamp when cache entry is refreshed', () => {
-        const oldTimestamp = Date.now() - 10000;
-        const oldCache = createMockCachedAktDocuments({ loadedAt: oldTimestamp });
-        
-        const stateWithOldCache = {
-          ...initialState,
-          caseDocumentsCache: [oldCache]
-        };
-
-        const payload = { aktId: 1, documents: [createMockDocument()], fromCache: false };
-        const action = { type: getCaseDocumentsAsync.fulfilled.type, payload };
-        const newState = aktenReducer(stateWithOldCache, action);
-        
-        expect(newState.caseDocumentsCache[0].loadedAt).toBeGreaterThan(oldTimestamp);
-      });
-
-      it('should maintain chronological order for LRU based on loadedAt', () => {
-        const time1 = Date.now() - 3000;
-        const time2 = Date.now() - 2000;
-        const time3 = Date.now() - 1000;
-        
-        const cache = [
-          createMockCachedAktDocuments({ aktId: 1, loadedAt: time1 }),
-          createMockCachedAktDocuments({ aktId: 2, loadedAt: time2 }),
-          createMockCachedAktDocuments({ aktId: 3, loadedAt: time3 })
-        ];
-        
-        const sorted = [...cache].sort((a, b) => b.loadedAt - a.loadedAt);
-        
-        expect(sorted[0].aktId).toBe(3); // Most recent
-        expect(sorted[1].aktId).toBe(2);
-        expect(sorted[2].aktId).toBe(1); // Oldest
-      });
-    });
-
-    describe('Documents Array Management', () => {
-      it('should support empty documents array in CachedAktDocuments', () => {
-        const cached = createMockCachedAktDocuments({ documents: [] });
-        
-        expect(cached.documents).toEqual([]);
-        expect(cached.documents).toHaveLength(0);
-      });
-
-      it('should support single document in CachedAktDocuments', () => {
-        const doc = createMockDocument({ id: 123 });
-        const cached = createMockCachedAktDocuments({ documents: [doc] });
-        
-        expect(cached.documents).toHaveLength(1);
-        expect(cached.documents[0].id).toBe(123);
-      });
-
-      it('should support large number of documents in CachedAktDocuments', () => {
-        const manyDocs = Array.from({ length: 100 }, (_, i) => 
-          createMockDocument({ id: i + 1 })
-        );
-        const cached = createMockCachedAktDocuments({ documents: manyDocs });
-        
-        expect(cached.documents).toHaveLength(100);
-        expect(cached.documents[0].id).toBe(1);
-        expect(cached.documents[99].id).toBe(100);
-      });
-
-      it('should maintain document references in CachedAktDocuments', () => {
-        const doc1 = createMockDocument({ id: 1, betreff: 'Doc 1' });
-        const doc2 = createMockDocument({ id: 2, betreff: 'Doc 2' });
-        const cached = createMockCachedAktDocuments({ documents: [doc1, doc2] });
-        
-        expect(cached.documents[0]).toBe(doc1);
-        expect(cached.documents[1]).toBe(doc2);
-      });
-    });
-  });
 
   // Additional tests for branch coverage
   describe('Branch Coverage - Error Handling', () => {
@@ -1650,40 +1279,6 @@ describe('aktenSlice', () => {
         expect(state.folderOptions[0]).toEqual({ id: 1, text: 'Email' });
         expect(state.folderOptions[1]).toEqual({ id: 2, text: 'Documents' });
         expect(state.folderOptions[2]).toEqual({ id: 3, text: 'Archive' });
-      });
-    });
-
-    describe('getCaseDocumentsAsync - cache paths', () => {
-      it('should return cached documents when available', async () => {
-        const cachedDoc = createMockDocument({ id: 999, betreff: 'Cached' });
-        const store = createTestStore({
-          akten: {
-            ...initialState,
-            caseDocumentsCache: [
-              createMockCachedAktDocuments({ aktId: 5, documents: [cachedDoc] })
-            ]
-          }
-        });
-        
-        const result = await store.dispatch(getCaseDocumentsAsync({ aktId: 5 }) as any);
-        
-        expect(result.payload.fromCache).toBe(true);
-        expect(result.payload.documents).toEqual([cachedDoc]);
-        // Verify API was NOT called
-        expect(mockWebRTCService.GetDocuments).not.toHaveBeenCalled();
-      });
-
-      it('should fetch from API when not in cache', async () => {
-        mockWebRTCService.GetDocuments.mockResolvedValue({ 
-          statusCode: 200, 
-          body: JSON.stringify([createMockDocument({ id: 1 })]) 
-        });
-        
-        const store = createTestStore();
-        const result = await store.dispatch(getCaseDocumentsAsync({ aktId: 10 }) as any);
-        
-        expect(result.payload.fromCache).toBe(false);
-        expect(mockWebRTCService.GetDocuments).toHaveBeenCalledWith({ aktId: 10 });
       });
     });
 
