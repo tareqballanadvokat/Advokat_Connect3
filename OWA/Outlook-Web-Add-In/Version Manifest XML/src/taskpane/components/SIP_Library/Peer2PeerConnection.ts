@@ -75,6 +75,7 @@
  */
 
 import { logger } from './Helper';
+import { getConfig } from '../../../config';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
 import { SipPhaseEvents } from './SipClient';
@@ -114,16 +115,16 @@ export class Peer2PeerConnection {
     private static readonly REGEX_CSEQ_ANSWER = /CSeq:\s*2 SERVICE/;
     private static readonly REGEX_SDP_BLOCK = /(\{[\s\S]*?"sdp"[\s\S]*?\})/m;
     
-    private static readonly RTC_CONFIG: RTCConfiguration = {
-        iceServers: [{
-            urls: "turn:92.205.233.81:3478",
-            username: "test",
-            credential: "test"
-        }],
-        iceTransportPolicy: "all"
-    };
+    // Get RTC configuration from environment config
+    private static getRTCConfig(): RTCConfiguration {
+        const config = getConfig();
+        return {
+            iceServers: config.webrtc.iceServers,
+            iceTransportPolicy: "all"
+        };
+    }
 
-    private pc = new RTCPeerConnection();
+    private pc = new RTCPeerConnection(Peer2PeerConnection.getRTCConfig());
 
     private dataChannelPeer: RTCDataChannel | undefined = undefined;
     public isOfferSent = false;
@@ -307,7 +308,7 @@ export class Peer2PeerConnection {
         if (this.pc) {
             this.pc.close();
         }
-        this.pc = new RTCPeerConnection(Peer2PeerConnection.RTC_CONFIG);
+        this.pc = new RTCPeerConnection(Peer2PeerConnection.getRTCConfig());
         this.dataChannelPeer = undefined;
         
         // Re-attach answer channel handler to new peer connection

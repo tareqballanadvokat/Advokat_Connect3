@@ -4,7 +4,8 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { aktLookUpAsync, setSearchTerm, clearCases } from '../../../../store/slices/aktenSlice';
+import { selectIsReady } from '../../../../store/slices/connectionSlice';
+import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
 import { AktLookUpResponse } from '../../interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
 
@@ -16,8 +17,7 @@ interface SearchProps {
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
   const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
-  
-  const [gridVisible, setGridVisible] = useState(false);
+  const isReady = useAppSelector(selectIsReady);
 
   // Handle Redux error states
   useEffect(() => {
@@ -26,17 +26,19 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     }
   }, [error]);
 
-  // Update grid visibility when cases change
+  // Clear previous search term on unmount to allow cache hits when returning
   useEffect(() => {
-    setGridVisible(cases.length > 0);
-  }, [cases]);
+    return () => {
+      dispatch(clearPreviousSearchTerm());
+    };
+  }, [dispatch]);
 
   const handleSearch = async () => {
+    if(loading) return; // Prevent multiple simultaneous searches
     const filter = searchTerm.trim();
     
     if (!filter) {
       dispatch(clearCases());
-      setGridVisible(false);
       return;
     }
 
@@ -46,7 +48,9 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
       await dispatch(aktLookUpAsync(filter)).unwrap();
     } catch (error) {
       console.error('Search failed:', error);
-      notify('Search cases failed', 'error', 5000);
+      if (isReady) {
+        notify('Search cases failed', 'error', 5000);
+      }
     }
   };
 
@@ -89,12 +93,12 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         dataSource={cases}
         keyExpr="id"               
         showBorders={false}
-        visible={gridVisible && !loading}
+        visible={!loading}
         showColumnLines={false}
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText="No cases found. Try a different search term."
+        noDataText="No cases found."
       >
         <Paging defaultPageSize={5} />
         <Pager

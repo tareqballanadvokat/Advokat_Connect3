@@ -1,15 +1,21 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Org.BouncyCastle.Security.Certificates;
 using System.Net;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
 namespace SIPSignalingServer
 {
     internal class Program
     {
+        static X509Certificate2 Certificate;
+
+        static IPEndPoint ServerEndpoint;
+
         static void Main(string[] args)
         {
-            
+            ReadConfig();
+
             ILoggerFactory loggerFactory = LoggerFactory.Create(
                 (builder) => {
                     builder.SetMinimumLevel(LogLevel.Debug);
@@ -17,36 +23,58 @@ namespace SIPSignalingServer
                     //builder.AddDebug();
                 });
 
-            X509Certificate2 certificate;
-
-            try
-            {
-                // TODO: Get certpath from appsettings? Get Password from environment / registry?
-                string certPath = Path.Combine(Directory.GetCurrentDirectory(), "127.0.0.1.pfx");
-                certificate = new X509Certificate2(certPath, "test");
-            }
-            catch (CryptographicException ex)
-            {
-                Console.WriteLine($"Cannot Start Server. {ex.Message}");
-                Environment.Exit(-1);
-                return;
-            }
-
-            // IPEndPoint ServerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).Last(), 80);
-            // IPEndPoint ServerEndpoint = IPEndPoint.Parse("192.168.1.58:443");
-            IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Loopback, 8009);
-
             SignalingServerOptions signalingServerOptions = new SignalingServerOptions()
             {
-                SSLCertificate = certificate,
+                SSLCertificate = Certificate,
             };
 
-            SignalingServer signalingServer = new SignalingServer(serverEndpoint, signalingServerOptions, loggerFactory);
+            SignalingServer signalingServer = new SignalingServer(ServerEndpoint, signalingServerOptions, loggerFactory);
             signalingServer.StartServer();
             
             while (true)
             {
             }
+        }
+
+        static void ReadConfig()
+        {
+            IConfigurationBuilder configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile($"appsettings.json");
+
+            IConfiguration config = configuration.Build();
+            try
+            {
+                ReadCert(config);
+                ReadServerEndpoint(config);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Cannot Start Server. {ex.Message}");
+                Environment.Exit(-1);
+                return;
+            }
+        }
+
+        static void ReadCert(IConfiguration config)
+        {
+            string cert = config.GetValue<string>("cert")
+                ?? throw new CertificateException("No valid ssl certificate provided");
+
+            string? certPassword = config.GetValue<string>("certPassword")
+                ?? throw new CertificateException("No password for cert provided");
+            
+            // TODO: Get Password from environment / registry?
+            string certPathString = Path.Combine(Directory.GetCurrentDirectory(), cert);
+            Certificate = new X509Certificate2(certPathString, certPassword);
+        }
+
+        static void ReadServerEndpoint(IConfiguration config)
+        {
+            string serverEndpointString = config.GetValue<string>("serverEndpoint")
+                ?? throw new CertificateException("No valid ssl certificate provided");
+
+            ServerEndpoint = IPEndPoint.Parse(serverEndpointString);
         }
     }
 }

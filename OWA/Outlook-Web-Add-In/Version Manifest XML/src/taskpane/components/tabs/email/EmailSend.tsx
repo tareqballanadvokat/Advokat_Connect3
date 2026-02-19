@@ -27,9 +27,7 @@ if (!document.getElementById('transfer-button-styles')) {
 
 const EmailSend: React.FC<EmailSendProps> = ({ 
     caseId,
-    onCaseChange,
     onTransfer,
-    caseIdDisable,
     transferBtnDisable,
     transferLoading = false
 }) => (
@@ -42,14 +40,15 @@ const EmailSend: React.FC<EmailSendProps> = ({
       placeholder="Case ID"
       value={caseId}
       width={80}
-      disabled={caseIdDisable}
-      onChange={e => onCaseChange(e.target.value)}
+      readOnly
       style={{ 
         width:150,
         padding: '8px 12px',
         fontSize: 14,
         border: '1px solid #ccc',
-        borderRadius: 4
+        borderRadius: 4,
+        backgroundColor: '#f5f5f5',
+        cursor: 'default'
       }}
     />
     <Button

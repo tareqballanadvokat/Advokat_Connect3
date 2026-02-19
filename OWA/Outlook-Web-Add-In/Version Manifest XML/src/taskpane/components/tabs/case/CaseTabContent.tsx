@@ -31,25 +31,12 @@ import {
 
 const allowDeleting = (e) => e.row.data.ID !== 1; 
 
-// Memoized selector for all cached documents to prevent unnecessary rerenders
-const selectAllCachedDocuments = createSelector(
-  [(state) => state.akten.caseDocumentsCache],
-  (caseDocumentsCache) => {
-    const allDocs: DokumentResponse[] = [];
-    caseDocumentsCache.forEach(cache => {
-      allDocs.push(...cache.documents);
-    });
-    return allDocs;
-  }
-);
-
 const CaseTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
   const { 
     favouriteAkten,
     loading, 
     favoritesLoading,
-    favoritesLoaded,
     caseDocumentsLoading, 
     loadingCaseDocumentsForAktId,
     removeFromFavoriteLoading,
@@ -58,21 +45,20 @@ const CaseTabContent: React.FC = () => {
   
   const [nodes, setNodes] = useState<HierarchyTree[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
+  // Store documents in component state (keyed by aktId)
+  const [dokumentsByAkt, setDokumentsByAkt] = useState<Map<number, DokumentResponse[]>>(new Map());
 
-  // Load favorite Akten only once when component mounts and favorites haven't been loaded yet
+  // Load favorite Akten on mount (thunk handles cache)
   useEffect(() => {    
-    if (!favoritesLoaded && !favoritesLoading) {
+    if (!favoritesLoading && favouriteAkten.length === 0) {
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50
       }));
     }
-  }, [dispatch, favoritesLoaded, favoritesLoading]); // Only depend on the loading flags, not the data itself
+  }, [dispatch]); // Run once on mount
 
-  // Get all cached documents for display using memoized selector
-  const allCachedDocuments = useAppSelector(selectAllCachedDocuments);
-
-  // Transform favorite Akten and cached documents into HierarchyTree format with folder structure
+  // Transform favorite Akten and loaded documents into HierarchyTree format with folder structure
   useEffect(() => {
     const transformedNodes: HierarchyTree[] = [];
     // Add favorite Akten as root nodes (AktenResponse format: Id, AKurz, Causa)
@@ -94,8 +80,11 @@ const CaseTabContent: React.FC = () => {
     const folderMap = new Map<string, HierarchyTree>();
     let nextId = Math.max(...favouriteAkten.map(a => a.id), 0) + 10000; // Start IDs after Akt IDs
 
-    // Use all cached documents
-    allCachedDocuments.forEach((doc) => {
+    // Get all documents from component state
+    const allDocs: DokumentResponse[] = [];
+    dokumentsByAkt.forEach(docs => allDocs.push(...docs));
+    
+    allDocs.forEach((doc) => {
       // Find the parent Akt ID
       const parentAkt = favouriteAkten.find(akt => akt.id === doc.aktId);
       
@@ -166,18 +155,15 @@ const CaseTabContent: React.FC = () => {
     });
 
     setNodes(transformedNodes);
-  }, [favouriteAkten, allCachedDocuments]);
+  }, [favouriteAkten, dokumentsByAkt]);
 
   const onSelectionChanged = useCallback((e) => {
     // keep expandedKeys in sync
     setExpandedKeys(e.component.getSelectedRowKeys());
   }, []);
 
-  // Get cache state for checking
-  const caseDocumentsCache = useAppSelector(state => state.akten.caseDocumentsCache);
-
-  // Handle expanding nodes to load documents with caching
-  const onExpandedRowKeysChange = useCallback((newExpandedKeys: (string | number)[]) => {
+  // Handle expanding nodes to load documents (cache handled by thunk)
+  const onExpandedRowKeysChange = useCallback(async (newExpandedKeys: (string | number)[]) => {
     const previousExpandedKeys = expandedKeys;
     setExpandedKeys(newExpandedKeys);
     
@@ -185,7 +171,7 @@ const CaseTabContent: React.FC = () => {
     const newlyExpanded = newExpandedKeys.filter(key => !previousExpandedKeys.includes(key));
     
     // Only process newly expanded Akten (not collapsed ones or re-expanded folders)
-    newlyExpanded.forEach((key) => {
+    for (const key of newlyExpanded) {
       const node = nodes.find(n => n.id === key);
       
       // Check if this is an Akt node (root level with akt: URL)
@@ -196,24 +182,27 @@ const CaseTabContent: React.FC = () => {
         
         const aktId = parseInt(node.url.replace('akt:', ''));
         
-        // Check if documents are already cached for this Akt
-        const hasCachedDocuments = caseDocumentsCache.some(cache => cache.aktId === aktId);
+        // Check if documents are already loaded in component state
+        const hasLoadedDocuments = dokumentsByAkt.has(aktId);
         
-        // Only load documents if:
-        // 1. They're not already cached
-        // 2. We're not currently loading for this specific Akt
-        // 3. We're not already loading something else
-        if (!hasCachedDocuments && 
+        // Only load documents if not already loaded and not currently loading
+        if (!hasLoadedDocuments && 
             loadingCaseDocumentsForAktId !== aktId && 
             !caseDocumentsLoading) {
-          console.log(`📄 Loading documents for Akt ${aktId} (not cached)`);
-          dispatch(getCaseDocumentsAsync({ aktId, Count: 100 }));
-        } else if (hasCachedDocuments) {
-          console.log(`📄 Documents for Akt ${aktId} already cached, skipping API call`);
+          console.log(`📄 Loading documents for Akt ${aktId}`);
+          try {
+            const result = await dispatch(getCaseDocumentsAsync({ aktId, Count: 100 })).unwrap();
+            // Store documents in component state
+            setDokumentsByAkt(prev => new Map(prev).set(aktId, result.documents));
+          } catch (error) {
+            console.error(`Failed to load documents for Akt ${aktId}:`, error);
+          }
+        } else if (hasLoadedDocuments) {
+          console.log(`📄 Documents for Akt ${aktId} already loaded`);
         }
       }
-    });
-  }, [nodes, expandedKeys, caseDocumentsLoading, loadingCaseDocumentsForAktId, caseDocumentsCache, dispatch]);
+    }
+  }, [nodes, expandedKeys, caseDocumentsLoading, loadingCaseDocumentsForAktId, dokumentsByAkt, dispatch]);
 
 
   const handleOpen = useCallback(async (node: HierarchyTree) => {
@@ -397,14 +386,6 @@ const CaseTabContent: React.FC = () => {
     }
   }, [dispatch]);
 
-  // Handler to manually reload favorite Akten (force refresh from API)
-  const handleLoadFavorites = useCallback(() => {
-    dispatch(getFavoriteAktenAsync({ 
-      NurFavoriten: true,
-      Count: 50
-    }));
-  }, [dispatch]);
-
    return (
     <div /* … */ style={{ position: 'relative', overflow: 'hidden' }}>
       {/* WebRTC Connection Status */}
@@ -413,33 +394,6 @@ const CaseTabContent: React.FC = () => {
       {/* … SearchCaseList, header, LoadPanel … */}
 
       <SearchCaseList />
-
-      {/* Load Favorites Button - only visible when favorites are already cached (subsequent visits) */}
-      {favouriteAkten.length > 0 && (
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          margin: '10px 0',
-          padding: '5px 0'
-        }}>
-          <button
-            onClick={handleLoadFavorites}
-            disabled={favoritesLoading}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: favoritesLoading ? '#ccc' : '#0078d4',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: favoritesLoading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}
-          >
-            {favoritesLoading ? 'Loading...' : 'Reload Favorites'}
-          </button>
-        </div>
-      )}
 
       <div className="case-tab-treelist-container">
         <TreeList

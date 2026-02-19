@@ -35,7 +35,12 @@ describe('serviceSlice', () => {
     servicesLoading: false,
     servicesError: null,
     saveLeistungLoading: false,
-    saveLeistungError: null
+    saveLeistungError: null,
+    savedLeistungen: [],
+    savedLeistungenLoading: false,
+    savedLeistungenError: null,
+    loadCounter: 0,
+    previousLoadKey: null
   };
 
   beforeEach(() => {
@@ -267,7 +272,10 @@ describe('serviceSlice', () => {
 
       it('should handle fulfilled state', () => {
         const payload = [createMockService()];
-        const action = { type: loadServicesAsync.fulfilled.type, payload };
+        const action = { 
+          type: loadServicesAsync.fulfilled.type, 
+          payload
+        };
         const actual = serviceReducer(initialState, action);
 
         expect(actual.servicesLoading).toBe(false);
@@ -311,7 +319,10 @@ describe('serviceSlice', () => {
           createMockService({ id: 2, kürzel: 'SRV002' }),
           createMockService({ id: 3, kürzel: 'SRV003' })
         ];
-        const action = { type: loadServicesAsync.fulfilled.type, payload };
+        const action = { 
+          type: loadServicesAsync.fulfilled.type, 
+          payload
+        };
         const actual = serviceReducer(initialState, action);
 
         expect(actual.services).toHaveLength(3);
@@ -606,7 +617,11 @@ describe('serviceSlice', () => {
         mockWebRTCService.loadServices.mockRejectedValue(new Error('Network timeout'));
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = jest.fn(() => ({
+          service: initialState,
+          auth: { credentials: { username: 'testuser' }, isAuthenticated: true },
+          connection: { sipClientState: 'CONNECTED' }
+        }));
 
         const result = await loadServicesAsync({ OnlyQuickListe: true })(dispatch, getState, undefined);
 
@@ -620,7 +635,11 @@ describe('serviceSlice', () => {
         mockWebRTCService.loadServices.mockRejectedValue(new Error('Connection refused'));
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = jest.fn(() => ({
+          service: initialState,
+          auth: { credentials: { username: 'testuser' }, isAuthenticated: true },
+          connection: { sipClientState: 'CONNECTED' }
+        }));
 
         const result = await loadServicesAsync({ OnlyQuickListe: true, Limit: 50 })(dispatch, getState, undefined);
 
@@ -637,7 +656,11 @@ describe('serviceSlice', () => {
         });
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = jest.fn(() => ({
+          service: initialState,
+          auth: { credentials: { username: 'testuser' }, isAuthenticated: true },
+          connection: { sipClientState: 'CONNECTED' }
+        }));
 
         const result = await loadServicesAsync({ OnlyQuickListe: true })(dispatch, getState, undefined);
 
@@ -654,7 +677,11 @@ describe('serviceSlice', () => {
         });
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = jest.fn(() => ({
+          service: initialState,
+          auth: { credentials: { username: 'testuser' }, isAuthenticated: true },
+          connection: { sipClientState: 'CONNECTED' }
+        }));
 
         const result = await loadServicesAsync({ OnlyQuickListe: false })(dispatch, getState, undefined);
 
@@ -671,7 +698,11 @@ describe('serviceSlice', () => {
         });
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = jest.fn(() => ({
+          service: initialState,
+          auth: { credentials: { username: 'testuser' }, isAuthenticated: true },
+          connection: { sipClientState: 'CONNECTED' }
+        }));
 
         const result = await loadServicesAsync({ OnlyQuickListe: true })(dispatch, getState, undefined);
 
@@ -688,7 +719,11 @@ describe('serviceSlice', () => {
         });
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = jest.fn(() => ({
+          service: initialState,
+          auth: { credentials: { username: 'testuser' }, isAuthenticated: true },
+          connection: { sipClientState: 'CONNECTED' }
+        }));
 
         const result = await loadServicesAsync({ OnlyQuickListe: true })(dispatch, getState, undefined);
 

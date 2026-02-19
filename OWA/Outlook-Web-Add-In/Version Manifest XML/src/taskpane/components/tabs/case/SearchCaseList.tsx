@@ -5,12 +5,21 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync } from '../../../../store/slices/aktenSlice';
+import { selectIsReady } from '../../../../store/slices/connectionSlice';
+import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
 import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
   const { cases, favouriteAkten, loading, favoritesLoading, favoritesLoaded, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
+  const isReady = useAppSelector(selectIsReady);
+
+  // Cleanup: Reset searchCounter when component unmounts
+  useEffect(() => {
+    return () => {
+      dispatch(clearPreviousSearchTerm());
+    };
+  }, [dispatch]);
 
   // Check if an Akt is already in favorites
   const isInFavorites = (aktId: number): boolean => {
@@ -54,6 +63,11 @@ const SearchCaseList: React.FC = () => {
   };
 
   const handleSearch = async () => {
+    // Prevent multiple concurrent searches
+    if (loading) {
+      return;
+    }
+
     const query = searchTerm.trim();
     
     if (!query) {
@@ -65,7 +79,9 @@ const SearchCaseList: React.FC = () => {
       await dispatch(aktLookUpAsync(query)).unwrap();
     } catch (error) {
       console.error('Search failed:', error);
-      notify('Search cases failed via WebRTC', 'error', 5000);
+      if (isReady) {
+        notify('Search cases failed via WebRTC', 'error', 5000);
+      }
     }
   };
 
@@ -84,12 +100,14 @@ const SearchCaseList: React.FC = () => {
           value={searchTerm}
           onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
+          disabled={loading}
         />
         <Button 
           icon="search" 
           stylingMode="contained" 
           onClick={handleSearch}
           disabled={loading}
+          text={loading ? "Searching..." : ""}
         />
       </div>
 
@@ -112,12 +130,12 @@ const SearchCaseList: React.FC = () => {
       dataSource={cases}
       keyExpr="id"
       showBorders={false}
-      visible={cases.length > 0 || loading}
+      visible={!loading}
       showColumnLines={false}
       showRowLines={true}
       columnAutoWidth={true}
       rowAlternationEnabled={false}
-      noDataText={loading ? "Loading..." : "No cases found. Try searching for 'demo' or enter a Kürzel."}
+      noDataText="No cases found. Try searching for 'demo' or enter a Kürzel."
     >
       <Paging defaultPageSize={5} />
       <Pager

@@ -1,15 +1,13 @@
 ﻿using Advokat.WebRTC.Client.Interfaces;
 using Advokat.WebRTC.Plugin.Chunking.DTOs;
-using Advokat.WebRTC.Plugin.DTOs;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using SIPSorcery.Net;
-using System;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using WebRTCClient;
+
 
 namespace Caller
 {
@@ -17,10 +15,19 @@ namespace Caller
     {
         static WebRTCPeer UserAgent { get; set; }
 
+        private static bool Running { get; set; }
+
+        static IPEndPoint SignalingServer { get; set; }
+
+        static List<RTCIceServer> IceServers { get; set; } = [];
+
+        static string CallerName { get; set; }
+
+        static string RemoteName { get; set; }
+
         static async Task Main(string[] args)
         {
-            //_ = Task.Run(Run);
-
+            ReadConfig();
             await Run();
 
             while (true)
@@ -30,12 +37,55 @@ namespace Caller
 
         private static string[]? Response = null;
 
+        static void ReadConfig()
+        {
+            IConfigurationBuilder configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile($"appsettings.json");
+
+            IConfiguration config = configuration.Build();
+
+            try
+            {
+                ReadSignalingServer(config);
+                ReadIceServers(config);
+                ReadNames(config);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Cannot Start Caller. {ex.Message}");
+                Environment.Exit(-1);
+                return;
+            }
+        }
+
+        static void ReadSignalingServer(IConfiguration config)
+        {
+            string? signalingServer = config.GetValue<string>("signalingServer")
+                ?? throw new Exception("No valid signalignServer provided");
+
+            SignalingServer = IPEndPoint.Parse(signalingServer);
+        }
+
+        static void ReadIceServers(IConfiguration config)
+        {
+            IceServers = config.GetValue<IEnumerable<string>>("iceServers")?
+                .Select(s => new RTCIceServer() { urls = s })
+                ?.ToList() ?? [];
+        }
+
+        static void ReadNames(IConfiguration config)
+        {
+            CallerName = config.GetValue<string>("caller")
+                ?? throw new Exception("No valid caller provided");
+
+            RemoteName = config.GetValue<string>("remote")
+                ?? throw new Exception("No valid remote provided");
+        }
+
         private async static Task Run()
         {
-            string callerName = "macc";
             IPEndPoint? callerEndpoint = new IPEndPoint(Dns.GetHostAddresses(Dns.GetHostName()).LastOrDefault(), 8098);
-
-            string remoteName = "macs";
 
             ILoggerFactory loggerFactory = LoggerFactory.Create(
                (builder) => {
@@ -46,35 +96,38 @@ namespace Caller
 
             SIPSorcery.LogFactory.Set(loggerFactory);
 
-            IPEndPoint signalingServerEndpoint = new IPEndPoint(IPAddress.Loopback, 8009);
-
-            Console.WriteLine($"caller name: {callerName}");
+            Console.WriteLine($"caller name: {CallerName}");
             Console.WriteLine($"caller endpoint: {callerEndpoint}");
             Console.WriteLine();
-            Console.WriteLine($"remote name: {remoteName}");
+            Console.WriteLine($"remote name: {RemoteName}");
             Console.WriteLine();
-            Console.WriteLine($"signaling server endpoint: {signalingServerEndpoint}");
+            Console.WriteLine($"signaling server endpoint: {SignalingServer}");
             Console.WriteLine("-----------------------------------------------------");
 
             Console.WriteLine("Enter to connect");
             Console.ReadLine();
 
             UserAgent = new WebRTCPeer(
-                sourceUser: callerName,
-                remoteUser: remoteName,
+                sourceUser: CallerName,
+                remoteUser: RemoteName,
                 sourceEndpoint: callerEndpoint,
-                signalingServer: signalingServerEndpoint,
+                signalingServer: SignalingServer,
                 isOffering: true,
-                iceServers: [],
-                NullLoggerFactory.Instance
+                iceServers: IceServers,
+                loggerFactory
                 );
 
             UserAgent.OnConnected += async sender =>
             {
                 Console.WriteLine("connected.");
-                while (true)
+                
+                if (!Running)
                 {
-                    await SendRequest();
+                    while (true)
+                    {
+                        Running = true;
+                        await SendRequest();
+                    }
                 }
             };
 
@@ -170,6 +223,12 @@ namespace Caller
                 return;
             }
 
+            else if (input == "close")
+            {
+                await UserAgent.DisposeAsync();
+                Environment.Exit(0);
+            }
+
 
             string guid = Guid.NewGuid().ToString();
             //string uri = "/akten";
@@ -184,6 +243,7 @@ namespace Caller
             
             Console.WriteLine();
             Console.WriteLine($"Enter to send GET request to {uri}");
+            
             Console.ReadLine();
 
             List<string> chunks = [
@@ -197,6 +257,8 @@ namespace Caller
                 "mQiO",
                 "iIif",
                 "Q=="
+
+                //"eyJncmFudF90eXBlIjoicGFzc3dvcmQiLCJjbGllbnRfaWQiOiJhZHZva2F0LmNsaWVudC53ZWIiLCJjbGllbnRfc2VjcmV0IjoiYWR2b2thdCIsInVzZXJuYW1lIjoiSkNIIiwicGFzc3dvcmQiOiIifQ=="
             ];
 
             for (int i = 1; i <= chunks.Count; i++)
