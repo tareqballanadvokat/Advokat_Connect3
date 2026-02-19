@@ -47,6 +47,8 @@ namespace SIPSignalingServer
                 {
                     this.logger.LogDebug("Unregistering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
                     this.Registrations.Remove(registeredObject);
+                    registeredObject.Confirmed = false;
+                    registration.Confirmed = false;
                     this.Unregistered?.Invoke(this, new RegistrationEventArgs(registeredObject));
                 }
             }
@@ -108,18 +110,11 @@ namespace SIPSignalingServer
             }
         }
 
-        public bool PeerIsRegistered(SIPRegistration registration)
-        {
-            SIPRegistration? peerRegistration = this.GetPeerRegistration(registration);
-            return peerRegistration != null
-                && peerRegistration.Confirmed;
-        }
-
-        public SIPRegistration? GetPeerRegistration(SIPRegistration registration)
+        public List<SIPRegistration> GetPeerRegistration(SIPRegistration registration)
         {
             lock (this.lockObject)
             {
-                return this.Registrations.SingleOrDefault(registration.IsPeer);
+                return this.Registrations.Where(registration.IsPeer).ToList();
             }
         }
     }

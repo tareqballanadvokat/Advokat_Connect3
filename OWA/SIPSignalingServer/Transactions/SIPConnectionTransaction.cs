@@ -37,7 +37,7 @@
 
         private SIPRegistration Registration { get; set; }
 
-        private ISIPRegistry Registry { get; set; }
+        private SIPRegistration PeerRegistration { get; set; }
 
         private ISIPConnectionPool ConnectionPool { get; set; }
 
@@ -57,7 +57,8 @@
             SIPSchemesEnum sipScheme,
             ISIPTransport transport,
             ServerSideTransactionParams signalingServerTransactionParams,
-            ISIPRegistry registry,
+            SIPRegistration registration,
+            SIPRegistration peerRegistration,
             ISIPConnectionPool connectionPool,
             ILoggerFactory loggerFactory)
             : base(
@@ -66,7 +67,7 @@
                   new ServerSideTransactionParams(
                      signalingServerTransactionParams.RemoteParticipant,
                      signalingServerTransactionParams.ClientParticipant,
-                     remoteTag: null, // explicitly set to null - gets set when connection is found - fromTag of peer
+                     remoteTag: peerRegistration.FromTag,  // gets set to fromTag of peer - part of the unique identifiers of this connection
                      clientTag: signalingServerTransactionParams.ClientTag,
                      callId: null), // explicitly set to null - gets set when connecting
                   loggerFactory)
@@ -75,11 +76,11 @@
             this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
 
             this.ServerSideTransactionParams = signalingServerTransactionParams;
-            // TODO: Don't pass Registry, pass registration and peerRegistration
-            this.Registry = registry;
+
             this.ConnectionPool = connectionPool;
 
-            this.Registration = new SIPRegistration(this.ServerSideTransactionParams);
+            this.Registration = registration;
+            this.PeerRegistration = peerRegistration;
 
             this.MessageRelay = new SIPMessageRelay(this.Connection, this.Params, this.loggerFactory);
 
@@ -96,6 +97,9 @@
         protected override void SetInitalParametes(CancellationToken? newCt)
         {
             base.SetInitalParametes(newCt);
+
+            this.Params.RemoteTag = this.PeerRegistration.FromTag;
+
             this.ConnectionTask = new TaskCompletionSource();
             this.Ct.Register(async () => await this.CanceledAsync());
         }
@@ -104,13 +108,13 @@
         {
             await base.StartRunning();
 
-            if (!this.Registry.IsRegistered(this.Registration))
+            if (!this.Registration.Confirmed)
             {
                 await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Cannot connect. Not registered.", connectionLost: true);
                 return;
             }
 
-            if (!this.Registry.PeerIsRegistered(this.Registration))
+            if (!this.PeerRegistration.Confirmed)
             {
                 await this.ConnectionFailed(SIPResponseStatusCodesEnum.PreconditionFailure, "Peer not registered.");
                 return;
@@ -205,7 +209,6 @@
 
         private async Task ConnectAsync()
         {
-            await this.SetRemoteTag();
             this.CreateConnection();
 
             this.Connection.SIPRequestReceived += this.ListenForAck;
@@ -222,21 +225,8 @@
             this.AckTimeoutCts = new CancellationTokenSource(this.Config.ReceiveTimeout);
             this.AckTimeoutCts.Token.Register(async () => await this.AckTimeout());
 
+            // TODO: Task was cancelled Exception
             await this.ConnectionTask.Task;
-        }
-
-        private async Task SetRemoteTag()
-        {
-            SIPRegistration? peerRegistration = this.Registry.GetPeerRegistration(this.Registration);
-
-            if (peerRegistration == null)
-            {
-                // TODO: schould we send registered bye?
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.NotFound, "Could not set remote tag, peer not registered.");
-                return;
-            }
-
-            this.Params.RemoteTag = peerRegistration.FromTag;
         }
 
         private void CreateConnection()

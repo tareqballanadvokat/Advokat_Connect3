@@ -120,7 +120,20 @@ namespace Caller
             UserAgent.OnConnected += async sender =>
             {
                 Console.WriteLine("connected.");
+
+                //// automatic disconnect
+                //await Task.Delay(100);
                 
+                //Console.WriteLine("Disconnecting");
+                //await UserAgent.Disconnect();
+
+                //await Task.Delay(3000);
+
+                //Console.WriteLine("Enter to reconnect");
+                //Console.ReadLine();
+
+                //await UserAgent.Connect();
+
                 if (!Running)
                 {
                     while (true)

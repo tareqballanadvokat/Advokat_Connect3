@@ -45,8 +45,10 @@
 
         public async Task Disconnect()
         {
+            // TODO: Got triggered on disconnect
             ObjectDisposedException.ThrowIf(this.disposed, this);
 
+            // TODO: Threw error cannot access disposed object
             await this.runningLock.WaitAsync();
             try
             {
@@ -165,7 +167,7 @@
 
             if (disposing)
             {
-                await this.Disconnect();
+                await this.Disconnect().ConfigureAwait(false);
                 this.runningLock.Dispose();
             }
 

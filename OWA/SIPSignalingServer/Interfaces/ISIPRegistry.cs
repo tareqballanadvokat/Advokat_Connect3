@@ -27,8 +27,6 @@ namespace SIPSignalingServer.Interfaces
 
         public SIPRegistration? GetRegisteredObject(string name);
 
-        public bool PeerIsRegistered(SIPRegistration registration);
-
-        public SIPRegistration? GetPeerRegistration(SIPRegistration registration);
+        public List<SIPRegistration> GetPeerRegistration(SIPRegistration registration);
     }
 }
