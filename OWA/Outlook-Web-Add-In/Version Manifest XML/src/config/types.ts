@@ -14,6 +14,31 @@ export enum Environment {
 }
 
 /**
+ * Log Levels
+ */
+export enum LogLevel {
+  DEBUG = 'debug',
+  INFO = 'info',
+  WARN = 'warn',
+  ERROR = 'error',
+  NONE = 'none'
+}
+
+/**
+ * Logging Configuration
+ */
+export interface LoggingConfig {
+  /** Enable/disable logging */
+  enabled: boolean;
+  /** Minimum log level to output */
+  level: LogLevel;
+  /** Include timestamps in log output */
+  includeTimestamp: boolean;
+  /** Include stack traces for errors */
+  includeStack: boolean;
+}
+
+/**
  * SIP/WebRTC Signaling Server Configuration
  */
 export interface SipServerConfig {
@@ -79,6 +104,8 @@ export interface AppConfig {
   api: ApiServerConfig;
   /** WebRTC peer connection configuration */
   webrtc: WebRTCConfig;
+  /** Logging configuration */
+  logging: LoggingConfig;
   /** DevExtreme theme configuration */
   theme: {
     name: string;

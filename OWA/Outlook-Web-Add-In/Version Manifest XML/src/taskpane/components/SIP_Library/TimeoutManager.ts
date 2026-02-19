@@ -8,7 +8,9 @@
  * @version 1.0.0
  */
 
-import { logger } from './Helper';
+import { getLogger } from '../../../services/logger';
+
+const logger = getLogger();
 
 interface TimerInfo {
     timeout: NodeJS.Timeout;
@@ -32,7 +34,7 @@ export class TimeoutManager {
     startTimer(name: string, duration: number, callback: () => void): void {
         // Cancel existing timer with same name if it exists
         if (this.timers.has(name)) {
-            logger.log(`⏱️ [TIMEOUT_MANAGER] Timer '${name}' already exists, cancelling it first`);
+            logger.debug(`Timer '${name}' already exists, cancelling it first`, 'TimeoutManager');
             this.cancelTimer(name);
         }
         
@@ -41,12 +43,12 @@ export class TimeoutManager {
         
         const timeout = setTimeout(() => {
             const actualElapsed = Date.now() - startTime;
-            logger.log(`⏱️ [TIMEOUT_MANAGER] Timer '${name}' EXPIRED`);
-            logger.log(`⏱️ [TIMEOUT_MANAGER] - Expected: ${duration}ms, Actual: ${actualElapsed}ms`);
-            logger.log(`⏱️ [TIMEOUT_MANAGER] - Start: ${new Date(startTime).toISOString()}`);
-            logger.log(`⏱️ [TIMEOUT_MANAGER] - Expiry: ${new Date().toISOString()}`);
+            logger.debug(`Timer '${name}' EXPIRED`, 'TimeoutManager');
+            logger.debug(`- Expected: ${duration}ms, Actual: ${actualElapsed}ms`, 'TimeoutManager');
+            logger.debug(`- Start: ${new Date(startTime).toISOString()}`, 'TimeoutManager');
+            logger.debug(`- Expiry: ${new Date().toISOString()}`, 'TimeoutManager');
             this.timers.delete(name);
-            logger.log(`⏱️ [TIMEOUT_MANAGER] Timer '${name}' DELETED and REMOVED from active timers`);
+            logger.debug(`Timer '${name}' DELETED and REMOVED from active timers`, 'TimeoutManager');
             callback();
         }, duration);
         
@@ -58,10 +60,10 @@ export class TimeoutManager {
         });
         
         this.totalTimersCreated++;
-        logger.log(`⏱️ [TIMEOUT_MANAGER] Timer '${name}' STARTED`);
-        logger.log(`⏱️ [TIMEOUT_MANAGER] - Duration: ${duration}ms`);
-        logger.log(`⏱️ [TIMEOUT_MANAGER] - Start: ${new Date(startTime).toISOString()}`);
-        logger.log(`⏱️ [TIMEOUT_MANAGER] - Expected Expiry: ${new Date(expiryTime).toISOString()}`);
+        logger.debug(`Timer '${name}' STARTED`, 'TimeoutManager');
+        logger.debug(`- Duration: ${duration}ms`, 'TimeoutManager');
+        logger.debug(`- Start: ${new Date(startTime).toISOString()}`, 'TimeoutManager');
+        logger.debug(`- Expected Expiry: ${new Date(expiryTime).toISOString()}`, 'TimeoutManager');
         this.logStats();
     }
     
@@ -73,7 +75,7 @@ export class TimeoutManager {
     cancelTimer(name: string): boolean {
         const timerInfo = this.timers.get(name);
         if (!timerInfo) {
-            logger.log(`⏱️ [TIMEOUT_MANAGER] Timer '${name}' not found, nothing to cancel`);
+            logger.debug(`Timer '${name}' not found, nothing to cancel`, 'TimeoutManager');
             return false;
         }
         
@@ -83,11 +85,11 @@ export class TimeoutManager {
         
         const elapsed = Date.now() - timerInfo.startTime;
         const remaining = timerInfo.duration - elapsed;
-        logger.log(`⏱️ [TIMEOUT_MANAGER] Timer '${name}' CANCELLED`);
-        logger.log(`⏱️ [TIMEOUT_MANAGER] - Elapsed: ${elapsed}ms of ${timerInfo.duration}ms`);
-        logger.log(`⏱️ [TIMEOUT_MANAGER] - Remaining: ${remaining}ms`);
-        logger.log(`⏱️ [TIMEOUT_MANAGER] - Started: ${new Date(timerInfo.startTime).toISOString()}`);
-        logger.log(`⏱️ [TIMEOUT_MANAGER] - Cancelled: ${new Date().toISOString()}`);
+        logger.debug(`Timer '${name}' CANCELLED`, 'TimeoutManager');
+        logger.debug(`- Elapsed: ${elapsed}ms of ${timerInfo.duration}ms`, 'TimeoutManager');
+        logger.debug(`- Remaining: ${remaining}ms`, 'TimeoutManager');
+        logger.debug(`- Started: ${new Date(timerInfo.startTime).toISOString()}`, 'TimeoutManager');
+        logger.debug(`- Cancelled: ${new Date().toISOString()}`, 'TimeoutManager');
         this.logStats();
         return true;
     }
@@ -100,7 +102,7 @@ export class TimeoutManager {
     getRemainingTime(name: string): number {
         const timerInfo = this.timers.get(name);
         if (!timerInfo) {
-            logger.log(`⏱️ [TIMEOUT_MANAGER] getRemainingTime('${name}'): Timer not found, returning 0`);
+            logger.debug(`getRemainingTime('${name}'): Timer not found, returning 0`, 'TimeoutManager');
             return 0;
         }
         
@@ -108,7 +110,7 @@ export class TimeoutManager {
         const elapsed = now - timerInfo.startTime;
         const remaining = Math.max(0, timerInfo.duration - elapsed);
         
-        logger.log(`⏱️ [TIMEOUT_MANAGER] getRemainingTime('${name}'): ${remaining}ms remaining (${elapsed}ms/${timerInfo.duration}ms)`);
+        logger.debug(`getRemainingTime('${name}'): ${remaining}ms remaining (${elapsed}ms/${timerInfo.duration}ms)`, 'TimeoutManager');
         
         return remaining;
     }
@@ -131,7 +133,7 @@ export class TimeoutManager {
     resetTimer(name: string, newDuration?: number): boolean {
         const timerInfo = this.timers.get(name);
         if (!timerInfo) {
-            logger.log(`⏱️ [TIMEOUT_MANAGER] Cannot reset timer '${name}' - not found`);
+            logger.debug(`Cannot reset timer '${name}' - not found`, 'TimeoutManager');
             return false;
         }
         
@@ -141,7 +143,7 @@ export class TimeoutManager {
         this.cancelTimer(name);
         this.startTimer(name, duration, callback);
         
-        logger.log(`⏱️ [TIMEOUT_MANAGER] Timer '${name}' reset to ${duration}ms`);
+        logger.debug(`Timer '${name}' reset to ${duration}ms`, 'TimeoutManager');
         return true;
     }
     
@@ -178,7 +180,7 @@ export class TimeoutManager {
      * Cancels all active timers
      */
     cancelAllTimers(): void {
-        logger.log(`⏱️ [TIMEOUT_MANAGER] Cancelling all timers (${this.timers.size} active)`);
+        logger.debug(`Cancelling all timers (${this.timers.size} active)`, 'TimeoutManager');
         
         const timerNames = Array.from(this.timers.keys());
         for (const name of timerNames) {
@@ -204,7 +206,7 @@ export class TimeoutManager {
      * Logs current timer statistics
      */
     private logStats(): void {
-        logger.log(`📊 [TIMEOUT_MANAGER] Active: ${this.timers.size} | Created: ${this.totalTimersCreated} | Cleared: ${this.totalTimersCleared}`);
+        logger.debug(`Active: ${this.timers.size} | Created: ${this.totalTimersCreated} | Cleared: ${this.totalTimersCleared}`, 'TimeoutManager');
     }
     
     /**
@@ -212,16 +214,16 @@ export class TimeoutManager {
      */
     logActiveTimers(): void {
         if (this.timers.size === 0) {
-            logger.log('📊 [TIMEOUT_MANAGER] No active timers');
+            logger.debug('No active timers', 'TimeoutManager');
             return;
         }
         
-        logger.log(`📊 [TIMEOUT_MANAGER] Active timers (${this.timers.size}):`);
+        logger.debug(`Active timers (${this.timers.size}):`, 'TimeoutManager');
         const timerEntries = Array.from(this.timers.entries());
         for (const [name, info] of timerEntries) {
             const elapsed = Date.now() - info.startTime;
             const remaining = Math.max(0, info.duration - elapsed);
-            logger.log(`  - ${name}: ${remaining}ms remaining (${elapsed}ms elapsed / ${info.duration}ms total)`);
+            logger.debug(`  - ${name}: ${remaining}ms remaining (${elapsed}ms elapsed / ${info.duration}ms total)`, 'TimeoutManager');
         }
     }
 }

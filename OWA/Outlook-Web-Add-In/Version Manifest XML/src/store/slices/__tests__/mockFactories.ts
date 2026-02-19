@@ -1,9 +1,8 @@
 /**
- * Test Factory Functions
+ * Mock Data Factories
  * 
- * This file contains factory functions for creating mock data objects
- * used across all test files. Each factory accepts optional overrides
- * to customize the generated objects.
+ * Factory functions for creating mock data objects used across all test files.
+ * Each factory accepts optional overrides to customize the generated objects.
  */
 
 import {

@@ -1,5 +1,5 @@
 /**
- * Test Helpers and Utilities
+ * Test Setup and Utilities
  * Reusable functions for testing Redux slices and components
  * 
  * ## WebRTC Service Mocking
@@ -7,35 +7,31 @@
  * All slice tests that interact with the WebRTC API should use the shared mock:
  * 
  * ```typescript
- * import { createMockWebRTCService, setupDefaultWebRTCMocks } from '../testHelpers';
+ * import { createMockWebRTCService, setupDefaultWebRTCMocks } from './testSetup';
  * 
- * // Create the mock service once
  * const mockWebRTCService = createMockWebRTCService();
  * 
- * // Mock the connection manager
  * jest.mock('../../../taskpane/services/WebRTCConnectionManager', () => ({
  *   getWebRTCConnectionManager: jest.fn(() => ({
  *     getWebRTCApiService: jest.fn(() => mockWebRTCService),
  *   })),
  * }));
  * 
- * // In beforeEach, reset to default implementations
  * beforeEach(() => {
  *   jest.clearAllMocks();
  *   setupDefaultWebRTCMocks(mockWebRTCService);
  *   
- *   // Override specific methods as needed for your tests
  *   mockWebRTCService.getFavoriteAkten.mockResolvedValue({ statusCode: 200, body: '[...]' });
  * });
  * ```
  */
 
 import { configureStore } from '@reduxjs/toolkit';
-import emailReducer from './emailSlice';
-import serviceReducer from './serviceSlice';
-import aktenReducer from './aktenSlice';
-import personReducer from './personSlice';
-import authReducer from './authSlice';
+import emailReducer from '../emailSlice';
+import serviceReducer from '../serviceSlice';
+import aktenReducer from '../aktenSlice';
+import personReducer from '../personSlice';
+import authReducer from '../authSlice';
 
 /**
  * Create a mock Redux store for testing

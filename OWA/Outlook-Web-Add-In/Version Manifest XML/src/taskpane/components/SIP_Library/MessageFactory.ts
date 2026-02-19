@@ -16,8 +16,11 @@
  * @version 1.0.0
  */
 
-import { logger } from './Helper';
+import { helper } from './Helper';
 import { configService } from '../../../config/index';
+import { getLogger } from '../../../services/logger';
+
+const logger = getLogger();
 
 // ========================================
 // TYPE DEFINITIONS
@@ -103,7 +106,7 @@ export class MessageFactory {
      * @returns Formatted SIP ACK message
      */
     static createAckMessage(params: AckMessageParams): string {
-        logger.log(`🔨 [MessageFactory] Creating ACK message (CSeq: ${params.cseq})`);
+        logger.debug(`Creating ACK message (CSeq: ${params.cseq})`, 'MessageFactory');
         
         // Build To and From lines
         let toLine: string;
@@ -135,7 +138,7 @@ export class MessageFactory {
             `Allow: INVITE,ACK,CANCEL,BYE,UPDATE,MESSAGE,OPTIONS,REFER,INFO,NOTIFY\r\n` +
             `Content-Length: 0\r\n\r\n`;
         
-        logger.log(`✅ [MessageFactory] ACK message created (CSeq: ${params.cseq})`);
+        logger.debug(`ACK message created (CSeq: ${params.cseq})`, 'MessageFactory');
         return ackMessage;
     }
     
@@ -151,7 +154,7 @@ export class MessageFactory {
      * @returns Formatted SIP BYE message
      */
     static createByeMessage(params: ByeMessageParams): string {
-        logger.log(`🔨 [MessageFactory] Creating BYE message (CSeq: ${params.cseq}, Type: ${params.reasonType || 'none'})`);
+        logger.debug(`Creating BYE message (CSeq: ${params.cseq}, Type: ${params.reasonType || 'none'})`, 'MessageFactory');
         
         const sipConfig = configService.getSipConfig();
         const toDisplay = params.toDisplayName || sipConfig.toDisplayName;
@@ -189,7 +192,7 @@ export class MessageFactory {
             reasonHeader +
             `Content-Length: 0\r\n\r\n`;
         
-        logger.log(`✅ [MessageFactory] BYE message created (Type: ${params.reasonType || 'standard'})`);
+        logger.debug(`BYE message created (Type: ${params.reasonType || 'standard'})`, 'MessageFactory');
         return byeMessage;
     }
     
@@ -204,12 +207,12 @@ export class MessageFactory {
      * @returns Formatted SIP SERVICE message with SDP body
      */
     static createServiceMessage(params: ServiceMessageParams): string {
-        logger.log(`🔨 [MessageFactory] Creating SERVICE message (CSeq: ${params.cseq})`);
+        logger.debug(`Creating SERVICE message (CSeq: ${params.cseq})`, 'MessageFactory');
         
         const contentType = params.contentType || 'application/sdp';
         const expires = params.expires || 300;
         const fromDisplay = params.fromDisplayName || 'macc';
-        const contentLength = logger.contentLength(params.body);
+        const contentLength = helper.contentLength(params.body);
         
         const serviceMessage =
             `SERVICE ${params.sipUri} SIP/2.0\r\n` +
@@ -228,7 +231,7 @@ export class MessageFactory {
             `Content-Length: ${contentLength}\r\n\r\n` +
             params.body;
         
-        logger.log(`✅ [MessageFactory] SERVICE message created (CSeq: ${params.cseq})`);
+        logger.debug(`SERVICE message created (CSeq: ${params.cseq})`, 'MessageFactory');
         return serviceMessage;
     }
     
@@ -245,7 +248,7 @@ export class MessageFactory {
      */
     static createRegisterMessage(params: RegisterMessageParams): string {
         const cseq = params.cseq || 1;
-        logger.log(`🔨 [MessageFactory] Creating REGISTER message (CSeq: ${cseq})`);
+        logger.debug(`Creating REGISTER message (CSeq: ${cseq})`, 'MessageFactory');
         
         // Generate timeout configuration JSON body
         const timeoutBody = JSON.stringify(params.timeoutConfig);
@@ -268,7 +271,7 @@ export class MessageFactory {
             `Content-Length: ${contentLength}\r\n\r\n` +
             timeoutBody;
         
-        logger.log(`✅ [MessageFactory] REGISTER message created with timeout configuration`);
+        logger.debug('REGISTER message created with timeout configuration', 'MessageFactory');
         return registerMessage;
     }
 }

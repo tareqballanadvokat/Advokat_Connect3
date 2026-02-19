@@ -4,6 +4,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import { getLogger } from '../../services/logger';
 import { 
   WebRTCApiRequest,  
   WebRTCApiResponse,
@@ -55,17 +56,18 @@ export function createProtocolRequest(method: string, url: string, headers: Reco
   const guid = uuidv4();
   const timestamp = Date.now();
   const protocolId = createProtocolId(guid);
+  const logger = getLogger();
   
   let processedBody: string | undefined;
   
   // Process body if it exists
   if (body) {
     const bodyString = typeof body === 'string' ? body : JSON.stringify(body);
-    console.log("📤 Original request body:", bodyString);
+    logger.debug('chunkingUtils', 'Original request body', bodyString);
     // Base64 encode the body for POST requests
     if (method.toUpperCase() === 'POST') {
       processedBody = btoa(bodyString); // Base64 encode for POST requests
-      console.log('📤 POST request body base64 encoded (length: original=' + bodyString.length + ', encoded=' + processedBody.length + ')');
+      logger.debug('chunkingUtils', `POST request body base64 encoded (length: original=${bodyString.length}, encoded=${processedBody.length})`);
     } else {
       processedBody = bodyString;
     }
@@ -176,11 +178,12 @@ export function logChunkingInfo(info: {
   messageType?: string;
   action: 'single' | 'chunked';
 }): void {
+  const logger = getLogger();
   const msgType = info.messageType ? ` (${info.messageType})` : '';
   if (info.action === 'single') {
-    console.log(`📤 Sending request${msgType} (single message) - Total size: ${info.totalSize} bytes`);
+    logger.debug('chunkingUtils', `Sending request${msgType} (single message) - Total size: ${info.totalSize} bytes`);
   } else {
-    console.log(`📤 Request${msgType} too large (${info.totalSize} bytes), splitting into ${info.totalChunks} chunks...`);
+    logger.debug('chunkingUtils', `Request${msgType} too large (${info.totalSize} bytes), splitting into ${info.totalChunks} chunks...`);
   }
 }
 
@@ -191,8 +194,9 @@ export function logChunkingInfo(info: {
  * @param messageType - Optional message type for context
  */
 export function logChunkTransmission(chunkNumber: number, totalChunks: number, messageType?: string): void {
+  const logger = getLogger();
   const msgType = messageType ? ` (${messageType})` : '';
-  console.log(`📤 Sending chunk ${chunkNumber}/${totalChunks}${msgType}`);
+  logger.debug('chunkingUtils', `Sending chunk ${chunkNumber}/${totalChunks}${msgType}`);
 }
 
 /**

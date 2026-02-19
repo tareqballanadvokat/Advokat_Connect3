@@ -5,6 +5,9 @@ import { LeistungAuswahlResponse } from '@components/interfaces/IService';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@store/slices/serviceSlice';
 import notify from 'devextreme/ui/notify';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 
 // Unified interface for both Email and Service tabs
 export interface ServiceSectionProps {}
@@ -24,7 +27,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   // Load services whenever an Akt is selected (uses cache after first load)
   useEffect(() => {
     if (selectedAktId) {
-      console.log('Loading global services list for Akt', selectedAktId);
+      logger.debug('Loading global services list for Akt ' + selectedAktId, 'ServiceSection');
       dispatch(loadServicesAsync({
         Kürzel: null,
         OnlyQuickListe: true,

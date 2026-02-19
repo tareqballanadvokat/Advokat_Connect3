@@ -23,7 +23,7 @@
  */
 
 // Core utility classes
-export { Helper, logger } from './Helper';
+export { Helper, helper } from './Helper';
 
 // SIP protocol handlers
 export { Registration } from './Registration';

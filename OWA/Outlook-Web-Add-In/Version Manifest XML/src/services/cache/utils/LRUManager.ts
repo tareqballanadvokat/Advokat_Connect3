@@ -7,6 +7,9 @@ import { CacheEntry } from '../types';
 import { IStorageStrategy } from '../strategies/IStorageStrategy';
 import { TTLManager } from './TTLManager';
 import { STORAGE_PREFIX } from '../config';
+import { getLogger } from '../../logger';
+
+const logger = getLogger();
 
 export class LRUManager {
   /**
@@ -59,10 +62,10 @@ export class LRUManager {
         await strategy.removeItem(entries[i].rawKey);
       }
 
-      console.log(`🗑️ [LRUManager] Evicted ${toRemove} oldest entries`);
+      logger.debug(`Evicted ${toRemove} oldest entries`, 'LRUManager');
       return toRemove;
     } catch (error) {
-      console.error('❌ [LRUManager] Eviction failed:', error);
+      logger.error('Eviction failed: ' + String(error), 'LRUManager');
       return 0;
     }
   }

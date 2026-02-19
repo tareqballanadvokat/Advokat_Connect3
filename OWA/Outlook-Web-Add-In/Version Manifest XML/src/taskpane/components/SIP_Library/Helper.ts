@@ -17,13 +17,6 @@
  */
 
 export class Helper {
-    /**
-     * Logs a message to the console for debugging purposes
-     * @param msg - The message to log
-     */
-    log(msg: string): void { 
-        console.log(msg);
-    }
     
     /**
      * Modern async alternative to blobToString
@@ -46,4 +39,4 @@ export class Helper {
 }
 
 // Export a singleton instance for convenience
-export const logger = new Helper();
+export const helper = new Helper();

@@ -3,7 +3,7 @@
  * Fallback values when no environment-specific config is provided
  */
 
-import { AppConfig, Environment } from './types';
+import { AppConfig, Environment, LogLevel } from './types';
 
 /**
  * Default configuration for development environment
@@ -44,6 +44,13 @@ export const DEFAULT_CONFIG: AppConfig = {
         credential: '123456Advokat' // Change credentials
       },
     ],
+  },
+  
+  logging: {
+    enabled: false,
+    level: LogLevel.DEBUG,
+    includeTimestamp: true,
+    includeStack: true,
   },
   
   theme: {
@@ -95,6 +102,13 @@ export const PRODUCTION_CONFIG: Partial<AppConfig> = {
     ],
   },
   
+  logging: {
+    enabled: false, // Disabled in production by default
+    level: LogLevel.ERROR, // Only critical errors in production
+    includeTimestamp: true,
+    includeStack: true,
+  },
+  
   theme: {
     name: 'devextreme/dist/css/dx.',
     compact: false,
@@ -142,6 +156,13 @@ export const STAGING_CONFIG: Partial<AppConfig> = {
     ],
   },
   
+  logging: {
+    enabled: true,
+    level: LogLevel.INFO, // Staging uses INFO level
+    includeTimestamp: true,
+    includeStack: true,
+  },
+  
   theme: {
     name: 'devextreme/dist/css/dx.',
     compact: false,
@@ -176,6 +197,13 @@ export const TEST_CONFIG: AppConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
     ],
+  },
+  
+  logging: {
+    enabled: false, // Disabled in tests to avoid console noise
+    level: LogLevel.ERROR,
+    includeTimestamp: false,
+    includeStack: false,
   },
   
   theme: {

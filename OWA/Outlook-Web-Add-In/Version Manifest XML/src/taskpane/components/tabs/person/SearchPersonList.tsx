@@ -10,6 +10,9 @@ import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { personLookUpAsync, clearPersons, setSearchTerm, clearPreviousSearchTerm } from '../../../../store/slices/personSlice';
 import { PersonLookUpResponse } from '../../interfaces/IPerson';
 import notify from 'devextreme/ui/notify';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 
 interface Props {
   onPersonSelect: (personId: number, personName: string) => void;
@@ -63,7 +66,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     try {
       await dispatch(personLookUpAsync(query)).unwrap();
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('Search failed:', 'SearchPersonList', error);
       if (isReady) {
         notify('Search failed', 'error', 5000);
       }
@@ -84,7 +87,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     try {
       await onPersonSelect(person.id, getDisplayName(person));
     } catch (error) {
-      console.error('Failed to add person to favorites:', error);
+      logger.error('Failed to add person to favorites:', 'SearchPersonList', error);
       notify('Failed to add person to favorites', 'error', 3000);
     }
   };

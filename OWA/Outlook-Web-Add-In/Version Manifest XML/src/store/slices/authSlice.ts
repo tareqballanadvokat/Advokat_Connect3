@@ -2,6 +2,9 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { IAuthState, IAuthCredentials, IAuthResponse } from '../../taskpane/components/interfaces/IAuth';
 import { cacheService } from '../../services/cache';
+import { getLogger } from '../../services/logger';
+
+const logger = getLogger();
 
 const initialState: IAuthState = {
   credentials: {
@@ -30,7 +33,7 @@ export const logoutAsync = createAsyncThunk(
     
     if (username) {
       const clearedCount = await cacheService.clearNamespace(username);
-      console.log(`🗑️ [authSlice] Cache cleared for user: ${username} (${clearedCount} entries)`);
+      logger.info('authSlice', `Cache cleared for user: ${username} (${clearedCount} entries)`);
     }
   }
 );
@@ -78,9 +81,9 @@ const authSlice = createSlice({
       
       // Set cache namespace for user isolation
       cacheService.setNamespace(state.credentials.username);
-      console.log('🗄️ [authSlice] Cache namespace set to:', state.credentials.username);
+      logger.info('authSlice', `Cache namespace set to: ${state.credentials.username}`);
       
-      console.log('✅ [authSlice] Tokens stored in Redux, expiresAt:', new Date(state.expiresAt).toISOString());
+      logger.info('authSlice', `Tokens stored in Redux, expiresAt: ${new Date(state.expiresAt).toISOString()}`);
     },
 
     authenticationFailure: (state, action: PayloadAction<string>) => {
@@ -124,10 +127,10 @@ const authSlice = createSlice({
     builder
       .addCase(logoutAsync.fulfilled, () => {
         // Cache cleared successfully, logout reducer will handle state reset
-        console.log('✅ [authSlice] Logout completed with cache cleared');
+        logger.info('authSlice', 'Logout completed with cache cleared');
       })
       .addCase(logoutAsync.rejected, (action) => {
-        console.error('❌ [authSlice] Failed to clear cache on logout:', action.error);
+        logger.error('authSlice', 'Failed to clear cache on logout', action.error);
         // Still proceed with logout even if cache clear fails
       });
   }

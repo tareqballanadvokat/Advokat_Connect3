@@ -83,8 +83,11 @@ import { configService } from '../../../config/index';
 import { Registration, RegistrationState, RegistrationEvents } from './Registration';
 import { EstablishingConnection, ConnectionState, ConnectionEvents } from './EstablishingConnection';
 import { Peer2PeerConnection, SdpExchangeState, Peer2PeerEvents } from './Peer2PeerConnection';
-import { logger } from './Helper';
+import { helper } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
+import { getLogger } from '../../../services/logger';
+
+const logger = getLogger();
 
 /**
  * Generic event interface for SIP phase components
@@ -172,7 +175,7 @@ export interface SipClientInstance {
  * Helper function for standardized logging with prefix
  */
 function logWithPrefix(message: string): void {
-    logger.log(`${LOG_PREFIX} ${message}`);
+    logger.debug(message, 'SipClient');
 }
 
 /**
@@ -725,7 +728,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
          * Main message handler - routes messages to appropriate handlers based on current state
          */
         ws.onmessage = async (event) => {
-            const data = await logger.blobToStringAsync(event.data);
+            const data = await helper.blobToStringAsync(event.data);
             logWithPrefix('📥 Received message:\n' + data);
             
             // Route BYE messages based on Reason header (always present in BYE messages)

@@ -26,12 +26,12 @@ import aktenReducer, {
 } from '../aktenSlice';
 import { AktLookUpResponse, AktenResponse } from '../../../taskpane/components/interfaces/IAkten';
 import { DokumentResponse } from '../../../taskpane/components/interfaces/IDocument';
-import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests, createTestStore } from '../testHelpers';
+import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests, createTestStore } from './testSetup';
 import {
   createMockAkt,
   createMockDocument,
   createMockFolderOption,
-} from './testFactories';
+} from './mockFactories';
 
 // Create mock WebRTC service
 const mockWebRTCService = createMockWebRTCService();

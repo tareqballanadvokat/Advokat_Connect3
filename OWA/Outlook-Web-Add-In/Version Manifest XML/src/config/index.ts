@@ -5,6 +5,9 @@
 
 import { AppConfig, SipServerConfig, ApiServerConfig } from './types';
 import { getEnvironmentConfig, isProduction } from './environment';
+import { getLogger } from '../services/logger';
+
+const logger = getLogger();
 
 /**
  * Application Version
@@ -30,7 +33,7 @@ class ConfigService {
   constructor() {
     // Initialize with environment-based configuration
     this.config = getEnvironmentConfig();
-    console.log(`🔧 [ConfigService] Initialized with ${this.config.environment} environment`);
+    logger.info(`Initialized with ${this.config.environment} environment`, 'ConfigService');
   }
 
   /**
@@ -128,14 +131,13 @@ class ConfigService {
    * Log current configuration (with sensitive data masked)
    */
   public logConfig(): void {
-    console.group('📋 [ConfigService] Current Configuration');
-    console.log('Environment:', this.config.environment);
-    console.log('SIP WebSocket URI:', this.config.sip.wsUri);
-    console.log('SIP Host:', this.config.sip.host);
-    console.log('SIP Port:', this.config.sip.port);
-    console.log('API Base URL:', this.config.api.baseUrl);
-    console.log('API Logging:', this.config.api.enableLogging);
-    console.groupEnd();
+    logger.debug('Current Configuration:', 'ConfigService');
+    logger.debug(`Environment: ${this.config.environment}`, 'ConfigService');
+    logger.debug(`SIP WebSocket URI: ${this.config.sip.wsUri}`, 'ConfigService');
+    logger.debug(`SIP Host: ${this.config.sip.host}`, 'ConfigService');
+    logger.debug(`SIP Port: ${this.config.sip.port}`, 'ConfigService');
+    logger.debug(`API Base URL: ${this.config.api.baseUrl}`, 'ConfigService');
+    logger.debug(`API Logging: ${this.config.api.enableLogging}`, 'ConfigService');
   }
 
   /**
@@ -143,7 +145,7 @@ class ConfigService {
    * Useful for testing or after configuration errors
    */
   public reset(): void {
-    console.log('🔄 [ConfigService] Resetting configuration to environment defaults');
+    logger.info('Resetting configuration to environment defaults', 'ConfigService');
     this.config = getEnvironmentConfig();
   }
 }

@@ -9,8 +9,8 @@ import emailReducer, {
   saveDokumentAsync,
 } from '../emailSlice';
 import { TransferAttachmentItem, DokumentPostData } from '../../../taskpane/components/interfaces/IDocument';
-import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from '../testHelpers';
-import { createMockAttachment, createMockDokumentPostData } from './testFactories';
+import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from './testSetup';
+import { createMockAttachment, createMockDokumentPostData } from './mockFactories';
 
 // Create mock WebRTC service
 const mockWebRTCService = createMockWebRTCService();

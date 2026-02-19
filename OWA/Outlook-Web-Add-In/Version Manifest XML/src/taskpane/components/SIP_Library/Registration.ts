@@ -1,4 +1,7 @@
 import { configService } from '../../../config/index';
+import { getLogger } from '../../../services/logger';
+
+const logger = getLogger();
 
 /**
  * SIP Registration Handler
@@ -89,7 +92,6 @@ import { configService } from '../../../config/index';
  * @version 2.1.0
  */
 
-import { logger } from './Helper';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
 import { SipPhaseEvents } from './SipClient';
@@ -195,15 +197,15 @@ export class Registration {
         
         // Skip if already in target state
         if (oldState === newState) {
-            logger.log(`📤 [REGISTRATION] Already in state ${newState}, skipping transition`);
+            logger.debug(`Already in state ${newState}, skipping transition`, 'Registration');
             return;
         }
         
         this.registrationState = newState;
         if (reason) {
-            logger.log(`📤 [REGISTRATION] STATE: ${oldState} -> ${newState} (${reason})`);
+            logger.debug(`STATE: ${oldState} -> ${newState} (${reason})`, 'Registration');
         } else {
-            logger.log(`📤 [REGISTRATION] STATE: ${oldState} -> ${newState}`);
+            logger.debug(`STATE: ${oldState} -> ${newState}`, 'Registration');
         }
         this.events.onStateChange?.(newState);
     }
@@ -248,7 +250,7 @@ export class Registration {
             cseq: Registration.CSEQ_REGISTER
         });
         
-        logger.log('📤 [REGISTRATION] REGISTER message created with timeout configuration');
+        logger.debug('REGISTER message created with timeout configuration', 'Registration');
         
         // Start timeout before transitioning state (we're about to send and wait for response)
         this.timeoutManager.startTimer('RECEIVE_TIMEOUT', this.receiveTimeout, () => {
@@ -269,12 +271,12 @@ export class Registration {
     private handleReceiveTimeout(): void {
         // State guard: only process timeout if still waiting for 202
         if (this.registrationState !== RegistrationState.REGISTER_SENT) {
-            logger.log(`⏱️ [REGISTRATION] RECEIVE_TIMEOUT fired but state is ${this.registrationState} - ignoring`);
+            logger.debug(`RECEIVE_TIMEOUT fired but state is ${this.registrationState} - ignoring`, 'Registration');
             return;
         }
         
-        this.lastError = 'ReceiveTimeout expired waiting for 202 Accepted';
-        logger.log(`⏱️ [REGISTRATION] ${this.lastError}`);
+        this.lastError = `RECEIVE_TIMEOUT expired while waiting for 202 Accepted`;
+        logger.warn(this.lastError, 'Registration');
         
         this.markRegistrationFailed('timeout before receiving 202');
         
@@ -294,7 +296,7 @@ export class Registration {
      * @returns The formatted REGISTRATION BYE message
      */
     public createRegistrationBye(cseqNum: number): string {
-        logger.log(`🔨 [REGISTRATION] Creating REGISTRATION BYE (CSeq: ${cseqNum})`);
+        logger.debug(`Creating REGISTRATION BYE (CSeq: ${cseqNum})`, 'Registration');
         
         // Store CSeq for loop prevention
         this.lastSentRegistrationByeCSeq = cseqNum;
@@ -311,7 +313,7 @@ export class Registration {
             reasonType: 'REGISTRATION'
         });
         
-        logger.log('📤 [REGISTRATION] REGISTRATION BYE created');
+        logger.debug('REGISTRATION BYE created', 'Registration');
         
         return bye;
     }
@@ -323,7 +325,7 @@ export class Registration {
      * @returns Empty string (no response needed)
      */
     private handleRegistrationBye(_data: string): string {
-        logger.log('📥 [REGISTRATION] Received REGISTRATION BYE from server');
+        logger.debug('Received REGISTRATION BYE from server', 'Registration');
         
         this.lastByeReceived = new Date().toISOString();
         this.cancelReceiveTimeout();
@@ -354,7 +356,7 @@ export class Registration {
         this.parsedFromUri = "";
         this.parsedFromTag = "";
         
-        logger.log(`🔄 [REGISTRATION] New session - Call-ID: ${this.callId}, Tag: ${this.tag}, Branch: ${this.branch}`);
+        logger.info(`New session - Call-ID: ${this.callId}, Tag: ${this.tag}, Branch: ${this.branch}`, 'Registration');
     }
     
     /**
@@ -366,27 +368,27 @@ export class Registration {
     private validateSession(data: string): boolean {
         const callIdMatch = data.match(Registration.REGEX_CALL_ID);
         if (!callIdMatch) {
-            logger.log('⚠️ [REGISTRATION] Message missing Call-ID header');
+            logger.warn('Message missing Call-ID header', 'Registration');
             return false;
         }
         
         const messageCallId = callIdMatch[1];
         
         if (messageCallId !== this.callId) {
-            logger.log(`⚠️ [REGISTRATION] Call-ID mismatch - Expected: ${this.callId}, Got: ${messageCallId} - IGNORING`);
+            logger.warn(`Call-ID mismatch - Expected: ${this.callId}, Got: ${messageCallId} - IGNORING`, 'Registration');
             return false;
         }
         
         const toTagMatch = data.match(Registration.REGEX_TO_TAG);
         if (toTagMatch && toTagMatch[1] !== this.tag) {
-            logger.log(`⚠️ [REGISTRATION] To-tag mismatch - Expected: ${this.tag}, Got: ${toTagMatch[1]}`);
+            logger.warn(`To-tag mismatch - Expected: ${this.tag}, Got: ${toTagMatch[1]}`, 'Registration');
             return false;
         }
         
         if (this.expectedToTag !== "") {
             const fromTagMatch = data.match(Registration.REGEX_FROM_TAG);
             if (fromTagMatch && fromTagMatch[1] !== this.expectedToTag) {
-                logger.log(`⚠️ [REGISTRATION] From-tag mismatch - Expected: ${this.expectedToTag}, Got: ${fromTagMatch[1]}`);
+                logger.warn(`From-tag mismatch - Expected: ${this.expectedToTag}, Got: ${fromTagMatch[1]}`, 'Registration');
                 return false;
             }
         }
@@ -446,7 +448,7 @@ export class Registration {
             toLine: toLine,
             fromLine: fromLine
         });
-        logger.log('📤 [REGISTRATION] ACK created with CSeq: 3');
+        logger.debug('ACK created with CSeq: 3', 'Registration');
         
         // Test: Don't send ACK on first attempt (testIncrem=0), send it on second attempt
         // if(this.testIncrem === 0){
@@ -464,14 +466,14 @@ export class Registration {
      * @returns The appropriate response message or empty string
      */
     parseMessage(data: string): string {
-        logger.log(`📨 [REGISTRATION] Parsing message in state: ${this.registrationState}`);
+        logger.debug(`Parsing message in state: ${this.registrationState}`, 'Registration');
         if (!this.validateSession(data)) {
             return "";
         }
         
         // Check for BYE FIRST before duplicate check - BYE is always a new request from server
         if (/^BYE\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
-            logger.log('📥 [REGISTRATION] BYE message detected - processing as REGISTRATION BYE');
+            logger.debug('BYE message detected - processing as REGISTRATION BYE', 'Registration');
             return this.handleRegistrationBye(data);
         }
         
@@ -479,10 +481,10 @@ export class Registration {
         if (cseqMatch) {
             const cseqNum = parseInt(cseqMatch[1], 10);
             const cseqMethod = cseqMatch[2];
-            logger.log(`📋 [REGISTRATION] Message CSeq: ${cseqNum} ${cseqMethod}`);
+            logger.debug(`Message CSeq: ${cseqNum} ${cseqMethod}`, 'Registration');
             
             if (this.processedCSeqs.has(cseqNum)) {
-                logger.log(`⚠️ [REGISTRATION] Duplicate CSeq ${cseqNum} - resending response`);
+                logger.warn(`Duplicate CSeq ${cseqNum} - resending response`, 'Registration');
                 return this.handleDuplicateMessage(data, cseqNum);
             }
         }
@@ -496,11 +498,11 @@ export class Registration {
         }
         
         if (/^NOTIFY\s+([^\s]+)\s+(SIP\/\d\.\d)/.test(data)) {
-            logger.log('❌ [REGISTRATION] ERROR: NOTIFY received in Registration phase!');
+            logger.error('ERROR: NOTIFY received in Registration phase!', 'Registration');
             return "";
         }
         
-        logger.log('⚠️ [REGISTRATION] Unrecognized message type');
+        logger.warn('Unrecognized message type', 'Registration');
         return "";
     }
     
@@ -510,11 +512,11 @@ export class Registration {
      * @param data - The 202 response message with JSON body
      */
     private parseServerTimeouts(data: string): void {
-        logger.log('⏱️ [REGISTRATION] Parsing server timeout configuration...');
+        logger.debug('Parsing server timeout configuration...', 'Registration');
         
         const doubleCrlfIndex = data.indexOf('\r\n\r\n');
         if (doubleCrlfIndex === -1) {
-            logger.log('⚠️ [REGISTRATION] No body found in 202 response, using default timeouts');
+            logger.warn('No body found in 202 response, using default timeouts', 'Registration');
             return;
         }
         
@@ -522,30 +524,30 @@ export class Registration {
             const body = data.substring(doubleCrlfIndex + 4).trim();
             const config = JSON.parse(body);
             
-            logger.log('📋 [REGISTRATION] Server timeout config: ' + JSON.stringify(config));
+            logger.debug('Server timeout config: ' + JSON.stringify(config), 'Registration');
             
             if (config.ConnectionTimeout && typeof config.ConnectionTimeout === 'number') {
                 this.connectionTimeout = Math.max(10000, config.ConnectionTimeout);
-                logger.log(`⏱️ [REGISTRATION] ConnectionTimeout set to ${this.connectionTimeout}ms`);
+                logger.debug(`ConnectionTimeout set to ${this.connectionTimeout}ms`, 'Registration');
             }
             
             if (config.PeerRegistrationTimeout && typeof config.PeerRegistrationTimeout === 'number') {
                 this.peerRegistrationTimeout = Math.max(10000, config.PeerRegistrationTimeout);
-                logger.log(`⏱️ [REGISTRATION] PeerRegistrationTimeout set to ${this.peerRegistrationTimeout}ms`);
+                logger.debug(`PeerRegistrationTimeout set to ${this.peerRegistrationTimeout}ms`, 'Registration');
             } else {
-                logger.log(`⏱️ [REGISTRATION] Server sent null/invalid PeerRegistrationTimeout, using default: ${this.peerRegistrationTimeout}ms`);
+                logger.debug(`Server sent null/invalid PeerRegistrationTimeout, using default: ${this.peerRegistrationTimeout}ms`, 'Registration');
             }
             
             if (config.ReceiveTimeout && typeof config.ReceiveTimeout === 'number') {
                 this.receiveTimeout = Math.max(10000, config.ReceiveTimeout);
-                logger.log(`⏱️ [REGISTRATION] ReceiveTimeout set to ${this.receiveTimeout}ms`);
+                logger.debug(`ReceiveTimeout set to ${this.receiveTimeout}ms`, 'Registration');
             }
             
-            logger.log('✅ [REGISTRATION] Timeout configuration updated from server');
+            logger.info('Timeout configuration updated from server', 'Registration');
             
         } catch (error) {
-            logger.log('⚠️ [REGISTRATION] Failed to parse timeout configuration, using defaults');
-            logger.log('⚠️ [REGISTRATION] Error: ' + String(error));
+            logger.warn('Failed to parse timeout configuration, using defaults', 'Registration');
+            logger.warn('Error: ' + String(error), 'Registration');
         }
     }
     
@@ -556,7 +558,7 @@ export class Registration {
      * @returns ACK message to send
      */
     private handle202Accepted(data: string): string {
-        logger.log('📥 [REGISTRATION] Received 202 Accepted');
+        logger.info('Received 202 Accepted', 'Registration');
         
         this.cancelReceiveTimeout();
         this.parseServerTimeouts(data);
@@ -564,9 +566,9 @@ export class Registration {
         const fromTagMatch = data.match(Registration.REGEX_FROM_TAG);
         if (fromTagMatch) {
             this.expectedToTag = fromTagMatch[1];
-            logger.log(`🏷️ [REGISTRATION] Extracted server tag: ${this.expectedToTag}`);
+            logger.debug(`Extracted server tag: ${this.expectedToTag}`, 'Registration');
         } else {
-            logger.log('⚠️ [REGISTRATION] WARNING: Server did not provide tag in 202 response From header');
+            logger.warn('WARNING: Server did not provide tag in 202 response From header', 'Registration');
         }
         
         this.transitionTo(RegistrationState.ACCEPTED_202);
@@ -579,7 +581,7 @@ export class Registration {
         
         this.transitionTo(RegistrationState.ACK_3_SENT, 'ACK sent - registration complete');
         this.isRegistered = true;
-        logger.log('🎉 [REGISTRATION] Registration phase COMPLETED - transitioning to Connection Establishment');
+        logger.info('Registration phase COMPLETED - transitioning to Connection Establishment', 'Registration');
         
         // Notify SipClient of success with timeout configuration
         this.events.onSuccess?.({
@@ -601,20 +603,20 @@ export class Registration {
         if (errorMatch) {
             const errorCode = errorMatch[1];
             const errorReason = errorMatch[2];
-            logger.log(`❌ [REGISTRATION] Received error response: ${errorCode} ${errorReason}`);
+            logger.error(`Received error response: ${errorCode} ${errorReason}`, 'Registration');
             
             this.lastError = `${errorCode} ${errorReason}`;
             
             const isPermanent = ['401', '403', '407'].includes(errorCode);
             
             if (isPermanent) {
-                logger.log(`⛔ [REGISTRATION] Permanent failure - ${errorCode}`);
+                logger.error(`Permanent failure - ${errorCode}`, 'Registration');
                 this.markRegistrationFailed(`permanent error ${errorCode}`);
                 this.events.onFailure?.(`Error ${errorCode}: ${errorReason}`, false);
                 return "";
             }
             
-            logger.log(`⚠️ [REGISTRATION] Temporary error ${errorCode}`);
+            logger.warn(`Temporary error ${errorCode}`, 'Registration');
             this.markRegistrationFailed(`temporary error ${errorCode}`);
             
             const byeMessage = this.createRegistrationBye(Registration.CSEQ_BYE_TIMEOUT);
@@ -637,14 +639,14 @@ export class Registration {
      * @returns Response to resend (ACK for duplicate 202, empty otherwise)
      */
     private handleDuplicateMessage(data: string, cseqNum: number): string {
-        logger.log(`🔁 [REGISTRATION] Handling duplicate for CSeq: ${cseqNum}`);
+        logger.debug(`Handling duplicate for CSeq: ${cseqNum}`, 'Registration');
         
         if (/SIP\/2\.0 202/.test(data)) {
-            logger.log('🔁 [REGISTRATION] Resending ACK for duplicate 202');
+            logger.debug('Resending ACK for duplicate 202', 'Registration');
             return this.createAck(data);
         }
         
-        logger.log('🔁 [REGISTRATION] Ignoring duplicate - no action needed');
+        logger.debug('Ignoring duplicate - no action needed', 'Registration');
         return "";
     }
     
@@ -660,9 +662,9 @@ export class Registration {
         if (m) {
             this.parsedFromUri = m[2];
             this.parsedFromTag = m[3];
-            logger.log(`✅ [REGISTRATION] Extracted FROM - URI: ${this.parsedFromUri}, Tag: ${this.parsedFromTag}`);
+            logger.debug(`Extracted FROM - URI: ${this.parsedFromUri}, Tag: ${this.parsedFromTag}`, 'Registration');
         } else {
-            logger.log('❌ [REGISTRATION] Failed to parse From header');
+            logger.error('Failed to parse From header', 'Registration');
         }
     }
     
@@ -672,7 +674,7 @@ export class Registration {
      * @returns REGISTRATION BYE message to send
      */
     public terminate(): string {
-        logger.log('🛑 [REGISTRATION] Initiating graceful termination');
+        logger.info('Initiating graceful termination', 'Registration');
         
         this.cancelReceiveTimeout();
         this.transitionTo(RegistrationState.TERMINATING);

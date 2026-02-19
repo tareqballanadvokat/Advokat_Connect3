@@ -7,6 +7,9 @@ import { selectIsReady, selectNotReadyReason } from './connectionSlice';
 import type { RootState } from '../index';
 import notify from 'devextreme/ui/notify';
 import { getErrorMessage } from '../../utils/errorHelpers';
+import { getLogger } from '../../services/logger';
+
+const logger = getLogger();
 
 interface ServiceState {
   // Service form data
@@ -77,12 +80,12 @@ export const loadServicesAsync = createAsyncThunk(
         const cached = await cacheService.get<LeistungAuswahlResponse[]>(cacheKey, cacheOptions);
 
         if (cached) {
-          console.log(`📴 [serviceSlice] ${reason}. Using cached services for Kürzel ${query.Kürzel || 'all'}`);
+          logger.info('serviceSlice', `${reason}. Using cached services for Kürzel ${query.Kürzel || 'all'}`);
           notify(`⚠️ ${reason}. Showing cached services.`, 'warning', 4000);
           return cached;
         }
       } catch (error: unknown) {
-        console.warn(`⚠️ [serviceSlice] Cache read failed while ${reason}:`, getErrorMessage(error));
+        logger.warn('serviceSlice', `Cache read failed while ${reason}`, getErrorMessage(error));
       }
 
       throw new Error(`${reason}. No cached data available. Please try again when connected.`);
@@ -93,15 +96,15 @@ export const loadServicesAsync = createAsyncThunk(
       const cached = await cacheService.get<LeistungAuswahlResponse[]>(cacheKey, cacheOptions);
 
       if (cached) {
-        console.log(`📦 [serviceSlice] Using cached services for Kürzel ${query.Kürzel || 'all'}`);
+        logger.info('serviceSlice', `Using cached services for Kürzel ${query.Kürzel || 'all'}`);
         return cached;
       }
     } catch (error: unknown) {
-      console.warn('⚠️ [serviceSlice] Cache read failed, falling back to API:', getErrorMessage(error));
+      logger.warn('serviceSlice', 'Cache read failed, falling back to API', getErrorMessage(error));
     }
     
     // 2. Cache miss or error - fetch from API
-    console.log(`🌐 [serviceSlice] Fetching services from API for Kürzel ${query.Kürzel || 'all'}`);
+    logger.info('serviceSlice', `Fetching services from API for Kürzel ${query.Kürzel || 'all'}`);
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
@@ -115,12 +118,12 @@ export const loadServicesAsync = createAsyncThunk(
         if (data.length > 0) {
           try {
             await cacheService.set(cacheKey, data, cacheOptions);
-            console.log(`✅ [serviceSlice] Cached ${data.length} services for Kürzel ${query.Kürzel || 'all'}`);
+            logger.info('serviceSlice', `Cached ${data.length} services for Kürzel ${query.Kürzel || 'all'}`);
           } catch (error: unknown) {
-            console.warn('⚠️ [serviceSlice] Cache write failed:', getErrorMessage(error));
+            logger.warn('serviceSlice', 'Cache write failed', getErrorMessage(error));
           }
         } else {
-          console.log('⏭️ [serviceSlice] Skipping cache for empty services list');
+          logger.info('serviceSlice', 'Skipping cache for empty services list');
         }
         
         return data;
@@ -132,12 +135,12 @@ export const loadServicesAsync = createAsyncThunk(
       try {
         const staleCache = await cacheService.get<LeistungAuswahlResponse[]>(cacheKey, cacheOptions);
         if (staleCache) {
-          console.warn('⚠️ [serviceSlice] API failed, returning stale cached data');
+          logger.warn('serviceSlice', 'API failed, returning stale cached data');
           notify('⚠️ API unavailable. Showing cached services.', 'warning', 4000);
           return staleCache;
         }
       } catch (cacheError: unknown) {
-        console.error('❌ [serviceSlice] Failed to retrieve stale cache:', getErrorMessage(cacheError));
+        logger.error('serviceSlice', 'Failed to retrieve stale cache', getErrorMessage(cacheError));
       }
       throw error;
     }
@@ -165,10 +168,10 @@ export const saveLeistungAsync = createAsyncThunk(
               namespace: username
             };
             await cacheService.remove(cacheKey, cacheOptions);
-            console.log(`🗑️ [serviceSlice] Cleared registered services cache for aktId ${leistungData.aktId}`);
+            logger.info('serviceSlice', `Cleared registered services cache for aktId ${leistungData.aktId}`);
           }
         } catch (error: unknown) {
-          console.warn('⚠️ [serviceSlice] Cache clear failed:', getErrorMessage(error));
+          logger.warn('serviceSlice', 'Cache clear failed', getErrorMessage(error));
         }
       }
       
@@ -218,18 +221,18 @@ export const loadLeistungenAsync = createAsyncThunk(
         const cached = await cacheService.get<LeistungResponse[]>(cacheKey, cacheOptions);
 
         if (cached) {
-          console.log(`📦 [serviceSlice] Using cached registered services for aktId ${query.aktId}`);
+          logger.info('serviceSlice', `Using cached registered services for aktId ${query.aktId}`);
           return cached;
         }
       } catch (error: unknown) {
-        console.warn('⚠️ [serviceSlice] Cache read failed, falling back to API:', getErrorMessage(error));
+        logger.warn('serviceSlice', 'Cache read failed, falling back to API', getErrorMessage(error));
       }
     } else {
-      console.log(`🔄 [serviceSlice] Force refresh for aktId ${query.aktId}`);
+      logger.info('serviceSlice', `Force refresh for aktId ${query.aktId}`);
     }
     
     // 2. Fetch from API
-    console.log(`🌐 [serviceSlice] Fetching registered services from API for aktId ${query.aktId}`);
+    logger.info('serviceSlice', `Fetching registered services from API for aktId ${query.aktId}`);
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     
@@ -243,12 +246,12 @@ export const loadLeistungenAsync = createAsyncThunk(
         if (data.length > 0) {
           try {
             await cacheService.set(cacheKey, data, cacheOptions);
-            console.log(`✅ [serviceSlice] Cached ${data.length} registered services for aktId ${query.aktId}`);
+            logger.info('serviceSlice', `Cached ${data.length} registered services for aktId ${query.aktId}`);
           } catch (error: unknown) {
-            console.warn('⚠️ [serviceSlice] Cache write failed:', getErrorMessage(error));
+            logger.warn('serviceSlice', 'Cache write failed', getErrorMessage(error));
           }
         } else {
-          console.log('⏭️ [serviceSlice] Skipping cache for empty Leistungen list');
+          logger.info('serviceSlice', 'Skipping cache for empty Leistungen list');
         }
         
         return data;
@@ -260,12 +263,12 @@ export const loadLeistungenAsync = createAsyncThunk(
       try {
         const staleCache = await cacheService.get<LeistungResponse[]>(cacheKey, cacheOptions);
         if (staleCache) {
-          console.warn('⚠️ [serviceSlice] API failed, returning stale cached data');
+          logger.warn('serviceSlice', 'API failed, returning stale cached data');
           notify('⚠️ API unavailable. Showing cached services.', 'warning', 4000);
           return staleCache;
         }
       } catch (cacheError: unknown) {
-        console.error('❌ [serviceSlice] Failed to retrieve stale cache:', getErrorMessage(cacheError));
+        logger.error('serviceSlice', 'Failed to retrieve stale cache', getErrorMessage(cacheError));
       }
       throw error;
     }

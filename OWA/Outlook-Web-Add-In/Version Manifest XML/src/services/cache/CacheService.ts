@@ -12,6 +12,9 @@ import { LRUManager } from './utils/LRUManager';
 import { CompressionManager } from './utils/CompressionManager';
 import { cacheStatistics } from './utils/CacheStatistics';
 import { STORAGE_PREFIX } from './config';
+import { getLogger } from '../logger';
+
+const logger = getLogger();
 
 export class CacheService {
   private strategies: Map<StorageType, IStorageStrategy>;
@@ -56,7 +59,7 @@ export class CacheService {
 
     const isAvailable = await strategy.isAvailable();
     if (!isAvailable) {
-      console.warn(`⚠️ [CacheService] Storage ${options.storage} not available`);
+      logger.warn(`Storage ${options.storage} not available`, 'CacheService');
       return;
     }
 
@@ -73,14 +76,14 @@ export class CacheService {
       
       // Check if compression increased size (can happen with small/random data)
       if (compressedSize >= originalSize) {
-        console.log(`⚠️ [CacheService] Compression expanded data for ${namespacedKey}, using original`);
+        logger.debug(`Compression expanded data for ${namespacedKey}, using original`, 'CacheService');
         serialized = originalData;
         entrySize = originalSize;
         // Update stats to mark as expansion
         cacheStatistics.recordCompression(originalSize, compressedSize, 0, true);
       } else {
         const ratio = CompressionManager.getCompressionRatio(originalSize, compressedSize);
-        console.log(`🗜️ [CacheService] Compressed ${namespacedKey}: ${originalSize}B → ${compressedSize}B (${ratio.toFixed(1)}% saved)`);
+        logger.debug(`Compressed ${namespacedKey}: ${originalSize}B → ${compressedSize}B (${ratio.toFixed(1)}% saved)`, 'CacheService');
         entrySize = compressedSize;
       }
     }
@@ -92,7 +95,7 @@ export class CacheService {
 
     if (spaceNeeded > threshold) {
       const bytesToFree = spaceNeeded - threshold;
-      console.warn(`⚠️ [CacheService] Storage ${options.storage} needs ${bytesToFree} bytes, evicting entries`);
+      logger.warn(`Storage ${options.storage} needs ${bytesToFree} bytes, evicting entries`, 'CacheService');
       await LRUManager.evictOldest(strategy, this.EVICTION_COUNT);
       for (let i = 0; i < this.EVICTION_COUNT; i++) {
         cacheStatistics.recordEviction();
@@ -110,7 +113,7 @@ export class CacheService {
     // Try to write with retry on quota error
     try {
       await strategy.setItem(namespacedKey, serialized);
-      console.log(`✅ [CacheService] Cached ${namespacedKey} in ${options.storage} (${entrySize} bytes)`);
+      logger.debug(`Cached ${namespacedKey} in ${options.storage} (${entrySize} bytes)`, 'CacheService');
       cacheStatistics.recordWrite(key, entrySize);
       
       // Update storage stats after write
@@ -124,14 +127,14 @@ export class CacheService {
       );
     } catch (error) {
       if (error instanceof Error && error.message.includes('quota exceeded')) {
-        console.warn(`⚠️ [CacheService] Quota exceeded, aggressive eviction...`);
+        logger.warn(`Quota exceeded, aggressive eviction...`, 'CacheService');
         await LRUManager.evictOldest(strategy, this.EVICTION_COUNT * 3);
         for (let i = 0; i < this.EVICTION_COUNT * 3; i++) {
           cacheStatistics.recordEviction();
         }
         // Retry once
         await strategy.setItem(namespacedKey, serialized);
-        console.log(`✅ [CacheService] Cached ${namespacedKey} after eviction (${entrySize} bytes)`);
+        logger.debug(`Cached ${namespacedKey} after eviction (${entrySize} bytes)`, 'CacheService');
         cacheStatistics.recordWrite(key, entrySize);
         
         // Update storage stats after aggressive eviction and write
@@ -155,7 +158,7 @@ export class CacheService {
   async get<T>(key: string, options: CacheOptions): Promise<T | null> {
     const strategy = this.strategies.get(options.storage);
     if (!strategy) {
-      console.warn(`⚠️ [CacheService] Storage strategy not found: ${options.storage}`);
+      logger.warn(`Storage strategy not found: ${options.storage}`, 'CacheService');
       return null;
     }
 
@@ -169,10 +172,10 @@ export class CacheService {
     
     // Handle decompression if data is compressed
     if (CompressionManager.isCompressed(serialized)) {
-      console.log(`🔄 [CacheService] Detected compressed data for ${namespacedKey}, decompressing...`);
+      logger.debug(`Detected compressed data for ${namespacedKey}, decompressing...`, 'CacheService');
       const decompressed = CompressionManager.decompress(serialized);
       if (decompressed === null) {
-        console.error(`❌ [CacheService] Failed to decompress: ${namespacedKey} - removing corrupted cache entry`, {
+        logger.error(`Failed to decompress: ${namespacedKey} - removing corrupted cache entry`, 'CacheService', {
           storage: options.storage,
           dataLength: serialized?.length
         });
@@ -181,7 +184,7 @@ export class CacheService {
       }
       serialized = decompressed;
     } else {
-      console.log(`ℹ️ [CacheService] Retrieved uncompressed data for ${namespacedKey}`);
+      logger.debug(`Retrieved uncompressed data for ${namespacedKey}`, 'CacheService');
     }
 
     try {
@@ -189,17 +192,17 @@ export class CacheService {
       const data = TTLManager.unwrap(entry);
 
       if (data === null) {
-        console.log(`⏰ [CacheService] Cache entry expired: ${namespacedKey}`);
+        logger.debug(`Cache entry expired: ${namespacedKey}`, 'CacheService');
         await strategy.removeItem(namespacedKey);
         cacheStatistics.recordMiss(key);
         return null;
       }
 
-      console.log(`✅ [CacheService] Retrieved ${namespacedKey} from ${options.storage}`);
+      logger.debug(`Retrieved ${namespacedKey} from ${options.storage}`, 'CacheService');
       cacheStatistics.recordHit(key);
       return data;
     } catch (error) {
-      console.error(`❌ [CacheService] Failed to parse cache entry: ${namespacedKey} - removing corrupted entry`, error);
+      logger.error(`Failed to parse cache entry: ${namespacedKey} - removing corrupted entry`, 'CacheService', error);
       await strategy.removeItem(namespacedKey);
       cacheStatistics.recordError();
       return null;
@@ -215,7 +218,7 @@ export class CacheService {
 
     const namespacedKey = this.buildKey(key, options.namespace);
     await strategy.removeItem(namespacedKey);
-    console.log(`🗑️ [CacheService] Removed ${namespacedKey} from ${options.storage}`);
+    logger.debug(`Removed ${namespacedKey} from ${options.storage}`, 'CacheService');
     
     // Update storage stats after removal
     const usage = await strategy.getUsage();
@@ -250,7 +253,7 @@ export class CacheService {
       }
 
       totalCleared += namespacedKeys.length;
-      console.log(`🗑️ [CacheService] Cleared ${namespacedKeys.length} entries for namespace ${namespace}`);
+      logger.debug(`Cleared ${namespacedKeys.length} entries for namespace ${namespace}`, 'CacheService');
       
       // Update storage stats after clearing namespace
       const usage = await strategy!.getUsage();
@@ -288,7 +291,7 @@ export class CacheService {
       }
 
       totalCleared += ourKeys.length;
-      console.log(`🗑️ [CacheService] Cleared ${ourKeys.length} entries from ${storageType}`);
+      logger.debug(`Cleared ${ourKeys.length} entries from ${storageType}`, 'CacheService');
       
       // Update storage stats after clearing all
       const usage = await strategy.getUsage();
@@ -348,7 +351,7 @@ export class CacheService {
       }
     }
     
-    console.log(`🗑️ [CacheService] Cleared ${cleared} entries for cache type(s): ${Array.isArray(cacheKeys) ? cacheKeys.join(', ') : cacheKeys}`);
+    logger.debug(`Cleared ${cleared} entries for cache type(s): ${Array.isArray(cacheKeys) ? cacheKeys.join(', ') : cacheKeys}`, 'CacheService');
     return cleared;
   }
 
@@ -419,7 +422,7 @@ export class CacheService {
       }
     }
     
-    console.log(`🗑️ [CacheService] Cleared ${cleared} document entries${namespace ? ` for namespace ${namespace}` : ''}`);
+    logger.debug(`Cleared ${cleared} document entries${namespace ? ` for namespace ${namespace}` : ''}`, 'CacheService');
     return cleared;
   }
 

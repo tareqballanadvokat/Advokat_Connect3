@@ -16,6 +16,9 @@ import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 
 import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 import { calculateFileSizeFromBase64 } from '@utils/fileHelpers';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
@@ -56,7 +59,7 @@ const EmailTabContent: React.FC = () => {
         const msgId = await getInternetMessageIdAsync(email);
         setMessageId(msgId);
       } catch (e: any) {
-        console.error(e);
+        logger.error('Failed to get message ID:', 'EmailTabContent', e);
       }
     })();
   }, []);
@@ -100,7 +103,7 @@ const EmailTabContent: React.FC = () => {
       notify('Please select a case first', 'warning', 3000);
       return;
     }
-    console.log(`📤 Starting transfer for case ${selectedCaseName} (ID: ${selectedCaseId}) with message ID: ${messageId}`)  ;
+    logger.debug(`Starting transfer for case ${selectedCaseName} (ID: ${selectedCaseId}) with message ID: ${messageId}`, 'EmailTabContent');
     if (!messageId) {
       notify('Email message ID not available', 'warning', 3000);
       return;
@@ -132,7 +135,7 @@ const EmailTabContent: React.FC = () => {
           return;
         }
         
-        console.log('📤 Saving Leistung via WebRTC...');
+        logger.debug('Saving Leistung via WebRTC...', 'EmailTabContent');
         
         // Find the selected service to get its kürzel
         const selectedService = services.find(service => service.id === selectedServiceId);
@@ -164,14 +167,14 @@ const EmailTabContent: React.FC = () => {
         
         // Send Leistung to API via WebRTC using Redux thunk
         await dispatch(saveLeistungAsync(leistungPayload)).unwrap();
-        console.log('✅ Leistung saved successfully');
+        logger.info('Leistung saved successfully', 'EmailTabContent');
         notify('Service saved successfully', 'success', 3000);
       } else {
-        console.log('⚠️ No service selected, skipping Leistung save');
+        logger.debug('No service selected, skipping Leistung save', 'EmailTabContent');
       }
 
       // STEP 2: Handle Email and Attachments via WebRTC API
-      console.log('📧 Processing email and attachments...');
+      logger.debug('Processing email and attachments...', 'EmailTabContent');
       
       const email = Office.context.mailbox.item;
       
@@ -182,7 +185,7 @@ const EmailTabContent: React.FC = () => {
       // Save email as document if selected
       if (firstE != null) {
         emailContent = await getEmailContentAsync(email);
-        console.log('📄 Email content extracted for transfer');
+        logger.debug('Email content extracted for transfer', 'EmailTabContent');
         
         // Detect the correct document type (sent vs received email)
         const isCompose = IsComposeMode();
@@ -205,18 +208,18 @@ const EmailTabContent: React.FC = () => {
         
         // Save email document via WebRTC using Redux thunk
         await dispatch(saveDokumentAsync(emailDokument)).unwrap();
-        console.log('✅ Email document saved successfully');
+        logger.info('Email document saved successfully', 'EmailTabContent');
         notify('Email saved successfully', 'success', 3000);
       }
       else {
-        console.log('⚠️ No email selected, skipping Email save');
+        logger.debug('No email selected, skipping Email save', 'EmailTabContent');
       }
 
       // Get selected attachments and save each as a document
       const selectedAttachments = attachmentSelected.filter(i => i.checked && i.type === 'A');
       
       if (selectedAttachments.length > 0) {
-        console.log(`� Processing ${selectedAttachments.length} attachments for transfer`);
+        logger.debug(`Processing ${selectedAttachments.length} attachments for transfer`, 'EmailTabContent');
         
         for (const attachment of selectedAttachments) {
           try {
@@ -251,9 +254,9 @@ const EmailTabContent: React.FC = () => {
             
             // Save attachment document via WebRTC using Redux thunk
             await dispatch(saveDokumentAsync(attachmentDokument)).unwrap();
-            console.log(`✅ Attachment '${attachment.name}' saved successfully`);
+            logger.info(`Attachment '${attachment.name}' saved successfully`, 'EmailTabContent');
           } catch (attachmentError) {
-            console.error(`Failed to save attachment '${attachment.name}':`, attachmentError);
+            logger.error(`Failed to save attachment '${attachment.name}':`, 'EmailTabContent', attachmentError);
             notify(`Failed to save attachment '${attachment.name}'`, 'warning', 4000);
             // Continue with other attachments
           }
@@ -271,7 +274,7 @@ const EmailTabContent: React.FC = () => {
       }
 
     } catch (error) {
-      console.error('Failed to transfer:', error);
+      logger.error('Failed to transfer:', 'EmailTabContent', error);
       notify('Failed to transfer to ADVOKAT', 'error', 5000);
     } finally {
       // Reset loading state

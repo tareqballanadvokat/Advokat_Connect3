@@ -9,6 +9,9 @@ import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
 import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
   const { cases, favouriteAkten, loading, favoritesLoading, favoritesLoaded, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
@@ -57,7 +60,7 @@ const SearchCaseList: React.FC = () => {
             })).unwrap();
       notify(`Successfully added "${aKurz}" to favorites!`, 'success', 3000);
     } catch (error) {
-      console.error('Failed to add to favorites:', error);
+      logger.error('Failed to add to favorites:', 'SearchCaseList', error);
       notify(`Failed to add "${aKurz}" to favorites: ${error}`, 'error', 5000);
     }
   };
@@ -78,7 +81,7 @@ const SearchCaseList: React.FC = () => {
     try {
       await dispatch(aktLookUpAsync(query)).unwrap();
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('Search failed:', 'SearchCaseList', error);
       if (isReady) {
         notify('Search cases failed via WebRTC', 'error', 5000);
       }

@@ -1,5 +1,8 @@
 /* global Office console */
 
+import { getLogger } from '../services/logger';
+const logger = getLogger();
+
 export async function insertText(text: string) {
   // Write text to the cursor point in the compose surface.
   try {
@@ -13,6 +16,6 @@ export async function insertText(text: string) {
       }
     );
   } catch (error) {
-    console.log("Error: " + error);
+    logger.error('Error: ' + String(error), 'taskpane');
   }
 }

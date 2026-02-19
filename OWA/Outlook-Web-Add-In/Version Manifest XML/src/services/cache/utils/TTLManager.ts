@@ -2,7 +2,9 @@
  * TTL (Time-To-Live) Manager
  * Handles expiration logic for cached entries
  */
+import { getLogger } from '../../logger';
 
+const logger = getLogger();
 import { CacheEntry } from '../types';
 
 export class TTLManager {
@@ -12,7 +14,7 @@ export class TTLManager {
   static wrap<T>(data: T, ttl?: number, namespace?: string): CacheEntry<T> {
     // Validate TTL: must be positive or undefined
     if (ttl !== undefined && ttl <= 0) {
-      console.warn(`⚠️ [TTLManager] Invalid TTL value: ${ttl}. Using no expiration.`);
+      logger.warn(`Invalid TTL value: ${ttl}. Using no expiration.`, 'TTLManager');
       ttl = undefined;
     }
 

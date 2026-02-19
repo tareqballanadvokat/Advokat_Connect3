@@ -3,6 +3,8 @@
  * Monitors user activity and triggers callbacks when user goes idle or becomes active
  */
 
+import { getLogger } from '../../services/logger';
+
 export interface IdleActivityMonitorConfig {
   idleTimeout: number;           // Time in ms before user is considered idle
   onIdle: () => void;            // Callback when user goes idle
@@ -18,6 +20,7 @@ export class IdleActivityMonitor {
   private isMonitoring: boolean = false;
   private throttleTimer: NodeJS.Timeout | null = null;
   private lastThrottleTime: number = 0;
+  private logger = getLogger();
 
   // Activity event types to monitor
   private readonly activityEvents = [
@@ -48,11 +51,11 @@ export class IdleActivityMonitor {
    */
   start(): void {
     if (this.isMonitoring) {
-      console.warn('[IdleMonitor] Already monitoring');
+      this.logger.warn('Already monitoring', 'IdleMonitor');
       return;
     }
 
-    console.log(`[IdleMonitor] Starting (timeout: ${this.config.idleTimeout}ms)`);
+    this.logger.debug(`Starting (timeout: ${this.config.idleTimeout}ms)`, 'IdleMonitor');
     this.isMonitoring = true;
     this.lastActivityTime = Date.now();
     this.isCurrentlyIdle = false;
@@ -72,7 +75,7 @@ export class IdleActivityMonitor {
       return;
     }
 
-    console.log('[IdleMonitor] Stopping');
+    this.logger.debug('Stopping', 'IdleMonitor');
     this.isMonitoring = false;
 
     // Remove event listeners
@@ -95,7 +98,7 @@ export class IdleActivityMonitor {
 
     // If user was idle and now active, trigger onActive callback
     if (this.isCurrentlyIdle) {
-      console.log('[IdleMonitor] User became active');
+      this.logger.info('User became active', 'IdleMonitor');
       this.isCurrentlyIdle = false;
       this.config.onActive();
     }
@@ -197,10 +200,10 @@ export class IdleActivityMonitor {
     const hasFocus = document.hasFocus();
 
     if (isVisible || hasFocus) {
-      console.log('[IdleMonitor] Page became visible/focused');
+      this.logger.debug('Page became visible/focused', 'IdleMonitor');
       this.handleActivity();
     } else {
-      console.log('[IdleMonitor] Page became hidden/blurred');
+      this.logger.debug('Page became hidden/blurred', 'IdleMonitor');
       // When user switches away, we don't immediately mark as idle,
       // but the idle timer will continue and eventually trigger
     }
@@ -214,7 +217,7 @@ export class IdleActivityMonitor {
 
     this.idleTimer = setTimeout(() => {
       if (this.isMonitoring && !this.isCurrentlyIdle) {
-        console.log('[IdleMonitor] User went idle');
+        this.logger.info('User went idle', 'IdleMonitor');
         this.isCurrentlyIdle = true;
         this.config.onIdle();
       }

@@ -11,9 +11,8 @@ import serviceReducer, {
   loadServicesAsync,
   saveLeistungAsync
 } from '../serviceSlice';
-import { LeistungAuswahlResponse, LeistungPostData } from '../../../taskpane/components/interfaces/IService';
-import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from '../testHelpers';
-import { createMockService, createMockLeistungPostData } from './testFactories';
+import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from './testSetup';
+import { createMockService, createMockLeistungPostData } from './mockFactories';
 
 // Create mock WebRTC service
 const mockWebRTCService = createMockWebRTCService();

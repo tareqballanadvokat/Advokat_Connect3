@@ -74,10 +74,12 @@
  * @version 2.1.0
  */
 
-import { logger } from './Helper';
+import { getLogger } from '../../../services/logger';
 import { getConfig } from '../../../config';
 import { TimeoutManager } from './TimeoutManager';
 import { MessageFactory } from './MessageFactory';
+
+const logger = getLogger();
 import { SipPhaseEvents } from './SipClient';
 import { WebRTCDataChannelService } from '../../services/WebRTCDataChannelService';
 
@@ -264,7 +266,7 @@ export class Peer2PeerConnection {
      * Log with standardized prefix
      */
     private logWithPrefix(message: string): void {
-        logger.log(`${Peer2PeerConnection.LOG_PREFIX} ${message}`);
+        logger.debug(`${Peer2PeerConnection.LOG_PREFIX} ${message}`, 'Peer2PeerConnection');
     }
     
     /**

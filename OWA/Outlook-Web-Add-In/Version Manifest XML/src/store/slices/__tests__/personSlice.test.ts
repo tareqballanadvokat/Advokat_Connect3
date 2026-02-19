@@ -9,9 +9,8 @@ import personReducer, {
   addPersonToFavoritesAsync,
   removePersonFromFavoritesAsync
 } from '../personSlice';
-import { PersonLookUpResponse, PersonResponse } from '../../../taskpane/components/interfaces/IPerson';
-import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from '../testHelpers';
-import { createMockPersonLookUp, createMockPersonResponse } from './testFactories';
+import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from './testSetup';
+import { createMockPersonLookUp, createMockPersonResponse } from './mockFactories';
 
 // Create mock WebRTC service
 const mockWebRTCService = createMockWebRTCService();

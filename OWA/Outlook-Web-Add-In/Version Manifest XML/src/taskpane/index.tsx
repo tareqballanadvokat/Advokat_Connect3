@@ -7,6 +7,8 @@ import { store } from "../store";
 import { APP_VERSION } from "../config";
 import { cacheService } from "../services/cache/CacheService";
 import { CACHE_KEYS, CACHE_CONFIG } from "../services/cache/config";
+import { initializeLogger, getLogger } from "../services/logger";
+import { configService } from "../config";
 
 /* global document, Office, module, require, HTMLElement */
 
@@ -16,7 +18,7 @@ const title = "Advokat Task Pane Add-in";
  * Check and clear cache if app version has changed
  * This prevents issues when data structures change between versions
  */
-const checkAndClearCacheIfNeeded = async () => {
+const checkAndClearCacheIfNeeded = async (logger: ReturnType<typeof getLogger>) => {
   try {
     const storedVersion = await cacheService.get<string>(
       CACHE_KEYS.APP_VERSION,
@@ -25,11 +27,11 @@ const checkAndClearCacheIfNeeded = async () => {
     
     if (storedVersion !== APP_VERSION) {
       const oldVersion = storedVersion || 'none';
-      console.log(`🔄 [Cache Version] App version changed (${oldVersion} → ${APP_VERSION}), clearing cache`);
+      logger.info('CacheVersion', `App version changed (${oldVersion} → ${APP_VERSION}), clearing cache`);
       
       // Clear all cache data using CacheService
       const clearedCount = await cacheService.clearAll();
-      console.log(`✅ [Cache Version] Cleared ${clearedCount} cache entries`);
+      logger.info('CacheVersion', `Cleared ${clearedCount} cache entries`);
       
       // Store new version using cache service
       await cacheService.set(
@@ -37,12 +39,12 @@ const checkAndClearCacheIfNeeded = async () => {
         APP_VERSION,
         CACHE_CONFIG[CACHE_KEYS.APP_VERSION]
       );
-      console.log('✅ [Cache Version] Version updated');
+      logger.info('CacheVersion', 'Version updated');
     } else {
-      console.log(`✅ [Cache Version] Version ${APP_VERSION} matches`);
+      logger.info('CacheVersion', `Version ${APP_VERSION} matches`);
     }
   } catch (error) {
-    console.error('❌ [Cache Version] Failed to check/clear cache:', error);
+    logger.error('CacheVersion', 'Failed to check/clear cache', error);
   }
 };
 
@@ -51,10 +53,14 @@ const root = rootElement ? createRoot(rootElement) : undefined;
 
 /* Render application after Office initializes */
 Office.onReady(async () => {
+  // Initialize logger with config
+  const config = configService.getConfig();
+  const logger = initializeLogger(config.logging);
+  
   try {
-    await checkAndClearCacheIfNeeded();
+    await checkAndClearCacheIfNeeded(logger);
   } catch (error) {
-    console.error('❌ [App Init] Critical cache initialization error:', error);
+    logger.error('AppInit', 'Critical cache initialization error', error);
   }
 
  // 1) Spróbuj użyć Office.context.officeTheme (Office.js 1.1+ i niektóre hosty)
@@ -86,7 +92,7 @@ Office.onReady(async () => {
     cacheService.logStatistics();
     return cacheService.getStatistics();
   };
-  console.log('💡 Tip: Use window.__cacheStats() in console to view cache statistics');
+  logger.info('App', 'Tip: Use window.__cacheStats() in console to view cache statistics');
 });
 
 if ((module as any).hot) {
