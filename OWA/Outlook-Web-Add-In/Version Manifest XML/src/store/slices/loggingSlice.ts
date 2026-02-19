@@ -1,7 +1,7 @@
 // src/store/slices/loggingSlice.ts
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { LogLevel } from '../../config/types';
-import { getLogger } from '../../services/logger';
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { LogLevel } from "../../config/types";
+import { getLogger } from "../../services/logger";
 
 /**
  * Logging State Interface
@@ -20,7 +20,7 @@ const initialState: ILoggingState = {
 };
 
 const loggingSlice = createSlice({
-  name: 'logging',
+  name: "logging",
   initialState,
   reducers: {
     /**
@@ -70,12 +70,7 @@ const loggingSlice = createSlice({
   },
 });
 
-export const {
-  initializeLogging,
-  toggleLogging,
-  enableLogging,
-  disableLogging,
-  setLogLevel,
-} = loggingSlice.actions;
+export const { initializeLogging, toggleLogging, enableLogging, disableLogging, setLogLevel } =
+  loggingSlice.actions;
 
 export default loggingSlice.reducer;

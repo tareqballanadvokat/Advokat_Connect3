@@ -3,11 +3,11 @@
  * Handles eviction of oldest cache entries
  */
 
-import { CacheEntry } from '../types';
-import { IStorageStrategy } from '../strategies/IStorageStrategy';
-import { TTLManager } from './TTLManager';
-import { STORAGE_PREFIX } from '../config';
-import { getLogger } from '../../logger';
+import { CacheEntry } from "../types";
+import { IStorageStrategy } from "../strategies/IStorageStrategy";
+import { TTLManager } from "./TTLManager";
+import { STORAGE_PREFIX } from "../config";
+import { getLogger } from "../../logger";
 
 const logger = getLogger();
 
@@ -15,10 +15,7 @@ export class LRUManager {
   /**
    * Evict the oldest N entries from storage
    */
-  static async evictOldest(
-    strategy: IStorageStrategy,
-    count: number
-  ): Promise<number> {
+  static async evictOldest(strategy: IStorageStrategy, count: number): Promise<number> {
     try {
       const keys = await strategy.getAllKeys();
       if (keys.length === 0) return 0;
@@ -32,7 +29,7 @@ export class LRUManager {
           if (!serialized) continue;
 
           const entry = JSON.parse(serialized) as CacheEntry<any>;
-          
+
           // Skip expired entries (they'll be cleaned up naturally)
           if (TTLManager.isExpired(entry)) {
             const rawKey = key.substring(STORAGE_PREFIX.length);
@@ -45,7 +42,7 @@ export class LRUManager {
           entries.push({
             key,
             rawKey,
-            lastAccessed: entry.lastAccessed
+            lastAccessed: entry.lastAccessed,
           });
         } catch {
           // Skip invalid entries
@@ -62,13 +59,11 @@ export class LRUManager {
         await strategy.removeItem(entries[i].rawKey);
       }
 
-      logger.debug(`Evicted ${toRemove} oldest entries`, 'LRUManager');
+      logger.debug(`Evicted ${toRemove} oldest entries`, "LRUManager");
       return toRemove;
     } catch (error) {
-      logger.error('Eviction failed: ' + String(error), 'LRUManager');
+      logger.error("Eviction failed: " + String(error), "LRUManager");
       return 0;
     }
   }
-
 }
-

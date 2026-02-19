@@ -1,9 +1,10 @@
+/* eslint-disable no-undef */
 /**
  * Logger Service
  * Centralized logging with environment-based configuration and runtime controls
  */
 
-import { LogLevel, LoggerConfig, LOG_LEVEL_PRIORITY } from './types';
+import { LogLevel, LoggerConfig, LOG_LEVEL_PRIORITY } from "./types";
 
 /**
  * Logger Class - Singleton pattern for consistent logging across the app
@@ -67,7 +68,8 @@ export class Logger {
     }
 
     const timestamp = Date.now();
-    const stack = level === LogLevel.ERROR && this.config.includeStack ? new Error().stack : undefined;
+    const stack =
+      level === LogLevel.ERROR && this.config.includeStack ? new Error().stack : undefined;
 
     // Output to console
     this.outputToConsole({ timestamp, level, context, message, data, stack });
@@ -76,33 +78,33 @@ export class Logger {
   /**
    * Format and output log entry to console
    */
-  private outputToConsole(entry: { 
-    timestamp: number; 
-    level: LogLevel; 
-    context: string; 
-    message: string; 
-    data?: any; 
+  private outputToConsole(entry: {
+    timestamp: number;
+    level: LogLevel;
+    context: string;
+    message: string;
+    data?: any;
     stack?: string;
   }): void {
-    const timestamp = this.config.includeTimestamp 
-      ? `[${new Date(entry.timestamp).toISOString()}]` 
-      : '';
-    
+    const timestamp = this.config.includeTimestamp
+      ? `[${new Date(entry.timestamp).toISOString()}]`
+      : "";
+
     const prefix = `${timestamp} [${entry.context}]`;
     const message = `${prefix} ${entry.message}`;
 
     switch (entry.level) {
       case LogLevel.DEBUG:
-        console.log(`🔍 ${message}`, entry.data ?? '');
+        console.log(`🔍 ${message}`, entry.data ?? "");
         break;
       case LogLevel.INFO:
-        console.log(`ℹ️ ${message}`, entry.data ?? '');
+        console.log(`ℹ️ ${message}`, entry.data ?? "");
         break;
       case LogLevel.WARN:
-        console.warn(`⚠️ ${message}`, entry.data ?? '');
+        console.warn(`⚠️ ${message}`, entry.data ?? "");
         break;
       case LogLevel.ERROR:
-        console.error(`❌ ${message}`, entry.data ?? '');
+        console.error(`❌ ${message}`, entry.data ?? "");
         if (entry.stack && this.config.includeStack) {
           console.error(entry.stack);
         }

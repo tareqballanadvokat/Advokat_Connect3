@@ -3,7 +3,7 @@
  * Tracks cache performance metrics in real-time
  */
 
-import { getLogger } from '../../logger';
+import { getLogger } from "../../logger";
 
 const logger = getLogger();
 
@@ -80,7 +80,7 @@ export class CacheStatisticsManager {
         misses: 0,
         writes: 0,
         evictions: 0,
-        errors: 0
+        errors: 0,
       },
       compression: {
         compressions: 0,
@@ -89,13 +89,13 @@ export class CacheStatisticsManager {
         bytesAfterCompression: 0,
         totalCompressionTime: 0,
         totalDecompressionTime: 0,
-        expansions: 0
+        expansions: 0,
       },
       storage: {},
       perType: {},
       startTime: now,
       lastResetTime: now,
-      totalOperations: 0
+      totalOperations: 0,
     };
   }
 
@@ -105,7 +105,7 @@ export class CacheStatisticsManager {
   recordHit(cacheKey: string): void {
     this.stats.operations.hits++;
     this.stats.totalOperations++;
-    this.updateCacheType(cacheKey, 'hit');
+    this.updateCacheType(cacheKey, "hit");
     this.notifyListeners();
   }
 
@@ -115,17 +115,18 @@ export class CacheStatisticsManager {
   recordMiss(cacheKey: string): void {
     this.stats.operations.misses++;
     this.stats.totalOperations++;
-    this.updateCacheType(cacheKey, 'miss');
+    this.updateCacheType(cacheKey, "miss");
     this.notifyListeners();
   }
 
   /**
    * Record a cache write
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   recordWrite(cacheKey: string, _bytesWritten: number): void {
     this.stats.operations.writes++;
     this.stats.totalOperations++;
-    this.updateCacheType(cacheKey, 'write');
+    this.updateCacheType(cacheKey, "write");
     this.notifyListeners();
   }
 
@@ -176,11 +177,16 @@ export class CacheStatisticsManager {
   /**
    * Update storage statistics
    */
-  updateStorageStats(storageType: string, entryCount: number, bytesUsed: number, bytesQuota: number): void {
+  updateStorageStats(
+    storageType: string,
+    entryCount: number,
+    bytesUsed: number,
+    bytesQuota: number
+  ): void {
     this.stats.storage[storageType] = {
       entryCount,
       bytesUsed,
-      bytesQuota
+      bytesQuota,
     };
     this.notifyListeners();
   }
@@ -188,24 +194,24 @@ export class CacheStatisticsManager {
   /**
    * Update cache type statistics
    */
-  private updateCacheType(cacheKey: string, operation: 'hit' | 'miss' | 'write'): void {
+  private updateCacheType(cacheKey: string, operation: "hit" | "miss" | "write"): void {
     if (!this.stats.perType[cacheKey]) {
       this.stats.perType[cacheKey] = {
         hits: 0,
         misses: 0,
         writes: 0,
         lastAccessed: null,
-        lastUpdated: null
+        lastUpdated: null,
       };
     }
 
     const now = Date.now();
-    if (operation === 'hit') {
+    if (operation === "hit") {
       this.stats.perType[cacheKey].hits++;
       this.stats.perType[cacheKey].lastAccessed = now;
-    } else if (operation === 'miss') {
+    } else if (operation === "miss") {
       this.stats.perType[cacheKey].misses++;
-    } else if (operation === 'write') {
+    } else if (operation === "write") {
       this.stats.perType[cacheKey].writes++;
       this.stats.perType[cacheKey].lastUpdated = now;
     }
@@ -258,7 +264,7 @@ export class CacheStatisticsManager {
    */
   reset(): void {
     this.stats = this.createInitialStats();
-    logger.info('Statistics reset', 'CacheStatistics');
+    logger.info("Statistics reset", "CacheStatistics");
     this.notifyListeners();
   }
 
@@ -280,11 +286,11 @@ export class CacheStatisticsManager {
    * Notify all listeners of statistics change
    */
   private notifyListeners(): void {
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(this.getStats());
       } catch (error) {
-        logger.error('Listener error: ' + String(error), 'CacheStatistics');
+        logger.error("Listener error: " + String(error), "CacheStatistics");
       }
     });
   }
@@ -297,34 +303,50 @@ export class CacheStatisticsManager {
     const compressionEffectiveness = this.getCompressionEffectiveness();
     const uptime = this.getUptime();
 
-    logger.debug('Cache Statistics Summary', 'CacheStatistics');
-    logger.debug(`Uptime: ${uptime.toFixed(1)}s`, 'CacheStatistics');
-    logger.debug(`Hit Rate: ${hitRate.toFixed(1)}% (${this.stats.operations.hits} hits, ${this.stats.operations.misses} misses)`, 'CacheStatistics');
-    logger.debug(`Writes: ${this.stats.operations.writes}`, 'CacheStatistics');
-    logger.debug(`Evictions: ${this.stats.operations.evictions}`, 'CacheStatistics');
-    logger.debug(`Errors: ${this.stats.operations.errors}`, 'CacheStatistics');
-    logger.debug(`Compressions: ${this.stats.compression.compressions} (${compressionEffectiveness.toFixed(1)}% saved, ${this.stats.compression.expansions} expansions)`, 'CacheStatistics');
-    logger.debug(`Decompressions: ${this.stats.compression.decompressions}`, 'CacheStatistics');
-    logger.debug(`Avg Compression Time: ${this.getAvgCompressionTime().toFixed(2)}ms`, 'CacheStatistics');
-    
+    logger.debug("Cache Statistics Summary", "CacheStatistics");
+    logger.debug(`Uptime: ${uptime.toFixed(1)}s`, "CacheStatistics");
+    logger.debug(
+      `Hit Rate: ${hitRate.toFixed(1)}% (${this.stats.operations.hits} hits, ${this.stats.operations.misses} misses)`,
+      "CacheStatistics"
+    );
+    logger.debug(`Writes: ${this.stats.operations.writes}`, "CacheStatistics");
+    logger.debug(`Evictions: ${this.stats.operations.evictions}`, "CacheStatistics");
+    logger.debug(`Errors: ${this.stats.operations.errors}`, "CacheStatistics");
+    logger.debug(
+      `Compressions: ${this.stats.compression.compressions} (${compressionEffectiveness.toFixed(1)}% saved, ${this.stats.compression.expansions} expansions)`,
+      "CacheStatistics"
+    );
+    logger.debug(`Decompressions: ${this.stats.compression.decompressions}`, "CacheStatistics");
+    logger.debug(
+      `Avg Compression Time: ${this.getAvgCompressionTime().toFixed(2)}ms`,
+      "CacheStatistics"
+    );
+
     // Storage breakdown
     Object.entries(this.stats.storage).forEach(([type, storage]) => {
       const usagePercent = (storage.bytesUsed / storage.bytesQuota) * 100;
-      logger.debug(`${type}: ${storage.entryCount} entries, ${(storage.bytesUsed / 1024).toFixed(1)}KB / ${(storage.bytesQuota / 1024).toFixed(0)}KB (${usagePercent.toFixed(1)}%)`, 'CacheStatistics');
+      logger.debug(
+        `${type}: ${storage.entryCount} entries, ${(storage.bytesUsed / 1024).toFixed(1)}KB / ${(storage.bytesQuota / 1024).toFixed(0)}KB (${usagePercent.toFixed(1)}%)`,
+        "CacheStatistics"
+      );
     });
 
     // Per-type breakdown
     const topTypes = Object.entries(this.stats.perType)
-      .sort((a, b) => (b[1].hits + b[1].writes) - (a[1].hits + a[1].writes))
+      .sort((a, b) => b[1].hits + b[1].writes - (a[1].hits + a[1].writes))
       .slice(0, 5);
-    
+
     if (topTypes.length > 0) {
-      logger.debug('Top Cache Types:', 'CacheStatistics');
+      logger.debug("Top Cache Types:", "CacheStatistics");
       topTypes.forEach(([key, stats]) => {
-        const typeHitRate = stats.hits + stats.misses > 0 
-          ? (stats.hits / (stats.hits + stats.misses) * 100).toFixed(1)
-          : '0.0';
-        logger.debug(`  ${key}: ${stats.hits}H / ${stats.misses}M / ${stats.writes}W (${typeHitRate}% hit rate)`, 'CacheStatistics');
+        const typeHitRate =
+          stats.hits + stats.misses > 0
+            ? ((stats.hits / (stats.hits + stats.misses)) * 100).toFixed(1)
+            : "0.0";
+        logger.debug(
+          `  ${key}: ${stats.hits}H / ${stats.misses}M / ${stats.writes}W (${typeHitRate}% hit rate)`,
+          "CacheStatistics"
+        );
       });
     }
   }

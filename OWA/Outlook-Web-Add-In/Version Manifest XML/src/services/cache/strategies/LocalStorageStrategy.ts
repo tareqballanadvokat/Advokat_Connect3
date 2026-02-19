@@ -1,22 +1,24 @@
+/* eslint-disable no-undef */
+/* eslint-disable office-addins/call-sync-before-read */
 /**
  * LocalStorage Strategy
  * Persistent storage with ~5-10 MB limit
  */
 
-import { IStorageStrategy } from './IStorageStrategy';
-import { StorageUsage } from '../types';
-import { STORAGE_PREFIX } from '../config';
+import { IStorageStrategy } from "./IStorageStrategy";
+import { StorageUsage } from "../types";
+import { STORAGE_PREFIX } from "../config";
 
 export class LocalStorageStrategy implements IStorageStrategy {
-  public readonly type = 'local';
+  public readonly type = "local";
   private readonly prefix = STORAGE_PREFIX;
 
   async setItem(key: string, value: string): Promise<void> {
     try {
       localStorage.setItem(this.prefix + key, value);
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-        throw new Error('LocalStorage quota exceeded');
+      if (error instanceof DOMException && error.name === "QuotaExceededError") {
+        throw new Error("LocalStorage quota exceeded");
       }
       throw error;
     }
@@ -32,7 +34,7 @@ export class LocalStorageStrategy implements IStorageStrategy {
 
   async clear(): Promise<void> {
     const keys = await this.getAllKeys();
-    keys.forEach(key => localStorage.removeItem(key));
+    keys.forEach((key) => localStorage.removeItem(key));
   }
 
   /**
@@ -53,8 +55,8 @@ export class LocalStorageStrategy implements IStorageStrategy {
   async getUsage(): Promise<StorageUsage> {
     const keys = await this.getAllKeys();
     let used = 0;
-    
-    keys.forEach(key => {
+
+    keys.forEach((key) => {
       const value = localStorage.getItem(key);
       if (value) {
         used += (key.length + value.length) * 2; // UTF-16
@@ -66,14 +68,14 @@ export class LocalStorageStrategy implements IStorageStrategy {
     return {
       used,
       quota,
-      percentage: (used / quota) * 100
+      percentage: (used / quota) * 100,
     };
   }
 
   async isAvailable(): Promise<boolean> {
     try {
-      const testKey = this.prefix + '__test__';
-      localStorage.setItem(testKey, 'test');
+      const testKey = this.prefix + "__test__";
+      localStorage.setItem(testKey, "test");
       localStorage.removeItem(testKey);
       return true;
     } catch {

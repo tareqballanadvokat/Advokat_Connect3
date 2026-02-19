@@ -1,6 +1,6 @@
-/* global Office console */
+/* global Office */
 
-import { getLogger } from '../services/logger';
+import { getLogger } from "../services/logger";
 const logger = getLogger();
 
 export async function insertText(text: string) {
@@ -16,6 +16,6 @@ export async function insertText(text: string) {
       }
     );
   } catch (error) {
-    logger.error('Error: ' + String(error), 'taskpane');
+    logger.error("Error: " + String(error), "taskpane");
   }
 }

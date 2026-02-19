@@ -1,18 +1,20 @@
+/* eslint-disable no-undef */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * WebRTC Data Channel Service
- * 
+ *
  * Implements the Observer pattern for managing WebRTC DataChannel communications
  * with dual channel architecture for clear separation of concerns.
- * 
+ *
  * Architecture:
  * - OFFER Channel: Used exclusively for SENDING messages (outgoing)
  * - ANSWER Channel: Used exclusively for RECEIVING messages (incoming)
- * 
+ *
  * This separation ensures:
  * - Clear responsibility: offer = send, answer = receive
  * - No ambiguity about which channel to use
  * - Proper WebRTC flow: offerer creates channels, answerer receives them
- * 
+ *
  * Features:
  * - Singleton pattern for global access
  * - Observer pattern for decoupled event handling
@@ -20,7 +22,7 @@
  * - State management for both channels
  * - Message broadcasting to all subscribers
  * - Error handling and propagation
- * 
+ *
  * Usage:
  * ```typescript
  * // Subscribe to data channel events
@@ -29,35 +31,35 @@
  *   onDataChannelStateChanged: (state, channelType) => handleStateChange(state, channelType),
  *   onDataChannelError: (error, channelType) => handleError(error, channelType)
  * });
- * 
+ *
  * // Set the offer channel (for sending)
  * WebRTCDataChannelService.getInstance().setOfferChannel(offerChannel);
- * 
+ *
  * // Set the answer channel (for receiving)
  * WebRTCDataChannelService.getInstance().setAnswerChannel(answerChannel);
- * 
+ *
  * // Send a message (uses offer channel)
  * WebRTCDataChannelService.getInstance().send(message);
- * 
+ *
  * // Check channel status
  * if (WebRTCDataChannelService.getInstance().isReadyForCommunication) {
  *   // Both channels are ready
  * }
- * 
+ *
  * // Get detailed status
  * const status = WebRTCDataChannelService.getInstance().getChannelStatus();
  * ```
- * 
+ *
  * @author AdvokatConnect Development Team
  * @version 2.0.0 - Dual Channel Architecture
  */
 
-import { getLogger } from '../../services/logger';
+import { getLogger } from "../../services/logger";
 
 /**
  * Channel type identifier
  */
-export type ChannelType = 'offer' | 'answer';
+export type ChannelType = "offer" | "answer";
 
 /**
  * Observer interface for DataChannel events
@@ -89,12 +91,12 @@ export interface DataChannelObserver {
  */
 export interface ChannelStatus {
   offer: {
-    state: RTCDataChannelState | 'not-set';
+    state: RTCDataChannelState | "not-set";
     label: string | null;
     isOpen: boolean;
   };
   answer: {
-    state: RTCDataChannelState | 'not-set';
+    state: RTCDataChannelState | "not-set";
     label: string | null;
     isOpen: boolean;
   };
@@ -110,8 +112,8 @@ export interface ChannelStatus {
  */
 export class WebRTCDataChannelService {
   private static instance: WebRTCDataChannelService | null = null;
-  private offerChannel: RTCDataChannel | null = null;    // For sending messages
-  private answerChannel: RTCDataChannel | null = null;   // For receiving messages
+  private offerChannel: RTCDataChannel | null = null; // For sending messages
+  private answerChannel: RTCDataChannel | null = null; // For receiving messages
   private observers: Set<DataChannelObserver> = new Set();
   private logger = getLogger();
 
@@ -119,7 +121,7 @@ export class WebRTCDataChannelService {
    * Private constructor to enforce singleton pattern
    */
   private constructor() {
-    this.logger.info('Service instance created', 'WebRTCDataChannelService');
+    this.logger.info("Service instance created", "WebRTCDataChannelService");
   }
 
   /**
@@ -138,7 +140,7 @@ export class WebRTCDataChannelService {
    * @param observer - Observer to subscribe
    */
   public subscribe(observer: DataChannelObserver): void {
-    this.logger.debug('New observer subscribed', 'WebRTCDataChannelService');
+    this.logger.debug("New observer subscribed", "WebRTCDataChannelService");
     this.observers.add(observer);
   }
 
@@ -147,7 +149,7 @@ export class WebRTCDataChannelService {
    * @param observer - Observer to unsubscribe
    */
   public unsubscribe(observer: DataChannelObserver): void {
-    this.logger.debug('Observer unsubscribed', 'WebRTCDataChannelService');
+    this.logger.debug("Observer unsubscribed", "WebRTCDataChannelService");
     this.observers.delete(observer);
   }
 
@@ -156,7 +158,10 @@ export class WebRTCDataChannelService {
    * Use sparingly - prefer individual unsubscribe for normal flow
    */
   public unsubscribeAll(): void {
-    this.logger.debug(`Unsubscribing all ${this.observers.size} observers`, 'WebRTCDataChannelService');
+    this.logger.debug(
+      `Unsubscribing all ${this.observers.size} observers`,
+      "WebRTCDataChannelService"
+    );
     this.observers.clear();
   }
 
@@ -176,20 +181,23 @@ export class WebRTCDataChannelService {
   public setOfferChannel(channel: RTCDataChannel | null): void {
     // Clean up old channel if exists
     if (this.offerChannel) {
-      this.cleanupChannel(this.offerChannel, 'offer');
+      this.cleanupChannel(this.offerChannel, "offer");
     }
 
     this.offerChannel = channel;
 
     if (channel) {
-      this.logger.info(`Offer channel set: ${channel.label} (state: ${channel.readyState})`, 'WebRTCDataChannelService');
-      this.setupChannelHandlers(channel, 'offer');
-      
+      this.logger.info(
+        `Offer channel set: ${channel.label} (state: ${channel.readyState})`,
+        "WebRTCDataChannelService"
+      );
+      this.setupChannelHandlers(channel, "offer");
+
       // Notify observers of initial state
-      this.notifyStateChanged(channel.readyState, 'offer');
+      this.notifyStateChanged(channel.readyState, "offer");
     } else {
-      this.logger.info('Offer channel cleared', 'WebRTCDataChannelService');
-      this.notifyStateChanged('closed', 'offer');
+      this.logger.info("Offer channel cleared", "WebRTCDataChannelService");
+      this.notifyStateChanged("closed", "offer");
     }
   }
 
@@ -200,20 +208,23 @@ export class WebRTCDataChannelService {
   public setAnswerChannel(channel: RTCDataChannel | null): void {
     // Clean up old channel if exists
     if (this.answerChannel) {
-      this.cleanupChannel(this.answerChannel, 'answer');
+      this.cleanupChannel(this.answerChannel, "answer");
     }
 
     this.answerChannel = channel;
 
     if (channel) {
-      this.logger.info(`Answer channel set: ${channel.label} (state: ${channel.readyState})`, 'WebRTCDataChannelService');
-      this.setupChannelHandlers(channel, 'answer');
-      
+      this.logger.info(
+        `Answer channel set: ${channel.label} (state: ${channel.readyState})`,
+        "WebRTCDataChannelService"
+      );
+      this.setupChannelHandlers(channel, "answer");
+
       // Notify observers of initial state
-      this.notifyStateChanged(channel.readyState, 'answer');
+      this.notifyStateChanged(channel.readyState, "answer");
     } else {
-      this.logger.info('Answer channel cleared', 'WebRTCDataChannelService');
-      this.notifyStateChanged('closed', 'answer');
+      this.logger.info("Answer channel cleared", "WebRTCDataChannelService");
+      this.notifyStateChanged("closed", "answer");
     }
   }
 
@@ -223,31 +234,44 @@ export class WebRTCDataChannelService {
    * @param channelType - Type of channel ('offer' or 'answer')
    */
   private setupChannelHandlers(channel: RTCDataChannel, channelType: ChannelType): void {
-    const prefix = channelType === 'offer' ? '📤' : '📥';
-    
+    const prefix = channelType === "offer" ? "📤" : "📥";
+
     channel.onopen = () => {
-      this.logger.info(`${prefix} ${channelType} channel opened: ${channel.label}`, 'WebRTCDataChannelService');
-      this.notifyStateChanged('open', channelType);
+      this.logger.info(
+        `${prefix} ${channelType} channel opened: ${channel.label}`,
+        "WebRTCDataChannelService"
+      );
+      this.notifyStateChanged("open", channelType);
     };
 
     channel.onclose = () => {
-      this.logger.info(`${prefix} ${channelType} channel closed: ${channel.label}`, 'WebRTCDataChannelService');
-      this.notifyStateChanged('closed', channelType);
+      this.logger.info(
+        `${prefix} ${channelType} channel closed: ${channel.label}`,
+        "WebRTCDataChannelService"
+      );
+      this.notifyStateChanged("closed", channelType);
     };
 
     channel.onerror = (error) => {
-      this.logger.error(`${prefix} ${channelType} channel error:`, 'WebRTCDataChannelService', error);
+      this.logger.error(
+        `${prefix} ${channelType} channel error:`,
+        "WebRTCDataChannelService",
+        error
+      );
       this.notifyError(error, channelType);
     };
 
     // CRITICAL: Only answer channel receives messages (incoming data)
-    if (channelType === 'answer') {
+    if (channelType === "answer") {
       channel.onmessage = (event) => {
         this.handleMessage(event);
       };
-      this.logger.debug('Answer channel message handler attached', 'WebRTCDataChannelService');
+      this.logger.debug("Answer channel message handler attached", "WebRTCDataChannelService");
     } else {
-      this.logger.debug('Offer channel is send-only (no message handler)', 'WebRTCDataChannelService');
+      this.logger.debug(
+        "Offer channel is send-only (no message handler)",
+        "WebRTCDataChannelService"
+      );
     }
   }
 
@@ -257,22 +281,26 @@ export class WebRTCDataChannelService {
    * @param channelType - Type of channel being cleaned up
    */
   private cleanupChannel(channel: RTCDataChannel, channelType: ChannelType): void {
-    const prefix = channelType === 'offer' ? '📤' : '📥';
-    this.logger.debug(`Cleaning up ${channelType} channel`, 'WebRTCDataChannelService');
-    
+    const prefix = channelType === "offer" ? "📤" : "📥";
+    this.logger.debug(`Cleaning up ${channelType} channel`, "WebRTCDataChannelService");
+
     // Remove event handlers
     channel.onopen = null;
     channel.onclose = null;
     channel.onerror = null;
     channel.onmessage = null;
-    
+
     // Close the channel if it's open
-    if (channel.readyState === 'open' || channel.readyState === 'connecting') {
+    if (channel.readyState === "open" || channel.readyState === "connecting") {
       try {
         channel.close();
-        this.logger.info(`${prefix} ${channelType} channel closed`, 'WebRTCDataChannelService');
+        this.logger.info(`${prefix} ${channelType} channel closed`, "WebRTCDataChannelService");
       } catch (error) {
-        this.logger.error(`Error closing ${channelType} channel:`, 'WebRTCDataChannelService', error);
+        this.logger.error(
+          `Error closing ${channelType} channel:`,
+          "WebRTCDataChannelService",
+          error
+        );
       }
     }
   }
@@ -282,11 +310,11 @@ export class WebRTCDataChannelService {
    */
   private cleanupAllChannels(): void {
     if (this.offerChannel) {
-      this.cleanupChannel(this.offerChannel, 'offer');
+      this.cleanupChannel(this.offerChannel, "offer");
       this.offerChannel = null;
     }
     if (this.answerChannel) {
-      this.cleanupChannel(this.answerChannel, 'answer');
+      this.cleanupChannel(this.answerChannel, "answer");
       this.answerChannel = null;
     }
   }
@@ -300,36 +328,46 @@ export class WebRTCDataChannelService {
       // Log message details
       const data = event.data;
       let logText: string;
-      
+
       if (data instanceof ArrayBuffer) {
         logText = new TextDecoder("utf-8").decode(data);
-        this.logger.debug(`ArrayBuffer received (${data.byteLength} bytes)`, 'WebRTCDataChannelService');
+        this.logger.debug(
+          `ArrayBuffer received (${data.byteLength} bytes)`,
+          "WebRTCDataChannelService"
+        );
       } else if (data instanceof Blob) {
         logText = await data.text();
-        this.logger.debug(`Blob received (${data.size} bytes)`, 'WebRTCDataChannelService');
+        this.logger.debug(`Blob received (${data.size} bytes)`, "WebRTCDataChannelService");
       } else if (typeof data === "string") {
         logText = data;
-        this.logger.debug(`Text received (${data.length} chars)`, 'WebRTCDataChannelService');
+        this.logger.debug(`Text received (${data.length} chars)`, "WebRTCDataChannelService");
       } else {
-        this.logger.warn(`Unknown message type: ${typeof data}`, 'WebRTCDataChannelService');
+        this.logger.warn(`Unknown message type: ${typeof data}`, "WebRTCDataChannelService");
         return;
       }
 
       // Notify all observers
-      this.logger.debug(`Broadcasting message to ${this.observers.size} observer(s)`, 'WebRTCDataChannelService');
-      
+      this.logger.debug(
+        `Broadcasting message to ${this.observers.size} observer(s)`,
+        "WebRTCDataChannelService"
+      );
+
       for (const observer of Array.from(this.observers)) {
         if (observer.onDataChannelMessage) {
           try {
             await observer.onDataChannelMessage(event);
           } catch (error) {
-            this.logger.error('Error in observer message handler:', 'WebRTCDataChannelService', error);
+            this.logger.error(
+              "Error in observer message handler:",
+              "WebRTCDataChannelService",
+              error
+            );
           }
         }
       }
     } catch (error) {
-      this.logger.error('Error handling message:', 'WebRTCDataChannelService', error);
-      this.notifyError(error as string, 'answer');
+      this.logger.error("Error handling message:", "WebRTCDataChannelService", error);
+      this.notifyError(error as string, "answer");
     }
   }
 
@@ -339,15 +377,22 @@ export class WebRTCDataChannelService {
    * @param channelType - Type of channel that changed state
    */
   private notifyStateChanged(state: RTCDataChannelState, channelType: ChannelType): void {
-    const prefix = channelType === 'offer' ? '📤' : '📥';
-    this.logger.debug(`${prefix} ${channelType} channel state changed: ${state}`, 'WebRTCDataChannelService');
-    
+    const prefix = channelType === "offer" ? "📤" : "📥";
+    this.logger.debug(
+      `${prefix} ${channelType} channel state changed: ${state}`,
+      "WebRTCDataChannelService"
+    );
+
     for (const observer of Array.from(this.observers)) {
       if (observer.onDataChannelStateChanged) {
         try {
           observer.onDataChannelStateChanged(state, channelType);
         } catch (error) {
-          this.logger.error('Error in observer state change handler:', 'WebRTCDataChannelService', error);
+          this.logger.error(
+            "Error in observer state change handler:",
+            "WebRTCDataChannelService",
+            error
+          );
         }
       }
     }
@@ -359,15 +404,19 @@ export class WebRTCDataChannelService {
    * @param channelType - Type of channel that encountered the error
    */
   private notifyError(error: Event | string, channelType: ChannelType): void {
-    const prefix = channelType === 'offer' ? '📤' : '📥';
-    this.logger.error(`${prefix} ${channelType} channel error:`, 'WebRTCDataChannelService', error);
-    
+    const prefix = channelType === "offer" ? "📤" : "📥";
+    this.logger.error(`${prefix} ${channelType} channel error:`, "WebRTCDataChannelService", error);
+
     for (const observer of Array.from(this.observers)) {
       if (observer.onDataChannelError) {
         try {
           observer.onDataChannelError(error, channelType);
         } catch (handlerError) {
-          this.logger.error('Error in observer error handler:', 'WebRTCDataChannelService', handlerError);
+          this.logger.error(
+            "Error in observer error handler:",
+            "WebRTCDataChannelService",
+            handlerError
+          );
         }
       }
     }
@@ -380,31 +429,39 @@ export class WebRTCDataChannelService {
    */
   public send(message: string | ArrayBuffer | Blob): void {
     if (!this.offerChannel) {
-      const error = 'Cannot send message: Offer channel not set';
-      this.logger.error(error, 'WebRTCDataChannelService');
+      const error = "Cannot send message: Offer channel not set";
+      this.logger.error(error, "WebRTCDataChannelService");
       throw new Error(error);
     }
 
-    if (this.offerChannel.readyState !== 'open') {
+    if (this.offerChannel.readyState !== "open") {
       const error = `Cannot send message: Offer channel is ${this.offerChannel.readyState}`;
-      this.logger.error(error, 'WebRTCDataChannelService');
+      this.logger.error(error, "WebRTCDataChannelService");
       throw new Error(error);
     }
 
     try {
       // Cast to any to bypass TypeScript overload resolution issues
       (this.offerChannel as any).send(message);
-      
-      const messageSize = typeof message === 'string' 
-        ? message.length 
-        : message instanceof ArrayBuffer 
-          ? message.byteLength 
-          : (message as Blob).size;
-      
-      this.logger.debug(`Message sent via offer channel (${messageSize} ${typeof message === 'string' ? 'chars' : 'bytes'})`, 'WebRTCDataChannelService');
+
+      const messageSize =
+        typeof message === "string"
+          ? message.length
+          : message instanceof ArrayBuffer
+            ? message.byteLength
+            : (message as Blob).size;
+
+      this.logger.debug(
+        `Message sent via offer channel (${messageSize} ${typeof message === "string" ? "chars" : "bytes"})`,
+        "WebRTCDataChannelService"
+      );
     } catch (error) {
-      this.logger.error('Error sending message via offer channel:', 'WebRTCDataChannelService', error);
-      this.notifyError(error as string, 'offer');
+      this.logger.error(
+        "Error sending message via offer channel:",
+        "WebRTCDataChannelService",
+        error
+      );
+      this.notifyError(error as string, "offer");
       throw error;
     }
   }
@@ -414,7 +471,7 @@ export class WebRTCDataChannelService {
    * @returns true if offer channel is open, false otherwise
    */
   public get isOfferChannelOpen(): boolean {
-    return this.offerChannel !== null && this.offerChannel.readyState === 'open';
+    return this.offerChannel !== null && this.offerChannel.readyState === "open";
   }
 
   /**
@@ -422,7 +479,7 @@ export class WebRTCDataChannelService {
    * @returns true if answer channel is open, false otherwise
    */
   public get isAnswerChannelOpen(): boolean {
-    return this.answerChannel !== null && this.answerChannel.readyState === 'open';
+    return this.answerChannel !== null && this.answerChannel.readyState === "open";
   }
 
   /**
@@ -488,18 +545,18 @@ export class WebRTCDataChannelService {
   public getChannelStatus(): ChannelStatus {
     return {
       offer: {
-        state: this.offerChannel?.readyState ?? 'not-set',
+        state: this.offerChannel?.readyState ?? "not-set",
         label: this.offerChannel?.label ?? null,
-        isOpen: this.isOfferChannelOpen
+        isOpen: this.isOfferChannelOpen,
       },
       answer: {
-        state: this.answerChannel?.readyState ?? 'not-set',
+        state: this.answerChannel?.readyState ?? "not-set",
         label: this.answerChannel?.label ?? null,
-        isOpen: this.isAnswerChannelOpen
+        isOpen: this.isAnswerChannelOpen,
       },
       canSend: this.canSend,
       canReceive: this.canReceive,
-      isReadyForCommunication: this.isReadyForCommunication
+      isReadyForCommunication: this.isReadyForCommunication,
     };
   }
 
@@ -507,7 +564,7 @@ export class WebRTCDataChannelService {
    * Reset the service (for testing or cleanup)
    */
   public reset(): void {
-    this.logger.info('Resetting service', 'WebRTCDataChannelService');
+    this.logger.info("Resetting service", "WebRTCDataChannelService");
     this.cleanupAllChannels();
     this.unsubscribeAll();
   }
@@ -518,10 +575,9 @@ export class WebRTCDataChannelService {
   public static destroy(): void {
     if (WebRTCDataChannelService.instance) {
       const logger = getLogger();
-      logger.info('Destroying singleton instance', 'WebRTCDataChannelService');
+      logger.info("Destroying singleton instance", "WebRTCDataChannelService");
       WebRTCDataChannelService.instance.reset();
       WebRTCDataChannelService.instance = null;
     }
   }
 }
-

@@ -3,8 +3,8 @@
  * Provides singleton logger instance throughout the application
  */
 
-import { Logger } from './Logger';
-import { LogLevel, LoggerConfig } from './types';
+import { Logger } from "./Logger";
+import { LogLevel, LoggerConfig } from "./types";
 
 // Export types
 export { Logger, LogLevel, LoggerConfig };

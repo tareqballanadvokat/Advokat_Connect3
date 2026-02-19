@@ -1,18 +1,19 @@
+/* eslint-disable no-undef */
 /**
  * Utility functions for WebRTC message chunking
  * Implements chunking for requests that exceed the 256KB message size limit
  */
 
-import { v4 as uuidv4 } from 'uuid';
-import { getLogger } from '../../services/logger';
-import { 
-  WebRTCApiRequest,  
+import { v4 as uuidv4 } from "uuid";
+import { getLogger } from "../../services/logger";
+import {
+  WebRTCApiRequest,
   WebRTCApiResponse,
-  ChunkInfo, 
-  PendingRequest, 
+  ChunkInfo,
+  PendingRequest,
   ChunkingResult,
-  ReceivedResponseChunk
-} from '../components/interfaces/IWebRTC';
+  ReceivedResponseChunk,
+} from "../components/interfaces/IWebRTC";
 
 /**
  * Configuration constants for chunking
@@ -20,18 +21,18 @@ import {
 export const CHUNKING_CONFIG = {
   /** Maximum WebRTC DataChannel message size (256 KB) */
   MAX_MESSAGE_SIZE: 256 * 1024,
-  
+
   /** Estimated size for chunk metadata overhead in JSON structure */
   CHUNK_METADATA_OVERHEAD: 200,
-  
+
   /** Request-level configuration for overall pending request handling */
   REQUEST: {
     /** Maximum timeout for the entire chunked request in milliseconds */
     MAX_TIMEOUT_MS: 30000,
-    
+
     /** Maximum number of retry attempts for failed requests */
-    MAX_RETRY_ATTEMPTS: 2
-  }
+    MAX_RETRY_ATTEMPTS: 2,
+  },
 } as const;
 
 /**
@@ -52,38 +53,47 @@ export function createProtocolId(guid?: string): string {
  * @param messageType - Message type in format "sliceName.actionName"
  * @returns Complete WebRTC API request
  */
-export function createProtocolRequest(method: string, url: string, headers: Record<string, string>, body?: any, messageType?: string): WebRTCApiRequest {
+export function createProtocolRequest(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body?: any,
+  messageType?: string
+): WebRTCApiRequest {
   const guid = uuidv4();
   const timestamp = Date.now();
   const protocolId = createProtocolId(guid);
   const logger = getLogger();
-  
+
   let processedBody: string | undefined;
-  
+
   // Process body if it exists
   if (body) {
-    const bodyString = typeof body === 'string' ? body : JSON.stringify(body);
-    logger.debug('chunkingUtils', 'Original request body', bodyString);
+    const bodyString = typeof body === "string" ? body : JSON.stringify(body);
+    logger.debug("chunkingUtils", "Original request body", bodyString);
     // Base64 encode the body for POST requests
-    if (method.toUpperCase() === 'POST') {
+    if (method.toUpperCase() === "POST") {
       processedBody = btoa(bodyString); // Base64 encode for POST requests
-      logger.debug('chunkingUtils', `POST request body base64 encoded (length: original=${bodyString.length}, encoded=${processedBody.length})`);
+      logger.debug(
+        "chunkingUtils",
+        `POST request body base64 encoded (length: original=${bodyString.length}, encoded=${processedBody.length})`
+      );
     } else {
       processedBody = bodyString;
     }
   }
-  
+
   // Return flat protocol request structure
   return {
     id: protocolId,
-    messageType: messageType || 'unknown.action',
+    messageType: messageType || "unknown.action",
     timestamp,
-    totalChunks: 0,                  // 0 indicates not yet chunked (will be set correctly by chunkRequest)
-    currentChunk: 0,                 // 0 indicates not yet chunked (will be set correctly by chunkRequest)
+    totalChunks: 0, // 0 indicates not yet chunked (will be set correctly by chunkRequest)
+    currentChunk: 0, // 0 indicates not yet chunked (will be set correctly by chunkRequest)
     method,
     uri: url,
     headers,
-    ...(processedBody && { body: processedBody })
+    ...(processedBody && { body: processedBody }),
   };
 }
 
@@ -119,52 +129,53 @@ export function chunkRequest(request: WebRTCApiRequest): ChunkingResult {
     const singleChunkRequest: WebRTCApiRequest = {
       ...request,
       totalChunks: 1,
-      currentChunk: 1
+      currentChunk: 1,
     };
-    
+
     return {
       chunks: [singleChunkRequest],
       totalChunks: 1,
-      baseId: request.id
+      baseId: request.id,
     };
   }
 
   // Calculate how much space we have for the body content
-  const bodyContent = request.body || '';
+  const bodyContent = request.body || "";
   const requestWithoutBody = {
     ...request,
-    body: '' // Empty body for size calculation
+    body: "", // Empty body for size calculation
   };
-  
+
   const overheadSize = calculateMessageSize(requestWithoutBody);
-  const maxBodySizePerChunk = CHUNKING_CONFIG.MAX_MESSAGE_SIZE - overheadSize - CHUNKING_CONFIG.CHUNK_METADATA_OVERHEAD;
-  
+  const maxBodySizePerChunk =
+    CHUNKING_CONFIG.MAX_MESSAGE_SIZE - overheadSize - CHUNKING_CONFIG.CHUNK_METADATA_OVERHEAD;
+
   // Split body content into chunks
   const bodyBytes = new TextEncoder().encode(bodyContent);
   const chunks: WebRTCApiRequest[] = [];
   const totalChunks = Math.ceil(bodyBytes.length / maxBodySizePerChunk);
-  
+
   for (let i = 0; i < totalChunks; i++) {
     const start = i * maxBodySizePerChunk;
     const end = Math.min(start + maxBodySizePerChunk, bodyBytes.length);
     const chunkBodyBytes = bodyBytes.slice(start, end);
     const chunkBody = new TextDecoder().decode(chunkBodyBytes);
-    
+
     // Create chunked request with updated metadata
     const chunkRequest: WebRTCApiRequest = {
       ...request,
       totalChunks: totalChunks,
-      currentChunk: i + 1,      // 1-based chunk numbering
-      body: chunkBody
+      currentChunk: i + 1, // 1-based chunk numbering
+      body: chunkBody,
     };
-    
+
     chunks.push(chunkRequest);
   }
-  
+
   return {
     chunks,
     totalChunks,
-    baseId: request.id
+    baseId: request.id,
   };
 }
 
@@ -176,14 +187,20 @@ export function logChunkingInfo(info: {
   totalSize: number;
   totalChunks: number;
   messageType?: string;
-  action: 'single' | 'chunked';
+  action: "single" | "chunked";
 }): void {
   const logger = getLogger();
-  const msgType = info.messageType ? ` (${info.messageType})` : '';
-  if (info.action === 'single') {
-    logger.debug('chunkingUtils', `Sending request${msgType} (single message) - Total size: ${info.totalSize} bytes`);
+  const msgType = info.messageType ? ` (${info.messageType})` : "";
+  if (info.action === "single") {
+    logger.debug(
+      "chunkingUtils",
+      `Sending request${msgType} (single message) - Total size: ${info.totalSize} bytes`
+    );
   } else {
-    logger.debug('chunkingUtils', `Request${msgType} too large (${info.totalSize} bytes), splitting into ${info.totalChunks} chunks...`);
+    logger.debug(
+      "chunkingUtils",
+      `Request${msgType} too large (${info.totalSize} bytes), splitting into ${info.totalChunks} chunks...`
+    );
   }
 }
 
@@ -193,10 +210,14 @@ export function logChunkingInfo(info: {
  * @param totalChunks - Total number of chunks
  * @param messageType - Optional message type for context
  */
-export function logChunkTransmission(chunkNumber: number, totalChunks: number, messageType?: string): void {
+export function logChunkTransmission(
+  chunkNumber: number,
+  totalChunks: number,
+  messageType?: string
+): void {
   const logger = getLogger();
-  const msgType = messageType ? ` (${messageType})` : '';
-  logger.debug('chunkingUtils', `Sending chunk ${chunkNumber}/${totalChunks}${msgType}`);
+  const msgType = messageType ? ` (${messageType})` : "";
+  logger.debug("chunkingUtils", `Sending chunk ${chunkNumber}/${totalChunks}${msgType}`);
 }
 
 /**
@@ -216,7 +237,7 @@ export function createPendingRequest(
   reject: (reason?: any) => void
 ): PendingRequest {
   const startTime = Date.now();
-  
+
   const pendingRequest: PendingRequest = {
     id: request.id,
     messageType: messageType,
@@ -225,23 +246,23 @@ export function createPendingRequest(
     startTime,
     resolve,
     reject,
-    originalRequest: request // Store the original request for retry scenarios
+    originalRequest: request, // Store the original request for retry scenarios
   };
-  
+
   // Create chunk info for each chunk
   for (let i = 0; i < chunkingResult.chunks.length; i++) {
     const chunk = chunkingResult.chunks[i];
     const chunkNumber = i + 1;
-    
+
     const chunkInfo: ChunkInfo = {
       chunkRequest: chunk,
       chunkNumber,
-      sentAt: Date.now()
+      sentAt: Date.now(),
     };
-    
+
     pendingRequest.chunks.set(chunkNumber, chunkInfo);
   }
-  
+
   return pendingRequest;
 }
 
@@ -251,18 +272,21 @@ export function createPendingRequest(
  * @param expectedTotal - Expected total number of chunks
  * @returns True if all chunks received
  */
-export function areAllResponseChunksReceived(receivedChunks: Map<number, ReceivedResponseChunk>, expectedTotal: number): boolean {
+export function areAllResponseChunksReceived(
+  receivedChunks: Map<number, ReceivedResponseChunk>,
+  expectedTotal: number
+): boolean {
   if (receivedChunks.size !== expectedTotal) {
     return false;
   }
-  
+
   // Check that we have all chunks from 1 to expectedTotal
   for (let i = 1; i <= expectedTotal; i++) {
     if (!receivedChunks.has(i)) {
       return false;
     }
   }
-  
+
   return true;
 }
 
@@ -272,25 +296,29 @@ export function areAllResponseChunksReceived(receivedChunks: Map<number, Receive
  * @param expectedTotal - Expected total number of chunks
  * @returns Complete WebRTCApiResponse or null if not ready
  */
-export function reassembleChunkedResponse(receivedChunks: Map<number, ReceivedResponseChunk>, expectedTotal: number): WebRTCApiResponse | null {
+export function reassembleChunkedResponse(
+  receivedChunks: Map<number, ReceivedResponseChunk>,
+  expectedTotal: number
+): WebRTCApiResponse | null {
   if (!areAllResponseChunksReceived(receivedChunks, expectedTotal)) {
     return null;
   }
-  
+
   // Sort chunks by chunk number
-  const sortedChunks = Array.from(receivedChunks.values())
-    .sort((a, b) => a.chunkNumber - b.chunkNumber);
-  
+  const sortedChunks = Array.from(receivedChunks.values()).sort(
+    (a, b) => a.chunkNumber - b.chunkNumber
+  );
+
   // Take the first chunk as the base (it has all the metadata)
   const baseResponse = sortedChunks[0].responseChunk;
-  
+
   // Concatenate all chunk bodies
-  let reassembledBody = '';
+  let reassembledBody = "";
   for (const chunkInfo of sortedChunks) {
-    const chunkBody = chunkInfo.responseChunk.body || '';
+    const chunkBody = chunkInfo.responseChunk.body || "";
     reassembledBody += chunkBody;
   }
-  
+
   // Create the complete response (flat structure)
   const completeResponse: WebRTCApiResponse = {
     id: baseResponse.id,
@@ -299,8 +327,8 @@ export function reassembleChunkedResponse(receivedChunks: Map<number, ReceivedRe
     currentChunk: 1, // Reset to indicate it's now a single complete response
     statusCode: baseResponse.statusCode,
     headers: baseResponse.headers,
-    body: reassembledBody
+    body: reassembledBody,
   };
-  
+
   return completeResponse;
 }

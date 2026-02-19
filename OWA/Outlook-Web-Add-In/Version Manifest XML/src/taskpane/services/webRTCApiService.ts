@@ -1,13 +1,29 @@
-import { AktenQuery } from '../components/interfaces/IAkten';
-import { WebRTCApiRequest, WebRTCApiResponse, PendingRequest, ChunkInfo, ReceivedResponseChunk } from '../components/interfaces/IWebRTC';
-import { LeistungenAuswahlQuery, LeistungPostData, LeistungenQuery } from '../components/interfaces/IService';
-import { DokumentPostData, DokumenteQuery, DokumentResponse } from '../components/interfaces/IDocument';
-import { PersonenQuery } from '../components/interfaces/IPerson';
-import { IAuthRequest, IAuthResponse } from '../components/interfaces/IAuth';
-import { SipClientInstance } from '../components/SIP_Library/SipClient';
-import { tokenService } from './TokenService';
-import { WebRTCDataChannelService, DataChannelObserver } from './WebRTCDataChannelService';
-import { getLogger } from '../../services/logger';
+/* eslint-disable no-undef */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { AktenQuery } from "../components/interfaces/IAkten";
+import {
+  WebRTCApiRequest,
+  WebRTCApiResponse,
+  PendingRequest,
+  ChunkInfo,
+  ReceivedResponseChunk,
+} from "../components/interfaces/IWebRTC";
+import {
+  LeistungenAuswahlQuery,
+  LeistungPostData,
+  LeistungenQuery,
+} from "../components/interfaces/IService";
+import {
+  DokumentPostData,
+  DokumenteQuery,
+  DokumentResponse,
+} from "../components/interfaces/IDocument";
+import { PersonenQuery } from "../components/interfaces/IPerson";
+import { IAuthRequest, IAuthResponse } from "../components/interfaces/IAuth";
+import { SipClientInstance } from "../components/SIP_Library/SipClient";
+import { tokenService } from "./TokenService";
+import { WebRTCDataChannelService, DataChannelObserver } from "./WebRTCDataChannelService";
+import { getLogger } from "../../services/logger";
 import {
   createProtocolRequest,
   chunkRequest,
@@ -15,8 +31,8 @@ import {
   logChunkTransmission,
   areAllResponseChunksReceived,
   reassembleChunkedResponse,
-  CHUNKING_CONFIG
-} from '../utils/chunkingUtils';
+  CHUNKING_CONFIG,
+} from "../utils/chunkingUtils";
 
 /**
  * WebRTC API Service for handling messaging with chunking support
@@ -37,22 +53,31 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   private decodeResponseBody(body: string | undefined, messageType: string): string {
     if (!body) {
-      this.logger.debug(`Response body is empty for ${messageType}`, 'WebRTCApiService');
-      return '';
+      this.logger.debug(`Response body is empty for ${messageType}`, "WebRTCApiService");
+      return "";
     }
 
-    this.logger.debug(`Raw response body received for ${messageType} (length: ${body.length})`, 'WebRTCApiService');
-    this.logger.debug(`Raw response body content: "${body}"`, 'WebRTCApiService');
+    this.logger.debug(
+      `Raw response body received for ${messageType} (length: ${body.length})`,
+      "WebRTCApiService"
+    );
+    this.logger.debug(`Raw response body content: "${body}"`, "WebRTCApiService");
 
     try {
       // Attempt to decode base64 with proper UTF-8 handling
       const decoded = this.decodeBase64UTF8(body);
-      this.logger.debug(`Successfully decoded base64 response with UTF-8 for ${messageType} (decoded length: ${decoded.length})`, 'WebRTCApiService');
-      this.logger.debug(`Decoded response content: "${decoded}"`, 'WebRTCApiService');
+      this.logger.debug(
+        `Successfully decoded base64 response with UTF-8 for ${messageType} (decoded length: ${decoded.length})`,
+        "WebRTCApiService"
+      );
+      this.logger.debug(`Decoded response content: "${decoded}"`, "WebRTCApiService");
       return decoded;
     } catch (error) {
-      this.logger.info(`Response body is not base64 encoded for ${messageType}, using as-is`, 'WebRTCApiService');
-      this.logger.debug(`Non-base64 response content: "${body}"`, 'WebRTCApiService');
+      this.logger.info(
+        `Response body is not base64 encoded for ${messageType}, using as-is`,
+        "WebRTCApiService"
+      );
+      this.logger.debug(`Non-base64 response content: "${body}"`, "WebRTCApiService");
       return body;
     }
   }
@@ -65,15 +90,15 @@ export class WebRTCApiService implements DataChannelObserver {
   private decodeBase64UTF8(base64String: string): string {
     // First decode base64 to binary string
     const binaryString = atob(base64String);
-    
+
     // Convert binary string to Uint8Array
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-    
+
     // Decode as UTF-8
-    const decoder = new TextDecoder('utf-8');
+    const decoder = new TextDecoder("utf-8");
     return decoder.decode(bytes);
   }
 
@@ -83,19 +108,18 @@ export class WebRTCApiService implements DataChannelObserver {
    * @returns Form data string in URL-encoded format
    */
   private createAuthenticationFormData(authRequest: IAuthRequest): string {
-
     const formParams = [
       `client_id=${encodeURIComponent(authRequest.client_id)}`,
-      `client_secret=${encodeURIComponent(authRequest.client_secret || '')}`,
+      `client_secret=${encodeURIComponent(authRequest.client_secret || "")}`,
       `grant_type=${encodeURIComponent(authRequest.grant_type)}`,
-      `username=${encodeURIComponent(authRequest.username || '')}`,
-      `password=${encodeURIComponent(authRequest.password || '')}`
+      `username=${encodeURIComponent(authRequest.username || "")}`,
+      `password=${encodeURIComponent(authRequest.password || "")}`,
     ];
-    
-    const formData = formParams.join('&');
 
-    this.logger.debug('Created URL-encoded form data', 'WebRTCApiService');
-    this.logger.debug(`Form data content: ${formData}`, 'WebRTCApiService');
+    const formData = formParams.join("&");
+
+    this.logger.debug("Created URL-encoded form data", "WebRTCApiService");
+    this.logger.debug(`Form data content: ${formData}`, "WebRTCApiService");
 
     return formData;
   }
@@ -107,23 +131,33 @@ export class WebRTCApiService implements DataChannelObserver {
    * @param token - Decrypted authentication token (optional, for authenticated requests)
    * @returns Headers object with authorization if needed
    */
-  private createRequestHeaders(baseHeaders: Record<string, string>, messageType: string, token?: string | null): Record<string, string> {
+  private createRequestHeaders(
+    baseHeaders: Record<string, string>,
+    messageType: string,
+    token?: string | null
+  ): Record<string, string> {
     const requestHeaders = { ...baseHeaders };
-    
+
     // Add Authorization header for all non-authentication requests
-    if (!messageType.includes('auth.') && token) {
+    if (!messageType.includes("auth.") && token) {
       // Log token validation details in development
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === "development") {
         tokenService.logTokenValidation(token, messageType);
       }
-      
-      requestHeaders['Authorization'] = `Bearer ${token}`;
-      this.logger.debug('Added Authorization header to request: ' + messageType, 'WebRTCApiService');
-    } else if (!messageType.includes('auth.') && !token) {
-      this.logger.warn('No valid token available for authenticated request: ' + messageType, 'WebRTCApiService');
-      this.logger.warn('This request will likely fail with 401 Unauthorized', 'WebRTCApiService');
+
+      requestHeaders["Authorization"] = `Bearer ${token}`;
+      this.logger.debug(
+        "Added Authorization header to request: " + messageType,
+        "WebRTCApiService"
+      );
+    } else if (!messageType.includes("auth.") && !token) {
+      this.logger.warn(
+        "No valid token available for authenticated request: " + messageType,
+        "WebRTCApiService"
+      );
+      this.logger.warn("This request will likely fail with 401 Unauthorized", "WebRTCApiService");
     }
-    
+
     return requestHeaders;
   }
 
@@ -134,7 +168,7 @@ export class WebRTCApiService implements DataChannelObserver {
   initialize(sipClient: SipClientInstance) {
     // Clean up previous state first (idempotent)
     this.cleanup();
-    
+
     this.sipClient = sipClient;
     this.setupDataChannelListener();
   }
@@ -144,14 +178,14 @@ export class WebRTCApiService implements DataChannelObserver {
    * Subscribes to WebRTCDataChannelService for centralized message handling
    */
   private setupDataChannelListener() {
-    this.logger.debug('Setting up data channel listener', 'WebRTCApiService');
-    
+    this.logger.debug("Setting up data channel listener", "WebRTCApiService");
+
     const service = WebRTCDataChannelService.getInstance();
     if (service.isSubscribed(this)) {
-      this.logger.debug('Already subscribed, skipping', 'WebRTCApiService');
+      this.logger.debug("Already subscribed, skipping", "WebRTCApiService");
       return;
     }
-    
+
     // Subscribe this service as observer
     service.subscribe(this);
   }
@@ -160,24 +194,27 @@ export class WebRTCApiService implements DataChannelObserver {
    * DataChannelObserver callback - called when DataChannel receives a message
    */
   onDataChannelMessage(event: MessageEvent): void {
-    this.logger.debug('onDataChannelMessage callback triggered', 'WebRTCApiService');
+    this.logger.debug("onDataChannelMessage callback triggered", "WebRTCApiService");
     this.handleDataChannelMessage(event);
   }
 
   /**
    * DataChannelObserver callback - called when DataChannel state changes
    */
-  onDataChannelStateChanged(state: RTCDataChannelState, channelType: 'offer' | 'answer'): void {
-    const prefix = channelType === 'offer' ? '📤' : '📥';
-    this.logger.debug(`${prefix} ${channelType} channel state changed: ${state}`, 'WebRTCApiService');
+  onDataChannelStateChanged(state: RTCDataChannelState, channelType: "offer" | "answer"): void {
+    const prefix = channelType === "offer" ? "📤" : "📥";
+    this.logger.debug(
+      `${prefix} ${channelType} channel state changed: ${state}`,
+      "WebRTCApiService"
+    );
   }
 
   /**
    * DataChannelObserver callback - called when DataChannel error occurs
    */
-  onDataChannelError(error: Event | string, channelType: 'offer' | 'answer'): void {
-    const prefix = channelType === 'offer' ? '📤' : '📥';
-    this.logger.error(`${prefix} ${channelType} channel error:`, 'WebRTCApiService', error);
+  onDataChannelError(error: Event | string, channelType: "offer" | "answer"): void {
+    const prefix = channelType === "offer" ? "📤" : "📥";
+    this.logger.error(`${prefix} ${channelType} channel error:`, "WebRTCApiService", error);
   }
 
   /**
@@ -185,19 +222,19 @@ export class WebRTCApiService implements DataChannelObserver {
    * Unsubscribes from DataChannel and clears references
    */
   cleanup(): void {
-    this.logger.debug('Cleaning up service', 'WebRTCApiService');
-    
+    this.logger.debug("Cleaning up service", "WebRTCApiService");
+
     // Unsubscribe from DataChannel events
     const service = WebRTCDataChannelService.getInstance();
     if (service.isSubscribed(this)) {
       service.unsubscribe(this);
     }
-    
+
     // Clear SIP client reference
     this.sipClient = null;
-    
+
     // Note: pendingRequests are kept for ongoing requests to complete
-    this.logger.debug('Cleanup complete', 'WebRTCApiService');
+    this.logger.debug("Cleanup complete", "WebRTCApiService");
   }
 
   /**
@@ -207,14 +244,14 @@ export class WebRTCApiService implements DataChannelObserver {
   private handleDataChannelMessage(event: MessageEvent) {
     let data: string;
     if (event.data instanceof Blob) {
-      event.data.text().then(text => this.processMessage(text));
+      event.data.text().then((text) => this.processMessage(text));
       return;
     } else if (event.data instanceof ArrayBuffer) {
       data = new TextDecoder().decode(event.data);
     } else {
       data = event.data;
     }
-    
+
     this.processMessage(data);
   }
 
@@ -225,33 +262,45 @@ export class WebRTCApiService implements DataChannelObserver {
   private processMessage(message: string) {
     try {
       const parsed = JSON.parse(message);
-      this.logger.debug('Received message (processMessage method)', 'WebRTCApiService', parsed);
+      this.logger.debug("Received message (processMessage method)", "WebRTCApiService", parsed);
 
       // Handle API response (potentially chunked)
       const apiResponse = parsed as WebRTCApiResponse;
       if (apiResponse.id) {
         const pendingRequest = this.pendingRequests.get(apiResponse.id);
         if (pendingRequest) {
-          this.logger.info(`Received response for request ID: ${apiResponse.id}, MessageType: ${pendingRequest.messageType}`, 'WebRTCApiService');
-          
+          this.logger.info(
+            `Received response for request ID: ${apiResponse.id}, MessageType: ${pendingRequest.messageType}`,
+            "WebRTCApiService"
+          );
+
           // Check if this is a chunked response
           if (apiResponse.totalChunks > 1) {
-            this.logger.debug(`Received chunked response ${apiResponse.currentChunk}/${apiResponse.totalChunks} for ${pendingRequest.messageType}`, 'WebRTCApiService');
+            this.logger.debug(
+              `Received chunked response ${apiResponse.currentChunk}/${apiResponse.totalChunks} for ${pendingRequest.messageType}`,
+              "WebRTCApiService"
+            );
             this.processChunkedResponse(apiResponse, pendingRequest);
           } else {
             // Single response - handle as before
-            this.logger.debug(`Received single response for ${pendingRequest.messageType}`, 'WebRTCApiService');
+            this.logger.debug(
+              `Received single response for ${pendingRequest.messageType}`,
+              "WebRTCApiService"
+            );
             this.validateAndCompleteResponse(apiResponse, pendingRequest);
           }
         } else {
-          this.logger.warn('Received response for unknown request ID: ' + apiResponse.id, 'WebRTCApiService');
+          this.logger.warn(
+            "Received response for unknown request ID: " + apiResponse.id,
+            "WebRTCApiService"
+          );
         }
       } else {
-        this.logger.debug('DataChannel message (no ID): ' + message, 'WebRTCApiService');
+        this.logger.debug("DataChannel message (no ID): " + message, "WebRTCApiService");
       }
     } catch (error) {
-      this.logger.debug('DataChannel message (not JSON): ' + message, 'WebRTCApiService');
-      this.logger.debug('Ignoring non-JSON message', 'WebRTCApiService');
+      this.logger.debug("DataChannel message (not JSON): " + message, "WebRTCApiService");
+      this.logger.debug("Ignoring non-JSON message", "WebRTCApiService");
     }
   }
 
@@ -259,12 +308,18 @@ export class WebRTCApiService implements DataChannelObserver {
    * Process a chunked response chunk
    * Accumulates chunks and reassembles when all are received
    */
-  private processChunkedResponse(responseChunk: WebRTCApiResponse, pendingRequest: PendingRequest): void {
+  private processChunkedResponse(
+    responseChunk: WebRTCApiResponse,
+    pendingRequest: PendingRequest
+  ): void {
     const chunkNumber = responseChunk.currentChunk;
     const totalChunks = responseChunk.totalChunks;
-    
-    this.logger.debug(`Processing response chunk ${chunkNumber}/${totalChunks} for ${pendingRequest.messageType}`, 'WebRTCApiService');
-    
+
+    this.logger.debug(
+      `Processing response chunk ${chunkNumber}/${totalChunks} for ${pendingRequest.messageType}`,
+      "WebRTCApiService"
+    );
+
     // Initialize response chunk tracking if not exists
     if (!pendingRequest.receivedResponseChunks) {
       pendingRequest.receivedResponseChunks = new Map();
@@ -272,59 +327,87 @@ export class WebRTCApiService implements DataChannelObserver {
     if (!pendingRequest.expectedResponseChunks) {
       pendingRequest.expectedResponseChunks = totalChunks;
     }
-    
+
     // Check if we already have this chunk (duplicate)
     if (pendingRequest.receivedResponseChunks.has(chunkNumber)) {
-      this.logger.debug(`Duplicate chunk ${chunkNumber} received, ignoring (SCTP should handle delivery)`, 'WebRTCApiService');
+      this.logger.debug(
+        `Duplicate chunk ${chunkNumber} received, ignoring (SCTP should handle delivery)`,
+        "WebRTCApiService"
+      );
       return;
     }
-    
+
     // Store the chunk
     const chunkInfo: ReceivedResponseChunk = {
       responseChunk,
       chunkNumber,
-      receivedAt: Date.now()
+      receivedAt: Date.now(),
     };
-    
+
     pendingRequest.receivedResponseChunks.set(chunkNumber, chunkInfo);
-    
-    this.logger.debug(`Stored chunk ${chunkNumber}/${totalChunks}, total received: ${pendingRequest.receivedResponseChunks.size}`, 'WebRTCApiService');
-    
+
+    this.logger.debug(
+      `Stored chunk ${chunkNumber}/${totalChunks}, total received: ${pendingRequest.receivedResponseChunks.size}`,
+      "WebRTCApiService"
+    );
+
     // Check if we have all chunks
     if (areAllResponseChunksReceived(pendingRequest.receivedResponseChunks, totalChunks)) {
-      this.logger.info(`All ${totalChunks} response chunks received, reassembling`, 'WebRTCApiService');
-      
+      this.logger.info(
+        `All ${totalChunks} response chunks received, reassembling`,
+        "WebRTCApiService"
+      );
+
       // Reassemble the complete response
-      const completeResponse = reassembleChunkedResponse(pendingRequest.receivedResponseChunks, totalChunks);
+      const completeResponse = reassembleChunkedResponse(
+        pendingRequest.receivedResponseChunks,
+        totalChunks
+      );
       if (completeResponse) {
-        this.logger.info(`Response reassembled successfully for ${pendingRequest.messageType}`, 'WebRTCApiService');
-        this.logger.debug('Reassembled response', 'WebRTCApiService', {
+        this.logger.info(
+          `Response reassembled successfully for ${pendingRequest.messageType}`,
+          "WebRTCApiService"
+        );
+        this.logger.debug("Reassembled response", "WebRTCApiService", {
           statusCode: completeResponse.statusCode,
           headers: completeResponse.headers,
           bodyLength: completeResponse.body?.length || 0,
-          rawBody: completeResponse.body
+          rawBody: completeResponse.body,
         });
         // Process the complete response
         this.validateAndCompleteResponse(completeResponse, pendingRequest);
       } else {
-        this.logger.error(`Failed to reassemble response for ${pendingRequest.messageType}`, 'WebRTCApiService');
-        
+        this.logger.error(
+          `Failed to reassemble response for ${pendingRequest.messageType}`,
+          "WebRTCApiService"
+        );
+
         // Check if we can retry before completing with error
         const retryCount = (pendingRequest.retryCount || 0) + 1;
         if (retryCount <= CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS) {
-          this.logger.info(`Response reassembly failed for ${pendingRequest.messageType}, retrying (${retryCount}/${CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS})`, 'WebRTCApiService');
-          
+          this.logger.info(
+            `Response reassembly failed for ${pendingRequest.messageType}, retrying (${retryCount}/${CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS})`,
+            "WebRTCApiService"
+          );
+
           // Clear received chunks and retry the request
           this.resetRequestState(pendingRequest, retryCount);
-          
+
           // Resend the original request
-          this.resendOriginalRequest(pendingRequest).catch(error => {
-            this.logger.error('Failed to resend request during retry:', 'WebRTCApiService', error);
+          this.resendOriginalRequest(pendingRequest).catch((error) => {
+            this.logger.error("Failed to resend request during retry:", "WebRTCApiService", error);
             this.completeRequest(pendingRequest, undefined, error);
           });
         } else {
-          this.logger.error(`Response reassembly failed for ${pendingRequest.messageType} after ${retryCount} retries - giving up`, 'WebRTCApiService');
-          this.completeRequest(pendingRequest, undefined, new Error(`Failed to reassemble chunked response after ${retryCount} retries`));
+          this.logger.error(
+            `Response reassembly failed for ${pendingRequest.messageType} after ${retryCount} retries - giving up`,
+            "WebRTCApiService"
+          );
+          this.completeRequest(
+            pendingRequest,
+            undefined,
+            new Error(`Failed to reassemble chunked response after ${retryCount} retries`)
+          );
         }
       }
     }
@@ -336,45 +419,77 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   private async resendOriginalRequest(pendingRequest: PendingRequest): Promise<void> {
     if (!pendingRequest.originalRequest) {
-      this.logger.error(`Cannot retry ${pendingRequest.messageType}: no original request stored`, 'WebRTCApiService');
-      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: original request not available'));
+      this.logger.error(
+        `Cannot retry ${pendingRequest.messageType}: no original request stored`,
+        "WebRTCApiService"
+      );
+      this.completeRequest(
+        pendingRequest,
+        undefined,
+        new Error("Cannot retry: original request not available")
+      );
       return;
     }
 
     // Ensure both channels are ready for bidirectional communication (send request + receive response)
     if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
-      this.logger.error(`Cannot retry ${pendingRequest.messageType}: Channels not ready for bidirectional communication`, 'WebRTCApiService');
-      this.completeRequest(pendingRequest, undefined, new Error('Cannot retry: Channels not ready for bidirectional communication'));
+      this.logger.error(
+        `Cannot retry ${pendingRequest.messageType}: Channels not ready for bidirectional communication`,
+        "WebRTCApiService"
+      );
+      this.completeRequest(
+        pendingRequest,
+        undefined,
+        new Error("Cannot retry: Channels not ready for bidirectional communication")
+      );
       return;
     }
 
     try {
-      this.logger.info(`Re-sending original request for ${pendingRequest.messageType}`, 'WebRTCApiService');
-      
+      this.logger.info(
+        `Re-sending original request for ${pendingRequest.messageType}`,
+        "WebRTCApiService"
+      );
+
       // Step 1: Prepare chunking (using ChunkingUtils for pure chunking logic)
       const chunkingResult = chunkRequest(pendingRequest.originalRequest);
-      
+
       // Step 2: Send all chunks (WebRTCApiService responsibility)
       for (let i = 0; i < chunkingResult.chunks.length; i++) {
         const chunk = chunkingResult.chunks[i];
         const chunkNumber = i + 1;
-        
+
         logChunkTransmission(chunkNumber, chunkingResult.totalChunks, pendingRequest.messageType);
-        
+
         try {
           const message = JSON.stringify(chunk);
-          this.logger.debug(`Re-sending chunk ${chunkNumber}/${chunkingResult.totalChunks}: Size ${new TextEncoder().encode(message).length} bytes`, 'WebRTCApiService');
+          this.logger.debug(
+            `Re-sending chunk ${chunkNumber}/${chunkingResult.totalChunks}: Size ${new TextEncoder().encode(message).length} bytes`,
+            "WebRTCApiService"
+          );
           WebRTCDataChannelService.getInstance().send(message);
         } catch (error) {
-          throw new Error(`Failed to re-send chunk ${chunkNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          throw new Error(
+            `Failed to re-send chunk ${chunkNumber}: ${error instanceof Error ? error.message : "Unknown error"}`
+          );
         }
       }
-      
-      this.logger.info(`Successfully re-sent ${chunkingResult.totalChunks} chunk(s) for ${pendingRequest.messageType}`, 'WebRTCApiService');
-      
+
+      this.logger.info(
+        `Successfully re-sent ${chunkingResult.totalChunks} chunk(s) for ${pendingRequest.messageType}`,
+        "WebRTCApiService"
+      );
     } catch (error) {
-      this.logger.error(`Failed to re-send request for ${pendingRequest.messageType}:`, 'WebRTCApiService', error);
-      this.completeRequest(pendingRequest, undefined, new Error(`Retry failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      this.logger.error(
+        `Failed to re-send request for ${pendingRequest.messageType}:`,
+        "WebRTCApiService",
+        error
+      );
+      this.completeRequest(
+        pendingRequest,
+        undefined,
+        new Error(`Retry failed: ${error instanceof Error ? error.message : "Unknown error"}`)
+      );
     }
   }
 
@@ -387,15 +502,15 @@ export class WebRTCApiService implements DataChannelObserver {
     // Reset chunk tracking state
     pendingRequest.totalChunksSent = undefined;
     pendingRequest.chunks = undefined;
-    
+
     // Reset response chunk tracking state (for receiving chunked responses)
     pendingRequest.receivedResponseChunks = undefined;
     pendingRequest.expectedResponseChunks = undefined;
-    
+
     if (retryCount !== undefined) {
       pendingRequest.retryCount = retryCount;
     }
-    
+
     // Clear existing timeout if it exists
     if (pendingRequest.timeoutHandle) {
       clearTimeout(pendingRequest.timeoutHandle);
@@ -406,25 +521,31 @@ export class WebRTCApiService implements DataChannelObserver {
    * Retry a request - handles timeouts, chunk failures, and other retry scenarios
    * Implements exponential backoff with configurable retry limits
    */
-  private async retryRequest(pendingRequest: PendingRequest) {  
+  private async retryRequest(pendingRequest: PendingRequest) {
     // Check if request still exists (might have been completed or cancelled)
     if (!this.pendingRequests.has(pendingRequest.id)) {
-      this.logger.info(`Request ${pendingRequest.messageType} already completed, skipping timeout handling`, 'WebRTCApiService');
+      this.logger.info(
+        `Request ${pendingRequest.messageType} already completed, skipping timeout handling`,
+        "WebRTCApiService"
+      );
       return;
     }
-    
+
     const retryCount = (pendingRequest.retryCount || 0) + 1;
-    
+
     if (retryCount <= CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS) {
-      this.logger.info(`Request timeout for ${pendingRequest.messageType}, retrying (${retryCount}/${CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS})`, 'WebRTCApiService');
-      
+      this.logger.info(
+        `Request timeout for ${pendingRequest.messageType}, retrying (${retryCount}/${CHUNKING_CONFIG.REQUEST.MAX_RETRY_ATTEMPTS})`,
+        "WebRTCApiService"
+      );
+
       // Reset all chunk tracking state for retry using helper method
       this.resetRequestState(pendingRequest, retryCount);
-      
+
       // Re-send the original request first
       try {
         await this.resendOriginalRequest(pendingRequest);
-        
+
         // Only set new timeout if resend was successful and request is still pending
         if (this.pendingRequests.has(pendingRequest.id)) {
           pendingRequest.timeoutHandle = setTimeout(() => {
@@ -433,86 +554,137 @@ export class WebRTCApiService implements DataChannelObserver {
         }
       } catch (error) {
         // resendOriginalRequest already handled the error and completed the request
-        this.logger.info(`Retry failed for ${pendingRequest.messageType}, request completed with error`, 'WebRTCApiService');
+        this.logger.info(
+          `Retry failed for ${pendingRequest.messageType}, request completed with error`,
+          "WebRTCApiService"
+        );
       }
-      
     } else {
-      this.logger.error(`Max retries exceeded for ${pendingRequest.messageType}, failing request`, 'WebRTCApiService');
-      this.completeRequest(pendingRequest, undefined, new Error(`Request timeout after ${retryCount} retries`));
+      this.logger.error(
+        `Max retries exceeded for ${pendingRequest.messageType}, failing request`,
+        "WebRTCApiService"
+      );
+      this.completeRequest(
+        pendingRequest,
+        undefined,
+        new Error(`Request timeout after ${retryCount} retries`)
+      );
     }
   }
 
   /**
    * Validate response for single responses and complete the request
    */
-  private async validateAndCompleteResponse(response: WebRTCApiResponse, pendingRequest: PendingRequest) {
-    const rawResponseBody = response.body || '';
-    this.logger.debug(`Processing single response for ${pendingRequest.messageType}`, 'WebRTCApiService');
-    this.logger.debug(`Raw response body (base64): ${rawResponseBody.substring(0, 100) + (rawResponseBody.length > 100 ? '...' : '')}`, 'WebRTCApiService');
-    
+  private async validateAndCompleteResponse(
+    response: WebRTCApiResponse,
+    pendingRequest: PendingRequest
+  ) {
+    const rawResponseBody = response.body || "";
+    this.logger.debug(
+      `Processing single response for ${pendingRequest.messageType}`,
+      "WebRTCApiService"
+    );
+    this.logger.debug(
+      `Raw response body (base64): ${rawResponseBody.substring(0, 100) + (rawResponseBody.length > 100 ? "..." : "")}`,
+      "WebRTCApiService"
+    );
+
     // For binary file downloads, keep the body as base64
     // For other responses, decode the base64 to get JSON or text
-    const isBinaryDownload = pendingRequest.messageType === 'dokument.downloadDocument';
-    const decodedBody = isBinaryDownload ? rawResponseBody : this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
-    
+    const isBinaryDownload = pendingRequest.messageType === "dokument.downloadDocument";
+    const decodedBody = isBinaryDownload
+      ? rawResponseBody
+      : this.decodeResponseBody(rawResponseBody, pendingRequest.messageType);
+
     if (!isBinaryDownload) {
-      this.logger.debug('Decoded response body', 'WebRTCApiService', decodedBody);
+      this.logger.debug("Decoded response body", "WebRTCApiService", decodedBody);
     } else {
-      this.logger.debug(`Binary download - keeping base64 encoding (length: ${decodedBody.length})`, 'WebRTCApiService');
+      this.logger.debug(
+        `Binary download - keeping base64 encoding (length: ${decodedBody.length})`,
+        "WebRTCApiService"
+      );
     }
-    
+
     // Check HTTP status code first
     const statusCode = response.statusCode;
     const errorCode = response.errorCode; // Some responses use errorCode instead of statusCode
     const actualStatusCode = statusCode || errorCode;
-    
+
     if (actualStatusCode && actualStatusCode >= 400) {
-      this.logger.error(`HTTP error ${actualStatusCode} for ${pendingRequest.messageType}`, 'WebRTCApiService');
-      this.logger.error('Error response body', 'WebRTCApiService', decodedBody);
-      
+      this.logger.error(
+        `HTTP error ${actualStatusCode} for ${pendingRequest.messageType}`,
+        "WebRTCApiService"
+      );
+      this.logger.error("Error response body", "WebRTCApiService", decodedBody);
+
       // Handle authentication/authorization errors
       // Note: Token is pre-validated before sending, so 401/400 indicates a server-side issue
       if (actualStatusCode === 401 || actualStatusCode === 400) {
-        this.logger.error(`Authentication error ${actualStatusCode} despite pre-validated token`, 'WebRTCApiService');
-        this.logger.error(`Request ID: ${pendingRequest.id}`, 'WebRTCApiService');
-        this.logger.error(`Message type: ${pendingRequest.messageType}`, 'WebRTCApiService');
-        
+        this.logger.error(
+          `Authentication error ${actualStatusCode} despite pre-validated token`,
+          "WebRTCApiService"
+        );
+        this.logger.error(`Request ID: ${pendingRequest.id}`, "WebRTCApiService");
+        this.logger.error(`Message type: ${pendingRequest.messageType}`, "WebRTCApiService");
+
         this.completeRequest(
           pendingRequest,
           undefined,
-          new Error(`Authentication failed (${actualStatusCode}): Token may have been revoked or is invalid on server.`)
+          new Error(
+            `Authentication failed (${actualStatusCode}): Token may have been revoked or is invalid on server.`
+          )
         );
         return;
       }
-      
+
       // For certain error codes, we want to retry (temporary errors)
       // For others, we want to fail immediately (permanent errors)
       const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
       const permanentErrors = [403, 404, 422]; // Forbidden, not found, validation errors
-      
+
       if (retryableErrors.includes(actualStatusCode)) {
-        this.logger.info(`HTTP ${actualStatusCode} is retryable, attempting retry for ${pendingRequest.messageType}`, 'WebRTCApiService');
+        this.logger.info(
+          `HTTP ${actualStatusCode} is retryable, attempting retry for ${pendingRequest.messageType}`,
+          "WebRTCApiService"
+        );
         this.retryRequest(pendingRequest);
         return;
       } else if (permanentErrors.includes(actualStatusCode)) {
-        this.logger.error(`HTTP ${actualStatusCode} is permanent error, failing request for ${pendingRequest.messageType}`, 'WebRTCApiService');
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${actualStatusCode}: ${decodedBody || 'Request failed'}`));
+        this.logger.error(
+          `HTTP ${actualStatusCode} is permanent error, failing request for ${pendingRequest.messageType}`,
+          "WebRTCApiService"
+        );
+        this.completeRequest(
+          pendingRequest,
+          undefined,
+          new Error(`HTTP ${actualStatusCode}: ${decodedBody || "Request failed"}`)
+        );
         return;
       } else {
         // Unknown error code, treat as permanent
-        this.logger.error(`HTTP ${actualStatusCode} is unknown error, failing request for ${pendingRequest.messageType}`, 'WebRTCApiService');
-        this.completeRequest(pendingRequest, undefined, new Error(`HTTP ${actualStatusCode}: ${decodedBody || 'Request failed'}`));
+        this.logger.error(
+          `HTTP ${actualStatusCode} is unknown error, failing request for ${pendingRequest.messageType}`,
+          "WebRTCApiService"
+        );
+        this.completeRequest(
+          pendingRequest,
+          undefined,
+          new Error(`HTTP ${actualStatusCode}: ${decodedBody || "Request failed"}`)
+        );
         return;
       }
     }
-    
+
     // Create response with decoded body (no checksum validation - SCTP ensures data integrity)
     const processedResponse: WebRTCApiResponse = {
       ...response,
-      body: decodedBody
+      body: decodedBody,
     };
-    
-    this.logger.info(`Response processed for ${pendingRequest.messageType} (SCTP ensures integrity)`, 'WebRTCApiService');
+
+    this.logger.info(
+      `Response processed for ${pendingRequest.messageType} (SCTP ensures integrity)`,
+      "WebRTCApiService"
+    );
     this.completeRequest(pendingRequest, processedResponse);
   }
 
@@ -522,25 +694,38 @@ export class WebRTCApiService implements DataChannelObserver {
    * @param response - The successful response (if any)
    * @param error - The error that occurred (if any)
    */
-  private completeRequest(pendingRequest: PendingRequest, response?: WebRTCApiResponse, error?: Error) {
+  private completeRequest(
+    pendingRequest: PendingRequest,
+    response?: WebRTCApiResponse,
+    error?: Error
+  ) {
     // Reset all request state and clear timeout using helper method
     this.resetRequestState(pendingRequest);
-    
+
     // Remove from pending requests (this will also stop chunk monitoring for this request)
     this.pendingRequests.delete(pendingRequest.id);
-    
-    this.logger.debug('Pending requests after completion: ' + this.pendingRequests.size, 'WebRTCApiService');
-    
+
+    this.logger.debug(
+      "Pending requests after completion: " + this.pendingRequests.size,
+      "WebRTCApiService"
+    );
+
     // Complete the promise based on the outcome
     if (error) {
-      this.logger.error(`Request ${pendingRequest.id} failed: ${error.message}`, 'WebRTCApiService');
+      this.logger.error(
+        `Request ${pendingRequest.id} failed: ${error.message}`,
+        "WebRTCApiService"
+      );
       pendingRequest.reject(error);
     } else if (response) {
-      this.logger.info(`Request ${pendingRequest.id} completed successfully`, 'WebRTCApiService');
+      this.logger.info(`Request ${pendingRequest.id} completed successfully`, "WebRTCApiService");
       pendingRequest.resolve(response);
     } else {
-      this.logger.error(`Request ${pendingRequest.id} completed without response or error`, 'WebRTCApiService');
-      pendingRequest.reject(new Error('Request completed without response or error'));
+      this.logger.error(
+        `Request ${pendingRequest.id} completed without response or error`,
+        "WebRTCApiService"
+      );
+      pendingRequest.reject(new Error("Request completed without response or error"));
     }
   }
 
@@ -553,36 +738,45 @@ export class WebRTCApiService implements DataChannelObserver {
    * @param body - Request body (optional)
    * @returns Promise with API response
    */
-  private async sendRequest(messageType: string, method: string, url: string, headers: Record<string, string>, body?: any): Promise<WebRTCApiResponse> {
-    return new Promise(async (resolve, reject) => {
-      if (!this.sipClient) {
-        reject(new Error('WebRTC API service not initialized'));
-        return;
-      }
+  private async sendRequest(
+    messageType: string,
+    method: string,
+    url: string,
+    headers: Record<string, string>,
+    body?: any
+  ): Promise<WebRTCApiResponse> {
+    // Perform async validation before creating the Promise
+    if (!this.sipClient) {
+      throw new Error("WebRTC API service not initialized");
+    }
 
-      // Ensure both channels are ready for bidirectional communication (send request + receive response)
-      if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
-        reject(new Error('WebRTC channels not ready for bidirectional communication'));
-        return;
-      }
-      
-      // For authenticated requests, ensure token is valid before sending
-      let validToken: string | null = null;
-      if (!messageType.includes('auth.')) {
-        validToken = await tokenService.ensureValidToken();
-        if (!validToken) {
-          reject(new Error('No valid token available. Please authenticate.'));
-          return;
-        }
-        // Token will be passed to createRequestHeaders
-      }
+    // Ensure both channels are ready for bidirectional communication (send request + receive response)
+    if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+      throw new Error("WebRTC channels not ready for bidirectional communication");
+    }
 
+    // For authenticated requests, ensure token is valid before sending
+    let validToken: string | null = null;
+    if (!messageType.includes("auth.")) {
+      validToken = await tokenService.ensureValidToken();
+      if (!validToken) {
+        throw new Error("No valid token available. Please authenticate.");
+      }
+      // Token will be passed to createRequestHeaders
+    }
+
+    return new Promise((resolve, reject) => {
       // Check if there's already a pending request of the same type
       const existingRequestId = this.findPendingRequestByMessageType(messageType);
       if (existingRequestId) {
         const existingRequest = this.pendingRequests.get(existingRequestId);
         if (existingRequest) {
-          this.logger.info('Request already pending for messageType: ' + messageType + ' - waiting for existing request', 'WebRTCApiService');
+          this.logger.info(
+            "Request already pending for messageType: " +
+              messageType +
+              " - waiting for existing request",
+            "WebRTCApiService"
+          );
           // Wait for the existing request instead of creating a new one
           existingRequest.resolve = resolve;
           existingRequest.reject = reject;
@@ -594,46 +788,71 @@ export class WebRTCApiService implements DataChannelObserver {
       const requestHeaders = this.createRequestHeaders(headers, messageType, validToken);
       // Create full protocol request with messageType
       const protocolRequest = createProtocolRequest(method, url, requestHeaders, body, messageType);
-      this.logger.debug('Created initial protocol request (before chunking)', 'WebRTCApiService', protocolRequest);
+      this.logger.debug(
+        "Created initial protocol request (before chunking)",
+        "WebRTCApiService",
+        protocolRequest
+      );
 
-      this.logger.debug('Preparing request for messageType: ' + messageType, 'WebRTCApiService');
-      this.logger.debug('Pending requests before sending: ' + this.pendingRequests.size, 'WebRTCApiService');
+      this.logger.debug("Preparing request for messageType: " + messageType, "WebRTCApiService");
+      this.logger.debug(
+        "Pending requests before sending: " + this.pendingRequests.size,
+        "WebRTCApiService"
+      );
 
       try {
         // Step 1: Prepare chunking (ChunkingUtils responsibility)
         const chunkingResult = chunkRequest(protocolRequest);
-        this.logger.debug('Chunking result: totalChunks = ' + chunkingResult.totalChunks, 'WebRTCApiService');
-        
+        this.logger.debug(
+          "Chunking result: totalChunks = " + chunkingResult.totalChunks,
+          "WebRTCApiService"
+        );
+
         // Step 2: Create and store pending request (WebRTCApiService responsibility)
-        const pendingRequest = createPendingRequest(protocolRequest, chunkingResult, messageType, resolve, reject);
-        
+        const pendingRequest = createPendingRequest(
+          protocolRequest,
+          chunkingResult,
+          messageType,
+          resolve,
+          reject
+        );
+
         // Add timeout handling (WebRTCApiService responsibility)
         pendingRequest.timeoutHandle = setTimeout(() => {
           this.retryRequest(pendingRequest);
         }, CHUNKING_CONFIG.REQUEST.MAX_TIMEOUT_MS);
-        
+
         this.pendingRequests.set(protocolRequest.id, pendingRequest);
-        
+
         // Step 3: Send all chunks (rely on SCTP for reliable delivery)
         for (let i = 0; i < chunkingResult.chunks.length; i++) {
           const chunk = chunkingResult.chunks[i];
           const chunkNumber = i + 1;
-          
+
           logChunkTransmission(chunkNumber, chunkingResult.totalChunks, messageType);
-          
+
           const message = JSON.stringify(chunk);
-          this.logger.debug(`Sending chunk: Size ${new TextEncoder().encode(message).length} bytes`, 'WebRTCApiService');
+          this.logger.debug(
+            `Sending chunk: Size ${new TextEncoder().encode(message).length} bytes`,
+            "WebRTCApiService"
+          );
           WebRTCDataChannelService.getInstance().send(message);
         }
-        
+
         // Log pending requests content after sending
-        this.logger.debug(`Pending requests after sending ${messageType}: ${this.pendingRequests.size}`, 'WebRTCApiService');
-        
+        this.logger.debug(
+          `Pending requests after sending ${messageType}: ${this.pendingRequests.size}`,
+          "WebRTCApiService"
+        );
       } catch (error) {
         // Clean up on send error
         const pendingReq = this.pendingRequests.get(protocolRequest.id);
         if (pendingReq) {
-          this.completeRequest(pendingReq, undefined, error instanceof Error ? error : new Error('Unknown error'));
+          this.completeRequest(
+            pendingReq,
+            undefined,
+            error instanceof Error ? error : new Error("Unknown error")
+          );
         } else {
           // Request not found, reject directly
           reject(error);
@@ -687,19 +906,20 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async getFavoriteAkten(query: AktenQuery) {
     const queryParams = new URLSearchParams();
-    
-    if (query.AktId !== undefined) queryParams.append('AktId', query.AktId.toString());
-    if (query.AKurzLike) queryParams.append('AKurzLike', query.AKurzLike);
-    if (query.Count) queryParams.append('Count', query.Count.toString());
-    if (query.NurFavoriten !== undefined) queryParams.append('NurFavoriten', query.NurFavoriten.toString());
+
+    if (query.AktId !== undefined) queryParams.append("AktId", query.AktId.toString());
+    if (query.AKurzLike) queryParams.append("AKurzLike", query.AKurzLike);
+    if (query.Count) queryParams.append("Count", query.Count.toString());
+    if (query.NurFavoriten !== undefined)
+      queryParams.append("NurFavoriten", query.NurFavoriten.toString());
 
     return this.sendRequest(
-      'akten.getFavoriteAkten',
-      'GET',
+      "akten.getFavoriteAkten",
+      "GET",
       `api/v1.1/akten?${queryParams.toString()}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -711,15 +931,15 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async aktLookUp(searchText: string) {
     const queryParams = new URLSearchParams();
-    queryParams.append('searchText', searchText);
+    queryParams.append("searchText", searchText);
 
     return this.sendRequest(
-      'akten.aktLookUp',
-      'GET',
+      "akten.aktLookUp",
+      "GET",
       `api/v1.1/akten/LookUp?${queryParams.toString()}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -730,12 +950,12 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async addAktToFavorite(aktId: number) {
     return this.sendRequest(
-      'akten.addAktToFavorite',
-      'POST',
+      "akten.addAktToFavorite",
+      "POST",
       `api/v1.1/akten/AddToFavorites/${aktId}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -747,12 +967,12 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async removeAktFromFavorite(aktId: number) {
     return this.sendRequest(
-      'akten.removeAktFromFavorite',
-      'DELETE',
+      "akten.removeAktFromFavorite",
+      "DELETE",
       `api/v1.1/akten/RemoveFromFavorites/${aktId}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -764,18 +984,21 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async loadServices(query: LeistungenAuswahlQuery) {
     const queryParams = new URLSearchParams();
-    
-    if (query.Kürzel != null && query.Kürzel != undefined) queryParams.append('Kürzel', query.Kürzel);
-    if (query.OnlyQuickListe !== undefined) queryParams.append('OnlyQuickListe', query.OnlyQuickListe.toString());
-    if (query.Limit != null && query.Limit != undefined) queryParams.append('Limit', query.Limit.toString());
+
+    if (query.Kürzel != null && query.Kürzel != undefined)
+      queryParams.append("Kürzel", query.Kürzel);
+    if (query.OnlyQuickListe !== undefined)
+      queryParams.append("OnlyQuickListe", query.OnlyQuickListe.toString());
+    if (query.Limit != null && query.Limit != undefined)
+      queryParams.append("Limit", query.Limit.toString());
 
     return this.sendRequest(
-      'service.loadServices',
-      'GET',
+      "service.loadServices",
+      "GET",
       `api/v1.1/leistungen/Auswahl?${queryParams.toString()}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -786,12 +1009,12 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async saveLeistung(leistungData: LeistungPostData) {
     return this.sendRequest(
-      'service.saveLeistung',
-      'POST',
-      'api/v1.1/Leistungen',
+      "service.saveLeistung",
+      "POST",
+      "api/v1.1/Leistungen",
       {
-        'Content-Type': 'application/json-patch+json',
-        'Accept': 'text/plain'
+        "Content-Type": "application/json-patch+json",
+        Accept: "text/plain",
       },
       leistungData
     );
@@ -804,18 +1027,18 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async getLeistungenByAkt(query: LeistungenQuery) {
     const queryParams = new URLSearchParams();
-    
-    if (query.aktId != null) queryParams.append('AktId', query.aktId.toString());
-    if (query.outlookEmailId != null) queryParams.append('OutlookEmailId', query.outlookEmailId);
-    if (query.count != null) queryParams.append('Count', query.count.toString());
+
+    if (query.aktId != null) queryParams.append("AktId", query.aktId.toString());
+    if (query.outlookEmailId != null) queryParams.append("OutlookEmailId", query.outlookEmailId);
+    if (query.count != null) queryParams.append("Count", query.count.toString());
 
     return this.sendRequest(
-      'service.getLeistungenByAkt',
-      'GET',
+      "service.getLeistungenByAkt",
+      "GET",
       `api/v1.1/Leistungen?${queryParams.toString()}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -828,13 +1051,13 @@ export class WebRTCApiService implements DataChannelObserver {
     // The generic sendRequest method now handles all chunking automatically
     // No need for document-specific chunking logic
     return this.sendRequest(
-      'dokument.saveDokument',
-      'POST', 
-      'api/v2.0/dokumente', 
+      "dokument.saveDokument",
+      "POST",
+      "api/v2.0/dokumente",
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }, 
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
       dokumentData
     );
   }
@@ -845,12 +1068,12 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async getAvailableFolders(aktId: number) {
     return this.sendRequest(
-      'dokument.getAvailableFolders',
-      'GET',
+      "dokument.getAvailableFolders",
+      "GET",
       `api/v2.0/dokumente/folders/${aktId}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -861,21 +1084,21 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async GetDocuments(query: DokumenteQuery) {
     const queryParams = new URLSearchParams();
-    
-    if (query.aktId) queryParams.append('aktId', query.aktId.toString());
-    if (query.outlookEmailId) queryParams.append('outlookEmailId', query.outlookEmailId);
+
+    if (query.aktId) queryParams.append("aktId", query.aktId.toString());
+    if (query.outlookEmailId) queryParams.append("outlookEmailId", query.outlookEmailId);
     if (query.dokumentArten && query.dokumentArten.length > 0) {
-      query.dokumentArten.forEach(art => queryParams.append('dokumentArten', art.toString()));
+      query.dokumentArten.forEach((art) => queryParams.append("dokumentArten", art.toString()));
     }
-    if (query.Count) queryParams.append('Count', query.Count.toString());
+    if (query.Count) queryParams.append("Count", query.Count.toString());
 
     return this.sendRequest(
-      'dokument.getDocuments',
-      'GET',
+      "dokument.getDocuments",
+      "GET",
       `api/v2.0/dokumente?${queryParams.toString()}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -887,19 +1110,19 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async downloadDocument(dokumentId: number): Promise<string> {
     const response = await this.sendRequest(
-      'dokument.downloadDocument',
-      'GET',
+      "dokument.downloadDocument",
+      "GET",
       `api/v2.0/Dokumente/${dokumentId}/download`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/octet-stream' // Expecting binary file stream
+        "Content-Type": "application/json",
+        Accept: "application/octet-stream", // Expecting binary file stream
       }
     );
-    
+
     // The response body is already base64-encoded (from the chunking process)
     // The C# API returns File(stream, contentType, fileName) which sends raw bytes
     // These bytes are base64-encoded when sent through WebRTC chunks
-    return response.body || '';
+    return response.body || "";
   }
 
   // ===== PERSON API METHODS =====
@@ -910,19 +1133,20 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async getFavoritePersons(query: PersonenQuery) {
     const queryParams = new URLSearchParams();
-    
-    if (query.NKurzLike) queryParams.append('NKurzLike', query.NKurzLike);
-    if (query.Name1Like) queryParams.append('Name1Like', query.Name1Like);
-    if (query.Count) queryParams.append('Count', query.Count.toString());
-    if (query.NurFavoriten !== undefined) queryParams.append('NurFavoriten', query.NurFavoriten.toString());
+
+    if (query.NKurzLike) queryParams.append("NKurzLike", query.NKurzLike);
+    if (query.Name1Like) queryParams.append("Name1Like", query.Name1Like);
+    if (query.Count) queryParams.append("Count", query.Count.toString());
+    if (query.NurFavoriten !== undefined)
+      queryParams.append("NurFavoriten", query.NurFavoriten.toString());
 
     return this.sendRequest(
-      'person.getFavoritePersons',
-      'GET',
+      "person.getFavoritePersons",
+      "GET",
       `api/v1.1/personen?${queryParams.toString()}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -933,15 +1157,15 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async personLookUp(searchText: string) {
     const queryParams = new URLSearchParams();
-    queryParams.append('searchText', searchText);
+    queryParams.append("searchText", searchText);
 
     return this.sendRequest(
-      'person.personLookUp',
-      'GET',
+      "person.personLookUp",
+      "GET",
       `api/v1.1/personen/Lookup?${queryParams.toString()}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -951,12 +1175,12 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async addPersonToFavorites(personId: number) {
     return this.sendRequest(
-      'person.addPersonToFavorites',
-      'POST',
+      "person.addPersonToFavorites",
+      "POST",
       `api/v1.1/personen/AddToFavorites/${personId}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -966,12 +1190,12 @@ export class WebRTCApiService implements DataChannelObserver {
    */
   async removePersonFromFavorites(personId: number) {
     return this.sendRequest(
-      'person.removePersonFromFavorites',
-      'DELETE',
+      "person.removePersonFromFavorites",
+      "DELETE",
       `api/v1.1/personen/RemoveFromFavorites/${personId}`,
       {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
     );
   }
@@ -983,42 +1207,42 @@ export class WebRTCApiService implements DataChannelObserver {
    * @returns Promise with authentication response containing token and expiration
    */
   async authenticate(authRequest: IAuthRequest): Promise<IAuthResponse> {
-    this.logger.info('Starting authentication via WebRTC...', 'WebRTCApiService');
-    this.logger.debug('Authentication request', 'WebRTCApiService', authRequest);
-    
+    this.logger.info("Starting authentication via WebRTC...", "WebRTCApiService");
+    this.logger.debug("Authentication request", "WebRTCApiService", authRequest);
+
     // Create form data for authentication
     const formData = this.createAuthenticationFormData(authRequest);
-    
+
     const response = await this.sendRequest(
-      'auth.authenticate',
-      'POST',
-      'connect/token',
+      "auth.authenticate",
+      "POST",
+      "connect/token",
       {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json'
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
       },
       formData
     );
 
-    this.logger.info('Authentication response received', 'WebRTCApiService');
-    
+    this.logger.info("Authentication response received", "WebRTCApiService");
+
     // Parse the response body to get authentication details
-    if (response.body && typeof response.body === 'string') {
+    if (response.body && typeof response.body === "string") {
       try {
         const authData = JSON.parse(response.body) as IAuthResponse;
-        this.logger.info('Authentication successful - token received', 'WebRTCApiService');
+        this.logger.info("Authentication successful - token received", "WebRTCApiService");
         return authData;
       } catch (error) {
-        this.logger.error('Failed to parse authentication response:', 'WebRTCApiService', error);
-        throw new Error('Invalid authentication response format');
+        this.logger.error("Failed to parse authentication response:", "WebRTCApiService", error);
+        throw new Error("Invalid authentication response format");
       }
-    } else if (response.body && typeof response.body === 'object') {
+    } else if (response.body && typeof response.body === "object") {
       // Response body is already an object
-      this.logger.info('Authentication successful - token received', 'WebRTCApiService');
+      this.logger.info("Authentication successful - token received", "WebRTCApiService");
       return response.body as IAuthResponse;
     } else {
-      this.logger.error('Authentication failed - no token in response', 'WebRTCApiService');
-      throw new Error('Authentication failed - no token received');
+      this.logger.error("Authentication failed - no token in response", "WebRTCApiService");
+      throw new Error("Authentication failed - no token received");
     }
   }
 
@@ -1028,12 +1252,12 @@ export class WebRTCApiService implements DataChannelObserver {
    * @returns Promise with new authentication response
    */
   async refreshToken(refreshToken: string): Promise<IAuthResponse> {
-    this.logger.info('Refreshing authentication token via WebRTC...', 'WebRTCApiService');
-    
+    this.logger.info("Refreshing authentication token via WebRTC...", "WebRTCApiService");
+
     const refreshRequest: IAuthRequest = {
-      grant_type: 'refresh_token',
+      grant_type: "refresh_token",
       refresh_token: refreshToken,
-      client_id: 'TestClientId'
+      client_id: "TestClientId",
     };
 
     return this.authenticate(refreshRequest);

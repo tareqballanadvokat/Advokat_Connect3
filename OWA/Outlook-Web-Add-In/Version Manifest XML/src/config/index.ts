@@ -1,11 +1,12 @@
+/* eslint-disable no-undef */
 /**
  * Centralized Configuration Service
  * Main entry point for all configuration access
  */
 
-import { AppConfig, SipServerConfig, ApiServerConfig } from './types';
-import { getEnvironmentConfig, isProduction } from './environment';
-import { getLogger } from '../services/logger';
+import { AppConfig, SipServerConfig, ApiServerConfig } from "./types";
+import { getEnvironmentConfig, isProduction } from "./environment";
+import { getLogger } from "../services/logger";
 
 const logger = getLogger();
 
@@ -13,12 +14,12 @@ const logger = getLogger();
  * Application Version
  * The cache will be automatically cleared when the version changes.
  */
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = "1.0.0";
 
 /**
  * Feature Flags
  */
-export const ENABLE_CACHE_STATS = process.env.NODE_ENV !== 'production'; // Hide in production
+export const ENABLE_CACHE_STATS = process.env.NODE_ENV !== "production"; // Hide in production
 
 /**
  * Configuration Service Class
@@ -33,7 +34,7 @@ class ConfigService {
   constructor() {
     // Initialize with environment-based configuration
     this.config = getEnvironmentConfig();
-    logger.info(`Initialized with ${this.config.environment} environment`, 'ConfigService');
+    logger.info(`Initialized with ${this.config.environment} environment`, "ConfigService");
   }
 
   /**
@@ -62,7 +63,7 @@ class ConfigService {
    */
   public getApiBaseUrl(): string {
     const baseUrl = this.config.api.baseUrl;
-    return baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   }
 
   /**
@@ -71,7 +72,7 @@ class ConfigService {
    */
   public getApiUrl(path: string): string {
     const baseUrl = this.getApiBaseUrl();
-    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    const cleanPath = path.startsWith("/") ? path.substring(1) : path;
     return `${baseUrl}${cleanPath}`;
   }
 
@@ -100,27 +101,30 @@ class ConfigService {
 
     // Validate SIP config
     if (!this.config.sip.wsUri) {
-      errors.push('SIP WebSocket URI is not configured');
+      errors.push("SIP WebSocket URI is not configured");
     }
     if (!this.config.sip.host) {
-      errors.push('SIP host is not configured');
+      errors.push("SIP host is not configured");
     }
     if (!this.config.sip.port || this.config.sip.port <= 0) {
-      errors.push('SIP port is invalid');
+      errors.push("SIP port is invalid");
     }
 
     // Validate API config
     if (!this.config.api.baseUrl) {
-      errors.push('API base URL is not configured');
+      errors.push("API base URL is not configured");
     }
 
     // Production-specific validations
     if (isProduction()) {
-      if (this.config.sip.host.includes('localhost') || this.config.sip.host.includes('127.0.0.1')) {
-        errors.push('CRITICAL: Production environment is using localhost for SIP server');
+      if (
+        this.config.sip.host.includes("localhost") ||
+        this.config.sip.host.includes("127.0.0.1")
+      ) {
+        errors.push("CRITICAL: Production environment is using localhost for SIP server");
       }
-      if (this.config.api.baseUrl.includes('localhost')) {
-        errors.push('CRITICAL: Production environment is using localhost for API server');
+      if (this.config.api.baseUrl.includes("localhost")) {
+        errors.push("CRITICAL: Production environment is using localhost for API server");
       }
     }
 
@@ -131,13 +135,13 @@ class ConfigService {
    * Log current configuration (with sensitive data masked)
    */
   public logConfig(): void {
-    logger.debug('Current Configuration:', 'ConfigService');
-    logger.debug(`Environment: ${this.config.environment}`, 'ConfigService');
-    logger.debug(`SIP WebSocket URI: ${this.config.sip.wsUri}`, 'ConfigService');
-    logger.debug(`SIP Host: ${this.config.sip.host}`, 'ConfigService');
-    logger.debug(`SIP Port: ${this.config.sip.port}`, 'ConfigService');
-    logger.debug(`API Base URL: ${this.config.api.baseUrl}`, 'ConfigService');
-    logger.debug(`API Logging: ${this.config.api.enableLogging}`, 'ConfigService');
+    logger.debug("Current Configuration:", "ConfigService");
+    logger.debug(`Environment: ${this.config.environment}`, "ConfigService");
+    logger.debug(`SIP WebSocket URI: ${this.config.sip.wsUri}`, "ConfigService");
+    logger.debug(`SIP Host: ${this.config.sip.host}`, "ConfigService");
+    logger.debug(`SIP Port: ${this.config.sip.port}`, "ConfigService");
+    logger.debug(`API Base URL: ${this.config.api.baseUrl}`, "ConfigService");
+    logger.debug(`API Logging: ${this.config.api.enableLogging}`, "ConfigService");
   }
 
   /**
@@ -145,7 +149,7 @@ class ConfigService {
    * Useful for testing or after configuration errors
    */
   public reset(): void {
-    logger.info('Resetting configuration to environment defaults', 'ConfigService');
+    logger.info("Resetting configuration to environment defaults", "ConfigService");
     this.config = getEnvironmentConfig();
   }
 }
@@ -157,5 +161,5 @@ export const configService = new ConfigService();
 export const getConfig = () => configService.getConfig();
 
 // Export types and utilities
-export * from './types';
-export { detectEnvironment, isDevelopment, isProduction, isStaging, isTest } from './environment';
+export * from "./types";
+export { detectEnvironment, isDevelopment, isProduction, isStaging, isTest } from "./environment";

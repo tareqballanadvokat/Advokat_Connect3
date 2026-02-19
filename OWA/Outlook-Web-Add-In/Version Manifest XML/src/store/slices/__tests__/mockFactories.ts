@@ -1,17 +1,25 @@
 /**
  * Mock Data Factories
- * 
+ *
  * Factory functions for creating mock data objects used across all test files.
  * Each factory accepts optional overrides to customize the generated objects.
  */
 
+import { FolderOption } from "../aktenSlice";
+import { AktLookUpResponse } from "../../../taskpane/components/interfaces/IAkten";
 import {
-  FolderOption,
-} from '../aktenSlice';
-import { AktLookUpResponse } from '../../../taskpane/components/interfaces/IAkten';
-import { DokumentResponse, DokumentPostData, TransferAttachmentItem } from '../../../taskpane/components/interfaces/IDocument';
-import { LeistungAuswahlResponse, LeistungPostData } from '../../../taskpane/components/interfaces/IService';
-import { PersonLookUpResponse, PersonResponse } from '../../../taskpane/components/interfaces/IPerson';
+  DokumentResponse,
+  DokumentPostData,
+  TransferAttachmentItem,
+} from "../../../taskpane/components/interfaces/IDocument";
+import {
+  LeistungAuswahlResponse,
+  LeistungPostData,
+} from "../../../taskpane/components/interfaces/IService";
+import {
+  PersonLookUpResponse,
+  PersonResponse,
+} from "../../../taskpane/components/interfaces/IPerson";
 
 // ============================================================================
 // Akten (Case) Factories
@@ -19,16 +27,18 @@ import { PersonLookUpResponse, PersonResponse } from '../../../taskpane/componen
 
 export const createMockAkt = (overrides: Partial<AktLookUpResponse> = {}): AktLookUpResponse => ({
   id: 1,
-  aKurz: 'TEST-001',
-  causa: 'Test Causa',
+  aKurz: "TEST-001",
+  causa: "Test Causa",
   ...overrides,
 });
 
-export const createMockDocument = (overrides: Partial<DokumentResponse> = {}): DokumentResponse => ({
+export const createMockDocument = (
+  overrides: Partial<DokumentResponse> = {}
+): DokumentResponse => ({
   id: 1,
   aktId: 1,
-  betreff: 'Test Document',
-  dateipfad: 'C:\\Documents\\test.pdf',
+  betreff: "Test Document",
+  dateipfad: "C:\\Documents\\test.pdf",
   dokumentArt: 0,
   anzahlMailAnhänge: 0,
   ...overrides,
@@ -36,7 +46,7 @@ export const createMockDocument = (overrides: Partial<DokumentResponse> = {}): D
 
 export const createMockFolderOption = (overrides: Partial<FolderOption> = {}): FolderOption => ({
   id: 1,
-  text: 'Email',
+  text: "Email",
   ...overrides,
 });
 
@@ -44,23 +54,27 @@ export const createMockFolderOption = (overrides: Partial<FolderOption> = {}): F
 // Email/Attachment Factories
 // ============================================================================
 
-export const createMockAttachment = (overrides: Partial<TransferAttachmentItem> = {}): TransferAttachmentItem => ({
-  id: 'attachment-1',
-  label: 'Test Attachment',
-  name: 'test.pdf',
-  type: 'A',
+export const createMockAttachment = (
+  overrides: Partial<TransferAttachmentItem> = {}
+): TransferAttachmentItem => ({
+  id: "attachment-1",
+  label: "Test Attachment",
+  name: "test.pdf",
+  type: "A",
   checked: false,
   readonly: false,
   disabled: false,
   option: 1,
-  folderName: 'Email',
+  folderName: "Email",
   ...overrides,
 });
 
-export const createMockDokumentPostData = (overrides: Partial<DokumentPostData> = {}): DokumentPostData => ({
+export const createMockDokumentPostData = (
+  overrides: Partial<DokumentPostData> = {}
+): DokumentPostData => ({
   aktId: 1,
-  betreff: 'Test Document',
-  inhalt: 'base64content',
+  betreff: "Test Document",
+  inhalt: "base64content",
   dokumentArt: 0,
   anzahlMailAnhänge: 0,
   ...overrides,
@@ -70,78 +84,86 @@ export const createMockDokumentPostData = (overrides: Partial<DokumentPostData> 
 // Service (Leistung) Factories
 // ============================================================================
 
-export const createMockService = (overrides: Partial<LeistungAuswahlResponse> = {}): LeistungAuswahlResponse => ({
+export const createMockService = (
+  overrides: Partial<LeistungAuswahlResponse> = {}
+): LeistungAuswahlResponse => ({
   id: 1,
-  kürzel: 'SRV001',
-  stufe1: 'Consultation',
-  stufe2: 'Legal Advice',
-  stufe3: 'General',
+  kürzel: "SRV001",
+  stufe1: "Consultation",
+  stufe2: "Legal Advice",
+  stufe3: "General",
   anzeigenInQuicklisteOutlook: true,
-  ...overrides
+  ...overrides,
 });
 
-export const createMockLeistungPostData = (overrides: Partial<LeistungPostData> = {}): LeistungPostData => ({
+export const createMockLeistungPostData = (
+  overrides: Partial<LeistungPostData> = {}
+): LeistungPostData => ({
   aktId: 123,
-  aKurz: 'AKT001',
-  leistungKurz: 'SRV001',
-  datum: '2024-01-15',
-  honorartext: 'Legal consultation',
-  memo: 'Client meeting',
+  aKurz: "AKT001",
+  leistungKurz: "SRV001",
+  datum: "2024-01-15",
+  honorartext: "Legal consultation",
+  memo: "Client meeting",
   sachbearbeiter: [
     {
-      sb: 'JDO',
+      sb: "JDO",
       zeitVerrechenbarInMinuten: 60,
-      zeitNichtVerrechenbarInMinuten: 15
-    }
+      zeitNichtVerrechenbarInMinuten: 15,
+    },
   ],
-  ...overrides
+  ...overrides,
 });
 
 // ============================================================================
 // Person Factories
 // ============================================================================
 
-export const createMockPersonLookUp = (overrides: Partial<PersonLookUpResponse> = {}): PersonLookUpResponse => ({
+export const createMockPersonLookUp = (
+  overrides: Partial<PersonLookUpResponse> = {}
+): PersonLookUpResponse => ({
   id: 1,
-  nKurz: 'PERS001',
+  nKurz: "PERS001",
   istFirma: false,
-  titel: 'Dr.',
-  vorname: 'Max',
-  name1: 'Mustermann',
-  name2: '',
-  name3: '',
+  titel: "Dr.",
+  vorname: "Max",
+  name1: "Mustermann",
+  name2: "",
+  name3: "",
   adresse: {
-    straße: 'Hauptstraße 1',
-    plz: '12345',
-    ort: 'Berlin',
-    landeskennzeichenIso2: 'DE'
+    straße: "Hauptstraße 1",
+    plz: "12345",
+    ort: "Berlin",
+    landeskennzeichenIso2: "DE",
   },
   kontakte: [
     {
       reihung: 1,
-      art: 'Email',
-      bemerkung: 'Work',
-      telefonnummerOderAdresse: 'max@example.com'
-    }
+      art: "Email",
+      bemerkung: "Work",
+      telefonnummerOderAdresse: "max@example.com",
+    },
   ],
-  ...overrides
+  ...overrides,
 });
 
-export const createMockPersonResponse = (overrides: Partial<PersonResponse> = {}): PersonResponse => ({
+export const createMockPersonResponse = (
+  overrides: Partial<PersonResponse> = {}
+): PersonResponse => ({
   id: 1,
-  nKurz: 'PERS001',
+  nKurz: "PERS001",
   istFirma: false,
-  titel: 'Dr.',
-  vorname: 'Max',
-  name1: 'Mustermann',
-  name2: '',
-  name3: '',
+  titel: "Dr.",
+  vorname: "Max",
+  name1: "Mustermann",
+  name2: "",
+  name3: "",
   adressdaten: {
-    straße: 'Hauptstraße 1',
-    plz: '12345',
-    ort: 'Berlin',
-    landeskennzeichenIso2: 'DE'
+    straße: "Hauptstraße 1",
+    plz: "12345",
+    ort: "Berlin",
+    landeskennzeichenIso2: "DE",
   },
   kontakte: [],
-  ...overrides
+  ...overrides,
 });

@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 /**
  * File Helper Utilities
  * Pure helper functions for file operations that don't affect application state
@@ -11,50 +12,50 @@
 export function getMimeTypeFromExtension(extension: string): string {
   const mimeTypes: Record<string, string> = {
     // Documents
-    'pdf': 'application/pdf',
-    'doc': 'application/msword',
-    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'xls': 'application/vnd.ms-excel',
-    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'ppt': 'application/vnd.ms-powerpoint',
-    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'txt': 'text/plain',
-    'rtf': 'application/rtf',
-    'odt': 'application/vnd.oasis.opendocument.text',
-    'ods': 'application/vnd.oasis.opendocument.spreadsheet',
-    'odp': 'application/vnd.oasis.opendocument.presentation',
+    pdf: "application/pdf",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ppt: "application/vnd.ms-powerpoint",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    txt: "text/plain",
+    rtf: "application/rtf",
+    odt: "application/vnd.oasis.opendocument.text",
+    ods: "application/vnd.oasis.opendocument.spreadsheet",
+    odp: "application/vnd.oasis.opendocument.presentation",
     // Images
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'gif': 'image/gif',
-    'bmp': 'image/bmp',
-    'webp': 'image/webp',
-    'svg': 'image/svg+xml',
-    'ico': 'image/x-icon',
-    'tiff': 'image/tiff',
-    'tif': 'image/tiff',
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    bmp: "image/bmp",
+    webp: "image/webp",
+    svg: "image/svg+xml",
+    ico: "image/x-icon",
+    tiff: "image/tiff",
+    tif: "image/tiff",
     // Email
-    'msg': 'application/vnd.ms-outlook',
-    'eml': 'message/rfc822',
+    msg: "application/vnd.ms-outlook",
+    eml: "message/rfc822",
     // Archives
-    'zip': 'application/zip',
-    'rar': 'application/x-rar-compressed',
-    '7z': 'application/x-7z-compressed',
-    'tar': 'application/x-tar',
-    'gz': 'application/gzip',
+    zip: "application/zip",
+    rar: "application/x-rar-compressed",
+    "7z": "application/x-7z-compressed",
+    tar: "application/x-tar",
+    gz: "application/gzip",
     // Web
-    'html': 'text/html',
-    'htm': 'text/html',
-    'css': 'text/css',
-    'js': 'text/javascript',
-    'json': 'application/json',
-    'xml': 'application/xml',
+    html: "text/html",
+    htm: "text/html",
+    css: "text/css",
+    js: "text/javascript",
+    json: "application/json",
+    xml: "application/xml",
     // Other
-    'csv': 'text/csv',
+    csv: "text/csv",
   };
-  
-  return mimeTypes[extension.toLowerCase()] || 'application/octet-stream';
+
+  return mimeTypes[extension.toLowerCase()] || "application/octet-stream";
 }
 
 /**
@@ -77,7 +78,7 @@ export function base64ToUint8Array(base64String: string): Uint8Array {
  * @returns File extension in lowercase (without dot), or empty string if no extension
  */
 export function getFileExtension(fileName: string): string {
-  return fileName.split('.').pop()?.toLowerCase() || '';
+  return fileName.split(".").pop()?.toLowerCase() || "";
 }
 
 /**
@@ -87,25 +88,27 @@ export function getFileExtension(fileName: string): string {
  */
 export function isViewableInBrowser(mimeType: string): boolean {
   const viewableTypes = [
-    'application/pdf',
-    'image/jpeg', 
-    'image/jpg', 
-    'image/png', 
-    'image/gif', 
-    'image/bmp', 
-    'image/webp', 
-    'image/svg+xml',
-    'text/plain', 
-    'text/html', 
-    'text/css', 
-    'text/javascript',
-    'application/json', 
-    'application/xml'
+    "application/pdf",
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/bmp",
+    "image/webp",
+    "image/svg+xml",
+    "text/plain",
+    "text/html",
+    "text/css",
+    "text/javascript",
+    "application/json",
+    "application/xml",
   ];
-  
-  return viewableTypes.includes(mimeType) || 
-         mimeType.startsWith('text/') || 
-         mimeType.startsWith('image/');
+
+  return (
+    viewableTypes.includes(mimeType) ||
+    mimeType.startsWith("text/") ||
+    mimeType.startsWith("image/")
+  );
 }
 
 /**

@@ -6,11 +6,11 @@
  * Log Levels - ordered from least to most severe
  */
 export enum LogLevel {
-  DEBUG = 'debug',
-  INFO = 'info',
-  WARN = 'warn',
-  ERROR = 'error',
-  NONE = 'none'
+  DEBUG = "debug",
+  INFO = "info",
+  WARN = "warn",
+  ERROR = "error",
+  NONE = "none",
 }
 
 /**

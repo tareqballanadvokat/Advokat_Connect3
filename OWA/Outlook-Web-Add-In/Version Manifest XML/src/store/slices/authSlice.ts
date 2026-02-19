@@ -1,18 +1,22 @@
 // src/store/slices/authSlice.ts
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { IAuthState, IAuthCredentials, IAuthResponse } from '../../taskpane/components/interfaces/IAuth';
-import { cacheService } from '../../services/cache';
-import { getLogger } from '../../services/logger';
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import {
+  IAuthState,
+  IAuthCredentials,
+  IAuthResponse,
+} from "../../taskpane/components/interfaces/IAuth";
+import { cacheService } from "../../services/cache";
+import { getLogger } from "../../services/logger";
 
 const logger = getLogger();
 
 const initialState: IAuthState = {
   credentials: {
-    grant_type: 'password',
-    client_id: 'TestClientId',
-    client_secret: 'TestClientId',
-    username: 'JCH',
-    password: '',
+    grant_type: "password",
+    client_id: "TestClientId",
+    client_secret: "TestClientId",
+    username: "JCH",
+    password: "",
   },
   token: null,
   tokenType: null,
@@ -25,28 +29,25 @@ const initialState: IAuthState = {
 };
 
 // Async thunk for logout to properly clear cache
-export const logoutAsync = createAsyncThunk(
-  'auth/logout',
-  async (_, { getState }) => {
-    const state = getState() as { auth: IAuthState };
-    const username = state.auth.credentials.username;
-    
-    if (username) {
-      const clearedCount = await cacheService.clearNamespace(username);
-      logger.info('authSlice', `Cache cleared for user: ${username} (${clearedCount} entries)`);
-    }
+export const logoutAsync = createAsyncThunk("auth/logout", async (_, { getState }) => {
+  const state = getState() as { auth: IAuthState };
+  const username = state.auth.credentials.username;
+
+  if (username) {
+    const clearedCount = await cacheService.clearNamespace(username);
+    logger.info("authSlice", `Cache cleared for user: ${username} (${clearedCount} entries)`);
   }
-);
+});
 
 const authSlice = createSlice({
-  name: 'auth',
+  name: "auth",
   initialState,
   reducers: {
     setCredentials: (state, action: PayloadAction<Partial<IAuthCredentials>>) => {
       state.credentials = { ...state.credentials, ...action.payload };
       state.error = null;
     },
-    
+
     setPassword: (state, action: PayloadAction<string>) => {
       state.credentials.password = action.payload;
       state.error = null;
@@ -57,7 +58,10 @@ const authSlice = createSlice({
       state.error = null;
     },
 
-    setGrantType: (state, action: PayloadAction<'password' | 'client_credentials' | 'windows_auth' | 'refresh_token'>) => {
+    setGrantType: (
+      state,
+      action: PayloadAction<"password" | "client_credentials" | "windows_auth" | "refresh_token">
+    ) => {
       state.credentials.grant_type = action.payload;
       state.error = null;
     },
@@ -68,22 +72,26 @@ const authSlice = createSlice({
     },
 
     authenticationSuccess: (state, action: PayloadAction<IAuthResponse>) => {
-      const { access_token, token_type, expires_in, refresh_token, refresh_token_lifetime } = action.payload;
-      
+      const { access_token, token_type, expires_in, refresh_token, refresh_token_lifetime } =
+        action.payload;
+
       state.token = access_token;
-      state.tokenType = token_type || 'Bearer';
-      state.expiresAt = Date.now() + (expires_in * 1000); // Convert seconds to milliseconds
+      state.tokenType = token_type || "Bearer";
+      state.expiresAt = Date.now() + expires_in * 1000; // Convert seconds to milliseconds
       state.refreshToken = refresh_token;
-      state.refreshTokenExpiresAt = Date.now() + (refresh_token_lifetime * 1000); // Convert seconds to milliseconds
+      state.refreshTokenExpiresAt = Date.now() + refresh_token_lifetime * 1000; // Convert seconds to milliseconds
       state.isAuthenticated = true;
       state.isAuthenticating = false;
       state.error = null;
-      
+
       // Set cache namespace for user isolation
       cacheService.setNamespace(state.credentials.username);
-      logger.info('authSlice', `Cache namespace set to: ${state.credentials.username}`);
-      
-      logger.info('authSlice', `Tokens stored in Redux, expiresAt: ${new Date(state.expiresAt).toISOString()}`);
+      logger.info("authSlice", `Cache namespace set to: ${state.credentials.username}`);
+
+      logger.info(
+        "authSlice",
+        `Tokens stored in Redux, expiresAt: ${new Date(state.expiresAt).toISOString()}`
+      );
     },
 
     authenticationFailure: (state, action: PayloadAction<string>) => {
@@ -119,7 +127,7 @@ const authSlice = createSlice({
         state.tokenType = null;
         state.expiresAt = null;
         state.isAuthenticated = false;
-        state.error = 'Token expired';
+        state.error = "Token expired";
       }
     },
   },
@@ -127,13 +135,13 @@ const authSlice = createSlice({
     builder
       .addCase(logoutAsync.fulfilled, () => {
         // Cache cleared successfully, logout reducer will handle state reset
-        logger.info('authSlice', 'Logout completed with cache cleared');
+        logger.info("authSlice", "Logout completed with cache cleared");
       })
       .addCase(logoutAsync.rejected, (action) => {
-        logger.error('authSlice', 'Failed to clear cache on logout', action.error);
+        logger.error("authSlice", "Failed to clear cache on logout", action.error);
         // Still proceed with logout even if cache clear fails
       });
-  }
+  },
 });
 
 export const {
