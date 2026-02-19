@@ -31,7 +31,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   webrtc: {
     iceServers: [
       // Public Google STUN server for development
-       //{ urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun.l.google.com:19302' },
       // { urls: 'turn:YOUR_AZURE_IP:3478', username: 'advokatuser', credential: 'password' },
       { 
         urls: 'turn:108.143.154.176:3478',

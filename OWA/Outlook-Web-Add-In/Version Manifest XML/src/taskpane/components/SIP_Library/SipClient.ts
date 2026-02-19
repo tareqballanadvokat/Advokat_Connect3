@@ -593,13 +593,16 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
                 webrtcRetryCount++;
                 logWithPrefix(`🔄 Retrying WebRTC (attempt ${webrtcRetryCount}/${maxRetries})`);
                 
-                // Only reset Peer2Peer, keep connection phase intact
-                peer2PeerConnectionObject.reset();
-                
-                // Resend the offer using saved parameters
+                // Get saved parameters BEFORE resetting (reset clears them!)
                 const lastOfferParams = peer2PeerConnectionObject.getLastOfferParams();
+                
                 if (lastOfferParams) {
                     const { callId, sipUri, tag, toLine } = lastOfferParams;
+                    
+                    // Only reset Peer2Peer after saving params, keep connection phase intact
+                    peer2PeerConnectionObject.reset();
+                    
+                    // Resend the offer using saved parameters
                     peer2PeerConnectionObject.createOffer(callId, sipUri, tag, toLine);
                 } else {
                     logWithPrefix('⚠️ Cannot retry WebRTC - last offer params not available');

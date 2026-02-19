@@ -93,7 +93,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
           {isReady && <span style={{ color: 'white' }}> ✓</span>}
           {connectionState.reconnectAttempts > 0 && (
             <span style={{ marginLeft: '5px', fontSize: '11px' }}>
-              (Retry {connectionState.reconnectAttempts}/5)
+              (Retry {connectionState.reconnectAttempts}/2)
             </span>
           )}
         </div>
