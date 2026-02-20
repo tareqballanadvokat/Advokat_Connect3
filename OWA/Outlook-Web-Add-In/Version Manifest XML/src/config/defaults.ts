@@ -47,7 +47,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
 
   logging: {
-    enabled: false,
+    enabled: true,
     level: LogLevel.DEBUG,
     includeTimestamp: true,
     includeStack: true,

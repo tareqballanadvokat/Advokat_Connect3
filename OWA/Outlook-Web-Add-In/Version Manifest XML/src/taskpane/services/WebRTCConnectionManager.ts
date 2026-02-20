@@ -472,6 +472,13 @@ export class WebRTCConnectionManager implements SipClientObserver {
   }
 
   /**
+   * Get connection manager configuration
+   */
+  getConfig(): Readonly<Required<ConnectionManagerConfig>> {
+    return this.config;
+  }
+
+  /**
    * Check if ready for API calls
    */
   isReady(): boolean {

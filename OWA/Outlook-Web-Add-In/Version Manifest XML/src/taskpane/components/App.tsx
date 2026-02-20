@@ -38,10 +38,12 @@ const App: React.FC<AppProps> = () => {
       // Check for Ctrl+Shift+L
       if (event.ctrlKey && event.shiftKey && event.key === 'L') {
         event.preventDefault();
+        console.log('[App] Ctrl+Shift+L pressed - toggling logging. Current state:', loggingEnabled);
         dispatch(toggleLogging());
         
-        // Show notification
+        // Show notification with correct new state
         const newState = !loggingEnabled;
+        console.log('[App] New logging state will be:', newState);
         if (Office?.context?.mailbox?.item?.notificationMessages) {
           Office.context.mailbox.item.notificationMessages.replaceAsync(
             "LoggingToggleNotification",

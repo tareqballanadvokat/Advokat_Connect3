@@ -24,9 +24,8 @@ export class Logger {
     if (!Logger.instance && config) {
       Logger.instance = new Logger(config);
     } else if (!Logger.instance) {
-      // Fallback config if none provided
       Logger.instance = new Logger({
-        enabled: true,
+        enabled: false,
         level: LogLevel.DEBUG,
         includeTimestamp: true,
         includeStack: true,
@@ -53,16 +52,15 @@ export class Logger {
    * Check if a log level should be output
    */
   private shouldLog(level: LogLevel): boolean {
-    if (!this.config.enabled || this.config.level === LogLevel.NONE) {
-      return false;
-    }
-    return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[this.config.level];
+    const shouldOutput = this.config.enabled && this.config.level !== LogLevel.NONE && 
+                         LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[this.config.level];
+    return shouldOutput;
   }
 
   /**
    * Core logging method
    */
-  private log(level: LogLevel, context: string, message: string, data?: any): void {
+  private log(level: LogLevel, message: string, context: string, data?: any): void {
     if (!this.shouldLog(level)) {
       return;
     }
@@ -71,7 +69,6 @@ export class Logger {
     const stack =
       level === LogLevel.ERROR && this.config.includeStack ? new Error().stack : undefined;
 
-    // Output to console
     this.outputToConsole({ timestamp, level, context, message, data, stack });
   }
 
@@ -115,29 +112,29 @@ export class Logger {
   /**
    * Debug level logging
    */
-  public debug(context: string, message: string, data?: any): void {
-    this.log(LogLevel.DEBUG, context, message, data);
+  public debug(message: string, context: string, data?: any): void {
+    this.log(LogLevel.DEBUG, message, context, data);
   }
 
   /**
    * Info level logging
    */
-  public info(context: string, message: string, data?: any): void {
-    this.log(LogLevel.INFO, context, message, data);
+  public info(message: string, context: string, data?: any): void {
+    this.log(LogLevel.INFO, message, context, data);
   }
 
   /**
    * Warning level logging
    */
-  public warn(context: string, message: string, data?: any): void {
-    this.log(LogLevel.WARN, context, message, data);
+  public warn(message: string, context: string, data?: any): void {
+    this.log(LogLevel.WARN, message, context, data);
   }
 
   /**
    * Error level logging
    */
-  public error(context: string, message: string, data?: any): void {
-    this.log(LogLevel.ERROR, context, message, data);
+  public error(message: string, context: string, data?: any): void {
+    this.log(LogLevel.ERROR, message, context, data);
   }
 
   /**
@@ -145,6 +142,7 @@ export class Logger {
    */
   public enable(): void {
     this.config.enabled = true;
+    console.log('[Logger] Logging ENABLED - config.enabled =', this.config.enabled);
   }
 
   /**
@@ -152,6 +150,7 @@ export class Logger {
    */
   public disable(): void {
     this.config.enabled = false;
+    console.log('[Logger] Logging DISABLED - config.enabled =', this.config.enabled);
   }
 
   /**

@@ -15,9 +15,11 @@ let loggerInstance: Logger | null = null;
 /**
  * Initialize logger with configuration
  * Should be called once during app initialization
+ * If logger already exists, updates its configuration
  */
 export function initializeLogger(config: LoggerConfig): Logger {
   loggerInstance = Logger.getInstance(config);
+  loggerInstance.updateConfig(config);
   return loggerInstance;
 }
 

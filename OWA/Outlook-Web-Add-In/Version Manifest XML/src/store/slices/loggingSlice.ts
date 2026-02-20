@@ -2,6 +2,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { LogLevel } from "../../config/types";
 import { getLogger } from "../../services/logger";
+import { configService } from "../../config/index";
 
 /**
  * Logging State Interface
@@ -12,11 +13,12 @@ export interface ILoggingState {
 }
 
 /**
- * Initial state - will be synchronized with logger config on app start
+ * Initial state - reads from config defaults
  */
+const config = configService.getConfig();
 const initialState: ILoggingState = {
-  enabled: true,
-  level: LogLevel.DEBUG,
+  enabled: config.logging.enabled,
+  level: config.logging.level,
 };
 
 const loggingSlice = createSlice({
@@ -29,6 +31,15 @@ const loggingSlice = createSlice({
     initializeLogging: (state, action: PayloadAction<{ enabled: boolean; level: LogLevel }>) => {
       state.enabled = action.payload.enabled;
       state.level = action.payload.level;
+      
+      // Sync logger instance with config
+      const logger = getLogger();
+      logger.updateConfig({
+        enabled: action.payload.enabled,
+        level: action.payload.level,
+        includeTimestamp: true,
+        includeStack: true,
+      });
     },
 
     /**
@@ -36,6 +47,7 @@ const loggingSlice = createSlice({
      */
     toggleLogging: (state) => {
       state.enabled = !state.enabled;
+      console.log('[loggingSlice] toggleLogging - new enabled state:', state.enabled);
       const logger = getLogger();
       if (state.enabled) {
         logger.enable();
