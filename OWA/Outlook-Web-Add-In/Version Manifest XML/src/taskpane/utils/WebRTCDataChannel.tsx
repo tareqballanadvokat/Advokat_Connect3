@@ -1,6 +1,7 @@
 // WebRTCDataChannel.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { getConfig } from '../../config';
+import { getLogger } from '../../services/logger';
 
 interface WebRTCDataChannelProps {
   isOfferer: boolean;             // true: inicjuje połączenie, false: czeka na sygnał
@@ -13,6 +14,7 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
   sendSignal,
   incomingSignal
 }) => {
+  const logger = getLogger();
   // Ref do RTCPeerConnection (lub null przed inicjalizacją)
   const pcRef = useRef<RTCPeerConnection | null>(null);
   // Ref do RTCDataChannel (lub null dopóki nie zostanie utworzony/otrzymany)
@@ -34,7 +36,7 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
       dcRef.current = dc;
 
       dc.onopen = () => {
-        console.log('DataChannel (offerer) Open');
+        logger.info('WebRTCDataChannel', 'DataChannel (offerer) Open');
       };
       dc.onmessage = (e) => {
         setMessages((prev) => [...prev, 'Remote: ' + e.data]);
@@ -49,7 +51,7 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
             sendSignal(pc.localDescription);
           }
         })
-        .catch((err) => console.error('Błąd podczas tworzenia oferty:', err));
+        .catch((err) => logger.error('WebRTCDataChannel', 'Błąd podczas tworzenia oferty', err));
     } else {
       // c) If it's not us (the answerer), we're waiting for ondatachannel
       pc.ondatachannel = (event) => {
@@ -57,7 +59,7 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
         dcRef.current = dc;
 
         dc.onopen = () => {
-          console.log('DataChannel (answerer) Open');
+          logger.info('WebRTCDataChannel', 'DataChannel (answerer) Open');
         };
         dc.onmessage = (e) => {
           setMessages((prev) => [...prev, 'Remote: ' + e.data]);
@@ -114,13 +116,13 @@ const WebRTCDataChannel: React.FC<WebRTCDataChannelProps> = ({
             sendSignal(pc.localDescription);
           }
         })
-        .catch((err) => console.error('Błąd przy obsłudze SDP:', err));
+        .catch((err) => logger.error('WebRTCDataChannel', 'Błąd przy obsłudze SDP', err));
     }
     // b) If IceCandidate came
     else if (incomingSignal.candidate) {
       const iceCandidate = new RTCIceCandidate(incomingSignal.candidate);
       pc.addIceCandidate(iceCandidate).catch((err) => {
-        console.error('Błąd przy dodawaniu IceCandidate:', err);
+        logger.error('WebRTCDataChannel', 'Błąd przy dodawaniu IceCandidate', err);
       });
     }
   }, [incomingSignal, sendSignal]);

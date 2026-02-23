@@ -1,48 +1,58 @@
+/* eslint-disable no-undef */
 /**
  * Compression Manager
  * Handles data compression/decompression for cache entries
  */
 
-import { compress, decompress } from 'lz-string';
-import { cacheStatistics } from './CacheStatistics';
+import { compress, decompress } from "lz-string";
+import { cacheStatistics } from "./CacheStatistics";
+import { getLogger } from "../../logger";
+
+const logger = getLogger();
 
 export class CompressionManager {
-  private static readonly COMPRESSION_MARKER = '__LZ__';
+  private static readonly COMPRESSION_MARKER = "__LZ__";
   private static readonly DEFAULT_THRESHOLD = 1024; // 1KB
 
   /**
    * Compress data using LZ-string
    */
   static compress(data: string): string {
-    if (!data || typeof data !== 'string') {
-      console.warn('⚠️ [CompressionManager] Invalid input for compression');
+    if (!data || typeof data !== "string") {
+      logger.warn("Invalid input for compression", "CompressionManager");
       return data;
     }
 
     const originalLength = data.length;
     const originalSize = originalLength * 2; // UTF-16 estimation
-    console.log(`🔄 [CompressionManager] Starting compression (${originalLength} chars, ~${originalSize} bytes)`);
+    logger.debug(
+      `Starting compression (${originalLength} chars, ~${originalSize} bytes)`,
+      "CompressionManager"
+    );
 
     const startTime = performance.now();
     try {
       const compressed = compress(data);
-      
+
       if (!compressed) {
-        console.warn('⚠️ [CompressionManager] Compression returned null/empty');
+        logger.warn("Compression returned null/empty", "CompressionManager");
         return data;
       }
 
       const result = this.COMPRESSION_MARKER + compressed;
       const compressedSize = result.length * 2;
       const timeMs = performance.now() - startTime;
-      
+
       // Record statistics (will check for expansion in CacheService)
       cacheStatistics.recordCompression(originalSize, compressedSize, timeMs, false);
-      
-      console.log(`✅ [CompressionManager] Compression successful (${originalLength} → ${result.length} chars, ${timeMs.toFixed(2)}ms)`);
+
+      logger.debug(
+        `Compression successful (${originalLength} → ${result.length} chars, ${timeMs.toFixed(2)}ms)`,
+        "CompressionManager"
+      );
       return result;
     } catch (error) {
-      console.error('❌ [CompressionManager] Compression failed:', error);
+      logger.error("Compression failed: " + String(error), "CompressionManager");
       return data; // Return uncompressed on error
     }
   }
@@ -51,40 +61,44 @@ export class CompressionManager {
    * Decompress data using LZ-string
    */
   static decompress(data: string): string | null {
-    if (!data || typeof data !== 'string') {
-      console.warn('⚠️ [CompressionManager] Invalid input for decompression');
+    if (!data || typeof data !== "string") {
+      logger.warn("Invalid input for decompression", "CompressionManager");
       return null;
     }
 
     try {
       if (!this.isCompressed(data)) {
-        console.log('ℹ️ [CompressionManager] Data not compressed, returning as-is');
+        logger.debug("Data not compressed, returning as-is", "CompressionManager");
         return data; // Already uncompressed
       }
-      
-      console.log(`🔄 [CompressionManager] Starting decompression (${data.length} chars)`);
-      
+
+      logger.debug(`Starting decompression (${data.length} chars)`, "CompressionManager");
+
       const startTime = performance.now();
       // Remove marker and decompress
       const compressedData = data.substring(this.COMPRESSION_MARKER.length);
       const decompressed = decompress(compressedData);
       const timeMs = performance.now() - startTime;
-      
+
       if (decompressed === null || decompressed === undefined) {
-        console.error('❌ [CompressionManager] Decompression returned null - data may be corrupted', {
-          dataLength: data.length,
-          compressedLength: compressedData.length
-        });
+        logger.error(
+          `Decompression returned null - data may be corrupted (dataLength: ${data.length}, compressedLength: ${compressedData.length})`,
+          "CompressionManager"
+        );
         return null;
       }
-      
+
       cacheStatistics.recordDecompression(timeMs);
-      console.log(`✅ [CompressionManager] Decompression successful (${data.length} → ${decompressed.length} chars, ${timeMs.toFixed(2)}ms)`);
+      logger.debug(
+        `Decompression successful (${data.length} → ${decompressed.length} chars, ${timeMs.toFixed(2)}ms)`,
+        "CompressionManager"
+      );
       return decompressed;
     } catch (error) {
-      console.error('❌ [CompressionManager] Decompression failed - data corrupted or invalid format:', error, {
-        dataLength: data?.length
-      });
+      logger.error(
+        `Decompression failed - data corrupted or invalid format: ${String(error)} (dataLength: ${data?.length})`,
+        "CompressionManager"
+      );
       return null;
     }
   }
@@ -93,7 +107,7 @@ export class CompressionManager {
    * Check if data is compressed
    */
   static isCompressed(data: string): boolean {
-    return !!data && typeof data === 'string' && data.startsWith(this.COMPRESSION_MARKER);
+    return !!data && typeof data === "string" && data.startsWith(this.COMPRESSION_MARKER);
   }
 
   /**
@@ -105,7 +119,10 @@ export class CompressionManager {
     // Estimate size: UTF-16 uses 2 bytes per character
     const estimatedSize = data.length * 2;
     const should = estimatedSize >= minSize;
-    console.log(`📊 [CompressionManager] shouldCompress: ${should} (estimated: ${estimatedSize}B, threshold: ${minSize}B)`);
+    logger.debug(
+      `shouldCompress: ${should} (estimated: ${estimatedSize}B, threshold: ${minSize}B)`,
+      "CompressionManager"
+    );
     return should;
   }
 

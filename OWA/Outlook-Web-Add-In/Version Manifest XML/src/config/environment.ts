@@ -1,10 +1,11 @@
+/* eslint-disable no-undef */
 /**
  * Environment Detection and Management
  * Determines the current environment and loads appropriate configuration
  */
 
-import { Environment, AppConfig } from './types';
-import { DEFAULT_CONFIG, PRODUCTION_CONFIG, STAGING_CONFIG, TEST_CONFIG } from './defaults';
+import { Environment, AppConfig } from "./types";
+import { DEFAULT_CONFIG, PRODUCTION_CONFIG, STAGING_CONFIG, TEST_CONFIG } from "./defaults";
 
 /**
  * Detect current environment based on various indicators
@@ -12,34 +13,38 @@ import { DEFAULT_CONFIG, PRODUCTION_CONFIG, STAGING_CONFIG, TEST_CONFIG } from '
  */
 export function detectEnvironment(): Environment {
   // Check if running in test environment
-  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
+  if (typeof process !== "undefined" && process.env?.NODE_ENV === "test") {
     return Environment.TEST;
   }
 
   // Check for explicit environment variable
-  if (typeof process !== 'undefined' && process.env?.APP_ENV) {
+  if (typeof process !== "undefined" && process.env?.APP_ENV) {
     const env = process.env.APP_ENV.toLowerCase();
-    if (env === 'production' || env === 'prod') return Environment.PRODUCTION;
-    if (env === 'staging' || env === 'stage') return Environment.STAGING;
-    if (env === 'development' || env === 'dev') return Environment.DEVELOPMENT;
+    if (env === "production" || env === "prod") return Environment.PRODUCTION;
+    if (env === "staging" || env === "stage") return Environment.STAGING;
+    if (env === "development" || env === "dev") return Environment.DEVELOPMENT;
   }
 
   // Check hostname patterns
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     const hostname = window.location.hostname.toLowerCase();
-    
+
     // Development patterns (check first for safety)
-    if (hostname.includes('localhost') || hostname.includes('127.0.0.1') || hostname.includes('.local')) {
+    if (
+      hostname.includes("localhost") ||
+      hostname.includes("127.0.0.1") ||
+      hostname.includes(".local")
+    ) {
       return Environment.DEVELOPMENT;
     }
-    
+
     // Staging patterns (check before production)
-    if (hostname.includes('staging') || hostname.includes('stage') || hostname.includes('test.')) {
+    if (hostname.includes("staging") || hostname.includes("stage") || hostname.includes("test.")) {
       return Environment.STAGING;
     }
-    
+
     // Production patterns (explicit domains only)
-    if (hostname.includes('advokatconnect.com') || hostname.includes('advokat-connect.de')) {
+    if (hostname.includes("advokatconnect.com") || hostname.includes("advokat-connect.de")) {
       return Environment.PRODUCTION;
     }
   }
@@ -54,25 +59,25 @@ export function detectEnvironment(): Environment {
  */
 export function getEnvironmentConfig(): AppConfig {
   const env = detectEnvironment();
-  
+
   switch (env) {
     case Environment.PRODUCTION:
-      return { 
-        ...DEFAULT_CONFIG, 
+      return {
+        ...DEFAULT_CONFIG,
         ...PRODUCTION_CONFIG,
-        environment: Environment.PRODUCTION 
+        environment: Environment.PRODUCTION,
       } as AppConfig;
-      
+
     case Environment.STAGING:
-      return { 
-        ...DEFAULT_CONFIG, 
+      return {
+        ...DEFAULT_CONFIG,
         ...STAGING_CONFIG,
-        environment: Environment.STAGING 
+        environment: Environment.STAGING,
       } as AppConfig;
-      
+
     case Environment.TEST:
       return TEST_CONFIG;
-      
+
     case Environment.DEVELOPMENT:
     default:
       return DEFAULT_CONFIG;

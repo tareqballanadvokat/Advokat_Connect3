@@ -3,10 +3,10 @@
  */
 
 export enum StorageType {
-  LOCAL = 'local',
-  SESSION = 'session',
-  MEMORY = 'memory',
-  INDEXED_DB = 'indexeddb'
+  LOCAL = "local",
+  SESSION = "session",
+  MEMORY = "memory",
+  INDEXED_DB = "indexeddb",
 }
 
 export interface CacheOptions {

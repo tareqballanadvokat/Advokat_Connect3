@@ -3,24 +3,24 @@
  * Single source of truth for cache keys, TTL values, and storage settings
  */
 
-import { StorageType, CacheOptions } from './types';
+import { StorageType, CacheOptions } from "./types";
 
 /**
  * Storage Prefix for all cache keys
  */
-export const STORAGE_PREFIX = 'advokat_connect_';
+export const STORAGE_PREFIX = "advokat_connect_";
 
 /**
  * Cache Keys
  */
 export const CACHE_KEYS = {
-  APP_VERSION: 'app_version',
-  FAVORITES_PERSONS: 'favorites_persons',
-  FAVORITES_AKTEN: 'favorites_akten',
-  DOCUMENTS: 'documents',
-  SERVICES: 'services',
-  SEARCH_RESULTS: 'search_results',
-  REGISTERED_SERVICES: 'registered_services'
+  APP_VERSION: "app_version",
+  FAVORITES_PERSONS: "favorites_persons",
+  FAVORITES_AKTEN: "favorites_akten",
+  DOCUMENTS: "documents",
+  SERVICES: "services",
+  SEARCH_RESULTS: "search_results",
+  REGISTERED_SERVICES: "registered_services",
 } as const;
 
 /**
@@ -33,7 +33,7 @@ export const CACHE_TTL = {
   ONE_DAY: 24 * 60 * 60 * 1000,
   ONE_WEEK: 7 * 24 * 60 * 60 * 1000,
   THIRTY_DAYS: 30 * 24 * 60 * 60 * 1000,
-  NEVER: undefined
+  NEVER: undefined,
 } as const;
 
 /**
@@ -43,40 +43,40 @@ export const CACHE_CONFIG: Record<string, CacheOptions> = {
   [CACHE_KEYS.APP_VERSION]: {
     storage: StorageType.LOCAL,
     ttl: CACHE_TTL.NEVER, // Never expire
-    compress: false
+    compress: false,
   },
   [CACHE_KEYS.FAVORITES_PERSONS]: {
     storage: StorageType.LOCAL,
     ttl: CACHE_TTL.ONE_DAY,
     compress: true,
-    compressionThreshold: 2048 // Only compress if > 2KB
+    compressionThreshold: 2048, // Only compress if > 2KB
   },
   [CACHE_KEYS.FAVORITES_AKTEN]: {
     storage: StorageType.LOCAL,
     ttl: CACHE_TTL.ONE_DAY,
     compress: true,
-    compressionThreshold: 2048
+    compressionThreshold: 2048,
   },
   [CACHE_KEYS.DOCUMENTS]: {
     storage: StorageType.LOCAL,
     ttl: CACHE_TTL.ONE_HOUR,
     compress: true,
-    compressionThreshold: 1024
+    compressionThreshold: 1024,
   },
   [CACHE_KEYS.SERVICES]: {
     storage: StorageType.SESSION,
-    ttl: CACHE_TTL.NEVER // Session-only, clears on Outlook restart
+    ttl: CACHE_TTL.NEVER, // Session-only, clears on Outlook restart
   },
   [CACHE_KEYS.SEARCH_RESULTS]: {
     storage: StorageType.SESSION,
     ttl: CACHE_TTL.NEVER, // Session-only
     compress: true,
-    compressionThreshold: 1024
+    compressionThreshold: 1024,
   },
   [CACHE_KEYS.REGISTERED_SERVICES]: {
     storage: StorageType.LOCAL,
     ttl: CACHE_TTL.ONE_HOUR,
     compress: true,
-    compressionThreshold: 1024
-  }
+    compressionThreshold: 1024,
+  },
 } as const;

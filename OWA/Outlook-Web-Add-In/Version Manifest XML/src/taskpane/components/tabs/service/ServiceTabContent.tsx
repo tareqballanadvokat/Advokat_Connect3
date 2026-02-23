@@ -11,6 +11,9 @@ import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
 import ServiceSend from './ServiceSend';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 
 const ServiceTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -82,12 +85,12 @@ const ServiceTabContent: React.FC = () => {
         try {
           const email = Office.context.mailbox.item;
           outlookEmailId = await getInternetMessageIdAsync(email);
-          console.log('📧 Saving Leistung with email ID:', outlookEmailId);
+          logger.debug('Saving Leistung with email ID: ' + outlookEmailId, 'ServiceTabContent');
         } catch (error) {
-          console.warn('⚠️ Could not get email ID, saving without it:', error);
+          logger.warn('Could not get email ID, saving without it', 'ServiceTabContent', error);
         }
       } else {
-        console.log('📧 Compose mode - saving Leistung without email ID');
+        logger.debug('Compose mode - saving Leistung without email ID', 'ServiceTabContent');
       }
       
       const timeInMinutes = convertTimeToMinutes(time);
@@ -119,7 +122,7 @@ const ServiceTabContent: React.FC = () => {
       setRefreshFlag(f => f + 1);
       
     } catch (error) {
-      console.error('Failed to save service:', error);
+      logger.error('Failed to save service:', 'ServiceTabContent', error);
       notify('Failed to save service', 'error', 5000);
     } finally {
       // Reset loading state

@@ -8,6 +8,9 @@ import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
 import { AktLookUpResponse } from '../../interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 
 // Updated interface to match the new API model
 interface SearchProps {
@@ -47,7 +50,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
       // Using aktLookUpAsync - includes fake response for testing when WebRTC is not ready
       await dispatch(aktLookUpAsync(filter)).unwrap();
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('Search failed', 'SearchCaseList', error);
       if (isReady) {
         notify('Search cases failed', 'error', 5000);
       }

@@ -1,5 +1,8 @@
 // Email-related interfaces and models
 import { DokumentArt, TransferAttachmentItem } from './IDocument';
+import { getLogger } from '../../../services/logger';
+
+const logger = getLogger();
 
 export interface EmailSendProps {
   caseId: string;
@@ -80,7 +83,7 @@ export async function getDokumentArt(
         ? DokumentArt.MailGesendet 
         : DokumentArt.MailEmpfangen;
     } catch (error) {
-      console.warn('Could not get current user email for DokumentArt detection:', error);
+      logger.warn('Could not get current user email for DokumentArt detection', 'IEmail', error);
     }
   }
   

@@ -1,7 +1,15 @@
-import { store } from '../../store';
-import { selectAuthToken, selectRefreshToken, authenticationSuccess, startAuthentication, authenticationFailure } from '../../store/slices/authSlice';
-import { webRTCApiService } from './webRTCApiService';
-import type { IAuthResponse } from '../components/interfaces/IAuth';
+/* eslint-disable no-undef */
+import { store } from "../../store";
+import {
+  selectAuthToken,
+  selectRefreshToken,
+  authenticationSuccess,
+  startAuthentication,
+  authenticationFailure,
+} from "../../store/slices/authSlice";
+import { webRTCApiService } from "./webRTCApiService";
+import type { IAuthResponse } from "../components/interfaces/IAuth";
+import { getLogger } from "../../services/logger";
 
 /**
  * Token Service for JWT token validation and management
@@ -9,10 +17,11 @@ import type { IAuthResponse } from '../components/interfaces/IAuth';
  */
 export class TokenService {
   private static readonly TOKEN_EXPIRY_BUFFER_MS = 30000; // 30 seconds
-  private static readonly ENCRYPTION_ALGORITHM = 'AES-GCM';
+  private static readonly ENCRYPTION_ALGORITHM = "AES-GCM";
   private static readonly ENCRYPTION_KEY_LENGTH = 256;
   private static readonly IV_LENGTH = 12; // 96 bits for GCM
-  
+  private logger = getLogger();
+
   /**
    * Promise tracking an in-progress token refresh operation
    * Prevents multiple simultaneous refresh requests
@@ -39,13 +48,13 @@ export class TokenService {
     this.encryptionKey = await crypto.subtle.generateKey(
       {
         name: TokenService.ENCRYPTION_ALGORITHM,
-        length: TokenService.ENCRYPTION_KEY_LENGTH
+        length: TokenService.ENCRYPTION_KEY_LENGTH,
       },
       false, // Not extractable for security
-      ['encrypt', 'decrypt']
+      ["encrypt", "decrypt"]
     );
 
-    console.log('🔐 Generated new encryption key for token storage');
+    this.logger.debug("Generated new encryption key for token storage", "TokenService");
     return this.encryptionKey;
   }
 
@@ -57,47 +66,49 @@ export class TokenService {
    */
   async encryptToken(plaintext: string): Promise<string> {
     if (!plaintext) {
-      throw new Error('Cannot encrypt empty token');
+      throw new Error("Cannot encrypt empty token");
     }
 
     try {
       const key = await this.getEncryptionKey();
-      
+
       // Generate random IV
       const iv = crypto.getRandomValues(new Uint8Array(TokenService.IV_LENGTH));
-      
+
       // Encode plaintext to bytes
       const encoder = new TextEncoder();
       const data = encoder.encode(plaintext);
-      
+
       // Encrypt
       const encryptedBuffer = await crypto.subtle.encrypt(
         {
           name: TokenService.ENCRYPTION_ALGORITHM,
-          iv: iv
+          iv: iv,
         },
         key,
         data
       );
-      
+
       // Combine IV and ciphertext
       const encryptedArray = new Uint8Array(encryptedBuffer);
       const combined = new Uint8Array(iv.length + encryptedArray.length);
       combined.set(iv, 0);
       combined.set(encryptedArray, iv.length);
-      
+
       // Convert to base64
-      let binary = '';
+      let binary = "";
       for (let i = 0; i < combined.length; i++) {
         binary += String.fromCharCode(combined[i]);
       }
       const base64 = btoa(binary);
-      
-      console.log('🔐 Token encrypted successfully');
+
+      this.logger.debug("Token encrypted successfully", "TokenService");
       return base64;
     } catch (error) {
-      console.error('❌ Failed to encrypt token:', error);
-      throw new Error(`Token encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error("Failed to encrypt token:", "TokenService", error);
+      throw new Error(
+        `Token encryption failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -107,15 +118,23 @@ export class TokenService {
    * @returns Promise<IAuthResponse> Authentication response with encrypted tokens
    */
   async encryptAuthResponse(authResponse: IAuthResponse): Promise<IAuthResponse> {
+    console.log('🔐 [TokenService] Encrypting auth response before storing');
+    console.log('🔐 [TokenService] Access token to encrypt (first 30 / last 30 chars):', 
+      authResponse.access_token.substring(0, 30) + '...' + authResponse.access_token.substring(authResponse.access_token.length - 30));
+    
     const encryptedAccessToken = await this.encryptToken(authResponse.access_token);
+    console.log('🔐 [TokenService] Encrypted access token (first 20 chars):', encryptedAccessToken.substring(0, 20) + '...');
+    
     const encryptedRefreshToken = authResponse.refresh_token
       ? await this.encryptToken(authResponse.refresh_token)
       : null; // Return null if server doesn't provide refresh token
 
+    console.log('✅ [TokenService] Auth response encrypted, will be stored in Redux');
+    
     return {
       ...authResponse,
       access_token: encryptedAccessToken,
-      refresh_token: encryptedRefreshToken
+      refresh_token: encryptedRefreshToken,
     };
   }
 
@@ -131,32 +150,32 @@ export class TokenService {
 
     try {
       const key = await this.getEncryptionKey();
-      
+
       // Decode from base64
-      const combined = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
-      
+      const combined = Uint8Array.from(atob(encryptedBase64), (c) => c.charCodeAt(0));
+
       // Extract IV and ciphertext
       const iv = combined.slice(0, TokenService.IV_LENGTH);
       const ciphertext = combined.slice(TokenService.IV_LENGTH);
-      
+
       // Decrypt
       const decryptedBuffer = await crypto.subtle.decrypt(
         {
           name: TokenService.ENCRYPTION_ALGORITHM,
-          iv: iv
+          iv: iv,
         },
         key,
         ciphertext
       );
-      
+
       // Decode bytes to string
       const decoder = new TextDecoder();
       const plaintext = decoder.decode(decryptedBuffer);
-      
+
       return plaintext;
     } catch (error) {
-      console.error('❌ Failed to decrypt token:', error);
-      console.error('❌ Token decryption failed - authentication required');
+      this.logger.error("Failed to decrypt token:", "TokenService", error);
+      this.logger.error("Token decryption failed - authentication required", "TokenService");
       return null;
     }
   }
@@ -168,39 +187,39 @@ export class TokenService {
    */
   isTokenExpired(token: string): boolean {
     try {
-      const parts = token.split('.');
+      const parts = token.split(".");
       if (parts.length !== 3) {
-        console.warn('⚠️ Invalid JWT token format');
+        this.logger.warn("Invalid JWT token format", "TokenService");
         return true;
       }
-      
+
       const payload = JSON.parse(atob(parts[1]));
       const exp = payload.exp * 1000; // Convert to milliseconds
       const nbf = payload.nbf ? payload.nbf * 1000 : null;
       const now = Date.now();
-      
+
       // Check expiration with buffer
-      const isExpired = now >= (exp - TokenService.TOKEN_EXPIRY_BUFFER_MS);
-      
+      const isExpired = now >= exp - TokenService.TOKEN_EXPIRY_BUFFER_MS;
+
       // Check not-before if present
       const isNotYetValid = nbf ? now < nbf : false;
-      
+
       if (isExpired) {
-        console.warn('⚠️ Token expired or expiring soon');
-        console.warn(`  Expires: ${new Date(exp).toISOString()}`);
-        console.warn(`  Current: ${new Date(now).toISOString()}`);
-        console.warn(`  Time until expiry: ${Math.floor((exp - now) / 1000)}s`);
+        this.logger.warn("Token expired or expiring soon", "TokenService");
+        this.logger.warn(`Expires: ${new Date(exp).toISOString()}`, "TokenService");
+        this.logger.warn(`Current: ${new Date(now).toISOString()}`, "TokenService");
+        this.logger.warn(`Time until expiry: ${Math.floor((exp - now) / 1000)}s`, "TokenService");
       }
-      
+
       if (isNotYetValid) {
-        console.warn('⚠️ Token not yet valid (nbf claim)');
-        console.warn(`  Not before: ${new Date(nbf!).toISOString()}`);
-        console.warn(`  Current: ${new Date(now).toISOString()}`);
+        this.logger.warn("Token not yet valid (nbf claim)", "TokenService");
+        this.logger.warn(`Not before: ${new Date(nbf!).toISOString()}`, "TokenService");
+        this.logger.warn(`Current: ${new Date(now).toISOString()}`, "TokenService");
       }
-      
+
       return isExpired || isNotYetValid;
     } catch (error) {
-      console.error('❌ Error parsing JWT token:', error);
+      this.logger.error("Error parsing JWT token:", "TokenService", error);
       return true; // Treat parsing errors as expired
     }
   }
@@ -212,21 +231,24 @@ export class TokenService {
    */
   logTokenValidation(token: string, messageType: string): void {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = JSON.parse(atob(token.split(".")[1]));
       const exp = payload.exp * 1000;
       const nbf = payload.nbf ? payload.nbf * 1000 : null;
       const now = Date.now();
-      
-      console.log('🔐 Token validation for', messageType);
-      console.log(`  Issuer: ${payload.iss || 'not set'}`);
-      console.log(`  Subject: ${payload.sub || 'not set'}`);
-      console.log(`  Expires: ${new Date(exp).toISOString()}`);
-      console.log(`  Not before: ${nbf ? new Date(nbf).toISOString() : 'not set'}`);
-      console.log(`  Current time: ${new Date(now).toISOString()}`);
-      console.log(`  Time until expiry: ${Math.floor((exp - now) / 1000)}s`);
-      console.log(`  Valid: ${now < exp && (!nbf || now >= nbf)}`);
+
+      this.logger.debug("Token validation for " + messageType, "TokenService");
+      this.logger.debug(`Issuer: ${payload.iss || "not set"}`, "TokenService");
+      this.logger.debug(`Subject: ${payload.sub || "not set"}`, "TokenService");
+      this.logger.debug(`Expires: ${new Date(exp).toISOString()}`, "TokenService");
+      this.logger.debug(
+        `Not before: ${nbf ? new Date(nbf).toISOString() : "not set"}`,
+        "TokenService"
+      );
+      this.logger.debug(`Current time: ${new Date(now).toISOString()}`, "TokenService");
+      this.logger.debug(`Time until expiry: ${Math.floor((exp - now) / 1000)}s`, "TokenService");
+      this.logger.debug(`Valid: ${now < exp && (!nbf || now >= nbf)}`, "TokenService");
     } catch (error) {
-      console.warn('⚠️ Could not decode token for validation logging:', error);
+      this.logger.warn("Could not decode token for validation logging:", "TokenService", error);
     }
   }
 
@@ -237,13 +259,23 @@ export class TokenService {
   async getCurrentToken(): Promise<string | null> {
     const state = store.getState();
     const encryptedToken = selectAuthToken(state);
-    
+
     if (!encryptedToken) {
+      console.log('🔐 [TokenService] No encrypted token in store');
       return null;
     }
-    
+
     // Decrypt the token before returning
-    return await this.decryptToken(encryptedToken);
+    const decryptedToken = await this.decryptToken(encryptedToken);
+    
+    if (decryptedToken) {
+      console.log('🔐 [TokenService] Decrypted token (first 30 / last 30 chars):', 
+        decryptedToken.substring(0, 30) + '...' + decryptedToken.substring(decryptedToken.length - 30));
+    } else {
+      console.log('🔐 [TokenService] Failed to decrypt token');
+    }
+    
+    return decryptedToken;
   }
 
   /**
@@ -268,15 +300,15 @@ export class TokenService {
   async refreshToken(): Promise<boolean> {
     // If a refresh is already in progress, return the existing promise
     if (this.refreshPromise) {
-      console.log('🔄 TokenService: Token refresh already in progress, joining queue...');
+      this.logger.info("Token refresh already in progress, joining queue...", "TokenService");
       return this.refreshPromise;
     }
 
-    console.log('🔄 TokenService: Initiating token refresh...');
-    
+    this.logger.info("Initiating token refresh...", "TokenService");
+
     // Create new refresh promise
     this.refreshPromise = this.performTokenRefresh();
-    
+
     try {
       const result = await this.refreshPromise;
       return result;
@@ -296,45 +328,49 @@ export class TokenService {
   private async performTokenRefresh(): Promise<boolean> {
     const state = store.getState();
     const encryptedRefreshToken = selectRefreshToken(state);
-    
+
     if (!encryptedRefreshToken) {
-      const error = 'No refresh token available. User must re-authenticate.';
-      console.error('❌ TokenService:', error);
+      const error = "No refresh token available. User must re-authenticate.";
+      this.logger.error(error, "TokenService");
       throw new Error(error);
     }
 
     try {
       // Decrypt the refresh token before using it
       const refreshToken = await this.decryptToken(encryptedRefreshToken);
-      
+
       if (!refreshToken) {
-        throw new Error('Failed to decrypt refresh token');
+        throw new Error("Failed to decrypt refresh token");
       }
-      
+
       // Dispatch authentication start
       store.dispatch(startAuthentication());
-      
+
       // Call the WebRTC API service to refresh the token
       const authResponse: IAuthResponse = await webRTCApiService.refreshToken(refreshToken);
-      
+
       // Encrypt tokens before storing (null if server doesn't provide new refresh token)
       const encryptedAuthResponse = await this.encryptAuthResponse(authResponse);
-      
+
       // Update Redux store with encrypted tokens
       store.dispatch(authenticationSuccess(encryptedAuthResponse));
-      
-      console.log('✅ TokenService: Token refresh successful (tokens encrypted)');
-      console.log(`  New token expires in: ${authResponse.expires_in}s`);
-      console.log(`  Refresh token expires in: ${authResponse.refresh_token_lifetime}s`);
-      
+
+      this.logger.info("Token refresh successful (tokens encrypted)", "TokenService");
+      this.logger.debug(`New token expires in: ${authResponse.expires_in}s`, "TokenService");
+      this.logger.debug(
+        `Refresh token expires in: ${authResponse.refresh_token_lifetime}s`,
+        "TokenService"
+      );
+
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error during token refresh';
-      console.error('❌ TokenService: Token refresh failed:', errorMessage);
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error during token refresh";
+      this.logger.error("Token refresh failed: " + errorMessage, "TokenService");
+
       // Dispatch authentication failure
       store.dispatch(authenticationFailure(errorMessage));
-      
+
       return false;
     }
   }
@@ -346,34 +382,38 @@ export class TokenService {
    * @returns Promise<string | null> - Returns fresh decrypted token or null if refresh failed
    */
   async ensureValidToken(): Promise<string | null> {
+    console.log('🔐 [TokenService] ensureValidToken called - retrieving current token');
     const currentToken = await this.getCurrentToken();
-    
+
     // No token at all - user needs to authenticate
     if (!currentToken) {
-      console.warn('⚠️ TokenService: No token available');
+      this.logger.warn("No token available", "TokenService");
       return null;
     }
 
+    console.log('🔐 [TokenService] Token retrieved, checking expiration');
     // Token is still valid
     if (!this.isTokenExpired(currentToken)) {
+      console.log('✅ [TokenService] Token is valid, returning it');
       return currentToken;
     }
 
+    console.warn('⚠️ [TokenService] Token is expired');
     // If refresh is already in progress, wait for it
     if (this.isRefreshInProgress()) {
-      console.log('🔄 TokenService: Token expired, refresh already in progress, waiting...');
+      this.logger.info("Token expired, refresh already in progress, waiting...", "TokenService");
       await this.refreshToken(); // This will join the existing refresh
       return await this.getCurrentToken();
     }
 
     // Token is expired, try to refresh
-    console.log('🔄 TokenService: Token expired, attempting refresh...');
+    this.logger.info("Token expired, attempting refresh...", "TokenService");
     const refreshSuccess = await this.refreshToken();
-    
+
     if (refreshSuccess) {
       return await this.getCurrentToken();
     }
-    
+
     return null;
   }
 
@@ -392,23 +432,23 @@ export class TokenService {
    */
   isAuthenticationError(error: Error): boolean {
     const errorMessage = error.message.toLowerCase();
-    
+
     // Check for HTTP status codes
-    if (errorMessage.includes('401') || errorMessage.includes('403')) {
+    if (errorMessage.includes("401") || errorMessage.includes("403")) {
       return true;
     }
-    
+
     // Check for authentication-related keywords
     const authKeywords = [
-      'unauthorized',
-      'authentication failed',
-      'token expired',
-      'token may be expired',
-      'invalid token',
-      'token not valid'
+      "unauthorized",
+      "authentication failed",
+      "token expired",
+      "token may be expired",
+      "invalid token",
+      "token not valid",
     ];
-    
-    return authKeywords.some(keyword => errorMessage.includes(keyword));
+
+    return authKeywords.some((keyword) => errorMessage.includes(keyword));
   }
 
   // TODO: Add background token refresh service that monitors expiry and refreshes at 75% lifetime (optional)

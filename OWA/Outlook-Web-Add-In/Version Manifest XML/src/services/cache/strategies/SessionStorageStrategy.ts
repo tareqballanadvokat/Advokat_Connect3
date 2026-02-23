@@ -1,20 +1,21 @@
+/* eslint-disable no-undef */
 /**
  * SessionStorage Strategy
  * Implements IStorageStrategy using browser sessionStorage
  * Data persists only for the session duration (until tab/window is closed)
  */
 
-import { IStorageStrategy } from './IStorageStrategy';
-import { StorageUsage } from '../types';
-import { STORAGE_PREFIX } from '../config';
+import { IStorageStrategy } from "./IStorageStrategy";
+import { StorageUsage } from "../types";
+import { STORAGE_PREFIX } from "../config";
 
 export class SessionStorageStrategy implements IStorageStrategy {
-  readonly type = 'session';
+  readonly type = "session";
   private readonly storage = sessionStorage;
 
   async isAvailable(): Promise<boolean> {
     try {
-      const test = '__storage_test__';
+      const test = "__storage_test__";
       this.storage.setItem(test, test);
       this.storage.removeItem(test);
       return true;
@@ -27,8 +28,8 @@ export class SessionStorageStrategy implements IStorageStrategy {
     try {
       this.storage.setItem(`${STORAGE_PREFIX}${key}`, value);
     } catch (error) {
-      if (error instanceof Error && error.name === 'QuotaExceededError') {
-        throw new Error('Session storage quota exceeded');
+      if (error instanceof Error && error.name === "QuotaExceededError") {
+        throw new Error("Session storage quota exceeded");
       }
       throw error;
     }

@@ -1,22 +1,23 @@
+/* eslint-disable no-undef */
 // src/store/slices/connectionSlice.ts
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { RootState } from '../index';
-import { SipClientState } from '../../taskpane/components/SIP_Library/SipClient';
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { RootState } from "../index";
+import { SipClientState } from "../../taskpane/components/SIP_Library/SipClient";
 
 export interface ConnectionState {
   // Core state - single source of truth
   sipClientState: SipClientState; // DISCONNECTED, REGISTERING, CONNECTING, CONNECTING_P2P, CONNECTED, FAILED
-  
+
   // User-friendly status message
   connectionStatus: string; // "Connecting...", "Connected", etc.
-  
+
   // Error tracking
   lastError?: string;
-  
+
   // Reconnection tracking
   reconnectAttempts: number;
   lastSuccessfulConnection?: string;
-  
+
   // Idle management
   isIdle: boolean;
   lastActivityTimestamp?: string;
@@ -26,14 +27,14 @@ export interface ConnectionState {
 
 const initialState: ConnectionState = {
   sipClientState: SipClientState.DISCONNECTED,
-  connectionStatus: 'Disconnected',
+  connectionStatus: "Disconnected",
   reconnectAttempts: 0,
   isIdle: false,
   autoReconnectPending: false,
 };
 
 const connectionSlice = createSlice({
-  name: 'connection',
+  name: "connection",
   initialState,
   reducers: {
     updateConnectionState: (state, action: PayloadAction<Partial<ConnectionState>>) => {
@@ -47,7 +48,7 @@ const connectionSlice = createSlice({
     setConnectionError: (state, action: PayloadAction<string>) => {
       state.lastError = action.payload;
       state.sipClientState = SipClientState.FAILED;
-      state.connectionStatus = 'Connection failed';
+      state.connectionStatus = "Connection failed";
     },
 
     incrementReconnectAttempts: (state) => {
@@ -84,33 +85,33 @@ const connectionSlice = createSlice({
     sipClientStateChanged: (state, action: PayloadAction<SipClientState>) => {
       const sipState = action.payload;
       state.sipClientState = sipState;
-      
+
       // Auto-update connectionStatus based on sipClientState
       switch (sipState) {
-        case 'DISCONNECTED':
-          state.connectionStatus = 'Disconnected';
+        case "DISCONNECTED":
+          state.connectionStatus = "Disconnected";
           break;
-        case 'REGISTERING':
-          state.connectionStatus = 'Connecting.';
+        case "REGISTERING":
+          state.connectionStatus = "Connecting.";
           break;
-        case 'CONNECTING':
-          state.connectionStatus = 'Connecting..';
+        case "CONNECTING":
+          state.connectionStatus = "Connecting..";
           break;
-        case 'CONNECTING_P2P':
-          state.connectionStatus = 'Connecting...';
+        case "CONNECTING_P2P":
+          state.connectionStatus = "Connecting...";
           break;
-        case 'CONNECTED':
-          state.connectionStatus = 'Connected';
+        case "CONNECTED":
+          state.connectionStatus = "Connected";
           if (!state.lastSuccessfulConnection) {
             state.lastSuccessfulConnection = new Date().toISOString();
           }
           state.reconnectAttempts = 0;
           break;
-        case 'FAILED':
-          state.connectionStatus = 'Connection failed';
+        case "FAILED":
+          state.connectionStatus = "Connection failed";
           break;
-        case 'FAILED_PERMANENTLY':
-          state.connectionStatus = 'Connection failed permanently';
+        case "FAILED_PERMANENTLY":
+          state.connectionStatus = "Connection failed permanently";
           break;
       }
     },
@@ -138,45 +139,44 @@ export const selectConnectionStatus = (state: RootState) => state.connection.con
 export const selectSipClientState = (state: RootState) => state.connection.sipClientState;
 
 // Derived selectors based on sipClientState (single source of truth)
-export const selectIsConnected = (state: RootState) => 
-  state.connection.sipClientState === 'CONNECTED';
+export const selectIsConnected = (state: RootState) =>
+  state.connection.sipClientState === "CONNECTED";
 
 export const selectIsConnecting = (state: RootState) => {
   const s = state.connection.sipClientState;
-  return s === 'REGISTERING' || s === 'CONNECTING' || s === 'CONNECTING_P2P';
+  return s === "REGISTERING" || s === "CONNECTING" || s === "CONNECTING_P2P";
 };
 
-export const selectIsFailed = (state: RootState) =>
-  state.connection.sipClientState === 'FAILED';
+export const selectIsFailed = (state: RootState) => state.connection.sipClientState === "FAILED";
 
 export const selectIsDisconnected = (state: RootState) =>
-  state.connection.sipClientState === 'DISCONNECTED';
+  state.connection.sipClientState === "DISCONNECTED";
 
 // Network availability (browser online/offline)
 export const selectIsNavigatorOffline = () =>
-  typeof navigator !== 'undefined' ? !navigator.onLine : false;
+  typeof navigator !== "undefined" ? !navigator.onLine : false;
 
 export const selectIsNavigatorOnline = () =>
-  typeof navigator !== 'undefined' ? navigator.onLine : true;
+  typeof navigator !== "undefined" ? navigator.onLine : true;
 
 // Cross-slice selector: connection + authentication
-export const selectIsReady = (state: RootState) => 
-  state.connection.sipClientState === 'CONNECTED' && 
+export const selectIsReady = (state: RootState) =>
+  state.connection.sipClientState === "CONNECTED" &&
   state.auth?.isAuthenticated === true &&
   selectIsNavigatorOnline();
 
 // Returns the reason why connection is not ready
 export const selectNotReadyReason = (state: RootState): string => {
   if (!selectIsNavigatorOnline()) {
-    return 'Network offline';
+    return "Network offline";
   }
-  if (state.connection.sipClientState !== 'CONNECTED') {
-    return 'SIP not connected';
+  if (state.connection.sipClientState !== "CONNECTED") {
+    return "SIP not connected";
   }
   if (!state.auth?.isAuthenticated) {
-    return 'Not authenticated';
+    return "Not authenticated";
   }
-  return 'Not connected';
+  return "Not connected";
 };
 
 export default connectionSlice.reducer;

@@ -1,13 +1,19 @@
 // Redux slice for managing Person state
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { PersonLookUpResponse, PersonenQuery, PersonResponse } from '../../taskpane/components/interfaces/IPerson';
-import { getWebRTCConnectionManager } from '../../taskpane/services/WebRTCConnectionManager';
-import { cacheService, CACHE_KEYS, CACHE_CONFIG } from '../../services/cache';
-import { StorageType } from '../../services/cache/types';
-import { selectIsReady, selectNotReadyReason } from './connectionSlice';
-import type { RootState } from '../index';
-import notify from 'devextreme/ui/notify';
-import { getErrorMessage } from '../../utils/errorHelpers';
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import {
+  PersonLookUpResponse,
+  PersonenQuery,
+  PersonResponse,
+} from "../../taskpane/components/interfaces/IPerson";
+import { getWebRTCConnectionManager } from "../../taskpane/services/WebRTCConnectionManager";
+import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "../../services/cache";
+import { selectIsReady, selectNotReadyReason } from "./connectionSlice";
+import type { RootState } from "../index";
+import notify from "devextreme/ui/notify";
+import { getErrorMessage } from "../../utils/errorHelpers";
+import { getLogger } from "../../services/logger";
+
+const logger = getLogger();
 
 // State interface
 interface PersonState {
@@ -31,7 +37,7 @@ interface PersonState {
 const initialState: PersonState = {
   // Search and lookup state
   persons: [],
-  searchTerm: '',
+  searchTerm: "",
   previousSearchTerm: null,
   searchCounter: 0,
   loading: false,
@@ -43,11 +49,11 @@ const initialState: PersonState = {
   addToFavoriteLoading: false,
   addingToFavoritePersonId: null,
   removeFromFavoriteLoading: false,
-  removingFromFavoritePersonId: null
+  removingFromFavoritePersonId: null,
 };
 
 export const personLookUpAsync = createAsyncThunk(
-  'person/personLookUp',
+  "person/personLookUp",
   async (searchText: string, { getState }) => {
     const state = getState() as RootState;
     const cacheKey = `search_results:person:${searchText}`;
@@ -67,12 +73,12 @@ export const personLookUpAsync = createAsyncThunk(
         );
 
         if (cached) {
-          console.log(`📴 [personSlice] ${reason}. Using cached search results for:`, searchText);
-          notify(`⚠️ ${reason}. Showing cached results.`, 'warning', 4000);
+          logger.debug(`${reason}. Using cached search results for: ${searchText}`, "personSlice");
+          notify(`⚠️ ${reason}. Showing cached results.`, "warning", 4000);
           return cached;
         }
       } catch (error: unknown) {
-        console.warn(`⚠️ [personSlice] Cache read failed while ${reason}:`, getErrorMessage(error));
+        logger.warn(`Cache read failed while ${reason}: ` + getErrorMessage(error), "personSlice");
       }
 
       throw new Error(`${reason}. No cached data available. Please try again when connected.`);
@@ -87,45 +93,41 @@ export const personLookUpAsync = createAsyncThunk(
         );
 
         if (cached) {
-          console.log('📦 [personSlice] Using cached search results for:', searchText);
+          logger.debug("Using cached search results for: " + searchText, "personSlice");
           return cached;
         }
       } catch (error: unknown) {
-        console.warn('⚠️ [personSlice] Cache read failed:', getErrorMessage(error));
+        logger.warn("Cache read failed: " + getErrorMessage(error), "personSlice");
       }
     } else {
-      console.log('🔄 [personSlice] Force refresh for:', searchText);
+      logger.debug("Force refresh for: " + searchText, "personSlice");
     }
 
     // 2. Fetch from API
-    console.log('🌐 [personSlice] Fetching search results from API:', searchText);
+    logger.debug("Fetching search results from API: " + searchText, "personSlice");
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
-    
+
     try {
       const response = await webRTCApiService.personLookUp(searchText);
       if (response.statusCode === 200) {
-        const data = JSON.parse(response.body || '[]') as PersonLookUpResponse[];
-        
+        const data = JSON.parse(response.body || "[]") as PersonLookUpResponse[];
+
         // 3. Update cache only if results are not empty
         if (data.length > 0) {
           try {
-            await cacheService.set(
-              cacheKey,
-              data,
-              CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
-            );
-            console.log(`✅ [personSlice] Cached ${data.length} search results`);
+            await cacheService.set(cacheKey, data, CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]);
+            logger.debug(`Cached ${data.length} search results`, "personSlice");
           } catch (error: unknown) {
-            console.warn('⚠️ [personSlice] Cache write failed:', getErrorMessage(error));
+            logger.warn("Cache write failed: " + getErrorMessage(error), "personSlice");
           }
         } else {
-          console.log('⏭️ [personSlice] Skipping cache for empty search results');
+          logger.debug("Skipping cache for empty search results", "personSlice");
         }
-        
+
         return data;
       } else {
-        throw new Error('Failed to lookup persons');
+        throw new Error("Failed to lookup persons");
       }
     } catch (error: unknown) {
       // On any failure, try to return stale cached data
@@ -135,12 +137,15 @@ export const personLookUpAsync = createAsyncThunk(
           CACHE_CONFIG[CACHE_KEYS.SEARCH_RESULTS]
         );
         if (staleCache) {
-          console.warn('⚠️ [personSlice] API failed, returning stale cached data');
-          notify('Something went wrong. Showing cached results.', 'warning', 4000);
+          logger.warn("API failed, returning stale cached data", "personSlice");
+          notify("Something went wrong. Showing cached results.", "warning", 4000);
           return staleCache;
         }
       } catch (cacheError: unknown) {
-        console.error('❌ [personSlice] Failed to retrieve stale cache:', getErrorMessage(cacheError));
+        logger.error(
+          "Failed to retrieve stale cache: " + getErrorMessage(cacheError),
+          "personSlice"
+        );
       }
       throw error;
     }
@@ -148,7 +153,7 @@ export const personLookUpAsync = createAsyncThunk(
 );
 
 export const getFavoritePersonsAsync = createAsyncThunk(
-  'person/getFavoritePersons',
+  "person/getFavoritePersons",
   async (query: PersonenQuery) => {
     // 1. Try to get from cache first
     try {
@@ -158,110 +163,119 @@ export const getFavoritePersonsAsync = createAsyncThunk(
       );
 
       if (cached) {
-        console.log('📦 [personSlice] Using cached favorite persons');
+        logger.debug("Using cached favorite persons", "personSlice");
         return cached;
       }
     } catch (error: unknown) {
-      console.warn('⚠️ [personSlice] Cache read failed, falling back to API:', getErrorMessage(error));
+      logger.warn(
+        "Cache read failed, falling back to API: " + getErrorMessage(error),
+        "personSlice"
+      );
     }
 
     // 2. Cache miss or error - fetch from API
-    console.log('🌐 [personSlice] Fetching favorite persons from API');
+    logger.debug("Fetching favorite persons from API", "personSlice");
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
-    
+
     const response = await webRTCApiService.getFavoritePersons(query);
     if (response.statusCode === 200) {
-      const data = JSON.parse(response.body || '[]') as PersonResponse[];
-      
+      const data = JSON.parse(response.body || "[]") as PersonResponse[];
+
       // 3. Update cache (best effort, don't fail if cache write fails)
       if (data.length > 0) {
-            try {
-              await cacheService.set(
-                CACHE_KEYS.FAVORITES_PERSONS,
-                data,
-                CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
-              );
-            } catch (error: unknown) {
-              console.warn('⚠️ [personSlice] Cache write failed:', getErrorMessage(error));
-            }
-        } else {
-          console.log('⏭️ [personSlice] Skipping cache for empty results');
+        try {
+          await cacheService.set(
+            CACHE_KEYS.FAVORITES_PERSONS,
+            data,
+            CACHE_CONFIG[CACHE_KEYS.FAVORITES_PERSONS]
+          );
+        } catch (error: unknown) {
+          logger.warn("Cache write failed: " + getErrorMessage(error), "personSlice");
+        }
+      } else {
+        logger.debug("Skipping cache for empty results", "personSlice");
       }
-      
+
       return data;
     } else {
-      throw new Error('Failed to get favorite persons');
+      throw new Error("Failed to get favorite persons");
     }
   }
 );
 
 export const addPersonToFavoritesAsync = createAsyncThunk(
-  'person/addToFavorites',
+  "person/addToFavorites",
   async (personId: number, thunkAPI) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.addPersonToFavorites(personId);
-    
+
     if (response.statusCode === 200) {
       // Clear favorites cache to force fresh fetch
       try {
         const username = (thunkAPI.getState() as RootState).auth?.credentials?.username;
         if (username) {
           await cacheService.clearCacheType(CACHE_KEYS.FAVORITES_PERSONS, { namespace: username });
-          console.log('🗑️ [personSlice] Cleared favorites cache after adding to favorites');
+          logger.debug("Cleared favorites cache after adding to favorites", "personSlice");
         }
       } catch (error: unknown) {
-        console.warn('⚠️ [personSlice] Cache clear failed:', error instanceof Error ? error.message : String(error));
+        logger.warn(
+          "Cache clear failed: " + (error instanceof Error ? error.message : String(error)),
+          "personSlice"
+        );
       }
-      
+
       // Refresh favorites from API
       await thunkAPI.dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
-      
+
       // Cache will be automatically updated by getFavoritePersonsAsync
-      console.log('✅ [personSlice] Person added to favorites, cache updated');
-      
+      logger.info("Person added to favorites, cache updated", "personSlice");
+
       return personId;
     } else {
-      throw new Error('Failed to add person to favorites');
+      throw new Error("Failed to add person to favorites");
     }
   }
 );
 
 export const removePersonFromFavoritesAsync = createAsyncThunk(
-  'person/removeFromFavorites',
+  "person/removeFromFavorites",
   async (personId: number, thunkAPI) => {
     const connectionManager = getWebRTCConnectionManager();
     const webRTCApiService = connectionManager.getWebRTCApiService();
     const response = await webRTCApiService.removePersonFromFavorites(personId);
-    
+
     if (response.statusCode === 200) {
       // Clear favorites cache to force fresh fetch
       try {
         const username = (thunkAPI.getState() as RootState).auth?.credentials?.username;
         if (username) {
           await cacheService.clearCacheType(CACHE_KEYS.FAVORITES_PERSONS, { namespace: username });
-          console.log('🗑️ [personSlice] Cleared favorites cache after removing from favorites');
+          logger.debug("Cleared favorites cache after removing from favorites", "personSlice");
         }
       } catch (error: unknown) {
-        console.warn('⚠️ [personSlice] Cache clear failed:', error instanceof Error ? error.message : String(error));
+        logger.warn(
+          "Cache clear failed: " + (error instanceof Error ? error.message : String(error)),
+          "personSlice"
+        );
       }
-      
+
       // Refresh favorites from API
       await thunkAPI.dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
-      
+
       // Cache will be automatically updated by getFavoritePersonsAsync
-      console.log('✅ [personSlice] Person removed from favorites, cache updated');
-      
+      logger.info("Person removed from favorites, cache updated", "personSlice");
+
       return personId;
     } else {
-      throw new Error('Failed to remove person from favorites');
+      throw new Error("Failed to remove person from favorites");
     }
   }
 );
 
 const personSlice = createSlice({
-  name: 'person',
+  name: "person",
   initialState,
   reducers: {
     clearPersons: (state) => {
@@ -278,7 +292,7 @@ const personSlice = createSlice({
     clearPreviousSearchTerm: (state) => {
       state.previousSearchTerm = null;
       state.searchCounter = 0;
-    }
+    },
   },
   // The `extraReducers` field lets the slice handle actions defined elsewhere,
   // including actions generated by createAsyncThunk or in other slices.
@@ -287,7 +301,7 @@ const personSlice = createSlice({
       .addCase(personLookUpAsync.pending, (state, action) => {
         state.loading = true;
         state.error = null;
-        state.searchTerm = action.meta.arg || '';
+        state.searchTerm = action.meta.arg || "";
       })
       .addCase(personLookUpAsync.fulfilled, (state, action) => {
         state.loading = false;
@@ -300,7 +314,7 @@ const personSlice = createSlice({
       })
       .addCase(personLookUpAsync.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to lookup persons via WebRTC';
+        state.error = action.error.message || "Failed to lookup persons via WebRTC";
       })
       .addCase(getFavoritePersonsAsync.pending, (state) => {
         state.favoritesLoading = true;
@@ -312,7 +326,7 @@ const personSlice = createSlice({
       })
       .addCase(getFavoritePersonsAsync.rejected, (state, action) => {
         state.favoritesLoading = false;
-        state.error = action.error.message || 'Failed to get favorite persons via WebRTC';
+        state.error = action.error.message || "Failed to get favorite persons via WebRTC";
       })
       .addCase(addPersonToFavoritesAsync.pending, (state, action) => {
         state.addToFavoriteLoading = true;
@@ -323,12 +337,12 @@ const personSlice = createSlice({
         state.addToFavoriteLoading = false;
         state.addingToFavoritePersonId = null;
         // Favorites list is refreshed automatically by the async thunk
-        console.log('✅ Person added to favorites on server:', action.payload);
+        logger.info("Person added to favorites on server: " + action.payload, "personSlice");
       })
       .addCase(addPersonToFavoritesAsync.rejected, (state, action) => {
         state.addToFavoriteLoading = false;
         state.addingToFavoritePersonId = null;
-        state.error = action.error.message || 'Failed to add person to favorites';
+        state.error = action.error.message || "Failed to add person to favorites";
       })
       .addCase(removePersonFromFavoritesAsync.pending, (state, action) => {
         state.removeFromFavoriteLoading = true;
@@ -339,21 +353,17 @@ const personSlice = createSlice({
         state.removeFromFavoriteLoading = false;
         state.removingFromFavoritePersonId = null;
         // Favorites list is refreshed automatically by the async thunk
-        console.log('✅ Person removed from favorites on server:', action.payload);
+        logger.info("Person removed from favorites on server: " + action.payload, "personSlice");
       })
       .addCase(removePersonFromFavoritesAsync.rejected, (state, action) => {
         state.removeFromFavoriteLoading = false;
         state.removingFromFavoritePersonId = null;
-        state.error = action.error.message || 'Failed to remove person from favorites';
+        state.error = action.error.message || "Failed to remove person from favorites";
       });
-  }
+  },
 });
 
-export const { 
-  clearPersons, 
-  setSearchTerm, 
-  clearError,
-  clearPreviousSearchTerm
-} = personSlice.actions;
+export const { clearPersons, setSearchTerm, clearError, clearPreviousSearchTerm } =
+  personSlice.actions;
 
 export default personSlice.reducer;

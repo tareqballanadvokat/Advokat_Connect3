@@ -28,6 +28,10 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
     manager.reconnect(true);
   };
 
+  // Get max reconnect attempts from WebRTC manager config
+  const manager = getWebRTCConnectionManager();
+  const maxReconnectAttempts = manager.getConfig().maxReconnectAttempts;
+
   // Function to get connection status styling
   const getConnectionStatusStyle = (): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
@@ -93,7 +97,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
           {isReady && <span style={{ color: 'white' }}> ✓</span>}
           {connectionState.reconnectAttempts > 0 && (
             <span style={{ marginLeft: '5px', fontSize: '11px' }}>
-              (Retry {connectionState.reconnectAttempts}/2)
+              (Retry {connectionState.reconnectAttempts}/{maxReconnectAttempts})
             </span>
           )}
         </div>

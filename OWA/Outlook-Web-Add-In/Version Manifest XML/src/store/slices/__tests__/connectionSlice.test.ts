@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 /**
  * Unit Tests for connectionSlice
  * Tests all reducers, actions, selectors, and state transitions
@@ -24,12 +25,11 @@ import connectionReducer, {
   selectIsDisconnected,
   selectIsReady,
   ConnectionState,
-} from '../connectionSlice';
-import { SipClientState } from '../../../taskpane/components/SIP_Library/SipClient';
-import { RootState } from '../../index';
-import { cleanupTests } from '../testHelpers';
+} from "../connectionSlice";
+import { SipClientState } from "../../../taskpane/components/SIP_Library/SipClient";
+import { cleanupTests } from "./testSetup";
 
-describe('connectionSlice', () => {
+describe("connectionSlice", () => {
   beforeEach(() => {
     cleanupTests();
   });
@@ -37,32 +37,32 @@ describe('connectionSlice', () => {
   // Initial state for tests
   const initialState: ConnectionState = {
     sipClientState: SipClientState.DISCONNECTED,
-    connectionStatus: 'Disconnected',
+    connectionStatus: "Disconnected",
     reconnectAttempts: 0,
     isIdle: false,
     autoReconnectPending: false,
   };
 
-  describe('Reducer', () => {
-    it('should return the initial state', () => {
-      const result = connectionReducer(undefined, { type: 'unknown' });
+  describe("Reducer", () => {
+    it("should return the initial state", () => {
+      const result = connectionReducer(undefined, { type: "unknown" });
       expect(result).toEqual(initialState);
     });
 
-    it('should have correct initial state structure', () => {
-      const state = connectionReducer(undefined, { type: 'unknown' });
-      
-      expect(state).toHaveProperty('sipClientState');
-      expect(state).toHaveProperty('connectionStatus');
-      expect(state).toHaveProperty('reconnectAttempts');
-      expect(state).toHaveProperty('isIdle');
-      expect(state).toHaveProperty('autoReconnectPending');
+    it("should have correct initial state structure", () => {
+      const state = connectionReducer(undefined, { type: "unknown" });
+
+      expect(state).toHaveProperty("sipClientState");
+      expect(state).toHaveProperty("connectionStatus");
+      expect(state).toHaveProperty("reconnectAttempts");
+      expect(state).toHaveProperty("isIdle");
+      expect(state).toHaveProperty("autoReconnectPending");
       expect(state.sipClientState).toBe(SipClientState.DISCONNECTED);
-      expect(state.connectionStatus).toBe('Disconnected');
+      expect(state.connectionStatus).toBe("Disconnected");
     });
   });
 
-  describe('sipClientStateChanged', () => {
+  describe("sipClientStateChanged", () => {
     it('should update sipClientState and auto-set status to "Disconnected"', () => {
       const state = connectionReducer(
         initialState,
@@ -70,7 +70,7 @@ describe('connectionSlice', () => {
       );
 
       expect(state.sipClientState).toBe(SipClientState.DISCONNECTED);
-      expect(state.connectionStatus).toBe('Disconnected');
+      expect(state.connectionStatus).toBe("Disconnected");
     });
 
     it('should set status to "Connecting..." for REGISTERING state', () => {
@@ -80,7 +80,7 @@ describe('connectionSlice', () => {
       );
 
       expect(state.sipClientState).toBe(SipClientState.REGISTERING);
-      expect(state.connectionStatus).toBe('Connecting...');
+      expect(state.connectionStatus).toBe("Connecting...");
     });
 
     it('should set status to "Connecting..." for CONNECTING state', () => {
@@ -90,7 +90,7 @@ describe('connectionSlice', () => {
       );
 
       expect(state.sipClientState).toBe(SipClientState.CONNECTING);
-      expect(state.connectionStatus).toBe('Connecting...');
+      expect(state.connectionStatus).toBe("Connecting...");
     });
 
     it('should set status to "Connecting..." for CONNECTING_P2P state', () => {
@@ -100,7 +100,7 @@ describe('connectionSlice', () => {
       );
 
       expect(state.sipClientState).toBe(SipClientState.CONNECTING_P2P);
-      expect(state.connectionStatus).toBe('Connecting...');
+      expect(state.connectionStatus).toBe("Connecting...");
     });
 
     it('should set status to "Connected" for CONNECTED state', () => {
@@ -112,15 +112,15 @@ describe('connectionSlice', () => {
       const afterTime = Date.now();
 
       expect(state.sipClientState).toBe(SipClientState.CONNECTED);
-      expect(state.connectionStatus).toBe('Connected');
+      expect(state.connectionStatus).toBe("Connected");
       expect(state.lastSuccessfulConnection).toBeDefined();
-      
+
       const timestamp = new Date(state.lastSuccessfulConnection!).getTime();
       expect(timestamp).toBeGreaterThanOrEqual(beforeTime);
       expect(timestamp).toBeLessThanOrEqual(afterTime);
     });
 
-    it('should reset reconnectAttempts when CONNECTED', () => {
+    it("should reset reconnectAttempts when CONNECTED", () => {
       const stateWithAttempts = {
         ...initialState,
         reconnectAttempts: 5,
@@ -134,8 +134,8 @@ describe('connectionSlice', () => {
       expect(state.reconnectAttempts).toBe(0);
     });
 
-    it('should not update lastSuccessfulConnection if already set', () => {
-      const existingTimestamp = '2024-01-01T00:00:00.000Z';
+    it("should not update lastSuccessfulConnection if already set", () => {
+      const existingTimestamp = "2024-01-01T00:00:00.000Z";
       const stateWithTimestamp = {
         ...initialState,
         lastSuccessfulConnection: existingTimestamp,
@@ -150,35 +150,32 @@ describe('connectionSlice', () => {
     });
 
     it('should set status to "Connection failed" for FAILED state', () => {
-      const state = connectionReducer(
-        initialState,
-        sipClientStateChanged(SipClientState.FAILED)
-      );
+      const state = connectionReducer(initialState, sipClientStateChanged(SipClientState.FAILED));
 
       expect(state.sipClientState).toBe(SipClientState.FAILED);
-      expect(state.connectionStatus).toBe('Connection failed');
+      expect(state.connectionStatus).toBe("Connection failed");
     });
   });
 
-  describe('updateConnectionState', () => {
-    it('should update partial connection state', () => {
+  describe("updateConnectionState", () => {
+    it("should update partial connection state", () => {
       const state = connectionReducer(
         initialState,
-        updateConnectionState({ 
+        updateConnectionState({
           sipClientState: SipClientState.CONNECTED,
-          connectionStatus: 'Connected' 
+          connectionStatus: "Connected",
         })
       );
 
       expect(state.sipClientState).toBe(SipClientState.CONNECTED);
-      expect(state.connectionStatus).toBe('Connected');
+      expect(state.connectionStatus).toBe("Connected");
       expect(state.reconnectAttempts).toBe(0); // unchanged
     });
 
-    it('should update multiple properties at once', () => {
+    it("should update multiple properties at once", () => {
       const updates: Partial<ConnectionState> = {
         sipClientState: SipClientState.CONNECTED,
-        connectionStatus: 'Connected',
+        connectionStatus: "Connected",
         reconnectAttempts: 3,
         isIdle: true,
       };
@@ -186,12 +183,12 @@ describe('connectionSlice', () => {
       const state = connectionReducer(initialState, updateConnectionState(updates));
 
       expect(state.sipClientState).toBe(SipClientState.CONNECTED);
-      expect(state.connectionStatus).toBe('Connected');
+      expect(state.connectionStatus).toBe("Connected");
       expect(state.reconnectAttempts).toBe(3);
       expect(state.isIdle).toBe(true);
     });
 
-    it('should preserve unchanged properties', () => {
+    it("should preserve unchanged properties", () => {
       const modifiedState: ConnectionState = {
         ...initialState,
         sipClientState: SipClientState.CONNECTED,
@@ -200,24 +197,24 @@ describe('connectionSlice', () => {
 
       const state = connectionReducer(
         modifiedState,
-        updateConnectionState({ connectionStatus: 'Updated' })
+        updateConnectionState({ connectionStatus: "Updated" })
       );
 
       expect(state.sipClientState).toBe(SipClientState.CONNECTED);
       expect(state.reconnectAttempts).toBe(5);
-      expect(state.connectionStatus).toBe('Updated');
+      expect(state.connectionStatus).toBe("Updated");
     });
 
-    it('should update lastError property', () => {
+    it("should update lastError property", () => {
       const state = connectionReducer(
         initialState,
-        updateConnectionState({ lastError: 'Connection failed' })
+        updateConnectionState({ lastError: "Connection failed" })
       );
 
-      expect(state.lastError).toBe('Connection failed');
+      expect(state.lastError).toBe("Connection failed");
     });
 
-    it('should update lastSuccessfulConnection timestamp', () => {
+    it("should update lastSuccessfulConnection timestamp", () => {
       const timestamp = new Date().toISOString();
       const state = connectionReducer(
         initialState,
@@ -228,78 +225,69 @@ describe('connectionSlice', () => {
     });
   });
 
-  describe('updateConnectionStatus', () => {
-    it('should update connection status message', () => {
+  describe("updateConnectionStatus", () => {
+    it("should update connection status message", () => {
       const state = connectionReducer(
         initialState,
-        updateConnectionStatus('Connecting to server...')
+        updateConnectionStatus("Connecting to server...")
       );
 
-      expect(state.connectionStatus).toBe('Connecting to server...');
+      expect(state.connectionStatus).toBe("Connecting to server...");
     });
 
-    it('should override previous status', () => {
-      let state = connectionReducer(initialState, updateConnectionStatus('Connecting...'));
-      state = connectionReducer(state, updateConnectionStatus('Connected'));
+    it("should override previous status", () => {
+      let state = connectionReducer(initialState, updateConnectionStatus("Connecting..."));
+      state = connectionReducer(state, updateConnectionStatus("Connected"));
 
-      expect(state.connectionStatus).toBe('Connected');
+      expect(state.connectionStatus).toBe("Connected");
     });
 
-    it('should handle empty status string', () => {
-      const state = connectionReducer(initialState, updateConnectionStatus(''));
+    it("should handle empty status string", () => {
+      const state = connectionReducer(initialState, updateConnectionStatus(""));
 
-      expect(state.connectionStatus).toBe('');
+      expect(state.connectionStatus).toBe("");
     });
   });
 
-  describe('setConnectionError', () => {
-    it('should set error message and update state to FAILED', () => {
-      const state = connectionReducer(
-        initialState,
-        setConnectionError('Network timeout')
-      );
+  describe("setConnectionError", () => {
+    it("should set error message and update state to FAILED", () => {
+      const state = connectionReducer(initialState, setConnectionError("Network timeout"));
 
-      expect(state.lastError).toBe('Network timeout');
+      expect(state.lastError).toBe("Network timeout");
       expect(state.sipClientState).toBe(SipClientState.FAILED);
-      expect(state.connectionStatus).toBe('Connection failed');
+      expect(state.connectionStatus).toBe("Connection failed");
     });
 
-    it('should override previous error', () => {
-      let state = connectionReducer(
-        initialState,
-        setConnectionError('First error')
-      );
-      state = connectionReducer(state, setConnectionError('Second error'));
+    it("should override previous error", () => {
+      let state = connectionReducer(initialState, setConnectionError("First error"));
+      state = connectionReducer(state, setConnectionError("Second error"));
 
-      expect(state.lastError).toBe('Second error');
+      expect(state.lastError).toBe("Second error");
       expect(state.sipClientState).toBe(SipClientState.FAILED);
     });
 
-    it('should update state even if already connected', () => {
+    it("should update state even if already connected", () => {
       const connectedState: ConnectionState = {
         ...initialState,
         sipClientState: SipClientState.CONNECTED,
-        connectionStatus: 'Connected',
+        connectionStatus: "Connected",
       };
 
-      const state = connectionReducer(
-        connectedState,
-        setConnectionError('Sudden disconnect')
-      );
+      const state = connectionReducer(connectedState, setConnectionError("Sudden disconnect"));
 
       expect(state.sipClientState).toBe(SipClientState.FAILED);
-      expect(state.lastError).toBe('Sudden disconnect');
+      expect(state.lastError).toBe("Sudden disconnect");
     });
   });
 
-  describe('incrementReconnectAttempts', () => {
-    it('should increment reconnect attempts from 0', () => {
+  describe("incrementReconnectAttempts", () => {
+    it("should increment reconnect attempts from 0", () => {
       const state = connectionReducer(initialState, incrementReconnectAttempts());
 
       expect(state.reconnectAttempts).toBe(1);
     });
 
-    it('should increment multiple times', () => {
+    it("should increment multiple times", () => {
       let state = connectionReducer(initialState, incrementReconnectAttempts());
       state = connectionReducer(state, incrementReconnectAttempts());
       state = connectionReducer(state, incrementReconnectAttempts());
@@ -307,23 +295,23 @@ describe('connectionSlice', () => {
       expect(state.reconnectAttempts).toBe(3);
     });
 
-    it('should preserve other state properties', () => {
+    it("should preserve other state properties", () => {
       const modifiedState: ConnectionState = {
         ...initialState,
         sipClientState: SipClientState.FAILED,
-        lastError: 'Connection lost',
+        lastError: "Connection lost",
       };
 
       const state = connectionReducer(modifiedState, incrementReconnectAttempts());
 
       expect(state.reconnectAttempts).toBe(1);
       expect(state.sipClientState).toBe(SipClientState.FAILED);
-      expect(state.lastError).toBe('Connection lost');
+      expect(state.lastError).toBe("Connection lost");
     });
   });
 
-  describe('resetReconnectAttempts', () => {
-    it('should reset attempts to 0', () => {
+  describe("resetReconnectAttempts", () => {
+    it("should reset attempts to 0", () => {
       const stateWithAttempts: ConnectionState = {
         ...initialState,
         reconnectAttempts: 5,
@@ -334,19 +322,19 @@ describe('connectionSlice', () => {
       expect(state.reconnectAttempts).toBe(0);
     });
 
-    it('should work when already 0', () => {
+    it("should work when already 0", () => {
       const state = connectionReducer(initialState, resetReconnectAttempts());
 
       expect(state.reconnectAttempts).toBe(0);
     });
   });
 
-  describe('resetConnection', () => {
-    it('should reset to initial state', () => {
+  describe("resetConnection", () => {
+    it("should reset to initial state", () => {
       const modifiedState: ConnectionState = {
         sipClientState: SipClientState.CONNECTED,
-        connectionStatus: 'Connected',
-        lastError: 'Some error',
+        connectionStatus: "Connected",
+        lastError: "Some error",
         reconnectAttempts: 5,
         lastSuccessfulConnection: new Date().toISOString(),
         isIdle: true,
@@ -361,14 +349,14 @@ describe('connectionSlice', () => {
     });
   });
 
-  describe('setIdle', () => {
-    it('should set idle to true', () => {
+  describe("setIdle", () => {
+    it("should set idle to true", () => {
       const state = connectionReducer(initialState, setIdle(true));
 
       expect(state.isIdle).toBe(true);
     });
 
-    it('should set idle to false', () => {
+    it("should set idle to false", () => {
       const idleState: ConnectionState = {
         ...initialState,
         isIdle: true,
@@ -380,8 +368,8 @@ describe('connectionSlice', () => {
     });
   });
 
-  describe('updateLastActivity', () => {
-    it('should update lastActivityTimestamp', () => {
+  describe("updateLastActivity", () => {
+    it("should update lastActivityTimestamp", () => {
       const beforeTime = Date.now();
       const state = connectionReducer(initialState, updateLastActivity());
       const afterTime = Date.now();
@@ -392,9 +380,9 @@ describe('connectionSlice', () => {
       expect(timestamp).toBeLessThanOrEqual(afterTime);
     });
 
-    it('should update timestamp on subsequent calls', () => {
+    it("should update timestamp on subsequent calls", () => {
       const state1 = connectionReducer(initialState, updateLastActivity());
-      
+
       // Wait a bit to ensure different timestamp
       const state2 = connectionReducer(state1, updateLastActivity());
 
@@ -405,19 +393,16 @@ describe('connectionSlice', () => {
     });
   });
 
-  describe('setDisconnectedDueToIdleAt', () => {
-    it('should set idleDisconnectedAt timestamp and enable auto-reconnect', () => {
+  describe("setDisconnectedDueToIdleAt", () => {
+    it("should set idleDisconnectedAt timestamp and enable auto-reconnect", () => {
       const timestamp = new Date().toISOString();
-      const state = connectionReducer(
-        initialState,
-        setDisconnectedDueToIdleAt(timestamp)
-      );
+      const state = connectionReducer(initialState, setDisconnectedDueToIdleAt(timestamp));
 
       expect(state.idleDisconnectedAt).toBe(timestamp);
       expect(state.autoReconnectPending).toBe(true);
     });
 
-    it('should clear idleDisconnectedAt when undefined', () => {
+    it("should clear idleDisconnectedAt when undefined", () => {
       const stateWithIdle: ConnectionState = {
         ...initialState,
         idleDisconnectedAt: new Date().toISOString(),
@@ -431,80 +416,74 @@ describe('connectionSlice', () => {
     });
   });
 
-  describe('setAutoReconnectPending', () => {
-    it('should set autoReconnectPending to true', () => {
-      const state = connectionReducer(
-        initialState,
-        setAutoReconnectPending(true)
-      );
+  describe("setAutoReconnectPending", () => {
+    it("should set autoReconnectPending to true", () => {
+      const state = connectionReducer(initialState, setAutoReconnectPending(true));
 
       expect(state.autoReconnectPending).toBe(true);
     });
 
-    it('should set autoReconnectPending to false', () => {
+    it("should set autoReconnectPending to false", () => {
       const stateWithPending: ConnectionState = {
         ...initialState,
         autoReconnectPending: true,
       };
 
-      const state = connectionReducer(
-        stateWithPending,
-        setAutoReconnectPending(false)
-      );
+      const state = connectionReducer(stateWithPending, setAutoReconnectPending(false));
 
       expect(state.autoReconnectPending).toBe(false);
     });
   });
 
-  describe('Selectors', () => {
+  describe("Selectors", () => {
     const mockState = {
       connection: {
         sipClientState: SipClientState.CONNECTED,
-        connectionStatus: 'Connected',
-        lastError: 'Test error',
+        connectionStatus: "Connected",
+        lastError: "Test error",
         reconnectAttempts: 3,
-        lastSuccessfulConnection: '2024-01-01T00:00:00.000Z',
+        lastSuccessfulConnection: "2024-01-01T00:00:00.000Z",
         isIdle: false,
-        lastActivityTimestamp: '2024-01-01T00:00:00.000Z',
+        lastActivityTimestamp: "2024-01-01T00:00:00.000Z",
         idleDisconnectedAt: undefined,
         autoReconnectPending: false,
       },
       auth: {
         isAuthenticated: true,
         isAuthenticating: false,
-        authToken: 'test-token',
+        authToken: "test-token",
         authError: null,
       },
     } as any;
 
-    describe('selectConnectionState', () => {
-      it('should select the entire connection state', () => {
+    describe("selectConnectionState", () => {
+      it("should select the entire connection state", () => {
         const result = selectConnectionState(mockState);
         expect(result).toEqual(mockState.connection);
       });
     });
 
-    describe('selectConnectionStatus', () => {
-      it('should select connection status', () => {
+    describe("selectConnectionStatus", () => {
+      it("should select connection status", () => {
         const result = selectConnectionStatus(mockState);
-        expect(result).toBe('Connected');
+        expect(result).toBe("Connected");
       });
     });
 
-    describe('selectSipClientState', () => {
-      it('should select sipClientState', () => {
+    describe("selectSipClientState", () => {
+      it("should select sipClientState", () => {
         const result = selectSipClientState(mockState);
         expect(result).toBe(SipClientState.CONNECTED);
       });
     });
 
-    describe('selectIsConnected', () => {
-      it('should return true when sipClientState is CONNECTED', () => {
+    describe("selectIsConnected", () => {
+      it("should return true when sipClientState is CONNECTED", () => {
         const result = selectIsConnected(mockState);
         expect(result).toBe(true);
       });
 
-      it('should return false when sipClientState is not CONNECTED', () => {
+      it("should return false when sipClientState is not CONNECTED", () => {
         const disconnectedState = {
           ...mockState,
           connection: {
@@ -517,7 +496,7 @@ describe('connectionSlice', () => {
         expect(result).toBe(false);
       });
 
-      it('should return false when sipClientState is CONNECTING', () => {
+      it("should return false when sipClientState is CONNECTING", () => {
         const connectingState = {
           ...mockState,
           connection: {
@@ -531,8 +510,8 @@ describe('connectionSlice', () => {
       });
     });
 
-    describe('selectIsConnecting', () => {
-      it('should return true for REGISTERING state', () => {
+    describe("selectIsConnecting", () => {
+      it("should return true for REGISTERING state", () => {
         const state = {
           ...mockState,
           connection: {
@@ -545,7 +524,7 @@ describe('connectionSlice', () => {
         expect(result).toBe(true);
       });
 
-      it('should return true for CONNECTING state', () => {
+      it("should return true for CONNECTING state", () => {
         const state = {
           ...mockState,
           connection: {
@@ -558,7 +537,7 @@ describe('connectionSlice', () => {
         expect(result).toBe(true);
       });
 
-      it('should return true for CONNECTING_P2P state', () => {
+      it("should return true for CONNECTING_P2P state", () => {
         const state = {
           ...mockState,
           connection: {
@@ -571,12 +550,12 @@ describe('connectionSlice', () => {
         expect(result).toBe(true);
       });
 
-      it('should return false for CONNECTED state', () => {
+      it("should return false for CONNECTED state", () => {
         const result = selectIsConnecting(mockState);
         expect(result).toBe(false);
       });
 
-      it('should return false for DISCONNECTED state', () => {
+      it("should return false for DISCONNECTED state", () => {
         const state = {
           ...mockState,
           connection: {
@@ -589,7 +568,7 @@ describe('connectionSlice', () => {
         expect(result).toBe(false);
       });
 
-      it('should return false for FAILED state', () => {
+      it("should return false for FAILED state", () => {
         const state = {
           ...mockState,
           connection: {
@@ -603,8 +582,8 @@ describe('connectionSlice', () => {
       });
     });
 
-    describe('selectIsFailed', () => {
-      it('should return true when sipClientState is FAILED', () => {
+    describe("selectIsFailed", () => {
+      it("should return true when sipClientState is FAILED", () => {
         const failedState = {
           ...mockState,
           connection: {
@@ -617,14 +596,14 @@ describe('connectionSlice', () => {
         expect(result).toBe(true);
       });
 
-      it('should return false when sipClientState is not FAILED', () => {
+      it("should return false when sipClientState is not FAILED", () => {
         const result = selectIsFailed(mockState);
         expect(result).toBe(false);
       });
     });
 
-    describe('selectIsDisconnected', () => {
-      it('should return true when sipClientState is DISCONNECTED', () => {
+    describe("selectIsDisconnected", () => {
+      it("should return true when sipClientState is DISCONNECTED", () => {
         const disconnectedState = {
           ...mockState,
           connection: {
@@ -637,19 +616,19 @@ describe('connectionSlice', () => {
         expect(result).toBe(true);
       });
 
-      it('should return false when sipClientState is not DISCONNECTED', () => {
+      it("should return false when sipClientState is not DISCONNECTED", () => {
         const result = selectIsDisconnected(mockState);
         expect(result).toBe(false);
       });
     });
 
-    describe('selectIsReady', () => {
-      it('should return true when connected and authenticated', () => {
+    describe("selectIsReady", () => {
+      it("should return true when connected and authenticated", () => {
         const result = selectIsReady(mockState);
         expect(result).toBe(true);
       });
 
-      it('should return false when connected but not authenticated', () => {
+      it("should return false when connected but not authenticated", () => {
         const notAuthState = {
           ...mockState,
           auth: {
@@ -662,7 +641,7 @@ describe('connectionSlice', () => {
         expect(result).toBe(false);
       });
 
-      it('should return false when not connected but authenticated', () => {
+      it("should return false when not connected but authenticated", () => {
         const notConnectedState = {
           ...mockState,
           connection: {
@@ -675,7 +654,7 @@ describe('connectionSlice', () => {
         expect(result).toBe(false);
       });
 
-      it('should return false when neither connected nor authenticated', () => {
+      it("should return false when neither connected nor authenticated", () => {
         const neitherState = {
           ...mockState,
           connection: {
@@ -694,8 +673,8 @@ describe('connectionSlice', () => {
     });
   });
 
-  describe('State transitions', () => {
-    it('should handle complete connection flow', () => {
+  describe("State transitions", () => {
+    it("should handle complete connection flow", () => {
       // Start disconnected
       let state = initialState;
       expect(state.sipClientState).toBe(SipClientState.DISCONNECTED);
@@ -703,36 +682,36 @@ describe('connectionSlice', () => {
       // Start registering
       state = connectionReducer(state, sipClientStateChanged(SipClientState.REGISTERING));
       expect(state.sipClientState).toBe(SipClientState.REGISTERING);
-      expect(state.connectionStatus).toBe('Connecting...');
+      expect(state.connectionStatus).toBe("Connecting...");
 
       // Move to connecting
       state = connectionReducer(state, sipClientStateChanged(SipClientState.CONNECTING));
       expect(state.sipClientState).toBe(SipClientState.CONNECTING);
-      expect(state.connectionStatus).toBe('Connecting...');
+      expect(state.connectionStatus).toBe("Connecting...");
 
       // Establish peer connection
       state = connectionReducer(state, sipClientStateChanged(SipClientState.CONNECTING_P2P));
       expect(state.sipClientState).toBe(SipClientState.CONNECTING_P2P);
-      expect(state.connectionStatus).toBe('Connecting...');
+      expect(state.connectionStatus).toBe("Connecting...");
 
       // Finally connected
       state = connectionReducer(state, sipClientStateChanged(SipClientState.CONNECTED));
       expect(state.sipClientState).toBe(SipClientState.CONNECTED);
-      expect(state.connectionStatus).toBe('Connected');
+      expect(state.connectionStatus).toBe("Connected");
       expect(state.lastSuccessfulConnection).toBeDefined();
       expect(state.reconnectAttempts).toBe(0);
     });
 
-    it('should handle connection failure with reconnect attempts', () => {
+    it("should handle connection failure with reconnect attempts", () => {
       let state = initialState;
 
       // Try connecting
       state = connectionReducer(state, sipClientStateChanged(SipClientState.CONNECTING));
-      
+
       // Connection fails
-      state = connectionReducer(state, setConnectionError('Network timeout'));
+      state = connectionReducer(state, setConnectionError("Network timeout"));
       expect(state.sipClientState).toBe(SipClientState.FAILED);
-      expect(state.lastError).toBe('Network timeout');
+      expect(state.lastError).toBe("Network timeout");
 
       // Increment reconnect attempts
       state = connectionReducer(state, incrementReconnectAttempts());
@@ -740,9 +719,9 @@ describe('connectionSlice', () => {
 
       // Try again
       state = connectionReducer(state, sipClientStateChanged(SipClientState.CONNECTING));
-      
+
       // Fail again
-      state = connectionReducer(state, setConnectionError('Connection refused'));
+      state = connectionReducer(state, setConnectionError("Connection refused"));
       state = connectionReducer(state, incrementReconnectAttempts());
       expect(state.reconnectAttempts).toBe(2);
 
@@ -752,12 +731,12 @@ describe('connectionSlice', () => {
       expect(state.reconnectAttempts).toBe(0); // Reset on success
     });
 
-    it('should handle idle disconnection and auto-reconnect', () => {
+    it("should handle idle disconnection and auto-reconnect", () => {
       // Start connected
       let state: ConnectionState = {
         ...initialState,
         sipClientState: SipClientState.CONNECTED,
-        connectionStatus: 'Connected',
+        connectionStatus: "Connected",
       };
 
       // User becomes idle
@@ -768,7 +747,7 @@ describe('connectionSlice', () => {
       const idleTimestamp = new Date().toISOString();
       state = connectionReducer(state, setDisconnectedDueToIdleAt(idleTimestamp));
       state = connectionReducer(state, sipClientStateChanged(SipClientState.DISCONNECTED));
-      
+
       expect(state.sipClientState).toBe(SipClientState.DISCONNECTED);
       expect(state.idleDisconnectedAt).toBe(idleTimestamp);
       expect(state.autoReconnectPending).toBe(true);
@@ -776,12 +755,12 @@ describe('connectionSlice', () => {
       // User becomes active again
       state = connectionReducer(state, updateLastActivity());
       state = connectionReducer(state, setIdle(false));
-      
+
       // Auto-reconnect triggers
       state = connectionReducer(state, sipClientStateChanged(SipClientState.CONNECTING));
       state = connectionReducer(state, sipClientStateChanged(SipClientState.CONNECTED));
       state = connectionReducer(state, setAutoReconnectPending(false));
-      
+
       expect(state.sipClientState).toBe(SipClientState.CONNECTED);
       expect(state.autoReconnectPending).toBe(false);
       expect(state.isIdle).toBe(false);

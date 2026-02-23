@@ -5,6 +5,9 @@ import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { loadLeistungenAsync } from '@store/slices/serviceSlice';
 import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import { LeistungResponse } from '@components/interfaces/IService';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 
 interface RegisteredServiceProps {
   /** Refresh trigger */
@@ -47,7 +50,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
         
         if (isCompose) {
           // Compose mode: only use aktId
-          console.log('📧 Compose mode - loading Leistungen by aktId only');
+          logger.debug('Compose mode - loading Leistungen by aktId only', 'RegisteredService');
           dispatch(loadLeistungenAsync({ 
             aktId: selectedAkt.id,
             count: 10 
@@ -57,7 +60,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
           try {
             const email = Office.context.mailbox.item;
             const outlookEmailId = await getInternetMessageIdAsync(email);
-            console.log('📧 Read mode - loading Leistungen by email ID:', outlookEmailId);
+            logger.debug('Read mode - loading Leistungen by email ID: ' + outlookEmailId, 'RegisteredService');
             
             dispatch(loadLeistungenAsync({ 
               outlookEmailId: outlookEmailId,
@@ -65,7 +68,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
               count: 10 
             }));
           } catch (error) {
-            console.warn('⚠️ Could not get email ID, loading by aktId instead:', error);
+            logger.warn('Could not get email ID, loading by aktId instead', 'RegisteredService', error);
             dispatch(loadLeistungenAsync({ 
               aktId: selectedAkt.id,
               count: 10 

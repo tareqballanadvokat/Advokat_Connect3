@@ -1,6 +1,9 @@
 // src/taskpane/components/tabs/email/DropAttachArea.tsx
 import React, { useState, useCallback } from 'react';
 import LoadPanel from 'devextreme-react/load-panel';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 
 export default function DropAttachArea() {
   const [dragOver, setDragOver] = useState(false);
@@ -51,9 +54,9 @@ export default function DropAttachArea() {
         });
       }
 
-      console.log('📎 All files attached');
+      logger.debug('All files attached', 'DropAttachArea');
     } catch (err) {
-      console.error('Attachment error:', err);
+      logger.error('Attachment error', 'DropAttachArea', err);
     } finally {
       setLoading(false);
     }
