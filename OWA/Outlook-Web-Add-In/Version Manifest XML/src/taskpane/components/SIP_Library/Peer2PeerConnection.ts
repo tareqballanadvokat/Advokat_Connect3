@@ -202,7 +202,8 @@ export class Peer2PeerConnection {
     channelType: "offer" | "answer"
   ): void {
     const prefix = channelType === "offer" ? "📤" : "📥";
-    this.logWithPrefix(`${prefix} ${channelType} channel state: ${state}`);
+    const timestamp = new Date().toISOString();
+    this.logWithPrefix(`${prefix} ${channelType} channel state: ${state} [${timestamp}] (current SDP state: ${this.sdpExchangeState})`);
 
     // Process 'open' state for BOTH channels (either can open first)
     if (state === "open") {
@@ -402,8 +403,17 @@ export class Peer2PeerConnection {
           `✅ ICE gathering complete (offer) - collected ${candidateCount} candidates`
         );
 
-        // Send offer with collected candidates
-        this.sendOfferWithCurrentCandidates(callId, sipUri, tag, toLine);
+        // CRITICAL: Only send offer if we haven't received an answer yet
+        // ICE gathering can complete AFTER receiving answer (triggered by setRemoteDescription)
+        // In that case, we should NOT send another offer
+        if (this.sdpExchangeState === SdpExchangeState.IDLE) {
+          this.logWithPrefix("📤 Sending offer with collected ICE candidates");
+          this.sendOfferWithCurrentCandidates(callId, sipUri, tag, toLine);
+        } else {
+          this.logWithPrefix(
+            `⚠️ ICE gathering complete but state is ${this.sdpExchangeState} - not sending offer (already sent or answer received)`
+          );
+        }
       }
     };
   }
@@ -665,36 +675,64 @@ export class Peer2PeerConnection {
    * @param data - The SIP message containing SDP answer
    */
   async parseIncomingAnswer(data: string): Promise<void> {
+    this.logWithPrefix(`📥 parseIncomingAnswer called (current state: ${this.sdpExchangeState}, answerReceived: ${this.answerReceived})`);
+    
+    // State guard: only process answers if we're waiting for one
+    // Ignore answers if we're IDLE (reset) or already COMPLETE
+    if (
+      this.sdpExchangeState === SdpExchangeState.IDLE ||
+      this.sdpExchangeState === SdpExchangeState.COMPLETE
+    ) {
+      this.logWithPrefix(
+        `⚠️ Received answer in ${this.sdpExchangeState} state - ignoring (likely from previous attempt)`
+      );
+      return;
+    }
+
     // Check for duplicate answer
     if (this.answerReceived) {
       this.logWithPrefix("⚠️ Duplicate SERVICE answer received - ignoring");
       return;
     }
+    
+    this.logWithPrefix("🔍 State guards passed, validating SERVICE answer format");
 
     // Validate it's a SERVICE answer with CSeq 2
-    if (
-      !Peer2PeerConnection.REGEX_SERVICE_ANSWER.test(data) ||
-      !Peer2PeerConnection.REGEX_CSEQ_ANSWER.test(data)
-    ) {
+    const isServiceMatch = Peer2PeerConnection.REGEX_SERVICE_ANSWER.test(data);
+    const isCSeqMatch = Peer2PeerConnection.REGEX_CSEQ_ANSWER.test(data);
+    this.logWithPrefix(`🔍 Format validation: SERVICE=${isServiceMatch}, CSeq:2=${isCSeqMatch}`);
+    
+    if (!isServiceMatch || !isCSeqMatch) {
       this.logWithPrefix("⚠️ Invalid SERVICE answer format - ignoring");
       return;
     }
 
+    this.logWithPrefix("✅ SERVICE answer format validated");
     this.cancelReceiveTimeout();
     this.answerReceived = true;
-    this.logWithPrefix("⏱️ Answer received");
+    this.logWithPrefix("⏱️ Answer received - processing SDP block");
 
     const sdpBlockMatch = data.match(Peer2PeerConnection.REGEX_SDP_BLOCK);
+    this.logWithPrefix(`🔍 SDP block match: ${!!sdpBlockMatch}`);
+    
     if (sdpBlockMatch) {
       try {
         const sdpBlock = sdpBlockMatch[1];
+        this.logWithPrefix(`📋 Parsing SDP block (length: ${sdpBlock.length})`);
         const sdpObj = JSON.parse(sdpBlock);
+        this.logWithPrefix(`📋 SDP parsed, setting remote description (type: ${sdpObj.type})`);
+        
+        // CRITICAL: Transition to ANSWER_RECEIVED BEFORE setting remote description
+        // This prevents race condition where channel opens during setRemoteDescription
+        // but state guard rejects it because we're still in OFFER_SENT
+        this.logWithPrefix(`🔄 Transitioning to ANSWER_RECEIVED state (before setRemoteDescription)`);
+        this.transitionTo(SdpExchangeState.ANSWER_RECEIVED);
+        
         await this.pc.setRemoteDescription(new RTCSessionDescription(sdpObj));
         this.logWithPrefix("✅ Remote SDP Answer set successfully");
 
-        this.transitionTo(SdpExchangeState.ANSWER_RECEIVED);
-
         // Start timeout waiting for DataChannel to open
+        this.logWithPrefix("⏱️ Starting DataChannel open timeout");
         this.startDataChannelOpenTimeout();
         // Success will be emitted when DataChannel opens in createAndSendOffer
       } catch (err) {

@@ -238,8 +238,10 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
   /**
    * Disconnect from WebRTC
+   * @param resetReconnectCounter - Whether to reset the reconnect attempt counter (default: true)
+   *                                Set to false when disconnecting as part of a reconnect cycle
    */
-  async disconnect(): Promise<void> {
+  async disconnect(resetReconnectCounter: boolean = true): Promise<void> {
     this.updateConnectionState({ connectionStatus: "Disconnecting..." });
 
     // Stop idle monitoring before disconnect
@@ -271,9 +273,13 @@ export class WebRTCConnectionManager implements SipClientObserver {
     // Use the service's cleanup method for proper encapsulation
     WebRTCDataChannelService.getInstance().reset();
 
-    this.updateConnectionState({
-      reconnectAttempts: 0,
-    });
+    // Only reset reconnect attempts when explicitly requested (deliberate disconnect)
+    // During reconnect cycle, preserve the counter to show accurate attempt numbers
+    if (resetReconnectCounter) {
+      this.updateConnectionState({
+        reconnectAttempts: 0,
+      });
+    }
   }
 
   /**
@@ -299,6 +305,12 @@ export class WebRTCConnectionManager implements SipClientObserver {
     const attemptNumber = force ? 0 : state.reconnectAttempts + 1;
     const delay = this.calculateReconnectDelay(attemptNumber);
 
+    // Update attempt counter immediately (before timer) to prevent race conditions
+    // If reconnect() is called again before timer fires, it will see the updated count
+    this.updateConnectionState({
+      reconnectAttempts: attemptNumber,
+    });
+
     this.reconnectTimer = setTimeout(async () => {
       // Check again if destroyed (timer may have been set before destroy)
       if (this.isDestroyed) {
@@ -316,8 +328,8 @@ export class WebRTCConnectionManager implements SipClientObserver {
         // Stop idle monitoring before reconnect
         this.stopIdleMonitoring();
 
-        // Full reconnect cycle
-        await this.disconnect();
+        // Full reconnect cycle - don't reset the reconnect counter
+        await this.disconnect(false);
 
         // Check destroyed again after async disconnect
         if (this.isDestroyed) {
@@ -325,11 +337,6 @@ export class WebRTCConnectionManager implements SipClientObserver {
           this.isReconnecting = false;
           return;
         }
-
-        // Update attempt counter after disconnect
-        this.updateConnectionState({
-          reconnectAttempts: attemptNumber,
-        });
 
         await this.connect();
 
