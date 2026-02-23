@@ -118,11 +118,19 @@ export class TokenService {
    * @returns Promise<IAuthResponse> Authentication response with encrypted tokens
    */
   async encryptAuthResponse(authResponse: IAuthResponse): Promise<IAuthResponse> {
+    console.log('🔐 [TokenService] Encrypting auth response before storing');
+    console.log('🔐 [TokenService] Access token to encrypt (first 30 / last 30 chars):', 
+      authResponse.access_token.substring(0, 30) + '...' + authResponse.access_token.substring(authResponse.access_token.length - 30));
+    
     const encryptedAccessToken = await this.encryptToken(authResponse.access_token);
+    console.log('🔐 [TokenService] Encrypted access token (first 20 chars):', encryptedAccessToken.substring(0, 20) + '...');
+    
     const encryptedRefreshToken = authResponse.refresh_token
       ? await this.encryptToken(authResponse.refresh_token)
       : null; // Return null if server doesn't provide refresh token
 
+    console.log('✅ [TokenService] Auth response encrypted, will be stored in Redux');
+    
     return {
       ...authResponse,
       access_token: encryptedAccessToken,
@@ -253,11 +261,21 @@ export class TokenService {
     const encryptedToken = selectAuthToken(state);
 
     if (!encryptedToken) {
+      console.log('🔐 [TokenService] No encrypted token in store');
       return null;
     }
 
     // Decrypt the token before returning
-    return await this.decryptToken(encryptedToken);
+    const decryptedToken = await this.decryptToken(encryptedToken);
+    
+    if (decryptedToken) {
+      console.log('🔐 [TokenService] Decrypted token (first 30 / last 30 chars):', 
+        decryptedToken.substring(0, 30) + '...' + decryptedToken.substring(decryptedToken.length - 30));
+    } else {
+      console.log('🔐 [TokenService] Failed to decrypt token');
+    }
+    
+    return decryptedToken;
   }
 
   /**
@@ -364,6 +382,7 @@ export class TokenService {
    * @returns Promise<string | null> - Returns fresh decrypted token or null if refresh failed
    */
   async ensureValidToken(): Promise<string | null> {
+    console.log('🔐 [TokenService] ensureValidToken called - retrieving current token');
     const currentToken = await this.getCurrentToken();
 
     // No token at all - user needs to authenticate
@@ -372,11 +391,14 @@ export class TokenService {
       return null;
     }
 
+    console.log('🔐 [TokenService] Token retrieved, checking expiration');
     // Token is still valid
     if (!this.isTokenExpired(currentToken)) {
+      console.log('✅ [TokenService] Token is valid, returning it');
       return currentToken;
     }
 
+    console.warn('⚠️ [TokenService] Token is expired');
     // If refresh is already in progress, wait for it
     if (this.isRefreshInProgress()) {
       this.logger.info("Token expired, refresh already in progress, waiting...", "TokenService");

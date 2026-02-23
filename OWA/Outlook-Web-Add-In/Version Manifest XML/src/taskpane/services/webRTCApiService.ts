@@ -750,10 +750,23 @@ export class WebRTCApiService implements DataChannelObserver {
       throw new Error("WebRTC API service not initialized");
     }
 
-    // Ensure both channels are ready for bidirectional communication (send request + receive response)
-    if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
-      throw new Error("WebRTC channels not ready for bidirectional communication");
-    }
+  private async sendRequest(messageType: string, method: string, url: string, headers: Record<string, string>, body?: any): Promise<WebRTCApiResponse> {
+    return new Promise(async (resolve, reject) => {
+      if (!this.sipClient) {
+        reject(new Error('WebRTC API service not initialized'));
+        return;
+      }
+
+      // Ensure both channels are ready for bidirectional communication (send request + receive response)
+      if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+        reject(new Error('WebRTC channels not ready for bidirectional communication'));
+        return;
+      }
+      
+      // For authenticated requests, ensure token is valid before sending
+      let validToken: string | null = null;
+      if (!messageType.includes('auth.')) {
+        console.log('🔐 [WebRTCApiService] Ensuring valid token for request:', messageType);
 
     // For authenticated requests, ensure token is valid before sending
     let validToken: string | null = null;
