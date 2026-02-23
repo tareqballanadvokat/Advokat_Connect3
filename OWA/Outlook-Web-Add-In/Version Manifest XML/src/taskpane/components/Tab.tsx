@@ -2,6 +2,9 @@ import React, { useState, Suspense, lazy, useEffect, useRef } from 'react';
 import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
 import { ENABLE_CACHE_STATS } from '../../config';
+import { getLogger } from '../../services/logger';
+
+const logger = getLogger();
 // lazy-import
 const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));
 const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
@@ -20,7 +23,7 @@ const DevTabs: React.FC = () => {
         e.preventDefault();
         setShowCacheTab(prev => {
           const newState = !prev;
-          console.log(`🔑 [Tab] Cache stats tab ${newState ? 'enabled' : 'disabled'} via keyboard shortcut`);
+          logger.debug(`Cache stats tab ${newState ? 'enabled' : 'disabled'} via keyboard shortcut`, 'Tab');
           return newState;
         });
       }
@@ -38,7 +41,7 @@ const DevTabs: React.FC = () => {
       case 3: return <PersonTab />;
       case 4: 
         if (!showCacheTab) {
-          console.warn('[Tab] Cache stats tab not available');
+          logger.warn('Cache stats tab not available', 'Tab');
           return <div style={{ padding: '20px' }}>Cache Statistics not available</div>;
         }
         return <CacheStatsPanel />;

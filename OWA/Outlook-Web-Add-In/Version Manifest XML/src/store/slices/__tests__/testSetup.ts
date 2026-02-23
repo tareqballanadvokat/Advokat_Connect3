@@ -1,41 +1,38 @@
+/* eslint-disable no-undef */
 /**
- * Test Helpers and Utilities
+ * Test Setup and Utilities
  * Reusable functions for testing Redux slices and components
- * 
+ *
  * ## WebRTC Service Mocking
- * 
+ *
  * All slice tests that interact with the WebRTC API should use the shared mock:
- * 
+ *
  * ```typescript
- * import { createMockWebRTCService, setupDefaultWebRTCMocks } from '../testHelpers';
- * 
- * // Create the mock service once
+ * import { createMockWebRTCService, setupDefaultWebRTCMocks } from './testSetup';
+ *
  * const mockWebRTCService = createMockWebRTCService();
- * 
- * // Mock the connection manager
+ *
  * jest.mock('../../../taskpane/services/WebRTCConnectionManager', () => ({
  *   getWebRTCConnectionManager: jest.fn(() => ({
  *     getWebRTCApiService: jest.fn(() => mockWebRTCService),
  *   })),
  * }));
- * 
- * // In beforeEach, reset to default implementations
+ *
  * beforeEach(() => {
  *   jest.clearAllMocks();
  *   setupDefaultWebRTCMocks(mockWebRTCService);
- *   
- *   // Override specific methods as needed for your tests
+ *
  *   mockWebRTCService.getFavoriteAkten.mockResolvedValue({ statusCode: 200, body: '[...]' });
  * });
  * ```
  */
 
-import { configureStore } from '@reduxjs/toolkit';
-import emailReducer from './emailSlice';
-import serviceReducer from './serviceSlice';
-import aktenReducer from './aktenSlice';
-import personReducer from './personSlice';
-import authReducer from './authSlice';
+import { configureStore } from "@reduxjs/toolkit";
+import emailReducer from "../emailSlice";
+import serviceReducer from "../serviceSlice";
+import aktenReducer from "../aktenSlice";
+import personReducer from "../personSlice";
+import authReducer from "../authSlice";
 
 /**
  * Create a mock Redux store for testing
@@ -50,7 +47,7 @@ export function createTestStore(preloadedState?: any) {
     person: personReducer,
     auth: authReducer,
   };
-  
+
   return configureStore({
     reducer: reducers as any,
     preloadedState,
@@ -63,16 +60,16 @@ export function createTestStore(preloadedState?: any) {
 export function createMockAuthState(overrides = {}) {
   return {
     credentials: {
-      grant_type: 'password' as const,
-      client_id: 'TestClientId',
-      client_secret: 'TestClientId',
-      username: 'testuser',
-      password: 'testpass',
+      grant_type: "password" as const,
+      client_id: "TestClientId",
+      client_secret: "TestClientId",
+      username: "testuser",
+      password: "testpass",
     },
-    token: 'mock-access-token',
-    tokenType: 'Bearer',
+    token: "mock-access-token",
+    tokenType: "Bearer",
     expiresAt: Date.now() + 3600000, // 1 hour from now
-    refreshToken: 'mock-refresh-token',
+    refreshToken: "mock-refresh-token",
     refreshTokenExpiresAt: Date.now() + 7200000, // 2 hours from now
     isAuthenticated: true,
     isAuthenticating: false,
@@ -84,7 +81,7 @@ export function createMockAuthState(overrides = {}) {
 /**
  * Wait for a specific amount of time (for async tests)
  */
-export const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Mock fetch for API testing
@@ -114,7 +111,7 @@ export function mockFetchError(error: Error) {
 export function cleanupTests() {
   jest.clearAllMocks();
   jest.clearAllTimers();
-  if (global.fetch && 'mockClear' in global.fetch) {
+  if (global.fetch && "mockClear" in global.fetch) {
     (global.fetch as jest.Mock).mockClear();
   }
 }
@@ -130,28 +127,28 @@ export function createMockWebRTCService() {
     aktLookUp: jest.fn(),
     addAktToFavorite: jest.fn(),
     removeAktFromFavorite: jest.fn(),
-    
+
     // Document methods
     GetDocuments: jest.fn(),
     saveDokument: jest.fn(),
     getAvailableFolders: jest.fn(),
     getDocumentWithContent: jest.fn(),
     downloadDocument: jest.fn(),
-    
+
     // Service methods
     loadServices: jest.fn(),
     saveLeistung: jest.fn(),
-    
+
     // Person methods
     getFavoritePersons: jest.fn(),
     personLookUp: jest.fn(),
     addPersonToFavorites: jest.fn(),
     removePersonFromFavorites: jest.fn(),
-    
+
     // Auth methods
     authenticate: jest.fn(),
     refreshToken: jest.fn(),
-    
+
     // Connection status
     isReady: jest.fn(),
   };
@@ -163,41 +160,41 @@ export function createMockWebRTCService() {
  */
 export function setupDefaultWebRTCMocks(mockService: ReturnType<typeof createMockWebRTCService>) {
   // Akten defaults
-  mockService.getFavoriteAkten.mockResolvedValue({ statusCode: 200, body: '[]' });
-  mockService.aktLookUp.mockResolvedValue({ statusCode: 200, body: '[]' });
+  mockService.getFavoriteAkten.mockResolvedValue({ statusCode: 200, body: "[]" });
+  mockService.aktLookUp.mockResolvedValue({ statusCode: 200, body: "[]" });
   mockService.addAktToFavorite.mockResolvedValue({ statusCode: 200 });
   mockService.removeAktFromFavorite.mockResolvedValue({ statusCode: 200 });
-  
+
   // Document defaults
-  mockService.GetDocuments.mockResolvedValue({ statusCode: 200, body: '[]' });
-  mockService.saveDokument.mockResolvedValue({ statusCode: 200, body: 'Success' });
-  mockService.getAvailableFolders.mockResolvedValue({ statusCode: 200, body: '[]' });
-  mockService.getDocumentWithContent.mockResolvedValue({ statusCode: 200, body: '{}' });
-  
+  mockService.GetDocuments.mockResolvedValue({ statusCode: 200, body: "[]" });
+  mockService.saveDokument.mockResolvedValue({ statusCode: 200, body: "Success" });
+  mockService.getAvailableFolders.mockResolvedValue({ statusCode: 200, body: "[]" });
+  mockService.getDocumentWithContent.mockResolvedValue({ statusCode: 200, body: "{}" });
+
   // Service defaults
-  mockService.loadServices.mockResolvedValue({ statusCode: 200, body: '[]' });
-  mockService.saveLeistung.mockResolvedValue({ statusCode: 200, body: 'Success' });
-  
+  mockService.loadServices.mockResolvedValue({ statusCode: 200, body: "[]" });
+  mockService.saveLeistung.mockResolvedValue({ statusCode: 200, body: "Success" });
+
   // Person defaults
-  mockService.getFavoritePersons.mockResolvedValue({ statusCode: 200, body: '[]' });
-  mockService.personLookUp.mockResolvedValue({ statusCode: 200, body: '[]' });
+  mockService.getFavoritePersons.mockResolvedValue({ statusCode: 200, body: "[]" });
+  mockService.personLookUp.mockResolvedValue({ statusCode: 200, body: "[]" });
   mockService.addPersonToFavorites.mockResolvedValue({ statusCode: 200 });
   mockService.removePersonFromFavorites.mockResolvedValue({ statusCode: 200 });
-  
+
   // Auth defaults
   mockService.authenticate.mockResolvedValue({
-    access_token: 'mock-token',
-    token_type: 'Bearer',
+    access_token: "mock-token",
+    token_type: "Bearer",
     expires_in: 3600,
-    refresh_token: 'mock-refresh-token',
+    refresh_token: "mock-refresh-token",
   });
   mockService.refreshToken.mockResolvedValue({
-    access_token: 'mock-new-token',
-    token_type: 'Bearer',
+    access_token: "mock-new-token",
+    token_type: "Bearer",
     expires_in: 3600,
-    refresh_token: 'mock-new-refresh-token',
+    refresh_token: "mock-new-refresh-token",
   });
-  
+
   // Connection status
   mockService.isReady.mockReturnValue(true);
 }
@@ -205,16 +202,18 @@ export function setupDefaultWebRTCMocks(mockService: ReturnType<typeof createMoc
 /**
  * Create the WebRTC Connection Manager mock factory
  * Use this to mock the entire connection manager module
- * 
+ *
  * Example usage:
  * ```typescript
  * const mockWebRTCService = createMockWebRTCService();
- * jest.mock('../../../taskpane/services/WebRTCConnectionManager', () => 
+ * jest.mock('../../../taskpane/services/WebRTCConnectionManager', () =>
  *   createWebRTCConnectionManagerMock(mockWebRTCService)
  * );
  * ```
  */
-export function createWebRTCConnectionManagerMock(mockService: ReturnType<typeof createMockWebRTCService>) {
+export function createWebRTCConnectionManagerMock(
+  mockService: ReturnType<typeof createMockWebRTCService>
+) {
   return {
     getWebRTCConnectionManager: jest.fn(() => ({
       getWebRTCApiService: jest.fn(() => mockService),

@@ -28,6 +28,9 @@ import {
   createBlobFromBase64, 
   isViewableInBrowser 
 } from '../../../utils/fileHelpers';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 
 const allowDeleting = (e) => e.row.data.ID !== 1; 
 
@@ -189,16 +192,16 @@ const CaseTabContent: React.FC = () => {
         if (!hasLoadedDocuments && 
             loadingCaseDocumentsForAktId !== aktId && 
             !caseDocumentsLoading) {
-          console.log(`📄 Loading documents for Akt ${aktId}`);
+          logger.debug(`Loading documents for Akt ${aktId}`, 'CaseTabContent');
           try {
             const result = await dispatch(getCaseDocumentsAsync({ aktId, Count: 100 })).unwrap();
             // Store documents in component state
             setDokumentsByAkt(prev => new Map(prev).set(aktId, result.documents));
           } catch (error) {
-            console.error(`Failed to load documents for Akt ${aktId}:`, error);
+            logger.error(`Failed to load documents for Akt ${aktId}:`, 'CaseTabContent', error);
           }
         } else if (hasLoadedDocuments) {
-          console.log(`📄 Documents for Akt ${aktId} already loaded`);
+          logger.debug(`Documents for Akt ${aktId} already loaded`, 'CaseTabContent');
         }
       }
     }
@@ -217,7 +220,7 @@ const CaseTabContent: React.FC = () => {
       // This is a document, download and open the file
       let downloadingToast: any = null;
       try {
-        console.log(`Downloading document with ID: ${node.documentId}`);
+        logger.debug(`Downloading document with ID: ${node.documentId}`, 'CaseTabContent');
         
         // Show persistent notification during download
         try {
@@ -268,7 +271,7 @@ const CaseTabContent: React.FC = () => {
             }
           } catch (error) {
             // Fallback to download if opening fails
-            console.log('Failed to open in new window, falling back to download:', error);
+            logger.debug('Failed to open in new window, falling back to download', 'CaseTabContent', error);
             const a = document.createElement('a');
             a.href = url;
             a.download = fileName;
@@ -294,12 +297,12 @@ const CaseTabContent: React.FC = () => {
         if (downloadingToast && typeof downloadingToast.hide === 'function') {
           downloadingToast.hide();
         }
-        console.error('Failed to download document:', error);
+        logger.error('Failed to download document:', 'CaseTabContent', error);
         notify(`Failed to download ${node.name}: ${error}`, 'error', 5000);
       }
     } else {
       // Fallback for nodes without documentId (shouldn't happen for documents)
-      console.warn('Document node missing documentId:', node);
+      logger.warn('Document node missing documentId', 'CaseTabContent', node);
       notify('Unable to download: Document ID missing', 'warning', 3000);
     }
   }, [expandedKeys, onExpandedRowKeysChange]);
@@ -351,7 +354,7 @@ const CaseTabContent: React.FC = () => {
               notify(`Attached ${fileName} to email`, 'success', 3000);
               resolve();
             } else { 
-              console.log(result);
+              logger.error('Failed to attach file to email', 'CaseTabContent', result);
               reject(result.error);
             }
           }
@@ -362,7 +365,7 @@ const CaseTabContent: React.FC = () => {
       if (attachingToast && typeof attachingToast.hide === 'function') {
         attachingToast.hide();
       }
-      console.error('Failed to add attachment:', error);
+      logger.error('Failed to add attachment:', 'CaseTabContent', error);
       notify(`Failed to attach ${node.name}: ${error}`, 'error', 5000);
     }
   }, []);
@@ -381,7 +384,7 @@ const CaseTabContent: React.FC = () => {
         Count: 50
       }));
     } catch (error) {
-      console.error('Failed to remove from favorites:', error);
+      logger.error('Failed to remove from favorites:', 'CaseTabContent', error);
       notify(`Failed to remove from favorites: ${error}`, 'error', 5000);
     }
   }, [dispatch]);

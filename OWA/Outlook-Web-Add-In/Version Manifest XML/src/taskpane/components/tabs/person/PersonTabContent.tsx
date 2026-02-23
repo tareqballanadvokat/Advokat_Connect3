@@ -15,7 +15,10 @@ import {
   getFavoritePersonsAsync
 } from '../../../../store/slices/personSlice';
 import notify from 'devextreme/ui/notify';
-import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus'; 
+import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger(); 
 
 interface Props {
   loading?: boolean;
@@ -49,7 +52,7 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
       await dispatch(addPersonToFavoritesAsync(personId)).unwrap();
       notify(`Added "${personName}" to favorites`, 'success', 3000);
     } catch (error) {
-      console.error("Error adding person:", error);
+      logger.error('Error adding person:', 'PersonTabContent', error);
       notify('Failed to add person to favorites', 'error', 5000);
     }
   }, [dispatch]);
@@ -85,7 +88,7 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
       await dispatch(removePersonFromFavoritesAsync(personId)).unwrap();
       notify(`Removed "${personName}" from favorites`, 'success', 3000);
     } catch (error) {
-      console.error("Error removing person:", error);
+      logger.error('Error removing person:', 'PersonTabContent', error);
       notify('Failed to remove person from favorites', 'error', 5000);
     }
   }, [dispatch, removeFromFavoriteLoading, removingFromFavoritePersonId]);

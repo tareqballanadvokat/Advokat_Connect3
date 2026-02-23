@@ -1,16 +1,24 @@
+/* eslint-disable no-undef */
+
 // WebRTC Connection Manager - Robust connection management with auto-recovery
-import { SipClientInstance, SipClientState, SipClientObserver, initializeSipClient } from '../components/SIP_Library/SipClient';
-import { webRTCApiService } from './webRTCApiService';
-import { tokenService } from './TokenService';
-import { IdleActivityMonitor } from './IdleActivityMonitor';
-import { WebRTCDataChannelService } from './WebRTCDataChannelService';
-import { store } from '../../store';
-import { 
-  startAuthentication, 
-  authenticationSuccess, 
-  authenticationFailure, 
-  selectAuthCredentials
-} from '../../store/slices/authSlice';
+import {
+  SipClientInstance,
+  SipClientState,
+  SipClientObserver,
+  initializeSipClient,
+} from "../components/SIP_Library/SipClient";
+import { webRTCApiService } from "./webRTCApiService";
+import { tokenService } from "./TokenService";
+import { IdleActivityMonitor } from "./IdleActivityMonitor";
+import { WebRTCDataChannelService } from "./WebRTCDataChannelService";
+import { store } from "../../store";
+import { getLogger } from "../../services/logger";
+import {
+  startAuthentication,
+  authenticationSuccess,
+  authenticationFailure,
+  selectAuthCredentials,
+} from "../../store/slices/authSlice";
 import {
   updateConnectionState as updateReduxConnectionState,
   selectConnectionState,
@@ -21,7 +29,7 @@ import {
   setAutoReconnectPending,
   sipClientStateChanged,
   selectIsReady,
-} from '../../store/slices/connectionSlice';
+} from "../../store/slices/connectionSlice";
 
 export type { ConnectionState };
 
@@ -29,9 +37,9 @@ export interface ConnectionManagerConfig {
   maxReconnectAttempts?: number;
   reconnectDelay?: number;
   enableAutoReconnect?: boolean;
-  idleTimeout?: number;           // Time before user is considered idle (default: 60000ms = 1 minute)
+  idleTimeout?: number; // Time before user is considered idle (default: 60000ms = 1 minute)
   enableIdleDisconnect?: boolean; // Enable idle disconnect feature (default: true)
-  reconnectOnActivity?: boolean;  // Reconnect when user becomes active (default: true)
+  reconnectOnActivity?: boolean; // Reconnect when user becomes active (default: true)
 }
 
 const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
@@ -40,15 +48,15 @@ const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
   enableAutoReconnect: true,
   idleTimeout: 5 * 60 * 1000, // 5 minutes
   enableIdleDisconnect: true,
-  reconnectOnActivity: true
+  reconnectOnActivity: true,
 };
 
 /**
  * WebRTC Connection Manager Class
- * 
+ *
  * Orchestrates SipClient lifecycle and manages connection state in Redux.
  * Uses Observer pattern to react to SipClient state changes.
- * 
+ *
  * Key responsibilities:
  * - SipClient initialization and teardown
  * - Redux state synchronization (sipClientState is single source of truth)
@@ -56,7 +64,7 @@ const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
  * - Authentication coordination
  * - Automatic reconnection on FAILED state (fatal errors or max retries)
  * - No reconnection on DISCONNECTED state (deliberate disconnect)
- * 
+ *
  * Architecture:
  * - WebRTCConnectionManager implements SipClientObserver (Observer)
  * - SipClient is the Subject that notifies observers of state changes
@@ -67,15 +75,16 @@ const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
 export class WebRTCConnectionManager implements SipClientObserver {
   private config: Required<ConnectionManagerConfig>;
   private sipClient: SipClientInstance | null = null;
-  
+  private logger = getLogger();
+
   // Timers
   private reconnectTimer: NodeJS.Timeout | null = null;
   private waitForConnectionTimer: NodeJS.Timeout | null = null;
-  
+
   // Idle monitoring
   private idleMonitor: IdleActivityMonitor | null = null;
   private disconnectedDueToIdle: boolean = false;
-  
+
   // Internal flags
   private isInitialized = false;
   private isDestroyed = false;
@@ -91,29 +100,35 @@ export class WebRTCConnectionManager implements SipClientObserver {
    * This is the central point for reacting to SipClient state changes
    */
   onSipClientStateChanged(newState: SipClientState, reason: string): void {
-    console.log(`[ConnectionManager] SipClient state changed: ${newState} (${reason})`);
-    
+    this.logger.info("ConnectionManager", `SipClient state changed: ${newState} (${reason})`);
+
     // Update Redux with new state
     store.dispatch(sipClientStateChanged(newState));
-    
+
     // Handle state-specific logic
     if (newState === SipClientState.FAILED_PERMANENTLY) {
       // FAILED_PERMANENTLY indicates SipClient exhausted all its internal retries
       // WebRTCConnectionManager should handle higher-level reconnection by creating new SipClient
-      console.log('[ConnectionManager] FAILED_PERMANENTLY state detected - will attempt full reconnection');
+      this.logger.info(
+        "ConnectionManager",
+        "FAILED_PERMANENTLY state detected - will attempt full reconnection"
+      );
       this.handlePermanentFailure(reason);
     } else if (newState === SipClientState.DISCONNECTED) {
       // DISCONNECTED indicates deliberate disconnect - do not reconnect
-      console.log('[ConnectionManager] DISCONNECTED state detected - no automatic reconnection');
-      this.updateConnectionState({ 
-        reconnectAttempts: 0 
+      this.logger.info(
+        "ConnectionManager",
+        "DISCONNECTED state detected - no automatic reconnection"
+      );
+      this.updateConnectionState({
+        reconnectAttempts: 0,
       });
     } else if (newState === SipClientState.CONNECTED) {
       // Successfully connected - reset reconnect attempts
-      console.log('[ConnectionManager] CONNECTED state detected');
-      this.updateConnectionState({ 
+      this.logger.info("ConnectionManager", "CONNECTED state detected");
+      this.updateConnectionState({
         reconnectAttempts: 0,
-        lastError: undefined 
+        lastError: undefined,
       });
     }
   }
@@ -139,15 +154,19 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
     // Create and store initialization promise
     this.initializationPromise = (async () => {
-      this.updateConnectionState({ connectionStatus: 'Initializing connection manager...' });
-      
+      this.updateConnectionState({ connectionStatus: "Initializing connection manager..." });
+
       try {
         await this.connect();
         // Idle monitoring is started by connect() after successful connection
         // Set isInitialized BEFORE clearing initializationPromise to prevent race
         this.isInitialized = true;
       } catch (error) {
-        console.error('Failed to initialize WebRTC Connection Manager:', error);
+        this.logger.error(
+          "ConnectionManager",
+          "Failed to initialize WebRTC Connection Manager",
+          error
+        );
         // Don't set isInitialized on failure
         throw error;
       } finally {
@@ -163,51 +182,55 @@ export class WebRTCConnectionManager implements SipClientObserver {
    */
   async connect(): Promise<void> {
     const state = selectConnectionState(store.getState());
-    const isConnecting = state.sipClientState === SipClientState.REGISTERING || 
-                        state.sipClientState === SipClientState.CONNECTING || 
-                        state.sipClientState === SipClientState.CONNECTING_P2P;
+    const isConnecting =
+      state.sipClientState === SipClientState.REGISTERING ||
+      state.sipClientState === SipClientState.CONNECTING ||
+      state.sipClientState === SipClientState.CONNECTING_P2P;
     if (this.isDestroyed || isConnecting) {
       return;
     }
 
-    this.updateConnectionState({ 
+    this.updateConnectionState({
       lastError: undefined,
     });
 
     try {
       // Initialize SIP client directly
       this.sipClient = initializeSipClient();
-      
+
       if (this.sipClient) {
         // Subscribe to SipClient state changes (Observer pattern)
         this.sipClient.subscribe(this);
-        
+
         // Initialize WebRTC API service
         webRTCApiService.initialize(this.sipClient);
       }
-      
+
       // Wait for full connection establishment
       await this.waitForFullConnection();
-      
+
       // Automatically authenticate after connection is established
       await this.performAuthentication();
-      
+
       // Start idle monitoring only after successful connection
       this.startIdleMonitoring();
-      
+
       // Clear any existing reconnect timer
       this.clearReconnectTimer();
-      
     } catch (error) {
       // Cleanup: unsubscribe if we subscribed but connection failed
       if (this.sipClient?.isSubscribed(this)) {
         try {
           this.sipClient.unsubscribe(this);
         } catch (unsubError) {
-          console.warn('Error unsubscribing after connection failure:', unsubError);
+          this.logger.warn(
+            "ConnectionManager",
+            "Error unsubscribing after connection failure",
+            unsubError
+          );
         }
       }
-      
+
       this.handleConnectionError(error);
       throw error;
     }
@@ -217,37 +240,37 @@ export class WebRTCConnectionManager implements SipClientObserver {
    * Disconnect from WebRTC
    */
   async disconnect(): Promise<void> {
-    this.updateConnectionState({ connectionStatus: 'Disconnecting...' });
-    
+    this.updateConnectionState({ connectionStatus: "Disconnecting..." });
+
     // Stop idle monitoring before disconnect
     this.stopIdleMonitoring();
-    
+
     this.clearAllTimers();
     this.isReconnecting = false;
-    
+
     if (this.sipClient) {
       try {
         // Unsubscribe from state changes
         this.sipClient.unsubscribe(this);
-        
+
         // Use SipClient public API for graceful disconnect
         // Pass DISCONNECTED state to indicate deliberate disconnect (no retry)
         this.sipClient.disconnect(SipClientState.DISCONNECTED);
-        
+
         // Give messages time to be sent before cleanup
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
-        console.warn('Error during graceful disconnect:', error);
+        this.logger.warn("ConnectionManager", "Error during graceful disconnect", error);
       } finally {
         // Clear reference to allow garbage collection
         this.sipClient = null;
       }
     }
-    
+
     // Clear both DataChannels from service to prevent stale references
     // Use the service's cleanup method for proper encapsulation
     WebRTCDataChannelService.getInstance().reset();
-    
+
     this.updateConnectionState({
       reconnectAttempts: 0,
     });
@@ -264,7 +287,9 @@ export class WebRTCConnectionManager implements SipClientObserver {
     const state = selectConnectionState(store.getState());
     const maxAttempts = this.config.maxReconnectAttempts;
     if (state.reconnectAttempts >= maxAttempts && !force) {
-      this.updateConnectionState({ connectionStatus: `Max reconnection attempts (${maxAttempts}) reached` });
+      this.updateConnectionState({
+        connectionStatus: `Max reconnection attempts (${maxAttempts}) reached`,
+      });
       return;
     }
 
@@ -277,55 +302,61 @@ export class WebRTCConnectionManager implements SipClientObserver {
     this.reconnectTimer = setTimeout(async () => {
       // Check again if destroyed (timer may have been set before destroy)
       if (this.isDestroyed) {
-        console.log('[ConnectionManager] Destroyed during reconnect delay, aborting');
+        this.logger.info("ConnectionManager", "Destroyed during reconnect delay, aborting");
         this.isReconnecting = false;
         return;
       }
-      
+
       if (!this.isReconnecting) {
-        console.log('[ConnectionManager] Reconnect cancelled during delay');
+        this.logger.info("ConnectionManager", "Reconnect cancelled during delay");
         return;
       }
 
       try {
         // Stop idle monitoring before reconnect
         this.stopIdleMonitoring();
-        
+
         // Full reconnect cycle
         await this.disconnect();
-        
+
         // Check destroyed again after async disconnect
         if (this.isDestroyed) {
-          console.log('[ConnectionManager] Destroyed during disconnect, aborting reconnect');
+          this.logger.info("ConnectionManager", "Destroyed during disconnect, aborting reconnect");
           this.isReconnecting = false;
           return;
         }
-        
+
         // Update attempt counter after disconnect
-        this.updateConnectionState({ 
+        this.updateConnectionState({
           reconnectAttempts: attemptNumber,
         });
-        
+
         await this.connect();
-        
+
         // Idle monitoring will be started by connect() after successful connection
         this.isReconnecting = false;
       } catch (error) {
-        console.error(`Reconnection attempt ${attemptNumber} failed:`, error);
-        
+        this.logger.error(
+          "ConnectionManager",
+          `Reconnection attempt ${attemptNumber} failed`,
+          error
+        );
+
         // Always reset flag on error
         this.isReconnecting = false;
-        
+
         if (this.isDestroyed) {
-          console.log('[ConnectionManager] Destroyed during reconnect error, stopping');
+          this.logger.info("ConnectionManager", "Destroyed during reconnect error, stopping");
           return;
         }
-        
+
         if (attemptNumber < maxAttempts && this.config.enableAutoReconnect) {
           // Schedule next attempt (will set isReconnecting again)
           this.reconnect();
         } else {
-          this.updateConnectionState({ connectionStatus: `Reconnection failed after ${maxAttempts} attempts` });
+          this.updateConnectionState({
+            connectionStatus: `Reconnection failed after ${maxAttempts} attempts`,
+          });
         }
       }
     }, delay);
@@ -336,21 +367,23 @@ export class WebRTCConnectionManager implements SipClientObserver {
    * SipClient has exhausted all its internal retries, so we need to create a fresh instance
    */
   private handlePermanentFailure(reason: string): void {
-    console.log(`[ConnectionManager] Handling permanent failure: ${reason}`);
+    this.logger.info("ConnectionManager", `Handling permanent failure: ${reason}`);
 
-    
     // Trigger full reconnection (new SipClient) if enabled and not already reconnecting
     if (this.config.enableAutoReconnect && !this.isReconnecting) {
-      console.log('[ConnectionManager] Auto-reconnect enabled, scheduling full reconnection with new SipClient...');
+      this.logger.info(
+        "ConnectionManager",
+        "Auto-reconnect enabled, scheduling full reconnection with new SipClient..."
+      );
       this.updateConnectionState({
-      lastError: reason,
-      connectionStatus: `Connection failed permanently. Attempting retry..`
-    });
+        lastError: reason,
+        connectionStatus: `Connection failed permanently. Attempting retry..`,
+      });
       this.reconnect();
     } else if (this.isReconnecting) {
-      console.log('[ConnectionManager] Already reconnecting, ignoring additional failure');
+      this.logger.info("ConnectionManager", "Already reconnecting, ignoring additional failure");
     } else {
-      console.log('[ConnectionManager] Auto-reconnect disabled');
+      this.logger.info("ConnectionManager", "Auto-reconnect disabled");
     }
   }
 
@@ -364,19 +397,22 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
       // Verify offer channel is open for sending (should already be open from waitForFullConnection)
       if (!WebRTCDataChannelService.getInstance().isOfferChannelOpen) {
-        throw new Error('Offer channel not open - authentication cannot proceed');
+        throw new Error("Offer channel not open - authentication cannot proceed");
       }
-      
-      console.log('✅ Offer channel is open, proceeding with authentication');
+
+      this.logger.info(
+        "ConnectionManager",
+        "Offer channel is open, proceeding with authentication"
+      );
 
       // Get credentials from Redux store
       const credentials = selectAuthCredentials(store.getState());
-      
-      console.log('🔐 Attempting authentication with credentials:', {
+
+      this.logger.debug("ConnectionManager", "Attempting authentication with credentials", {
         grant_type: credentials.grant_type,
         client_id: credentials.client_id,
         username: credentials.username,
-        hasPassword: !!credentials.password
+        hasPassword: !!credentials.password,
       });
 
       // Prepare authentication request
@@ -385,32 +421,31 @@ export class WebRTCConnectionManager implements SipClientObserver {
         client_id: credentials.client_id,
         client_secret: credentials.client_secret,
         username: credentials.username,
-        password: credentials.password
+        password: credentials.password,
       };
 
       // Send authentication request via WebRTC
       const authResponse = await webRTCApiService.authenticate(authRequest);
-      
+
       // Encrypt tokens before storing in Redux
       const encryptedAuthResponse = await tokenService.encryptAuthResponse(authResponse);
-      
+
       // Update Redux store with encrypted authentication tokens
       store.dispatch(authenticationSuccess(encryptedAuthResponse));
-      
+
       // Authentication state is managed by authSlice
-      
-      console.log('✅ Authentication successful (tokens encrypted)');
-      
+
+      this.logger.info("ConnectionManager", "Authentication successful (tokens encrypted)");
     } catch (error) {
-      console.error('❌ Authentication failed:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+      this.logger.error("ConnectionManager", "Authentication failed", error);
+
+      const errorMessage = error instanceof Error ? error.message : "Authentication failed";
       store.dispatch(authenticationFailure(errorMessage));
-      
-      this.updateConnectionState({ 
+
+      this.updateConnectionState({
         lastError: errorMessage,
       });
-      
+
       throw error;
     }
   }
@@ -434,6 +469,13 @@ export class WebRTCConnectionManager implements SipClientObserver {
    */
   getWebRTCApiService() {
     return webRTCApiService;
+  }
+
+  /**
+   * Get connection manager configuration
+   */
+  getConfig(): Readonly<Required<ConnectionManagerConfig>> {
+    return this.config;
   }
 
   /**
@@ -465,13 +507,13 @@ export class WebRTCConnectionManager implements SipClientObserver {
       this.waitForConnectionTimer = setInterval(() => {
         if (this.isDestroyed) {
           this.clearWaitForConnectionTimer();
-          reject(new Error('Connection manager destroyed'));
+          reject(new Error("Connection manager destroyed"));
           return;
         }
 
         if (elapsedTime >= maxWaitTime) {
           this.clearWaitForConnectionTimer();
-          reject(new Error('Connection timeout'));
+          reject(new Error("Connection timeout"));
           return;
         }
 
@@ -499,11 +541,11 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
   private handleConnectionError(error: any): void {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
+
     this.updateConnectionState({
       lastError: errorMessage,
     });
-    
+
     // Trigger reconnection if enabled
     if (this.config.enableAutoReconnect && !this.isReconnecting) {
       this.reconnect();
@@ -523,17 +565,20 @@ export class WebRTCConnectionManager implements SipClientObserver {
    */
   private startIdleMonitoring(): void {
     if (!this.config.enableIdleDisconnect) {
-      console.log('[ConnectionManager] Idle disconnect is disabled');
+      this.logger.info("ConnectionManager", "Idle disconnect is disabled");
       return;
     }
 
     if (this.idleMonitor) {
-      console.warn('[ConnectionManager] Idle monitor already running');
+      this.logger.warn("ConnectionManager", "Idle monitor already running");
       return;
     }
 
-    console.log(`[ConnectionManager] Starting idle monitoring (timeout: ${this.config.idleTimeout}ms)`);
-    
+    this.logger.info(
+      "ConnectionManager",
+      `Starting idle monitoring (timeout: ${this.config.idleTimeout}ms)`
+    );
+
     this.idleMonitor = new IdleActivityMonitor({
       idleTimeout: this.config.idleTimeout,
       onIdle: () => this.handleUserIdle(),
@@ -548,7 +593,7 @@ export class WebRTCConnectionManager implements SipClientObserver {
    */
   private stopIdleMonitoring(): void {
     if (this.idleMonitor) {
-      console.log('[ConnectionManager] Stopping idle monitoring');
+      this.logger.info("ConnectionManager", "Stopping idle monitoring");
       this.idleMonitor.stop();
       this.idleMonitor = null;
     }
@@ -558,12 +603,12 @@ export class WebRTCConnectionManager implements SipClientObserver {
    * Handle user going idle - disconnect to save resources
    */
   private handleUserIdle(): void {
-    console.log('[ConnectionManager] User went idle - disconnecting');
-    
+    this.logger.info("ConnectionManager", "User went idle - disconnecting");
+
     const state = selectConnectionState(store.getState());
     const isConnected = state.sipClientState === SipClientState.CONNECTED;
     if (!isConnected) {
-      console.log('[ConnectionManager] Already disconnected, skipping idle disconnect');
+      this.logger.info("ConnectionManager", "Already disconnected, skipping idle disconnect");
       return;
     }
 
@@ -573,11 +618,11 @@ export class WebRTCConnectionManager implements SipClientObserver {
     this.disconnectedDueToIdle = true;
 
     // Update status before disconnecting
-    this.updateConnectionState({ connectionStatus: 'Disconnected due to inactivity (5 min idle)' });
-    
+    this.updateConnectionState({ connectionStatus: "Disconnected due to inactivity (5 min idle)" });
+
     // Disconnect
-    this.disconnect().catch(error => {
-      console.error('[ConnectionManager] Error during idle disconnect:', error);
+    this.disconnect().catch((error) => {
+      this.logger.error("ConnectionManager", "Error during idle disconnect", error);
       // Clear idle flag on error to maintain consistent state
       this.disconnectedDueToIdle = false;
       store.dispatch(setDisconnectedDueToIdleAt(undefined));
@@ -588,8 +633,8 @@ export class WebRTCConnectionManager implements SipClientObserver {
    * Handle user becoming active - reconnect if was idle-disconnected
    */
   private handleUserActive(): void {
-    console.log('[ConnectionManager] User became active');
-    
+    this.logger.info("ConnectionManager", "User became active");
+
     // Update activity timestamp
     store.dispatch(updateLastActivity());
     store.dispatch(setIdle(false));
@@ -600,26 +645,30 @@ export class WebRTCConnectionManager implements SipClientObserver {
       this.disconnectedDueToIdle = false;
       store.dispatch(setDisconnectedDueToIdleAt(undefined));
       store.dispatch(setAutoReconnectPending(false));
-      
+
       if (this.config.reconnectOnActivity) {
         // Don't start reconnect if already reconnecting or connecting
         const state = selectConnectionState(store.getState());
-        const isConnecting = state.sipClientState === SipClientState.REGISTERING || 
-                            state.sipClientState === SipClientState.CONNECTING || 
-                            state.sipClientState === SipClientState.CONNECTING_P2P;
-        
+        const isConnecting =
+          state.sipClientState === SipClientState.REGISTERING ||
+          state.sipClientState === SipClientState.CONNECTING ||
+          state.sipClientState === SipClientState.CONNECTING_P2P;
+
         if (this.isReconnecting || isConnecting) {
-          console.log('[ConnectionManager] Already reconnecting/connecting, skipping post-idle reconnect');
+          this.logger.info(
+            "ConnectionManager",
+            "Already reconnecting/connecting, skipping post-idle reconnect"
+          );
           return;
         }
-        
-        console.log('[ConnectionManager] Reconnecting after idle period');
-        
+
+        this.logger.info("ConnectionManager", "Reconnecting after idle period");
+
         // Update status and reconnect
-        this.updateConnectionState({ connectionStatus: 'Reconnecting after inactivity...' });
-        
-        this.connect().catch(error => {
-          console.error('[ConnectionManager] Error during post-idle reconnect:', error);
+        this.updateConnectionState({ connectionStatus: "Reconnecting after inactivity..." });
+
+        this.connect().catch((error) => {
+          this.logger.error("ConnectionManager", "Error during post-idle reconnect", error);
         });
       }
     }
