@@ -57,12 +57,15 @@ export interface DokumentResponse {
   fileSize?: number; // File size in bytes
 }
 
-// Interface for querying documents (corresponds to C# DokumenteQuery)
+// Interface for querying documents (corresponds to C# DokumenteQuery + BearbeitungsInfoQuery)
 export interface DokumenteQuery {
   aktId?: number;
   outlookEmailId?: string;
   dokumentArten?: DokumentArt[];
   Count?: number;
+  erstelltAb?: Date;
+  erstelltBis?: Date;
+  erstelltVon?: string;
 }
 
 // Interface for transfer attachment items with document information

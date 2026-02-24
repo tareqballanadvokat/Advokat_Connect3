@@ -1,8 +1,11 @@
 // src/taskpane/components/tabs/shared/WebRTCConnectionStatus.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAppSelector } from '@store/hooks';
 import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting } from '@store/slices/connectionSlice';
 import { getWebRTCConnectionManager } from '../../../services/WebRTCConnectionManager';
+import { getLogger } from '../../../../services/logger';
+
+const logger = getLogger();
 
 interface WebRTCConnectionStatusProps {
   className?: string;
@@ -28,9 +31,24 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
     manager.reconnect(true);
   };
 
-  // Get max reconnect attempts from WebRTC manager config
-  const manager = getWebRTCConnectionManager();
-  const maxReconnectAttempts = manager.getConfig().maxReconnectAttempts;
+
+  useEffect(() => {
+    const suffix = connectionState.reconnectAttempts > 0
+      ? ` (Retry ${connectionState.reconnectAttempts}/${getWebRTCConnectionManager().getConfig().maxReconnectAttempts})`
+      : '';
+    logger.debug(`Connection status: ${connectionState.connectionStatus}${suffix}`, 'WebRTCConnectionStatus');
+  }, [connectionState.connectionStatus, connectionState.reconnectAttempts]);
+
+  const getFriendlyMessage = (): string => {
+    if (connectionState.idleDisconnectedAt) return 'Disconnected (idle)';
+    if (isReady) return 'Connected';
+    if (isConnected) return 'Authenticating...';
+    if (connectionState.lastError ||
+        connectionState.connectionStatus.includes('Failed') ||
+        connectionState.connectionStatus.includes('Error') ||
+        connectionState.connectionStatus.includes('failed')) return 'Connection failed. ';
+    return 'Connecting...';
+  };
 
   // Function to get connection status styling
   const getConnectionStatusStyle = (): React.CSSProperties => {
@@ -93,13 +111,22 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({
     <div className={className} style={getConnectionStatusStyle()}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          {connectionState.connectionStatus}
+          {getFriendlyMessage()}
+          {
+              connectionState.reconnectAttempts > 0 ? (
+                <span style={{ marginLeft: '5px', fontSize: '11px' }}>
+                  Retry (
+                    {connectionState.reconnectAttempts}/
+                    {getWebRTCConnectionManager().getConfig().maxReconnectAttempts}
+                  )
+                </span>
+              ) : (
+                <span>
+                  Cannot retry.
+                </span>
+              )
+          }
           {isReady && <span style={{ color: 'white' }}> ✓</span>}
-          {connectionState.reconnectAttempts > 0 && (
-            <span style={{ marginLeft: '5px', fontSize: '11px' }}>
-              (Retry {connectionState.reconnectAttempts}/{maxReconnectAttempts})
-            </span>
-          )}
         </div>
         
         {showReconnectButton && !isConnecting && (

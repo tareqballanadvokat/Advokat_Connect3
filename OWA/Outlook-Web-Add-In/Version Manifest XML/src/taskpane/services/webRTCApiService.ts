@@ -1129,6 +1129,9 @@ export class WebRTCApiService implements DataChannelObserver {
       query.dokumentArten.forEach((art) => queryParams.append("dokumentArten", art.toString()));
     }
     if (query.Count) queryParams.append("Count", query.Count.toString());
+    if (query.erstelltAb) queryParams.append("erstelltAb", query.erstelltAb.toISOString());
+    if (query.erstelltBis) queryParams.append("erstelltBis", query.erstelltBis.toISOString());
+    if (query.erstelltVon) queryParams.append("erstelltVon", query.erstelltVon);
 
     return this.sendRequest(
       "dokument.getDocuments",
