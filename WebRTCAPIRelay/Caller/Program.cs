@@ -123,7 +123,7 @@ namespace Caller
 
                 //// automatic disconnect
                 //await Task.Delay(100);
-                
+
                 //Console.WriteLine("Disconnecting");
                 //await UserAgent.Disconnect();
 
@@ -133,6 +133,8 @@ namespace Caller
                 //Console.ReadLine();
 
                 //await UserAgent.Connect();
+
+                //// automatic reconnect done
 
                 if (!Running)
                 {

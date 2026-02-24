@@ -46,6 +46,7 @@
         public async Task Disconnect()
         {
             // TODO: Got triggered on disconnect
+            // TODO: Got triggered on connect
             ObjectDisposedException.ThrowIf(this.disposed, this);
 
             // TODO: Threw error cannot access disposed object

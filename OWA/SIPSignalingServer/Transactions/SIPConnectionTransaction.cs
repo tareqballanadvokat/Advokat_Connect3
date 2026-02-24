@@ -75,6 +75,8 @@
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
 
+            this.Params.RemoteParticipant.Name = peerRegistration.SourceParticipant.Name; // removes null as name
+
             this.ServerSideTransactionParams = signalingServerTransactionParams;
 
             this.ConnectionPool = connectionPool;
@@ -226,7 +228,14 @@
             this.AckTimeoutCts.Token.Register(async () => await this.AckTimeout());
 
             // TODO: Task was cancelled Exception
-            await this.ConnectionTask.Task;
+            // DEBUG: try catch is just for debugging
+            //try
+            //{
+                await this.ConnectionTask.Task;
+            //}
+            //catch (TaskCanceledException ex)
+            //{
+            //}
         }
 
         private void CreateConnection()

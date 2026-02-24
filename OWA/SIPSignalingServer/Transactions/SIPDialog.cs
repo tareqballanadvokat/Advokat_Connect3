@@ -280,7 +280,7 @@ namespace SIPSignalingServer.Transactions
             }
 
             // TODO: create overload - pass params directly
-            SIPRegistration? registration = this.Registry.GetRegisteredObject(new SIPRegistration(this.Params));
+            SIPRegistration? registration = this.Registry.GetRegisteredObject(this.Params.ClientParticipant.Name);
             if (registration == null)
             {
                 // not registerd - do not start new connection
@@ -311,7 +311,7 @@ namespace SIPSignalingServer.Transactions
             ISIPConnectionTransaction connectionTransaction = SIPConnectionTransactionFactory.Create(
                 this.SIPScheme,
                 this.Transport,
-                this.Params,
+                this.Params, // TODO: Construct Params for connection here
                 registration,
                 peerRegistration,
                 this.ConnectionPool,

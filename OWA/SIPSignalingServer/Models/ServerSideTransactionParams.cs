@@ -1,4 +1,6 @@
 ﻿using Advokat.WebRTC.Library.SIP.Models;
+using SIPSorcery.SIP;
+using System.Net;
 
 namespace SIPSignalingServer.Models
 {
@@ -35,7 +37,6 @@ namespace SIPSignalingServer.Models
                   callId)
         {
         }
-
 
         // TODO: Check this evaluation
         public bool IsPeer(ServerSideTransactionParams peerParams)
