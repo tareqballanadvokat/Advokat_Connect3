@@ -19,11 +19,23 @@
 
 export class Helper {
   /**
-   * Modern async alternative to blobToString
-   * @param b - The Blob to convert
-   * @returns Promise that resolves to the string representation
+   * Converts WebSocket event.data to a string regardless of its type.
+   * - string  → returned directly (synchronous, no async I/O)
+   * - Blob    → read via Blob.text()  (truly async in Office runtime)
+   * - ArrayBuffer → decoded via TextDecoder (synchronous)
+   *
+   * Handling string data as a resolved Promise (not real async I/O) ensures
+   * that when the server sends two messages in rapid succession, the message
+   * handlers retain their arrival order as microtasks rather than racing as
+   * concurrent Blob reads.
    */
-  async blobToStringAsync(b: Blob): Promise<string> {
+  async blobToStringAsync(b: Blob | string | ArrayBuffer): Promise<string> {
+    if (typeof b === "string") {
+      return b;
+    }
+    if (b instanceof ArrayBuffer) {
+      return new TextDecoder("utf-8").decode(b);
+    }
     return await b.text();
   }
 
