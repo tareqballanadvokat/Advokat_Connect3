@@ -219,7 +219,7 @@ export class WebRTCApiService implements DataChannelObserver {
 
   /**
    * Cleanup service resources
-   * Unsubscribes from DataChannel and clears references
+   * Unsubscribes from DataChannel, rejects all pending requests, and clears references
    */
   cleanup(): void {
     this.logger.debug("Cleaning up service", "WebRTCApiService");
@@ -230,10 +230,23 @@ export class WebRTCApiService implements DataChannelObserver {
       service.unsubscribe(this);
     }
 
+    // Reject all pending requests to prevent hanging promises / memory leaks
+    if (this.pendingRequests.size > 0) {
+      this.logger.warn(
+        `Rejecting ${this.pendingRequests.size} pending request(s) due to connection cleanup`,
+        "WebRTCApiService"
+      );
+      const connectionClosedError = new Error("Connection closed");
+      for (const pendingRequest of Array.from(this.pendingRequests.values())) {
+        this.resetRequestState(pendingRequest);
+        pendingRequest.reject(connectionClosedError);
+      }
+      this.pendingRequests.clear();
+    }
+
     // Clear SIP client reference
     this.sipClient = null;
 
-    // Note: pendingRequests are kept for ongoing requests to complete
     this.logger.debug("Cleanup complete", "WebRTCApiService");
   }
 
@@ -618,15 +631,41 @@ export class WebRTCApiService implements DataChannelObserver {
       this.logger.error("Error response body", "WebRTCApiService", decodedBody);
 
       // Handle authentication/authorization errors
-      // Note: Token is pre-validated before sending, so 401/400 indicates a server-side issue
+      // Silently refresh the token once, patch the Authorization header, then
+      // hand off to the shared retryRequest() mechanism so the retry budget is shared.
       if (actualStatusCode === 401 || actualStatusCode === 400) {
+        if (!pendingRequest.messageType.includes("auth.") && !pendingRequest.authRetryAttempted) {
+          this.logger.info(
+            `Auth error ${actualStatusCode} for ${pendingRequest.messageType} – refreshing token and queuing retry`,
+            "WebRTCApiService"
+          );
+          pendingRequest.authRetryAttempted = true;
+
+          tokenService.handleTokenExpiredOrRevoked()
+            .then((newToken) => {
+              if (newToken && pendingRequest.originalRequest) {
+                pendingRequest.originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+              } else {
+                this.logger.warn(
+                  `Token refresh yielded no token for ${pendingRequest.messageType}, retrying with existing credentials`,
+                  "WebRTCApiService"
+                );
+              }
+              this.retryRequest(pendingRequest);
+            })
+            .catch(() => {
+              // Even if refresh throws, still attempt the shared retry; it will
+              // exhaust the budget and fail cleanly if the server keeps rejecting.
+              this.retryRequest(pendingRequest);
+            });
+          return;
+        }
+
+        // authRetryAttempted already set → auth request or second auth failure → fail permanently
         this.logger.error(
-          `Authentication error ${actualStatusCode} despite pre-validated token`,
+          `Authentication error ${actualStatusCode} for ${pendingRequest.messageType} – no further retries`,
           "WebRTCApiService"
         );
-        this.logger.error(`Request ID: ${pendingRequest.id}`, "WebRTCApiService");
-        this.logger.error(`Message type: ${pendingRequest.messageType}`, "WebRTCApiService");
-
         this.completeRequest(
           pendingRequest,
           undefined,

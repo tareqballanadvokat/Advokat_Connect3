@@ -451,9 +451,27 @@ export class TokenService {
     return authKeywords.some((keyword) => errorMessage.includes(keyword));
   }
 
+  /**
+   * Forces a token refresh when the server rejects a token as revoked or invalid.
+   * Unlike ensureValidToken(), this bypasses the local expiry check and always calls the server.
+   * @returns Promise<string | null> The new decrypted token, or null if refresh failed
+   */
+  async handleTokenExpiredOrRevoked(): Promise<string | null> {
+    this.logger.info(
+      "Token rejected by server (revoked/invalid) – forcing silent token refresh",
+      "TokenService"
+    );
+    const refreshSuccess = await this.refreshToken();
+    if (refreshSuccess) {
+      return await this.getCurrentToken();
+    }
+    this.logger.error("Silent token refresh failed after server rejection", "TokenService");
+    return null;
+  }
+
   // TODO: Add background token refresh service that monitors expiry and refreshes at 75% lifetime (optional)
   // TODO: Implement clock skew detection and compensation (optional)
-  // TODO: Add token revocation support (optional)
+  // TODO: Add token revocation support
   // DONE: Automatic token refresh with refreshToken() and performTokenRefresh()
   // DONE: Token refresh queue preventing simultaneous requests
   // DONE: Retry logic simplified to pre-request validation

@@ -217,8 +217,7 @@ export class Registration {
    */
   private markRegistrationFailed(reason?: string): void {
     this.isRegistered = false;
-    this.transitionTo(RegistrationState.FAILED, reason);
-    this.events.onStateChange?.(this.registrationState);
+    this.transitionTo(RegistrationState.FAILED, reason); // transitionTo already fires onStateChange
   }
 
   /**

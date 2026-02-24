@@ -22,7 +22,6 @@ export interface ConnectionState {
   isIdle: boolean;
   lastActivityTimestamp?: string;
   idleDisconnectedAt?: string;
-  autoReconnectPending: boolean;
 }
 
 const initialState: ConnectionState = {
@@ -30,7 +29,6 @@ const initialState: ConnectionState = {
   connectionStatus: "Disconnected",
   reconnectAttempts: 0,
   isIdle: false,
-  autoReconnectPending: false,
 };
 
 const connectionSlice = createSlice({
@@ -73,13 +71,6 @@ const connectionSlice = createSlice({
 
     setDisconnectedDueToIdleAt: (state, action: PayloadAction<string | undefined>) => {
       state.idleDisconnectedAt = action.payload;
-      if (action.payload) {
-        state.autoReconnectPending = true;
-      }
-    },
-
-    setAutoReconnectPending: (state, action: PayloadAction<boolean>) => {
-      state.autoReconnectPending = action.payload;
     },
 
     sipClientStateChanged: (state, action: PayloadAction<SipClientState>) => {
@@ -88,29 +79,27 @@ const connectionSlice = createSlice({
 
       // Auto-update connectionStatus based on sipClientState
       switch (sipState) {
-        case "DISCONNECTED":
+        case SipClientState.DISCONNECTED:
           state.connectionStatus = "Disconnected";
           break;
-        case "REGISTERING":
+        case SipClientState.REGISTERING:
           state.connectionStatus = "Connecting.";
           break;
-        case "CONNECTING":
+        case SipClientState.CONNECTING:
           state.connectionStatus = "Connecting..";
           break;
-        case "CONNECTING_P2P":
+        case SipClientState.CONNECTING_P2P:
           state.connectionStatus = "Connecting...";
           break;
-        case "CONNECTED":
+        case SipClientState.CONNECTED:
           state.connectionStatus = "Connected";
-          if (!state.lastSuccessfulConnection) {
-            state.lastSuccessfulConnection = new Date().toISOString();
-          }
+          state.lastSuccessfulConnection = new Date().toISOString();
           state.reconnectAttempts = 0;
           break;
-        case "FAILED":
+        case SipClientState.FAILED:
           state.connectionStatus = "Connection failed";
           break;
-        case "FAILED_PERMANENTLY":
+        case SipClientState.FAILED_PERMANENTLY:
           state.connectionStatus = "Connection failed permanently";
           break;
       }
@@ -129,7 +118,6 @@ export const {
   setIdle,
   updateLastActivity,
   setDisconnectedDueToIdleAt,
-  setAutoReconnectPending,
   sipClientStateChanged,
 } = connectionSlice.actions;
 
@@ -140,17 +128,17 @@ export const selectSipClientState = (state: RootState) => state.connection.sipCl
 
 // Derived selectors based on sipClientState (single source of truth)
 export const selectIsConnected = (state: RootState) =>
-  state.connection.sipClientState === "CONNECTED";
+  state.connection.sipClientState === SipClientState.CONNECTED;
 
 export const selectIsConnecting = (state: RootState) => {
   const s = state.connection.sipClientState;
-  return s === "REGISTERING" || s === "CONNECTING" || s === "CONNECTING_P2P";
+  return s === SipClientState.REGISTERING || s === SipClientState.CONNECTING || s === SipClientState.CONNECTING_P2P;
 };
 
-export const selectIsFailed = (state: RootState) => state.connection.sipClientState === "FAILED";
+export const selectIsFailed = (state: RootState) => state.connection.sipClientState === SipClientState.FAILED;
 
 export const selectIsDisconnected = (state: RootState) =>
-  state.connection.sipClientState === "DISCONNECTED";
+  state.connection.sipClientState === SipClientState.DISCONNECTED;
 
 // Network availability (browser online/offline)
 export const selectIsNavigatorOffline = () =>
@@ -161,7 +149,7 @@ export const selectIsNavigatorOnline = () =>
 
 // Cross-slice selector: connection + authentication
 export const selectIsReady = (state: RootState) =>
-  state.connection.sipClientState === "CONNECTED" &&
+  state.connection.sipClientState === SipClientState.CONNECTED &&
   state.auth?.isAuthenticated === true &&
   selectIsNavigatorOnline();
 
@@ -170,7 +158,7 @@ export const selectNotReadyReason = (state: RootState): string => {
   if (!selectIsNavigatorOnline()) {
     return "Network offline";
   }
-  if (state.connection.sipClientState !== "CONNECTED") {
+  if (state.connection.sipClientState !== SipClientState.CONNECTED) {
     return "SIP not connected";
   }
   if (!state.auth?.isAuthenticated) {
