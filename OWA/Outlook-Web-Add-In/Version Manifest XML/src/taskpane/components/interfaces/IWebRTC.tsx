@@ -88,6 +88,8 @@ export interface PendingRequest {
   retryCount?: number;
   /** Original request for retries */
   originalRequest?: WebRTCApiRequest;
+  /** Whether a silent token-refresh retry has already been attempted for this request */
+  authRetryAttempted?: boolean;
   
   // Chunked request tracking
   /** Map of chunk number to chunk info */
