@@ -255,8 +255,12 @@ export class WebRTCConnectionManager implements SipClientObserver {
       this.stopIdleMonitoring();
     }
 
-    // 3. Reset reconnecting flag
-    this.isReconnecting = false;
+    // 3. Reset reconnecting flag only on explicit external disconnects.
+    // When called from within a reconnect cycle (resetReconnectCounter=false), keep the flag
+    // so that handleConnectionError() knows not to schedule a second parallel reconnect.
+    if (resetReconnectCounter) {
+      this.isReconnecting = false;
+    }
 
     // 4. Disconnect and cleanup SipClient
     if (this.sipClient) {
@@ -290,6 +294,12 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
     // 7. Mark as no longer initialized so initialize() can run again
     this.isInitialized = false;
+
+    // 8. Explicitly update Redux to DISCONNECTED.
+    // We unsubscribed from SipClient before calling sipClient.disconnect(), so
+    // SipClient's internal transitionClientState(DISCONNECTED) fires after unsubscribe
+    // and never reaches onSipClientStateChanged - Redux would stay stale otherwise.
+    store.dispatch(sipClientStateChanged(SipClientState.DISCONNECTED));
   }
 
   /**
@@ -489,6 +499,12 @@ export class WebRTCConnectionManager implements SipClientObserver {
       const checkInterval = 500;
       let elapsedTime = 0;
 
+      // Terminal SipClient states where connection can never succeed
+      const terminalStates = [
+        SipClientState.FAILED_PERMANENTLY,
+        SipClientState.DISCONNECTED,
+      ];
+
       // Use setInterval instead of recursive setTimeout
       this.waitForConnectionTimer = setInterval(() => {
         if (elapsedTime >= maxWaitTime) {
@@ -502,8 +518,16 @@ export class WebRTCConnectionManager implements SipClientObserver {
           return;
         }
 
-        // Check if SipClient is in CONNECTED or CONNECTING_P2P state AND both channels are open
         const sipState = this.sipClient.getState();
+
+        // Abort immediately if SipClient reached a terminal state
+        if (terminalStates.includes(sipState)) {
+          this.clearWaitForConnectionTimer();
+          reject(new Error(`Connection failed: SipClient entered terminal state ${sipState}`));
+          return;
+        }
+
+        // Check if SipClient is in CONNECTED or CONNECTING_P2P state AND both channels are open
         const isFullyConnected = !!(
           (sipState === SipClientState.CONNECTED || sipState === SipClientState.CONNECTING_P2P) &&
           WebRTCDataChannelService.getInstance().isReadyForCommunication
