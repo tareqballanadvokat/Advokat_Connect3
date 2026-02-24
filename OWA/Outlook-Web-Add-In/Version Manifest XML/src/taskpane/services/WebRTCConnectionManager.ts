@@ -225,6 +225,14 @@ export class WebRTCConnectionManager implements SipClientObserver {
         }
       }
 
+      // Null the reference so getSipClient() does not return a dead instance,
+      // and so subsequent disconnect() calls skip redundant SipClient cleanup.
+      this.sipClient = null;
+
+      // Clean up the API service - it was initialized with the now-failed SipClient
+      // and is subscribed to DataChannel events it will never receive.
+      webRTCApiService.cleanup();
+
       this.handleConnectionError(error);
       throw error;
     }
@@ -322,7 +330,7 @@ export class WebRTCConnectionManager implements SipClientObserver {
     this.isReconnecting = true;
     this.clearReconnectTimer();
 
-    const attemptNumber = force ? 0 : state.reconnectAttempts + 1;
+    const attemptNumber = force ? 1 : state.reconnectAttempts + 1;
     const delay = this.calculateReconnectDelay(attemptNumber);
 
     // Update attempt counter immediately (before timer) to prevent race conditions
@@ -360,6 +368,17 @@ export class WebRTCConnectionManager implements SipClientObserver {
           // Schedule next attempt (will set isReconnecting again)
           this.reconnect();
         } else {
+          // All attempts exhausted - run a final cleanup to release all resources
+          // (sipClient, webRTCApiService subscription, DataChannels).
+          // resetReconnectCounter=true: reset counter so a future manual call starts clean.
+          // stopIdleMonitor=true: stop monitoring, we are fully giving up.
+          // Must be awaited so the final status message is set AFTER disconnect()
+          // finishes dispatching DISCONNECTED and updating connectionStatus.
+          try {
+            await this.disconnect(true, true);
+          } catch (cleanupError) {
+            this.logger.warn("ConnectionManager", "Error during post-reconnect cleanup", cleanupError);
+          }
           this.updateConnectionState({
             connectionStatus: `Reconnection failed after ${maxAttempts} attempts`,
           });
