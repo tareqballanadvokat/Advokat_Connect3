@@ -1,19 +1,31 @@
 // src/taskpane/components/tabs/email/RegisteredEmails.tsx
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
+import notify from 'devextreme/ui/notify';
 import { DokumentArt, DokumentResponse } from '../../interfaces/IDocument';
 import { getWebRTCConnectionManager } from '../../../services/WebRTCConnectionManager';
-import { useAppSelector } from '../../../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
 import { selectAuthCredentials } from '../../../../store/slices/authSlice';
+import { selectIsReady } from '../../../../store/slices/connectionSlice';
+import { downloadDocumentAsync } from '../../../../store/slices/aktenSlice';
+import {
+  getMimeTypeFromExtension,
+  getFileExtension,
+  createBlobFromBase64,
+  isViewableInBrowser,
+} from '../../../utils/fileHelpers';
 
 
 const RegisteredEmails: React.FC = () => {
+  const dispatch = useAppDispatch();
   const [emails, setEmails] = useState<DokumentResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const credentials = useAppSelector(selectAuthCredentials);
+  const isReady = useAppSelector(selectIsReady);
 
   useEffect(() => {
+    if (!isReady) return;
     (async () => {
       setLoading(true);
       setError(null);
@@ -25,10 +37,9 @@ const RegisteredEmails: React.FC = () => {
         const webRTCApiService = connectionManager.getWebRTCApiService();
         const response = await webRTCApiService.GetDocuments({
           dokumentArten: [DokumentArt.MailEmpfangen, DokumentArt.MailGesendet],
-          erstelltAb,
+          //erstelltAb,
           erstelltVon: credentials?.username,
         });
-
         if (response.statusCode === 200) {
           const data = JSON.parse(response.body || '[]') as DokumentResponse[];
           setEmails(data);
@@ -42,7 +53,59 @@ const RegisteredEmails: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [isReady]);
+
+  const handleOpen = async (doc: DokumentResponse) => {
+    try {
+      notify(`Opening ${doc.betreff ?? 'email'}...`, 'info', 2000);
+      const base64 = await dispatch(downloadDocumentAsync(doc.id)).unwrap();
+      if (!base64) { notify('Empty content', 'warning', 3000); return; }
+
+      const fileName = doc.fileName ?? doc.betreff ?? `email_${doc.id}.eml`;
+      const mimeType = getMimeTypeFromExtension(getFileExtension(fileName));
+      const blob = createBlobFromBase64(base64, mimeType);
+      const url = URL.createObjectURL(blob);
+
+      if (isViewableInBrowser(mimeType)) {
+        const w = window.open(url, '_blank');
+        if (w) { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+        else { fallbackDownload(url, fileName); }
+      } else {
+        fallbackDownload(url, fileName);
+      }
+    } catch (err) {
+      notify('Failed to open email', 'error', 3000);
+      console.error('RegisteredEmails open error:', err);
+    }
+  };
+
+  const fallbackDownload = (url: string, fileName: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const typeCell = (data: { data: DokumentResponse }) => {
+    const art = data.data.dokumentArt;
+    const isSent = art === DokumentArt.MailGesendet || art === 'MailGesendet';
+    return <span>{isSent ? 'Sent' : 'Received'}</span>;
+  };
+
+  const openCell = (data: { data: DokumentResponse }) => (
+    <button
+      onClick={() => handleOpen(data.data)}
+      style={{
+        background: 'none', border: 'none', color: '#0078d4',
+        cursor: 'pointer', fontSize: '12px', padding: 0,
+      }}
+    >
+      Open
+    </button>
+  );
 
   return (
     <div style={{ marginTop: 24 }}>
@@ -63,30 +126,10 @@ const RegisteredEmails: React.FC = () => {
         height={250}
       >
         <Paging defaultPageSize={7} />
-        <Pager
-          visible
-          showPageSizeSelector={false}
-          allowedPageSizes={[7]}
-          showInfo
-        />
-        <Column
-          dataField="id"
-          caption="Id"
-          dataType="number"
-          width={60}
-        />
-        <Column
-          dataField="datum"
-          caption="Date"
-          dataType="date"
-          format="yyyy-MM-dd"
-          alignment="left"
-        />
-        <Column
-          dataField="betreff"
-          caption="Subject"
-          alignment="left"
-        />
+        <Pager visible showPageSizeSelector={false} allowedPageSizes={[7]} showInfo />
+        <Column dataField="betreff" caption="Subject" alignment="left" />
+        <Column caption="Type" cellRender={typeCell} width={80} alignment="left" />
+        <Column caption="" cellRender={openCell} width={50} alignment="center" />
       </DataGrid>
     </div>
   );

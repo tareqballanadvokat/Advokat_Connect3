@@ -14,6 +14,7 @@ import {
   LeistungenQuery,
 } from "../components/interfaces/IService";
 import {
+  DokumentArt,
   DokumentPostData,
   DokumenteQuery,
   DokumentResponse,
@@ -40,6 +41,7 @@ import {
  * Leverages existing SIP_Library for WebRTC connection management
  * Relies on SCTP for reliable delivery (built into WebRTC DataChannels)
  */
+
 export class WebRTCApiService implements DataChannelObserver {
   private sipClient: SipClientInstance | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map();
@@ -1123,16 +1125,16 @@ export class WebRTCApiService implements DataChannelObserver {
   async GetDocuments(query: DokumenteQuery) {
     const queryParams = new URLSearchParams();
 
-    if (query.aktId) queryParams.append("aktId", query.aktId.toString());
-    if (query.outlookEmailId) queryParams.append("outlookEmailId", query.outlookEmailId);
+    if (query.aktId) queryParams.append("AktId", query.aktId.toString());
+    if (query.outlookEmailId) queryParams.append("OutlookEmailId", query.outlookEmailId);
     if (query.dokumentArten && query.dokumentArten.length > 0) {
-      query.dokumentArten.forEach((art) => queryParams.append("dokumentArten", art.toString()));
+      query.dokumentArten.forEach((art) => queryParams.append("DokumentArten", DokumentArt[art]));
     }
     if (query.Count) queryParams.append("Count", query.Count.toString());
-    if (query.erstelltAb) queryParams.append("erstelltAb", query.erstelltAb.toISOString());
-    if (query.erstelltBis) queryParams.append("erstelltBis", query.erstelltBis.toISOString());
-    if (query.erstelltVon) queryParams.append("erstelltVon", query.erstelltVon);
-
+    if (query.erstelltAb) queryParams.append("ErstelltAb", query.erstelltAb.toISOString());
+    if (query.erstelltBis) queryParams.append("ErstelltBis", query.erstelltBis.toISOString());
+    if (query.erstelltVon) queryParams.append("ErstelltVon", query.erstelltVon);
+    this.logger.debug(`GetDocuments URL params: ${queryParams.toString()}`, "WebRTCApiService");
     return this.sendRequest(
       "dokument.getDocuments",
       "GET",
