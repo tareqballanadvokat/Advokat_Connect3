@@ -801,7 +801,16 @@ export class WebRTCApiService implements DataChannelObserver {
     if (!messageType.includes("auth.")) {
       validToken = await tokenService.ensureValidToken();
       if (!validToken) {
-        throw new Error("No valid token available. Please authenticate.");
+        // Token absent or expired — attempt a silent refresh before giving up
+        this.logger.info(
+          `No token available for ${messageType}, attempting silent refresh`,
+          "WebRTCApiService"
+        );
+        validToken = await tokenService.handleTokenExpiredOrRevoked().catch(() => null);
+        if (!validToken) {
+          throw new Error("No valid token available. Please authenticate.");
+        }
+        this.logger.info(`Silent refresh succeeded for ${messageType}`, "WebRTCApiService");
       }
       // Token will be passed to createRequestHeaders
     }

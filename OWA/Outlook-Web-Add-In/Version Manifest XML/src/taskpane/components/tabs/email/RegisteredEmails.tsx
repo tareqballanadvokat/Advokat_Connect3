@@ -43,6 +43,8 @@ const RegisteredEmails: React.FC = () => {
         if (response.statusCode === 200) {
           const data = JSON.parse(response.body || '[]') as DokumentResponse[];
           setEmails(data);
+        } else if (response.statusCode === 404) {
+          setError('No registered e-mails found.');
         } else {
           setError('Failed to load registered e-mails.');
         }
@@ -65,21 +67,17 @@ const RegisteredEmails: React.FC = () => {
       const mimeType = getMimeTypeFromExtension(getFileExtension(fileName));
       const blob = createBlobFromBase64(base64, mimeType);
       const url = URL.createObjectURL(blob);
-
-      if (isViewableInBrowser(mimeType)) {
-        const w = window.open(url, '_blank');
-        if (w) { setTimeout(() => URL.revokeObjectURL(url), 1000); }
-        else { fallbackDownload(url, fileName); }
-      } else {
-        fallbackDownload(url, fileName);
-      }
+      DownloadFile(url, fileName);
     } catch (err) {
-      notify('Failed to open email', 'error', 3000);
+      const msg = err.message.includes('404')
+        ? 'Document not found. It may have been deleted.'
+        : 'Failed to open email.';
+      notify(msg, 'error', 3000);
       console.error('RegisteredEmails open error:', err);
     }
   };
 
-  const fallbackDownload = (url: string, fileName: string) => {
+  const DownloadFile = (url: string, fileName: string) => {
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
