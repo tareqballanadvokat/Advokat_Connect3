@@ -19,7 +19,6 @@ export class IdleActivityMonitor {
   private lastActivityTime: number = Date.now();
   private isCurrentlyIdle: boolean = false;
   private isMonitoring: boolean = false;
-  private throttleTimer: NodeJS.Timeout | null = null;
   private lastThrottleTime: number = 0;
   private logger = getLogger();
 
@@ -80,7 +79,6 @@ export class IdleActivityMonitor {
 
     // Clear timers
     this.clearIdleTimer();
-    this.clearThrottleTimer();
   }
 
   /**
@@ -228,16 +226,6 @@ export class IdleActivityMonitor {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
-    }
-  }
-
-  /**
-   * Clear throttle timer
-   */
-  private clearThrottleTimer(): void {
-    if (this.throttleTimer) {
-      clearTimeout(this.throttleTimer);
-      this.throttleTimer = null;
     }
   }
 }

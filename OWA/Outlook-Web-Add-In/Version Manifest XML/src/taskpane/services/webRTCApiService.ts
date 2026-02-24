@@ -219,7 +219,7 @@ export class WebRTCApiService implements DataChannelObserver {
 
   /**
    * Cleanup service resources
-   * Unsubscribes from DataChannel and clears references
+   * Unsubscribes from DataChannel, rejects all pending requests, and clears references
    */
   cleanup(): void {
     this.logger.debug("Cleaning up service", "WebRTCApiService");
@@ -230,10 +230,23 @@ export class WebRTCApiService implements DataChannelObserver {
       service.unsubscribe(this);
     }
 
+    // Reject all pending requests to prevent hanging promises / memory leaks
+    if (this.pendingRequests.size > 0) {
+      this.logger.warn(
+        `Rejecting ${this.pendingRequests.size} pending request(s) due to connection cleanup`,
+        "WebRTCApiService"
+      );
+      const connectionClosedError = new Error("Connection closed");
+      for (const pendingRequest of Array.from(this.pendingRequests.values())) {
+        this.resetRequestState(pendingRequest);
+        pendingRequest.reject(connectionClosedError);
+      }
+      this.pendingRequests.clear();
+    }
+
     // Clear SIP client reference
     this.sipClient = null;
 
-    // Note: pendingRequests are kept for ongoing requests to complete
     this.logger.debug("Cleanup complete", "WebRTCApiService");
   }
 
