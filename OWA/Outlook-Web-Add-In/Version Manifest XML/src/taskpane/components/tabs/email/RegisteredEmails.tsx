@@ -31,13 +31,13 @@ const RegisteredEmails: React.FC = () => {
       setError(null);
       try {
         const erstelltAb = new Date();
-        erstelltAb.setDate(erstelltAb.getDate() - 7);
+        erstelltAb.setDate(erstelltAb.getDate() - 40);
 
         const connectionManager = getWebRTCConnectionManager();
         const webRTCApiService = connectionManager.getWebRTCApiService();
         const response = await webRTCApiService.GetDocuments({
           dokumentArten: [DokumentArt.MailEmpfangen, DokumentArt.MailGesendet],
-          //erstelltAb,
+          erstelltAb,
           erstelltVon: credentials?.username,
         });
         if (response.statusCode === 200) {
@@ -125,9 +125,9 @@ const RegisteredEmails: React.FC = () => {
       >
         <Paging defaultPageSize={7} />
         <Pager visible showPageSizeSelector={false} allowedPageSizes={[7]} showInfo />
-        <Column dataField="betreff" caption="Subject" alignment="left" />
         <Column caption="Type" cellRender={typeCell} width={80} alignment="left" />
         <Column caption="" cellRender={openCell} width={50} alignment="center" />
+        <Column dataField="betreff" caption="Subject" alignment="left" />
       </DataGrid>
     </div>
   );

@@ -635,7 +635,7 @@ export class WebRTCApiService implements DataChannelObserver {
       // Handle authentication/authorization errors
       // Silently refresh the token once, patch the Authorization header, then
       // hand off to the shared retryRequest() mechanism so the retry budget is shared.
-      if (actualStatusCode === 401 || actualStatusCode === 400) {
+      if (actualStatusCode === 401) {
         if (!pendingRequest.messageType.includes("auth.") && !pendingRequest.authRetryAttempted) {
           this.logger.info(
             `Auth error ${actualStatusCode} for ${pendingRequest.messageType} – refreshing token and queuing retry`,
@@ -681,7 +681,7 @@ export class WebRTCApiService implements DataChannelObserver {
       // For certain error codes, we want to retry (temporary errors)
       // For others, we want to fail immediately (permanent errors)
       const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
-      const permanentErrors = [403, 404, 422]; // Forbidden, not found, validation errors
+      const permanentErrors = [400, 403, 404, 422]; // Bad request, forbidden, not found, validation errors
 
       if (retryableErrors.includes(actualStatusCode)) {
         this.logger.info(
@@ -1128,6 +1128,16 @@ export class WebRTCApiService implements DataChannelObserver {
   }
 
   /**
+   * Format a Date as local ISO string without timezone offset: YYYY-MM-DDTHH:mm:ss.SS
+   * The backend expects local time in this format (no trailing Z).
+   */
+  private toLocalISOString(d: Date): string {
+    const p = (n: number, len = 2) => String(n).padStart(len, "0");
+    const ms2 = p(Math.floor(d.getMilliseconds() / 10)); // 2-digit fractional seconds
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${ms2}`;
+  }
+
+  /**
    * Get documents via WebRTC with flexible query parameters
    * @param query - Query parameters including aktId, outlookEmailId, dokumentArten, and limit
    */
@@ -1140,14 +1150,15 @@ export class WebRTCApiService implements DataChannelObserver {
       query.dokumentArten.forEach((art) => queryParams.append("DokumentArten", DokumentArt[art]));
     }
     if (query.Count) queryParams.append("Count", query.Count.toString());
-    if (query.erstelltAb) queryParams.append("ErstelltAb", query.erstelltAb.toISOString());
-    if (query.erstelltBis) queryParams.append("ErstelltBis", query.erstelltBis.toISOString());
     if (query.erstelltVon) queryParams.append("ErstelltVon", query.erstelltVon);
-    this.logger.debug(`GetDocuments URL params: ${queryParams.toString()}`, "WebRTCApiService");
+
+    let url = `api/v2.0/dokumente?${queryParams.toString()}`;
+    if (query.erstelltAb) url += `&ErstelltAb=${this.toLocalISOString(query.erstelltAb)}`;
+    if (query.erstelltBis) url += `&ErstelltBis=${this.toLocalISOString(query.erstelltBis)}`;
     return this.sendRequest(
       "dokument.getDocuments",
       "GET",
-      `api/v2.0/dokumente?${queryParams.toString()}`,
+      url,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
