@@ -138,6 +138,11 @@ export class WebRTCApiService implements DataChannelObserver {
   ): Record<string, string> {
     const requestHeaders = { ...baseHeaders };
 
+    const contentType = requestHeaders["Content-Type"];
+    if (contentType && !contentType.includes("charset") && !contentType.includes("octet-stream")) {
+      requestHeaders["Content-Type"] = `${contentType}; charset=utf-8`;
+    }
+    
     // Add Authorization header for all non-authentication requests
     if (!messageType.includes("auth.") && token) {
       // Log token validation details in development
