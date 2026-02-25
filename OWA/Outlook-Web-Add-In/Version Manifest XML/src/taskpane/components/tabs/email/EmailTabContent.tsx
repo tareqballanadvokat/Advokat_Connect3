@@ -8,7 +8,7 @@ import RegisteredEmails from './RegisteredEmails';
 import ServiceSection from '../shared/ServiceSection';
 import { getEmailAttachmentData, getEmailContentAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import TransferAndAttachment from './TransferAndAttachment';
-import { TransferAttachmentItem, DokumentPostData, DokumentArt } from '@components/interfaces/IDocument';
+import { TransferAttachmentItem, DokumentPostData, DokumentArt, DokumentResponse } from '@components/interfaces/IDocument';
 import { getDokumentArt } from '@components/interfaces/IEmail';
 import { AktLookUpResponse } from '@components/interfaces/IAkten';
 import { LeistungPostData } from '@components/interfaces/IService';
@@ -207,9 +207,24 @@ const EmailTabContent: React.FC = () => {
         };
         
         // Save email document via WebRTC using Redux thunk
-        await dispatch(saveDokumentAsync(emailDokument)).unwrap();
+        const savedEmailResponse = await dispatch(saveDokumentAsync(emailDokument)).unwrap();
         logger.info('Email document saved successfully', 'EmailTabContent');
         notify('Email saved successfully', 'success', 3000);
+        console.log('Saved email document response:', savedEmailResponse);
+        // Build a partial DokumentResponse so RegisteredEmails can update its cache immediately
+        // Use the real ID returned by CreateAsync so the user can download immediately
+        const returnedId = savedEmailResponse?.body ? parseInt(savedEmailResponse.body, 10) : NaN;
+        const now = new Date();
+        const optimisticEntry: DokumentResponse = {
+          id: !isNaN(returnedId) ? returnedId : -Date.now(), // Real server ID when available
+          betreff: emailDokument.betreff,
+          dokumentArt: emailDokument.dokumentArt,
+          mailAdresse: emailDokument.mailAdresse,
+          datum: emailDokument.empfangenAm ?? now,
+          bearbeitungsInfoErstelltAm: now,
+          anzahlMailAnhänge: emailDokument.anzahlMailAnhänge,
+          outlookEmailId: emailDokument.outlookEmailId,
+        };
       }
       else {
         logger.debug('No email selected, skipping Email save', 'EmailTabContent');
@@ -249,7 +264,7 @@ const EmailTabContent: React.FC = () => {
               outlookEmailId: messageId,
               anzahlMailAnhänge: 0, // This is an attachment, not an email with attachments
               dateiName: attachment.name,
-              ordnerName: getFolderName(attachment)
+              ordnerName: getFolderName(attachment),
             };
             
             // Save attachment document via WebRTC using Redux thunk

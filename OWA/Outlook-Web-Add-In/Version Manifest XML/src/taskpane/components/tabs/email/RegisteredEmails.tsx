@@ -23,6 +23,7 @@ const RegisteredEmails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const credentials = useAppSelector(selectAuthCredentials);
   const isReady = useAppSelector(selectIsReady);
+  const saveCount = useAppSelector(state => state.email.saveCount);
 
   useEffect(() => {
     if (!isReady) return;
@@ -42,6 +43,12 @@ const RegisteredEmails: React.FC = () => {
         });
         if (response.statusCode === 200) {
           const data = JSON.parse(response.body || '[]') as DokumentResponse[];
+          // Sort descending by date (most recent first)
+          data.sort((a, b) => {
+            const da = a.datum ? new Date(a.datum).getTime() : 0;
+            const db = b.datum ? new Date(b.datum).getTime() : 0;
+            return db - da;
+          });
           setEmails(data);
         } else if (response.statusCode === 404) {
           setError('No registered e-mails found.');
@@ -55,7 +62,7 @@ const RegisteredEmails: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, [isReady]);
+  }, [isReady, saveCount]);
 
   const handleOpen = async (doc: DokumentResponse) => {
     try {

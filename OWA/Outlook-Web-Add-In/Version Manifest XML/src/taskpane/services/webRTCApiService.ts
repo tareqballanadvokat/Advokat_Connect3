@@ -2,10 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { AktenQuery } from "../components/interfaces/IAkten";
 import {
-  WebRTCApiRequest,
   WebRTCApiResponse,
   PendingRequest,
-  ChunkInfo,
   ReceivedResponseChunk,
 } from "../components/interfaces/IWebRTC";
 import {
@@ -17,7 +15,6 @@ import {
   DokumentArt,
   DokumentPostData,
   DokumenteQuery,
-  DokumentResponse,
 } from "../components/interfaces/IDocument";
 import { PersonenQuery } from "../components/interfaces/IPerson";
 import { IAuthRequest, IAuthResponse } from "../components/interfaces/IAuth";
@@ -25,6 +22,7 @@ import { SipClientInstance } from "../components/SIP_Library/SipClient";
 import { tokenService } from "./TokenService";
 import { WebRTCDataChannelService, DataChannelObserver } from "./WebRTCDataChannelService";
 import { getLogger } from "../../services/logger";
+import { store } from "../../store";
 import {
   createProtocolRequest,
   chunkRequest,
@@ -1097,8 +1095,14 @@ export class WebRTCApiService implements DataChannelObserver {
    * @param dokumentData - Data for the new document
    */
   async saveDokument(dokumentData: DokumentPostData) {
-    // The generic sendRequest method now handles all chunking automatically
-    // No need for document-specific chunking logic
+    // Inject sachbearbeiterKürzel and vonSachbearbeiterKürzel from logged-in user if not provided
+    const kürzel = store.getState().auth.credentials.username || undefined;
+    const enriched: DokumentPostData = {
+      ...dokumentData,
+      sachbearbeiterKürzel: dokumentData.sachbearbeiterKürzel ?? kürzel,
+      vonSachbearbeiterKürzel: dokumentData.vonSachbearbeiterKürzel ?? kürzel,
+    };
+    console.log("Enriched dokument data with user kürzel:", enriched);
     return this.sendRequest(
       "dokument.saveDokument",
       "POST",
@@ -1107,7 +1111,7 @@ export class WebRTCApiService implements DataChannelObserver {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      dokumentData
+      enriched
     );
   }
 
