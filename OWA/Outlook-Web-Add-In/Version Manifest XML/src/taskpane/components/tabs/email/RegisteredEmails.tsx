@@ -63,7 +63,23 @@ const RegisteredEmails: React.FC = () => {
       const base64 = await dispatch(downloadDocumentAsync(doc.id)).unwrap();
       if (!base64) { notify('Empty content', 'warning', 3000); return; }
 
-      const fileName = doc.fileName ?? doc.betreff ?? `email_${doc.id}.eml`;
+      // Resolve a filename with extension:
+      // 1. Use doc.fileName if available
+      // 2. Extract the filename from the server-side dateipfad (e.g. "C:\...\file.eml")
+      // 3. Fall back to subject + .eml for emails
+      let fileName = doc.fileName ?? '';
+      if (!getFileExtension(fileName) && doc.dateipfad) {
+        const parts = doc.dateipfad.replace(/\\/g, '/').split('/');
+        const last = parts[parts.length - 1];
+        if (last && getFileExtension(last)) fileName = last;
+      }
+      if (!getFileExtension(fileName)) {
+        const isEmail = doc.dokumentArt === DokumentArt.MailEmpfangen ||
+                        doc.dokumentArt === DokumentArt.MailGesendet ||
+                        doc.dokumentArt === 'MailEmpfangen' ||
+                        doc.dokumentArt === 'MailGesendet';
+        fileName = `${doc.betreff ?? `email_${doc.id}`}${isEmail ? '.eml' : ''}`;
+      }
       const mimeType = getMimeTypeFromExtension(getFileExtension(fileName));
       const blob = createBlobFromBase64(base64, mimeType);
       const url = URL.createObjectURL(blob);
