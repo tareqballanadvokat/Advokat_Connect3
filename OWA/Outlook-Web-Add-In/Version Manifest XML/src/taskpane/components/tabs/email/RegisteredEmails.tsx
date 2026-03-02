@@ -32,7 +32,7 @@ const RegisteredEmails: React.FC = () => {
       setError(null);
       try {
         const erstelltAb = new Date();
-        erstelltAb.setDate(erstelltAb.getDate() - 40);
+        erstelltAb.setDate(erstelltAb.getDate() - 7);
 
         const connectionManager = getWebRTCConnectionManager();
         const webRTCApiService = connectionManager.getWebRTCApiService();

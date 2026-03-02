@@ -23,6 +23,7 @@ const TransferAndAttachment: React.FC = () => {
     emailDocumentsLoadedForAktId,
     selectedAkt 
   } = useSelector((state: RootState) => state.akten);
+  const attachmentSelected = useSelector((state: RootState) => state.email.attachmentSelected);
   
   const [items, setItems] = useState<TransferAttachmentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -264,6 +265,23 @@ const TransferAndAttachment: React.FC = () => {
       }
     })();
   }, [selectedAkt?.id, emailDocumentsLoadedForAktId, emailDocuments]);
+
+  // Sync disabled/readonly state from Redux back to local items.
+  // Fires when EmailTabContent marks transferred items as disabled after a successful save.
+  useEffect(() => {
+    setItems(prev => {
+      let changed = false;
+      const next = prev.map(item => {
+        const reduxItem = attachmentSelected.find(i => i.id === item.id);
+        if (reduxItem?.disabled && !item.disabled) {
+          changed = true;
+          return { ...item, disabled: true, readonly: true, checked: true };
+        }
+        return item;
+      });
+      return changed ? next : prev;
+    });
+  }, [attachmentSelected]);
 
   if (loading) return <div>Loading…</div>;
   if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;

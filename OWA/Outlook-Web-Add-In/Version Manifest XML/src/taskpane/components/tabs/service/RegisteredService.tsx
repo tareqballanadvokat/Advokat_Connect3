@@ -45,7 +45,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
       setError(null);
       try {
         const erstelltAb = new Date();
-        erstelltAb.setDate(erstelltAb.getDate() - 40);
+        erstelltAb.setDate(erstelltAb.getDate() - 7);
 
         const connectionManager = getWebRTCConnectionManager();
         const webRTCApiService = connectionManager.getWebRTCApiService();
@@ -89,7 +89,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
   return (
     <div style={{ marginTop: 24 }}>
       <h3 style={{ alignItems: 'baseline', gap: 8 }}>
-        Registered Services (last 40 days)
+        Registered Services (last 7 days)
       </h3>
       {error && <p style={{ color: 'red' }}>{error}</p>}
 

@@ -23,7 +23,7 @@ const logger = getLogger();
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { setSelectedAkt, clearFolders, clearEmailDocuments } from '@store/slices/aktenSlice';
-import { saveDokumentAsync } from '@store/slices/emailSlice';
+import { saveDokumentAsync, setAttachmentSelected } from '@store/slices/emailSlice';
 import { saveLeistungAsync, resetLoadCounter } from '@store/slices/serviceSlice';
 
 const EmailTabContent: React.FC = () => {
@@ -288,6 +288,23 @@ const EmailTabContent: React.FC = () => {
         notify(`${itemCount} document(s) transferred successfully to case ${selectedCaseName}`, 'success', 4000);
       }
 
+      // Mark all successfully transferred items as disabled/readonly in Redux
+      // so the UI deactivates their checkboxes and folder selectors immediately
+      const transferredIds = new Set<string>();
+      if (firstE) transferredIds.add(firstE.id);
+      selectedAttachments.forEach(a => transferredIds.add(a.id));
+
+      if (transferredIds.size > 0) {
+        dispatch(setAttachmentSelected(
+          attachmentSelected.map(i =>
+            transferredIds.has(i.id) ? { ...i, disabled: true, readonly: true, checked: true } : i
+          )
+        ));
+        // Force TransferAndAttachment to re-fetch documents on next render so that
+        // when the user navigates away and back the saved items are still shown as disabled.
+        dispatch(clearEmailDocuments());
+      }
+
     } catch (error) {
       logger.error('Failed to transfer:', 'EmailTabContent', error);
       notify('Failed to transfer to ADVOKAT', 'error', 5000);
@@ -316,7 +333,7 @@ const EmailTabContent: React.FC = () => {
       <EmailSend
         caseId={selectedCaseName}
         onTransfer={sendEmailHandler}
-        transferBtnDisable={!selectedAkt || attachmentSelected.length === 0}
+        transferBtnDisable={!selectedAkt || !attachmentSelected.some(i => i.checked && !i.disabled)}
         transferLoading={transferLoading}
       />
 
