@@ -17,6 +17,7 @@ export interface DokumentPostData {
   memo?: string;
   inhalt: string; // Base64 encoded content (byte[] in C# becomes string in TypeScript)
   sachbearbeiterKürzel?: string;
+  vonSachbearbeiterKürzel?: string;
   dokumentArt: DokumentArt;
   outlookEmailId?: string; // Changed from outlookId to match server expectation
   anzahlMailAnhänge: number;
@@ -57,12 +58,15 @@ export interface DokumentResponse {
   fileSize?: number; // File size in bytes
 }
 
-// Interface for querying documents (corresponds to C# DokumenteQuery)
+// Interface for querying documents (corresponds to C# DokumenteQuery + BearbeitungsInfoQuery)
 export interface DokumenteQuery {
   aktId?: number;
   outlookEmailId?: string;
   dokumentArten?: DokumentArt[];
   Count?: number;
+  erstelltAb?: Date;
+  erstelltBis?: Date;
+  erstelltVon?: string;
 }
 
 // Interface for transfer attachment items with document information

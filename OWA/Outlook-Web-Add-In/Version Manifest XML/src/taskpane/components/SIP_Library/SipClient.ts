@@ -616,11 +616,13 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         webrtcRetryCount++;
         logWithPrefix(`🔄 Retrying WebRTC (attempt ${webrtcRetryCount}/${maxRetries})`);
 
+        // Save offer params BEFORE reset (reset clears them)
+        const lastOfferParams = peer2PeerConnectionObject.getLastOfferParams();
+
         // Only reset Peer2Peer, keep connection phase intact
         peer2PeerConnectionObject.reset();
 
         // Resend the offer using saved parameters
-        const lastOfferParams = peer2PeerConnectionObject.getLastOfferParams();
         if (lastOfferParams) {
           const { callId, sipUri, tag, toLine } = lastOfferParams;
           peer2PeerConnectionObject.createOffer(callId, sipUri, tag, toLine);
@@ -863,14 +865,27 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         }
         case SipClientState.CONNECTING_P2P:
           // Route to WebRTC phase
-          if (peer2PeerConnectionObject.isOfferSent && REGEX_SERVICE.test(data)) {
+          // Process SERVICE messages regardless of isOfferSent flag
+          // (answer might arrive after RECEIVE_TIMEOUT cleared the flag)
+          logWithPrefix(`📨 Message received in CONNECTING_P2P state (length: ${data.length})`);
+          
+          if (REGEX_SERVICE.test(data)) {
             const cseqMatch = data.match(REGEX_CSEQ);
             const cseq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
+            logWithPrefix(`📋 SERVICE message detected with CSeq: ${cseq}`);
 
             if (cseq === 2) {
-              logWithPrefix("📥 Received SERVICE answer (CSeq: 2) - processing");
+              logWithPrefix("📥 Received SERVICE answer (CSeq: 2) - calling parseIncomingAnswer");
               await peer2PeerConnectionObject.parseIncomingAnswer(data);
+              logWithPrefix("✅ parseIncomingAnswer completed");
+            } else if (cseq === 1) {
+              logWithPrefix(`⚠️ Ignoring SERVICE with CSeq: 1 (we are client, not server)`);
+            } else {
+              logWithPrefix(`⚠️ Unexpected SERVICE CSeq: ${cseq} - ignoring`);
             }
+          } else {
+            const preview = data.substring(0, 100).replace(/\r\n/g, ' ');
+            logWithPrefix(`⚠️ Non-SERVICE message in CONNECTING_P2P: ${preview}`);
           }
           break;
 

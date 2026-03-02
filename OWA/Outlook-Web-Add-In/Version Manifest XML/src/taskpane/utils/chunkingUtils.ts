@@ -73,10 +73,15 @@ export function createProtocolRequest(
     logger.debug("chunkingUtils", "Original request body", bodyString);
     // Base64 encode the body for POST requests
     if (method.toUpperCase() === "POST") {
-      processedBody = btoa(bodyString); // Base64 encode for POST requests
+      // Use UTF-8 safe base64 encoding (btoa() only handles Latin-1,
+      // so non-ASCII characters like German umlauts would be mis-encoded)
+      const utf8Bytes = new TextEncoder().encode(bodyString);
+      let binary = "";
+      for (let i = 0; i < utf8Bytes.length; i++) binary += String.fromCharCode(utf8Bytes[i]);
+      processedBody = btoa(binary);
       logger.debug(
         "chunkingUtils",
-        `POST request body base64 encoded (length: original=${bodyString.length}, encoded=${processedBody.length})`
+        `POST request body base64 encoded (UTF-8 safe) (length: original=${bodyString.length}, encoded=${processedBody.length})`
       );
     } else {
       processedBody = bodyString;

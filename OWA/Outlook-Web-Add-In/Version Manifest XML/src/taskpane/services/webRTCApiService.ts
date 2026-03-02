@@ -2,10 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { AktenQuery } from "../components/interfaces/IAkten";
 import {
-  WebRTCApiRequest,
   WebRTCApiResponse,
   PendingRequest,
-  ChunkInfo,
   ReceivedResponseChunk,
 } from "../components/interfaces/IWebRTC";
 import {
@@ -14,9 +12,9 @@ import {
   LeistungenQuery,
 } from "../components/interfaces/IService";
 import {
+  DokumentArt,
   DokumentPostData,
   DokumenteQuery,
-  DokumentResponse,
 } from "../components/interfaces/IDocument";
 import { PersonenQuery } from "../components/interfaces/IPerson";
 import { IAuthRequest, IAuthResponse } from "../components/interfaces/IAuth";
@@ -24,6 +22,7 @@ import { SipClientInstance } from "../components/SIP_Library/SipClient";
 import { tokenService } from "./TokenService";
 import { WebRTCDataChannelService, DataChannelObserver } from "./WebRTCDataChannelService";
 import { getLogger } from "../../services/logger";
+import { store } from "../../store";
 import {
   createProtocolRequest,
   chunkRequest,
@@ -40,6 +39,7 @@ import {
  * Leverages existing SIP_Library for WebRTC connection management
  * Relies on SCTP for reliable delivery (built into WebRTC DataChannels)
  */
+
 export class WebRTCApiService implements DataChannelObserver {
   private sipClient: SipClientInstance | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map();
@@ -138,6 +138,11 @@ export class WebRTCApiService implements DataChannelObserver {
   ): Record<string, string> {
     const requestHeaders = { ...baseHeaders };
 
+    const contentType = requestHeaders["Content-Type"];
+    if (contentType && !contentType.includes("charset") && !contentType.includes("octet-stream")) {
+      requestHeaders["Content-Type"] = `${contentType}; charset=utf-8`;
+    }
+    
     // Add Authorization header for all non-authentication requests
     if (!messageType.includes("auth.") && token) {
       // Log token validation details in development
@@ -219,7 +224,7 @@ export class WebRTCApiService implements DataChannelObserver {
 
   /**
    * Cleanup service resources
-   * Unsubscribes from DataChannel and clears references
+   * Unsubscribes from DataChannel, rejects all pending requests, and clears references
    */
   cleanup(): void {
     this.logger.debug("Cleaning up service", "WebRTCApiService");
@@ -230,10 +235,23 @@ export class WebRTCApiService implements DataChannelObserver {
       service.unsubscribe(this);
     }
 
+    // Reject all pending requests to prevent hanging promises / memory leaks
+    if (this.pendingRequests.size > 0) {
+      this.logger.warn(
+        `Rejecting ${this.pendingRequests.size} pending request(s) due to connection cleanup`,
+        "WebRTCApiService"
+      );
+      const connectionClosedError = new Error("Connection closed");
+      for (const pendingRequest of Array.from(this.pendingRequests.values())) {
+        this.resetRequestState(pendingRequest);
+        pendingRequest.reject(connectionClosedError);
+      }
+      this.pendingRequests.clear();
+    }
+
     // Clear SIP client reference
     this.sipClient = null;
 
-    // Note: pendingRequests are kept for ongoing requests to complete
     this.logger.debug("Cleanup complete", "WebRTCApiService");
   }
 
@@ -618,15 +636,41 @@ export class WebRTCApiService implements DataChannelObserver {
       this.logger.error("Error response body", "WebRTCApiService", decodedBody);
 
       // Handle authentication/authorization errors
-      // Note: Token is pre-validated before sending, so 401/400 indicates a server-side issue
-      if (actualStatusCode === 401 || actualStatusCode === 400) {
+      // Silently refresh the token once, patch the Authorization header, then
+      // hand off to the shared retryRequest() mechanism so the retry budget is shared.
+      if (actualStatusCode === 401) {
+        if (!pendingRequest.messageType.includes("auth.") && !pendingRequest.authRetryAttempted) {
+          this.logger.info(
+            `Auth error ${actualStatusCode} for ${pendingRequest.messageType} – refreshing token and queuing retry`,
+            "WebRTCApiService"
+          );
+          pendingRequest.authRetryAttempted = true;
+
+          tokenService.handleTokenExpiredOrRevoked()
+            .then((newToken) => {
+              if (newToken && pendingRequest.originalRequest) {
+                pendingRequest.originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+              } else {
+                this.logger.warn(
+                  `Token refresh yielded no token for ${pendingRequest.messageType}, retrying with existing credentials`,
+                  "WebRTCApiService"
+                );
+              }
+              this.retryRequest(pendingRequest);
+            })
+            .catch(() => {
+              // Even if refresh throws, still attempt the shared retry; it will
+              // exhaust the budget and fail cleanly if the server keeps rejecting.
+              this.retryRequest(pendingRequest);
+            });
+          return;
+        }
+
+        // authRetryAttempted already set → auth request or second auth failure → fail permanently
         this.logger.error(
-          `Authentication error ${actualStatusCode} despite pre-validated token`,
+          `Authentication error ${actualStatusCode} for ${pendingRequest.messageType} – no further retries`,
           "WebRTCApiService"
         );
-        this.logger.error(`Request ID: ${pendingRequest.id}`, "WebRTCApiService");
-        this.logger.error(`Message type: ${pendingRequest.messageType}`, "WebRTCApiService");
-
         this.completeRequest(
           pendingRequest,
           undefined,
@@ -640,7 +684,7 @@ export class WebRTCApiService implements DataChannelObserver {
       // For certain error codes, we want to retry (temporary errors)
       // For others, we want to fail immediately (permanent errors)
       const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
-      const permanentErrors = [403, 404, 422]; // Forbidden, not found, validation errors
+      const permanentErrors = [400, 403, 404, 422]; // Bad request, forbidden, not found, validation errors
 
       if (retryableErrors.includes(actualStatusCode)) {
         this.logger.info(
@@ -760,7 +804,16 @@ export class WebRTCApiService implements DataChannelObserver {
     if (!messageType.includes("auth.")) {
       validToken = await tokenService.ensureValidToken();
       if (!validToken) {
-        throw new Error("No valid token available. Please authenticate.");
+        // Token absent or expired — attempt a silent refresh before giving up
+        this.logger.info(
+          `No token available for ${messageType}, attempting silent refresh`,
+          "WebRTCApiService"
+        );
+        validToken = await tokenService.handleTokenExpiredOrRevoked().catch(() => null);
+        if (!validToken) {
+          throw new Error("No valid token available. Please authenticate.");
+        }
+        this.logger.info(`Silent refresh succeeded for ${messageType}`, "WebRTCApiService");
       }
       // Token will be passed to createRequestHeaders
     }
@@ -1030,6 +1083,12 @@ export class WebRTCApiService implements DataChannelObserver {
     if (query.aktId != null) queryParams.append("AktId", query.aktId.toString());
     if (query.outlookEmailId != null) queryParams.append("OutlookEmailId", query.outlookEmailId);
     if (query.count != null) queryParams.append("Count", query.count.toString());
+    if (query.erstelltAb != null) queryParams.append("ErstelltAb", query.erstelltAb instanceof Date ? query.erstelltAb.toISOString() : query.erstelltAb);
+    if (query.erstelltBis != null) queryParams.append("ErstelltBis", query.erstelltBis instanceof Date ? query.erstelltBis.toISOString() : query.erstelltBis);
+    if (query.erstelltVon != null) queryParams.append("ErstelltVon", query.erstelltVon);
+    if (query.bearbeitetAb != null) queryParams.append("BearbeitetAb", query.bearbeitetAb instanceof Date ? query.bearbeitetAb.toISOString() : query.bearbeitetAb);
+    if (query.bearbeitetBis != null) queryParams.append("BearbeitetBis", query.bearbeitetBis instanceof Date ? query.bearbeitetBis.toISOString() : query.bearbeitetBis);
+    if (query.bearbeitetVon != null) queryParams.append("BearbeitetVon", query.bearbeitetVon);
 
     return this.sendRequest(
       "service.getLeistungenByAkt",
@@ -1047,8 +1106,14 @@ export class WebRTCApiService implements DataChannelObserver {
    * @param dokumentData - Data for the new document
    */
   async saveDokument(dokumentData: DokumentPostData) {
-    // The generic sendRequest method now handles all chunking automatically
-    // No need for document-specific chunking logic
+    // Inject sachbearbeiterKürzel and vonSachbearbeiterKürzel from logged-in user if not provided
+    const kürzel = store.getState().auth.credentials.username || undefined;
+    const enriched: DokumentPostData = {
+      ...dokumentData,
+      sachbearbeiterKürzel: dokumentData.sachbearbeiterKürzel ?? kürzel,
+      vonSachbearbeiterKürzel: dokumentData.vonSachbearbeiterKürzel ?? kürzel,
+    };
+    console.log("Enriched dokument data with user kürzel:", enriched);
     return this.sendRequest(
       "dokument.saveDokument",
       "POST",
@@ -1057,7 +1122,7 @@ export class WebRTCApiService implements DataChannelObserver {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      dokumentData
+      enriched
     );
   }
 
@@ -1078,23 +1143,37 @@ export class WebRTCApiService implements DataChannelObserver {
   }
 
   /**
+   * Format a Date as local ISO string without timezone offset: YYYY-MM-DDTHH:mm:ss.SS
+   * The backend expects local time in this format (no trailing Z).
+   */
+  private toLocalISOString(d: Date): string {
+    const p = (n: number, len = 2) => String(n).padStart(len, "0");
+    const ms2 = p(Math.floor(d.getMilliseconds() / 10)); // 2-digit fractional seconds
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${ms2}`;
+  }
+
+  /**
    * Get documents via WebRTC with flexible query parameters
    * @param query - Query parameters including aktId, outlookEmailId, dokumentArten, and limit
    */
   async GetDocuments(query: DokumenteQuery) {
     const queryParams = new URLSearchParams();
 
-    if (query.aktId) queryParams.append("aktId", query.aktId.toString());
-    if (query.outlookEmailId) queryParams.append("outlookEmailId", query.outlookEmailId);
+    if (query.aktId) queryParams.append("AktId", query.aktId.toString());
+    if (query.outlookEmailId) queryParams.append("OutlookEmailId", query.outlookEmailId);
     if (query.dokumentArten && query.dokumentArten.length > 0) {
-      query.dokumentArten.forEach((art) => queryParams.append("dokumentArten", art.toString()));
+      query.dokumentArten.forEach((art) => queryParams.append("DokumentArten", DokumentArt[art]));
     }
     if (query.Count) queryParams.append("Count", query.Count.toString());
+    if (query.erstelltVon) queryParams.append("ErstelltVon", query.erstelltVon);
 
+    let url = `api/v2.0/dokumente?${queryParams.toString()}`;
+    if (query.erstelltAb) url += `&ErstelltAb=${this.toLocalISOString(query.erstelltAb)}`;
+    if (query.erstelltBis) url += `&ErstelltBis=${this.toLocalISOString(query.erstelltBis)}`;
     return this.sendRequest(
       "dokument.getDocuments",
       "GET",
-      `api/v2.0/dokumente?${queryParams.toString()}`,
+      url,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
