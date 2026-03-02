@@ -116,17 +116,7 @@ const RegisteredEmails: React.FC = () => {
     return <span>{isSent ? 'Sent' : 'Received'}</span>;
   };
 
-  const openCell = (data: { data: DokumentResponse }) => (
-    <button
-      onClick={() => handleOpen(data.data)}
-      style={{
-        background: 'none', border: 'none', color: '#0078d4',
-        cursor: 'pointer', fontSize: '12px', padding: 0,
-      }}
-    >
-      Open
-    </button>
-  );
+
 
   return (
     <div style={{ marginTop: 24 }}>
@@ -148,8 +138,18 @@ const RegisteredEmails: React.FC = () => {
       >
         <Paging defaultPageSize={7} />
         <Pager visible showPageSizeSelector={false} allowedPageSizes={[7]} showInfo />
+        <Column
+          type="buttons"
+          width={50}
+          buttons={[
+            {
+              icon: 'eyeopen',
+              hint: 'Open',
+              onClick: (e) => { if (e.row) handleOpen(e.row.data as DokumentResponse); },
+            }
+          ]}
+        />
         <Column caption="Type" cellRender={typeCell} width={80} alignment="left" />
-        <Column caption="" cellRender={openCell} width={50} alignment="center" />
         <Column dataField="betreff" caption="Subject" alignment="left" />
       </DataGrid>
     </div>

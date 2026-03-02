@@ -130,6 +130,8 @@ const ServiceTabContent: React.FC = () => {
     }
   };
   
+  const isCompose = IsComposeMode();
+
   return (
     <div>
       {/* WebRTC Connection Status */}
@@ -138,16 +140,18 @@ const ServiceTabContent: React.FC = () => {
       {/* Case Search */}
       <SearchCaseList onCaseSelect={setCaseHandler} />
       
-      {/* Service Send Button */}
-      <ServiceSend
-        caseId={selectedCaseName}
-        onTransfer={sendServiceHandler}
-        transferBtnDisable={!selectedAkt || selectedServiceId === 0}
-        transferLoading={transferLoading}
-      />
+      {/* Service Send Button - hidden in compose mode */}
+      {!isCompose && (
+        <ServiceSend
+          caseId={selectedCaseName}
+          onTransfer={sendServiceHandler}
+          transferBtnDisable={!selectedAkt || selectedServiceId === 0}
+          transferLoading={transferLoading}
+        />
+      )}
       
-  {/* Service Section */}
-  <ServiceSection />
+      {/* Service Section - hidden in compose mode */}
+      {!isCompose && <ServiceSection />}
       
       {/* Registered Services */}
       <RegisteredService refreshTrigger={refreshFlag} />

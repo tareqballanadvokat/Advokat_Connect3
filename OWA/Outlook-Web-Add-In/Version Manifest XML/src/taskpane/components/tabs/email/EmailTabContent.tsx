@@ -6,7 +6,7 @@ import EmailSend from './EmailSend';
 import RegisteredEmails from './RegisteredEmails';  
 // Import Service Section from shared
 import ServiceSection from '../shared/ServiceSection';
-import { getEmailAttachmentData, getEmailContentAsync, IsComposeMode } from '@hooks/useOfficeItem';
+import { getEmailContentAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import TransferAndAttachment from './TransferAndAttachment';
 import { TransferAttachmentItem, DokumentPostData, DokumentArt, DokumentResponse } from '@components/interfaces/IDocument';
 import { getDokumentArt } from '@components/interfaces/IEmail';
@@ -318,7 +318,9 @@ const EmailTabContent: React.FC = () => {
 
   // We no longer need these callback functions as we're using the Redux-based ServiceSection
   // which handles its own Redux dispatching
-  
+
+  const isCompose = IsComposeMode();
+
   return (
     <div>
       {/* WebRTC Connection Status */}
@@ -329,20 +331,21 @@ const EmailTabContent: React.FC = () => {
  
       {/* <DropAttachArea /> */}
  
-      {/* 3) Services section */}
-      <EmailSend
-        caseId={selectedCaseName}
-        onTransfer={sendEmailHandler}
-        transferBtnDisable={!selectedAkt || !attachmentSelected.some(i => i.checked && !i.disabled)}
-        transferLoading={transferLoading}
-      />
+      {/* 3) Services section - hidden in compose mode */}
+      {!isCompose && (
+        <EmailSend
+          caseId={selectedCaseName}
+          onTransfer={sendEmailHandler}
+          transferBtnDisable={!selectedAkt || !attachmentSelected.some(i => i.checked && !i.disabled)}
+          transferLoading={transferLoading}
+        />
+      )}
 
-      {/* Use the shared ServiceSection component in email mode */}
-        {/* Service Section */}
-        <ServiceSection />
+      {/* Service Section - hidden in compose mode */}
+      {!isCompose && <ServiceSection />}
  
-      {/* 4) Transfer e-mail and attachments */}
-      <TransferAndAttachment />
+      {/* 4) Transfer e-mail and attachments - hidden in compose mode */}
+      {!isCompose && <TransferAndAttachment />}
    
       {/* 5) Registered E-Mails */}
       <RegisteredEmails />
