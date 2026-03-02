@@ -43,6 +43,14 @@ export interface LeistungenQuery {
   aktId?: number | null;
   outlookEmailId?: string | null;
   count?: number | null;
+  
+  // BearbeitungsInfoQuery fields
+  erstelltAb?: Date | string | null;
+  erstelltBis?: Date | string | null;
+  erstelltVon?: string | null;
+  bearbeitetAb?: Date | string | null;
+  bearbeitetBis?: Date | string | null;
+  bearbeitetVon?: string | null;
 }
 
 export interface LeistungSachbearbeiterResponse {
