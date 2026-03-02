@@ -39,6 +39,7 @@ describe("emailSlice", () => {
     attachmentSelected: [],
     saveDokumentLoading: false,
     saveDokumentError: null,
+    saveCount: 0,
   };
 
   // Mock data
@@ -146,6 +147,35 @@ describe("emailSlice", () => {
         expect(actual.saveDokumentError).toBeNull();
       });
 
+      it("should increment saveCount on fulfilled", () => {
+        const action = { type: saveDokumentAsync.fulfilled.type };
+        const actual = emailReducer(initialState, action);
+
+        expect(actual.saveCount).toBe(1);
+      });
+
+      it("should increment saveCount on each fulfilled", () => {
+        let state = initialState;
+        for (let i = 1; i <= 3; i++) {
+          state = emailReducer(state, { type: saveDokumentAsync.fulfilled.type });
+          expect(state.saveCount).toBe(i);
+        }
+      });
+
+      it("should NOT increment saveCount on pending", () => {
+        const action = { type: saveDokumentAsync.pending.type };
+        const actual = emailReducer(initialState, action);
+
+        expect(actual.saveCount).toBe(0);
+      });
+
+      it("should NOT increment saveCount on rejected", () => {
+        const action = { type: saveDokumentAsync.rejected.type, error: { message: "err" } };
+        const actual = emailReducer(initialState, action);
+
+        expect(actual.saveCount).toBe(0);
+      });
+
       it("should handle rejected state", () => {
         const action = {
           type: saveDokumentAsync.rejected.type,
@@ -228,11 +258,13 @@ describe("emailSlice", () => {
       state = emailReducer(state, { type: saveDokumentAsync.pending.type });
       expect(state.saveDokumentLoading).toBe(true);
       expect(state.saveDokumentError).toBeNull();
+      expect(state.saveCount).toBe(0);
 
       // Complete save
       state = emailReducer(state, { type: saveDokumentAsync.fulfilled.type });
       expect(state.saveDokumentLoading).toBe(false);
       expect(state.saveDokumentError).toBeNull();
+      expect(state.saveCount).toBe(1);
     });
 
     it("should handle save document with error recovery", () => {
