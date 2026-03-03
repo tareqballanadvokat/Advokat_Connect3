@@ -819,24 +819,6 @@ export class WebRTCApiService implements DataChannelObserver {
     }
 
     return new Promise((resolve, reject) => {
-      // Check if there's already a pending request of the same type
-      const existingRequestId = this.findPendingRequestByMessageType(messageType);
-      if (existingRequestId) {
-        const existingRequest = this.pendingRequests.get(existingRequestId);
-        if (existingRequest) {
-          this.logger.info(
-            "Request already pending for messageType: " +
-              messageType +
-              " - waiting for existing request",
-            "WebRTCApiService"
-          );
-          // Wait for the existing request instead of creating a new one
-          existingRequest.resolve = resolve;
-          existingRequest.reject = reject;
-          return;
-        }
-      }
-
       // Create headers with automatic authorization (pass decrypted token)
       const requestHeaders = this.createRequestHeaders(headers, messageType, validToken);
       // Create full protocol request with messageType

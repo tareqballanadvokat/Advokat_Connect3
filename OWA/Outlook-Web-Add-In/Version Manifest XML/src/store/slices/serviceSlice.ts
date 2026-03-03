@@ -40,6 +40,7 @@ interface ServiceState {
 
   loadCounter: number;
   previousLoadKey: string | null; // Track aktId to detect changes
+  registeredServicesLoading: boolean;
 }
 
 // Initial state
@@ -66,6 +67,7 @@ const initialState: ServiceState = {
 
   loadCounter: 0,
   previousLoadKey: null,
+  registeredServicesLoading: false,
 };
 
 export const loadServicesAsync = createAsyncThunk(
@@ -90,7 +92,8 @@ export const loadServicesAsync = createAsyncThunk(
             "serviceSlice",
             `${reason}. Using cached services for Kürzel ${query.Kürzel || "all"}`
           );
-          notify(`⚠️ ${reason}. Showing cached services.`, "warning", 4000);
+          // notify(`⚠️ ${reason}. Showing cached services.`, "warning", 4000);
+          notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
           return cached;
         }
       } catch (error: unknown) {
@@ -151,7 +154,8 @@ export const loadServicesAsync = createAsyncThunk(
         );
         if (staleCache) {
           logger.warn("serviceSlice", "API failed, returning stale cached data");
-          notify("⚠️ API unavailable. Showing cached services.", "warning", 4000);
+          // notify("⚠️ API unavailable. Showing cached services.", "warning", 4000);
+          notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
           return staleCache;
         }
       } catch (cacheError: unknown) {
@@ -289,7 +293,8 @@ export const loadLeistungenAsync = createAsyncThunk(
         const staleCache = await cacheService.get<LeistungResponse[]>(cacheKey, cacheOptions);
         if (staleCache) {
           logger.warn("serviceSlice", "API failed, returning stale cached data");
-          notify("⚠️ API unavailable. Showing cached services.", "warning", 4000);
+          // notify("⚠️ API unavailable. Showing cached services.", "warning", 4000);
+          notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
           return staleCache;
         }
       } catch (cacheError: unknown) {
@@ -342,6 +347,9 @@ const serviceSlice = createSlice({
       state.services = [];
       state.servicesError = null;
       state.selectedServiceId = 0;
+    },
+    setRegisteredServicesLoading: (state, action: PayloadAction<boolean>) => {
+      state.registeredServicesLoading = action.payload;
     },
     clearSaveLeistungError: (state) => {
       state.saveLeistungError = null;
@@ -413,6 +421,7 @@ export const {
   clearServices,
   clearSaveLeistungError,
   resetLoadCounter,
+  setRegisteredServicesLoading,
 } = serviceSlice.actions;
 
 export default serviceSlice.reducer;

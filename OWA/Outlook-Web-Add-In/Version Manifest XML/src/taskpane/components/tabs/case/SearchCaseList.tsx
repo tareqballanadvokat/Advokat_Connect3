@@ -155,16 +155,6 @@ const SearchCaseList: React.FC = () => {
         alignment="left"
       />
       <Column
-        dataField="aKurz"
-        caption="Kürzel"
-        alignment="left"
-      />
-      <Column
-        dataField="causa"
-        caption="Causa"
-        alignment="left"
-      />
-      <Column
         type="buttons"
         width={80}
         buttons={[
@@ -190,6 +180,16 @@ const SearchCaseList: React.FC = () => {
             disabled: true
           }
         ]}
+      />
+      <Column
+        dataField="aKurz"
+        caption="Kürzel"
+        alignment="left"
+      />
+      <Column
+        dataField="causa"
+        caption="Causa"
+        alignment="left"
       />
     </DataGrid>
   </div>
