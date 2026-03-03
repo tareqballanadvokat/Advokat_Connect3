@@ -41,6 +41,7 @@ describe("serviceSlice", () => {
     savedLeistungenError: null,
     loadCounter: 0,
     previousLoadKey: null,
+    registeredServicesLoading: false,
   };
 
   beforeEach(() => {

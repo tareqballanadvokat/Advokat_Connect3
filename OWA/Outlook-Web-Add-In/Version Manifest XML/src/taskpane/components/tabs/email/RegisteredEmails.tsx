@@ -8,6 +8,7 @@ import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
 import { selectAuthCredentials } from '../../../../store/slices/authSlice';
 import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { downloadDocumentAsync } from '../../../../store/slices/aktenSlice';
+import { setRegisteredEmailsLoading } from '../../../../store/slices/emailSlice';
 import {
   getMimeTypeFromExtension,
   getFileExtension,
@@ -19,11 +20,11 @@ import {
 const RegisteredEmails: React.FC = () => {
   const dispatch = useAppDispatch();
   const [emails, setEmails] = useState<DokumentResponse[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const credentials = useAppSelector(selectAuthCredentials);
   const isReady = useAppSelector(selectIsReady);
   const saveCount = useAppSelector(state => state.email.saveCount);
+  const registeredEmailsLoading = useAppSelector(state => state.email.registeredEmailsLoading);
   const selectedAkt = useAppSelector(state => state.akten.selectedAkt);
 
   useEffect(() => {
@@ -32,7 +33,7 @@ const RegisteredEmails: React.FC = () => {
       return;
     }
     (async () => {
-      setLoading(true);
+      dispatch(setRegisteredEmailsLoading(true));
       setError(null);
       try {
         const erstelltAb = new Date();
@@ -64,7 +65,7 @@ const RegisteredEmails: React.FC = () => {
         setError('Error fetching registered e-mails.');
         console.error('RegisteredEmails fetch error:', err);
       } finally {
-        setLoading(false);
+        dispatch(setRegisteredEmailsLoading(false));
       }
     })();
   }, [saveCount, selectedAkt?.id]);
@@ -138,7 +139,7 @@ const RegisteredEmails: React.FC = () => {
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText={loading ? 'Loading...' : !selectedAkt ? 'Select a case to view registered e-mails' : 'No e-mails found'}
+        noDataText={registeredEmailsLoading ? 'Loading...' : !selectedAkt ? 'Select a case to view registered e-mails' : 'No e-mails found'}
         height={250}
       >
         <Paging defaultPageSize={7} />
