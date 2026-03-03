@@ -37,7 +37,7 @@ export default function CustomTitle({ anzeigename, isDeleting = false, onDelete 
       {/* Section 2 – delete icon (fixed width, always reserves space) */}
       <div style={{ flexShrink: 0, width: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <button
-          className={`dx-button dx-button-normal dx-button-mode-contained${isDeleting ? ' loading-button' : ''}`}
+          className={`dx-button dx-button-normal dx-button-mode-contained delete-favorite-btn${isDeleting ? ' loading-button' : ''}`}
           onClick={(e) => {
             e.stopPropagation();
             if (!isDeleting) onDelete();

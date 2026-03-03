@@ -541,7 +541,7 @@ const CaseTabContent: React.FC = () => {
             const isLoading = removeFromFavoriteLoading && removingFromFavoriteAktId === aktId;
             return (
               <button
-                className={`dx-button dx-button-normal dx-button-mode-contained ${isLoading ? 'loading-button' : ''}`}
+                className={`dx-button dx-button-normal dx-button-mode-contained delete-favorite-btn${isLoading ? ' loading-button' : ''}`}
                 onClick={() => handleDelete(data)}
                 disabled={isLoading}
                 title={isLoading ? 'Removing from favorites...' : 'Remove from favorites'}

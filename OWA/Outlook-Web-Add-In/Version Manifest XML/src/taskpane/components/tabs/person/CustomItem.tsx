@@ -1,5 +1,6 @@
 import React from 'react';
 import { PersonResponse } from '../../interfaces/IPerson';
+import './person.css';
 
 function getFullName(data: PersonResponse): string {
   const parts = [];
@@ -16,18 +17,18 @@ export default function CustomItem(data: PersonResponse) {
   return (
     <div style={{ padding: 16 }}>
       {/* Full name header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #e0e0e0' }}>
-        <i className="dx-icon dx-icon-user" style={{ fontSize: 18, color: '#555', flexShrink: 0 }} />
+      <div className="person-item-header">
+        <i className="dx-icon dx-icon-user person-item-icon" style={{ fontSize: 18, flexShrink: 0 }} />
         <span style={{ fontSize: 15, fontWeight: 600, wordBreak: 'break-word' }}>{fullName}</span>
       </div>
 
       {/* Address Section */}
       {data.adressdaten && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
-          <i className="dx-icon dx-icon-home" style={{ fontSize: 16, marginTop: 2, color: '#666' }} />
+          <i className="dx-icon dx-icon-home person-item-icon" />
           <div>
             <div style={{ fontWeight: 500 }}>Adress</div>
-            <div style={{ color: '#f0dcdcff', fontSize: 14 }}>
+            <div className="person-item-detail">
               {data.adressdaten.straße && <div>{data.adressdaten.straße}</div>}
               {(data.adressdaten.plz || data.adressdaten.ort) && (
                 <div>
@@ -61,10 +62,10 @@ export default function CustomItem(data: PersonResponse) {
 
             return (
               <div key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
-                <i className={`dx-icon ${icon}`} style={{ fontSize: 16, marginTop: 2, color: '#666' }} />
+                <i className={`dx-icon ${icon} person-item-icon`} />
                 <div>
                   <div style={{ fontWeight: 500 }}>{label}</div>
-                  <div style={{ color: '#f0dcdcff', fontSize: 14 }}>
+                  <div className="person-item-detail">
                     {contact.art?.toLowerCase().includes('website') ? (
                       <a href={contact.telefonnummerOderAdresse} target="_blank" rel="noopener noreferrer">
                         {contact.telefonnummerOderAdresse}
