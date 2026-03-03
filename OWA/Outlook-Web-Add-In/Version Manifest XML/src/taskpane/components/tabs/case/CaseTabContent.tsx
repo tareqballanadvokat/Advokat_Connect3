@@ -451,7 +451,7 @@ const CaseTabContent: React.FC = () => {
                 {/* Open icon — files only */}
                 {!data.isStructure && (
                   <button
-                    className={`dx-button dx-button-normal dx-button-mode-contained${isOpening ? ' loading-button' : ''}`}
+                    className={`dx-button dx-button-large dx-button-mode-contained${isOpening ? ' loading-button' : ''}`}
                     onClick={(e) => { e.stopPropagation(); if (!isOpening) handleOpen(data); }}
                     disabled={isOpening}
                     title={isOpening ? 'Opening...' : 'Open file'}
@@ -464,7 +464,7 @@ const CaseTabContent: React.FC = () => {
                       color: isOpening ? '#666' : '#1976d2',
                     }}
                   >
-                    <i className={`dx-icon dx-icon-${isOpening ? 'refresh' : 'export'}`} style={{ fontSize: 13, color: isOpening ? '#666' : '#1976d2' }} />
+                    <i className={`dx-icon dx-icon-${isOpening ? 'refresh' : 'export'}`} style={{ fontSize: 18, color: isOpening ? '#666' : '#1976d2' }} />
                   </button>
                 )}
                 {/* Add-as-attachment icon — compose mode + files only */}
