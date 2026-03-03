@@ -74,7 +74,8 @@ export const personLookUpAsync = createAsyncThunk(
 
         if (cached) {
           logger.debug(`${reason}. Using cached search results for: ${searchText}`, "personSlice");
-          notify(`⚠️ ${reason}. Showing cached results.`, "warning", 4000);
+          // notify(`⚠️ ${reason}. Showing cached results.`, "warning", 4000);
+          notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
           return cached;
         }
       } catch (error: unknown) {
@@ -138,7 +139,8 @@ export const personLookUpAsync = createAsyncThunk(
         );
         if (staleCache) {
           logger.warn("API failed, returning stale cached data", "personSlice");
-          notify("Something went wrong. Showing cached results.", "warning", 4000);
+          // notify("Something went wrong. Showing cached results.", "warning", 4000);
+            notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
           return staleCache;
         }
       } catch (cacheError: unknown) {

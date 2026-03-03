@@ -92,7 +92,8 @@ export const loadServicesAsync = createAsyncThunk(
             "serviceSlice",
             `${reason}. Using cached services for Kürzel ${query.Kürzel || "all"}`
           );
-          notify(`⚠️ ${reason}. Showing cached services.`, "warning", 4000);
+          // notify(`⚠️ ${reason}. Showing cached services.`, "warning", 4000);
+          notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
           return cached;
         }
       } catch (error: unknown) {
@@ -153,7 +154,8 @@ export const loadServicesAsync = createAsyncThunk(
         );
         if (staleCache) {
           logger.warn("serviceSlice", "API failed, returning stale cached data");
-          notify("⚠️ API unavailable. Showing cached services.", "warning", 4000);
+          // notify("⚠️ API unavailable. Showing cached services.", "warning", 4000);
+          notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
           return staleCache;
         }
       } catch (cacheError: unknown) {
@@ -291,7 +293,8 @@ export const loadLeistungenAsync = createAsyncThunk(
         const staleCache = await cacheService.get<LeistungResponse[]>(cacheKey, cacheOptions);
         if (staleCache) {
           logger.warn("serviceSlice", "API failed, returning stale cached data");
-          notify("⚠️ API unavailable. Showing cached services.", "warning", 4000);
+          // notify("⚠️ API unavailable. Showing cached services.", "warning", 4000);
+          notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
           return staleCache;
         }
       } catch (cacheError: unknown) {
