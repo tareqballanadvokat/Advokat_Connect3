@@ -1,9 +1,14 @@
-.dx-accordion-item-title .dx-icon {
-    float: left;
+/* Ensure accordion title template wrapper fills the full width */
+.dx-accordion-item-title .dx-template-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
 }
 
-.dx-accordion-item-title::before{
-    position: left;
+/* Give the DX expand/collapse indicator its own space */
+.dx-accordion-item-title .dx-accordion-item-title-caption {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Gold star button styling for SearchPersonList */

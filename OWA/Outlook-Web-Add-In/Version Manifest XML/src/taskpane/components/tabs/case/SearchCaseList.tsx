@@ -74,7 +74,8 @@ const SearchCaseList: React.FC = () => {
     const query = searchTerm.trim();
     
     if (!query) {
-      dispatch(clearCases());
+      notify('Please enter a search term', 'warning', 3000);
+      // dispatch(clearCases());
       return;
     }
 

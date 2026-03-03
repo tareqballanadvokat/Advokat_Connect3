@@ -1,9 +1,26 @@
 import React from 'react';
 import { PersonResponse } from '../../interfaces/IPerson';
 
+function getFullName(data: PersonResponse): string {
+  const parts = [];
+  if (data.titel) parts.push(data.titel);
+  if (data.vorname) parts.push(data.vorname);
+  if (data.name1) parts.push(data.name1);
+  if (data.name2) parts.push(data.name2);
+  if (data.name3) parts.push(data.name3);
+  return parts.join(' ') || data.nKurz || 'Unknown Person';
+}
+
 export default function CustomItem(data: PersonResponse) {
+  const fullName = getFullName(data);
   return (
     <div style={{ padding: 16 }}>
+      {/* Full name header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #e0e0e0' }}>
+        <i className="dx-icon dx-icon-user" style={{ fontSize: 18, color: '#555', flexShrink: 0 }} />
+        <span style={{ fontSize: 15, fontWeight: 600, wordBreak: 'break-word' }}>{fullName}</span>
+      </div>
+
       {/* Address Section */}
       {data.adressdaten && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>

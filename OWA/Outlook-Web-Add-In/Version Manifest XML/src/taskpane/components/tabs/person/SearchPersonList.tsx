@@ -59,7 +59,8 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     const query = searchTerm.trim();
     
     if (!query) {
-      dispatch(clearPersons());
+      notify('Please enter a search term', 'warning', 3000);
+      // dispatch(clearPersons());
       return;
     }
     
