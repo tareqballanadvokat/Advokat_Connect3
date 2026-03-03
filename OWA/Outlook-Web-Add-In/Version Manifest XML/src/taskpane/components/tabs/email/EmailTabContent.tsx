@@ -6,9 +6,9 @@ import EmailSend from './EmailSend';
 import RegisteredEmails from './RegisteredEmails';  
 // Import Service Section from shared
 import ServiceSection from '../shared/ServiceSection';
-import { getEmailAttachmentData, getEmailContentAsync, IsComposeMode } from '@hooks/useOfficeItem';
+import { getEmailContentAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import TransferAndAttachment from './TransferAndAttachment';
-import { TransferAttachmentItem, DokumentPostData, DokumentArt } from '@components/interfaces/IDocument';
+import { TransferAttachmentItem, DokumentPostData, DokumentArt, DokumentResponse } from '@components/interfaces/IDocument';
 import { getDokumentArt } from '@components/interfaces/IEmail';
 import { AktLookUpResponse } from '@components/interfaces/IAkten';
 import { LeistungPostData } from '@components/interfaces/IService';
@@ -23,7 +23,7 @@ const logger = getLogger();
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { setSelectedAkt, clearFolders, clearEmailDocuments } from '@store/slices/aktenSlice';
-import { saveDokumentAsync } from '@store/slices/emailSlice';
+import { saveDokumentAsync, setAttachmentSelected } from '@store/slices/emailSlice';
 import { saveLeistungAsync, resetLoadCounter } from '@store/slices/serviceSlice';
 
 const EmailTabContent: React.FC = () => {
@@ -72,7 +72,6 @@ const EmailTabContent: React.FC = () => {
     return item.folderName || 'Default';
   };
 
-  // Handler for case selection
   const setCaseHandler = async (selectedCase: AktLookUpResponse) => {
     const isNewAkt = selectedAkt?.id !== selectedCase.id;
     
@@ -207,9 +206,24 @@ const EmailTabContent: React.FC = () => {
         };
         
         // Save email document via WebRTC using Redux thunk
-        await dispatch(saveDokumentAsync(emailDokument)).unwrap();
+        const savedEmailResponse = await dispatch(saveDokumentAsync(emailDokument)).unwrap();
         logger.info('Email document saved successfully', 'EmailTabContent');
         notify('Email saved successfully', 'success', 3000);
+        console.log('Saved email document response:', savedEmailResponse);
+        // Build a partial DokumentResponse so RegisteredEmails can update its cache immediately
+        // Use the real ID returned by CreateAsync so the user can download immediately
+        const returnedId = savedEmailResponse?.body ? parseInt(savedEmailResponse.body, 10) : NaN;
+        const now = new Date();
+        const optimisticEntry: DokumentResponse = {
+          id: !isNaN(returnedId) ? returnedId : -Date.now(), // Real server ID when available
+          betreff: emailDokument.betreff,
+          dokumentArt: emailDokument.dokumentArt,
+          mailAdresse: emailDokument.mailAdresse,
+          datum: emailDokument.empfangenAm ?? now,
+          bearbeitungsInfoErstelltAm: now,
+          anzahlMailAnhänge: emailDokument.anzahlMailAnhänge,
+          outlookEmailId: emailDokument.outlookEmailId,
+        };
       }
       else {
         logger.debug('No email selected, skipping Email save', 'EmailTabContent');
@@ -234,9 +248,6 @@ const EmailTabContent: React.FC = () => {
               });
             });
             
-            // Calculate file size from base64 (approximate)
-            const fileSizeInBytes = calculateFileSizeFromBase64(contentBase64);
-            
             // Create DokumentPostData for attachment
             const attachmentDokument: DokumentPostData = {
               aktId: selectedCaseId,
@@ -249,7 +260,7 @@ const EmailTabContent: React.FC = () => {
               outlookEmailId: messageId,
               anzahlMailAnhänge: 0, // This is an attachment, not an email with attachments
               dateiName: attachment.name,
-              ordnerName: getFolderName(attachment)
+              ordnerName: getFolderName(attachment),
             };
             
             // Save attachment document via WebRTC using Redux thunk
@@ -273,6 +284,23 @@ const EmailTabContent: React.FC = () => {
         notify(`${itemCount} document(s) transferred successfully to case ${selectedCaseName}`, 'success', 4000);
       }
 
+      // Mark all successfully transferred items as disabled/readonly in Redux
+      // so the UI deactivates their checkboxes and folder selectors immediately
+      const transferredIds = new Set<string>();
+      if (firstE) transferredIds.add(firstE.id);
+      selectedAttachments.forEach(a => transferredIds.add(a.id));
+
+      if (transferredIds.size > 0) {
+        dispatch(setAttachmentSelected(
+          attachmentSelected.map(i =>
+            transferredIds.has(i.id) ? { ...i, disabled: true, readonly: true, checked: true } : i
+          )
+        ));
+        // Force TransferAndAttachment to re-fetch documents on next render so that
+        // when the user navigates away and back the saved items are still shown as disabled.
+        dispatch(clearEmailDocuments());
+      }
+
     } catch (error) {
       logger.error('Failed to transfer:', 'EmailTabContent', error);
       notify('Failed to transfer to ADVOKAT', 'error', 5000);
@@ -286,7 +314,9 @@ const EmailTabContent: React.FC = () => {
 
   // We no longer need these callback functions as we're using the Redux-based ServiceSection
   // which handles its own Redux dispatching
-  
+
+  const isCompose = IsComposeMode();
+
   return (
     <div>
       {/* WebRTC Connection Status */}
@@ -297,20 +327,21 @@ const EmailTabContent: React.FC = () => {
  
       {/* <DropAttachArea /> */}
  
-      {/* 3) Services section */}
-      <EmailSend
-        caseId={selectedCaseName}
-        onTransfer={sendEmailHandler}
-        transferBtnDisable={!selectedAkt || attachmentSelected.length === 0}
-        transferLoading={transferLoading}
-      />
+      {/* 3) Services section - hidden in compose mode */}
+      {!isCompose && (
+        <EmailSend
+          caseId={selectedCaseName}
+          onTransfer={sendEmailHandler}
+          transferBtnDisable={!selectedAkt || !attachmentSelected.some(i => i.checked && !i.disabled)}
+          transferLoading={transferLoading}
+        />
+      )}
 
-      {/* Use the shared ServiceSection component in email mode */}
-        {/* Service Section */}
-        <ServiceSection />
+      {/* Service Section - hidden in compose mode */}
+      {!isCompose && <ServiceSection />}
  
-      {/* 4) Transfer e-mail and attachments */}
-      <TransferAndAttachment />
+      {/* 4) Transfer e-mail and attachments - hidden in compose mode */}
+      {!isCompose && <TransferAndAttachment />}
    
       {/* 5) Registered E-Mails */}
       <RegisteredEmails />

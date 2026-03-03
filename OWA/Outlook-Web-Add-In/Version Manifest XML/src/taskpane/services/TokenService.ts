@@ -5,7 +5,6 @@ import {
   selectRefreshToken,
   authenticationSuccess,
   startAuthentication,
-  authenticationFailure,
 } from "../../store/slices/authSlice";
 import { webRTCApiService } from "./webRTCApiService";
 import type { IAuthResponse } from "../components/interfaces/IAuth";
@@ -368,8 +367,10 @@ export class TokenService {
         error instanceof Error ? error.message : "Unknown error during token refresh";
       this.logger.error("Token refresh failed: " + errorMessage, "TokenService");
 
-      // Dispatch authentication failure
-      store.dispatch(authenticationFailure(errorMessage));
+      // Do NOT dispatch authenticationFailure here — this is a silent background refresh.
+      // Clearing the existing token would log the user out and break all subsequent requests.
+      // The caller (ensureValidToken / handleTokenExpiredOrRevoked) will return null and let
+      // the consumer decide how to handle the failure.
 
       return false;
     }

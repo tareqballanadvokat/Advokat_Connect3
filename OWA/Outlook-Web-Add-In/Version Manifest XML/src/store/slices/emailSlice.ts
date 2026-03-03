@@ -10,12 +10,14 @@ interface EmailState {
   attachmentSelected: TransferAttachmentItem[];
   saveDokumentLoading: boolean;
   saveDokumentError: string | null;
+  saveCount: number; // increments on every successful save — used to trigger re-fetch in RegisteredEmails
 }
 
 const initialState: EmailState = {
   attachmentSelected: [],
   saveDokumentLoading: false,
   saveDokumentError: null,
+  saveCount: 0,
 };
 
 // Async thunk for saving document via WebRTC
@@ -54,6 +56,7 @@ const emailSlice = createSlice({
       .addCase(saveDokumentAsync.fulfilled, (state) => {
         state.saveDokumentLoading = false;
         state.saveDokumentError = null;
+        state.saveCount += 1;
       })
       .addCase(saveDokumentAsync.rejected, (state, action) => {
         state.saveDokumentLoading = false;
