@@ -67,7 +67,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
 
         const response = await webRTCApiService.getLeistungenByAkt({
           aktId: selectedAkt?.id ?? null,
-          outlookEmailId,
+          // outlookEmailId,
           erstelltAb,
           erstelltVon: credentials?.username,
         });
