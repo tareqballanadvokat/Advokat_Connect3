@@ -72,7 +72,6 @@ const EmailTabContent: React.FC = () => {
     return item.folderName || 'Default';
   };
 
-  // Handler for case selection
   const setCaseHandler = async (selectedCase: AktLookUpResponse) => {
     const isNewAkt = selectedAkt?.id !== selectedCase.id;
     
@@ -248,9 +247,6 @@ const EmailTabContent: React.FC = () => {
                 }
               });
             });
-            
-            // Calculate file size from base64 (approximate)
-            const fileSizeInBytes = calculateFileSizeFromBase64(contentBase64);
             
             // Create DokumentPostData for attachment
             const attachmentDokument: DokumentPostData = {

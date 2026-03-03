@@ -24,9 +24,13 @@ const RegisteredEmails: React.FC = () => {
   const credentials = useAppSelector(selectAuthCredentials);
   const isReady = useAppSelector(selectIsReady);
   const saveCount = useAppSelector(state => state.email.saveCount);
+  const selectedAkt = useAppSelector(state => state.akten.selectedAkt);
 
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || !selectedAkt) {
+      setEmails([]);
+      return;
+    }
     (async () => {
       setLoading(true);
       setError(null);
@@ -37,6 +41,7 @@ const RegisteredEmails: React.FC = () => {
         const connectionManager = getWebRTCConnectionManager();
         const webRTCApiService = connectionManager.getWebRTCApiService();
         const response = await webRTCApiService.GetDocuments({
+          aktId: selectedAkt.id,
           dokumentArten: [DokumentArt.MailEmpfangen, DokumentArt.MailGesendet],
           erstelltAb,
           erstelltVon: credentials?.username,
@@ -62,7 +67,7 @@ const RegisteredEmails: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, [isReady, saveCount]);
+  }, [saveCount, selectedAkt?.id]);
 
   const handleOpen = async (doc: DokumentResponse) => {
     try {
@@ -133,7 +138,7 @@ const RegisteredEmails: React.FC = () => {
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText={loading ? 'Loading...' : 'No e-mails found'}
+        noDataText={loading ? 'Loading...' : !selectedAkt ? 'Select a case to view registered e-mails' : 'No e-mails found'}
         height={250}
       >
         <Paging defaultPageSize={7} />
