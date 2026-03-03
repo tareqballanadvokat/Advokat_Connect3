@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
+import LoadIndicator from 'devextreme-react/load-indicator';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
@@ -19,8 +20,12 @@ interface SearchProps {
 
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
-  const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
+  const { cases, loading, error, searchTerm, selectedAkt, foldersLoading, emailDocumentsLoading } = useAppSelector(state => state.akten);
+  const servicesLoading = useAppSelector(state => state.service.servicesLoading);
+  const registeredEmailsLoading = useAppSelector(state => state.email.registeredEmailsLoading);
+  const registeredServicesLoading = useAppSelector(state => state.service.registeredServicesLoading);
   const isReady = useAppSelector(selectIsReady);
+  const anyAktLoading = foldersLoading || servicesLoading || registeredEmailsLoading || emailDocumentsLoading || registeredServicesLoading;
 
   // Handle Redux error states
   useEffect(() => {
@@ -102,6 +107,17 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         columnAutoWidth={true}
         rowAlternationEnabled={false}
         noDataText="No cases found."
+        onRowPrepared={e => {
+          if (e.rowType === 'data') {
+            e.rowElement.style.height = '36px';
+            if (e.data?.id === selectedAkt?.id) {
+              e.rowElement.style.borderLeft = '3px solid #0078d4';
+              e.rowElement.style.fontWeight = '600';
+            } else {
+              e.rowElement.style.borderLeft = '3px solid transparent';
+            }
+          }
+        }}
       >
         <Paging defaultPageSize={5} />
         <Pager
@@ -128,18 +144,27 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
           alignment="left"
         />
         <Column
-          type="buttons"
-          width={50}
-          buttons={[
-            {
-              icon: 'arrowright',
-              hint: 'Select',
-              onClick: e => {
-                const selectedCase = e.row.data as AktLookUpResponse;
-                 onCaseSelect(selectedCase);
-              }
-            }
-          ]}
+          width={40}
+          alignment="center"
+          cellRender={(data: { data: AktLookUpResponse }) => {
+            const isSelected = selectedAkt?.id === data.data.id;
+            return (
+              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Button
+                  icon="arrowright"
+                  stylingMode="text"
+                  hint={!anyAktLoading ? 'Select' : undefined}
+                  onClick={() => !anyAktLoading && onCaseSelect(data.data)}
+                  elementAttr={{ style: `color: #0078d4; visibility: ${anyAktLoading ? 'hidden' : 'visible'};` }}
+                />
+                {isSelected && anyAktLoading && (
+                  <div style={{ position: 'absolute' }}>
+                    <LoadIndicator width={20} height={20} />
+                  </div>
+                )}
+              </div>
+            );
+          }}
         />
       </DataGrid>
     </div>

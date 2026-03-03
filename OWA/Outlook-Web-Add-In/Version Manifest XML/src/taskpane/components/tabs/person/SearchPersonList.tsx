@@ -150,23 +150,6 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
           alignment="left"
         />
         <Column
-          dataField="nKurz"
-          caption="Kürzl"
-          alignment="left"
-          width={100}
-        />
-        <Column
-          caption="Name"
-          alignment="left"
-          cellRender={(data) => <span>{getDisplayName(data.data)}</span>}
-        />
-        <Column
-          dataField="adresse.ort"
-          caption="City"
-          alignment="left"
-          width={120}
-        />
-        <Column
           type="buttons"
           width={80}
           buttons={[
@@ -191,6 +174,23 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
               disabled: true
             }
           ]}
+        />
+        <Column
+          dataField="nKurz"
+          caption="Kürzl"
+          alignment="left"
+          width={100}
+        />
+        <Column
+          caption="Name"
+          alignment="left"
+          cellRender={(data) => <span>{getDisplayName(data.data)}</span>}
+        />
+        <Column
+          dataField="adresse.ort"
+          caption="City"
+          alignment="left"
+          width={120}
         />
       </DataGrid>
     </div>

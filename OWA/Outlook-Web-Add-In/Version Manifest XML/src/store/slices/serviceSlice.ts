@@ -40,6 +40,7 @@ interface ServiceState {
 
   loadCounter: number;
   previousLoadKey: string | null; // Track aktId to detect changes
+  registeredServicesLoading: boolean;
 }
 
 // Initial state
@@ -66,6 +67,7 @@ const initialState: ServiceState = {
 
   loadCounter: 0,
   previousLoadKey: null,
+  registeredServicesLoading: false,
 };
 
 export const loadServicesAsync = createAsyncThunk(
@@ -343,6 +345,9 @@ const serviceSlice = createSlice({
       state.servicesError = null;
       state.selectedServiceId = 0;
     },
+    setRegisteredServicesLoading: (state, action: PayloadAction<boolean>) => {
+      state.registeredServicesLoading = action.payload;
+    },
     clearSaveLeistungError: (state) => {
       state.saveLeistungError = null;
     },
@@ -413,6 +418,7 @@ export const {
   clearServices,
   clearSaveLeistungError,
   resetLoadCounter,
+  setRegisteredServicesLoading,
 } = serviceSlice.actions;
 
 export default serviceSlice.reducer;

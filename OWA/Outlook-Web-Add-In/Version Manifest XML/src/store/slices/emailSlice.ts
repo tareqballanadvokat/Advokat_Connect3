@@ -11,6 +11,7 @@ interface EmailState {
   saveDokumentLoading: boolean;
   saveDokumentError: string | null;
   saveCount: number; // increments on every successful save — used to trigger re-fetch in RegisteredEmails
+  registeredEmailsLoading: boolean;
 }
 
 const initialState: EmailState = {
@@ -18,6 +19,7 @@ const initialState: EmailState = {
   saveDokumentLoading: false,
   saveDokumentError: null,
   saveCount: 0,
+  registeredEmailsLoading: false,
 };
 
 // Async thunk for saving document via WebRTC
@@ -46,6 +48,9 @@ const emailSlice = createSlice({
     clearSaveDokumentError: (state) => {
       state.saveDokumentError = null;
     },
+    setRegisteredEmailsLoading: (state, action: PayloadAction<boolean>) => {
+      state.registeredEmailsLoading = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -65,6 +70,6 @@ const emailSlice = createSlice({
   },
 });
 
-export const { setAttachmentSelected, clearSaveDokumentError } = emailSlice.actions;
+export const { setAttachmentSelected, clearSaveDokumentError, setRegisteredEmailsLoading } = emailSlice.actions;
 
 export default emailSlice.reducer;

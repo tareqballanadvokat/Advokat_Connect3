@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { useAppSelector } from '@store/hooks';
+import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { selectAuthCredentials } from '@store/slices/authSlice';
 import { selectIsReady } from '@store/slices/connectionSlice';
+import { setRegisteredServicesLoading } from '@store/slices/serviceSlice';
 import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import { LeistungResponse } from '@components/interfaces/IService';
 import { getWebRTCConnectionManager } from '../../../services/WebRTCConnectionManager';
@@ -14,13 +15,14 @@ interface RegisteredServiceProps {
 }
 
 const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger }) => {
+  const dispatch = useAppDispatch();
   const [leistungen, setLeistungen] = useState<LeistungResponse[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const credentials = useAppSelector(selectAuthCredentials);
   const isReady = useAppSelector(selectIsReady);
   const { selectedAkt } = useAppSelector(state => state.akten);
+  const loading = useAppSelector(state => state.service.registeredServicesLoading);
 
   // Get formatted time string from sachbearbeiter array
   const getTimeDisplay = (rowData: LeistungResponse): string => {
@@ -38,10 +40,11 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
   };
 
   useEffect(() => {
-    if (!isReady) return;
+    const ready = isReady;
+    if (!ready) return;
 
     (async () => {
-      setLoading(true);
+      dispatch(setRegisteredServicesLoading(true));
       setError(null);
       try {
         const erstelltAb = new Date();
@@ -81,10 +84,10 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
         setError('Error fetching registered services.');
         console.error('RegisteredService fetch error:', err);
       } finally {
-        setLoading(false);
+        dispatch(setRegisteredServicesLoading(false));
       }
     })();
-  }, [isReady, refreshTrigger, selectedAkt?.id]);
+  }, [refreshTrigger, selectedAkt?.id]);
 
   return (
     <div style={{ marginTop: 24 }}>

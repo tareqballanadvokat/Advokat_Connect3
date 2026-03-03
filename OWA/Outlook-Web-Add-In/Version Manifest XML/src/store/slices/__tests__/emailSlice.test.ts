@@ -40,6 +40,7 @@ describe("emailSlice", () => {
     saveDokumentLoading: false,
     saveDokumentError: null,
     saveCount: 0,
+    registeredEmailsLoading: false,
   };
 
   // Mock data
