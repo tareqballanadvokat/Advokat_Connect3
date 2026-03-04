@@ -14,6 +14,7 @@ import { getLogger } from '../../../../services/logger';
 const logger = getLogger();
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
+  const [hasSearched, setHasSearched] = useState(false);
   const { cases, favouriteAkten, loading, favoritesLoading, favoritesLoaded, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
   const isReady = useAppSelector(selectIsReady);
 
@@ -80,6 +81,7 @@ const SearchCaseList: React.FC = () => {
     }
 
     try {
+      setHasSearched(true);
       await dispatch(aktLookUpAsync(query)).unwrap();
     } catch (error) {
       logger.error('Search failed:', 'SearchCaseList', error);
@@ -139,7 +141,7 @@ const SearchCaseList: React.FC = () => {
       showRowLines={true}
       columnAutoWidth={true}
       rowAlternationEnabled={false}
-      noDataText="No cases found. Try searching for 'demo' or enter a Kürzel."
+      noDataText={loading ? 'Loading...' : hasSearched ? 'No results found, try a different search term' : 'Search Akten'}
     >
       <Paging defaultPageSize={5} />
       <Pager

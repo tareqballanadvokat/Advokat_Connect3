@@ -20,6 +20,7 @@ interface Props {
 
 const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   const dispatch = useAppDispatch();
+  const [hasSearched, setHasSearched] = useState(false);
   const personState = useAppSelector((state: RootState) => state.person);
   const isReady = useAppSelector(selectIsReady);
   const { persons, loading, addToFavoriteLoading, addingToFavoritePersonId, error, searchTerm, favorites } = personState;
@@ -65,6 +66,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     }
     
     try {
+      setHasSearched(true);
       await dispatch(personLookUpAsync(query)).unwrap();
     } catch (error) {
       logger.error('Search failed:', 'SearchPersonList', error);
@@ -135,7 +137,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText="No persons found. Try a different search term."
+        noDataText={loading ? 'Loading...' : hasSearched ? 'No results found, try a different search term' : 'Search Persons'}
       >
         <Paging defaultPageSize={5} />
         <Pager
