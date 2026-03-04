@@ -20,6 +20,7 @@ interface SearchProps {
 
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
+  const [hasSearched, setHasSearched] = useState(false);
   const { cases, loading, error, searchTerm, selectedAkt, foldersLoading, emailDocumentsLoading } = useAppSelector(state => state.akten);
   const servicesLoading = useAppSelector(state => state.service.servicesLoading);
   const registeredEmailsLoading = useAppSelector(state => state.email.registeredEmailsLoading);
@@ -43,6 +44,10 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
 
   const handleSearch = async () => {
     if(loading) return; // Prevent multiple simultaneous searches
+    if (!isReady) {
+      notify('Still connecting, please wait...', 'warning', 3000);
+      return;
+    }
     const filter = searchTerm.trim();
     
     if (!filter) {
@@ -54,6 +59,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     try {
       // Dispatch Redux action to search for cases
       // Using aktLookUpAsync - includes fake response for testing when WebRTC is not ready
+      setHasSearched(true);
       await dispatch(aktLookUpAsync(filter)).unwrap();
     } catch (error) {
       logger.error('Search failed', 'SearchCaseList', error);
@@ -74,17 +80,17 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         <TextBox
           width={250}
           stylingMode="outlined"
-          placeholder="Search by AktId (123) or Kürzel (ABC)..."
+          placeholder="Search by Akt Kürzel (ABC)..."
           value={searchTerm}
           onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
-          disabled={loading}
+          disabled={loading || !isReady}
         />
         <Button 
           icon="search" 
           stylingMode="contained" 
           onClick={handleSearch}
-          disabled={loading}
+          disabled={loading || !isReady}
           text={loading ? "Searching..." : ""}
         />
       </div>
@@ -107,7 +113,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText="No cases found."
+        noDataText={loading ? 'Loading...' : hasSearched ? 'No results found, try a different search term' : 'Search Akten'}
         onRowPrepared={e => {
           if (e.rowType === 'data') {
             e.rowElement.style.height = '36px';

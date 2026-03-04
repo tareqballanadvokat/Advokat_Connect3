@@ -40,8 +40,10 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
   };
 
   useEffect(() => {
-    const ready = isReady;
-    if (!ready) return;
+    if (!isReady || !selectedAkt) {
+      setLeistungen([]);
+      return;
+    }
 
     (async () => {
       dispatch(setRegisteredServicesLoading(true));
@@ -104,7 +106,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText={loading ? 'Loading...' : 'No services found'}
+        noDataText={loading ? 'Loading...' : !selectedAkt ? 'Select a case to view registered services' : 'No services found'}
         height={250}
       >
         <Paging defaultPageSize={7} />
