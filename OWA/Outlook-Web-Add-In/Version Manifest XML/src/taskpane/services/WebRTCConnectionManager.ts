@@ -69,7 +69,7 @@ const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
   maxReconnectAttempts: 2,
   reconnectDelay: 3000,
   enableAutoReconnect: true,
-  idleTimeout: 1 * 60 * 1000, // 1 minute
+  idleTimeout: 5 * 60 * 1000, // 1 minute
   enableIdleDisconnect: true,
   reconnectOnActivity: true,
 };
