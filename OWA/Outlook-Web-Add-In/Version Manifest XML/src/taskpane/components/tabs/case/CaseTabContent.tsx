@@ -20,7 +20,6 @@ import TreeList, {
   Column,
   Scrolling,
   Editing,
-  Button,
 } from 'devextreme-react/tree-list';
 import { 
   getMimeTypeFromExtension, 
@@ -50,6 +49,8 @@ const CaseTabContent: React.FC = () => {
   const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
   // Store documents in component state (keyed by aktId)
   const [dokumentsByAkt, setDokumentsByAkt] = useState<Map<number, DokumentResponse[]>>(new Map());
+  // Track which document is currently being opened/downloaded
+  const [openingDocumentId, setOpeningDocumentId] = useState<number | null>(null);
 
   // Load favorite Akten on mount (thunk handles cache)
   useEffect(() => {    
@@ -218,6 +219,7 @@ const CaseTabContent: React.FC = () => {
       }
     } else if (!node.isStructure && node.documentId) {
       // This is a document, download and open the file
+      setOpeningDocumentId(node.documentId);
       let downloadingToast: any = null;
       try {
         logger.debug(`Downloading document with ID: ${node.documentId}`, 'CaseTabContent');
@@ -299,6 +301,8 @@ const CaseTabContent: React.FC = () => {
         }
         logger.error('Failed to download document:', 'CaseTabContent', error);
         notify(`Failed to download ${node.name}: ${error}`, 'error', 5000);
+      } finally {
+        setOpeningDocumentId(null);
       }
     } else {
       // Fallback for nodes without documentId (shouldn't happen for documents)
@@ -412,7 +416,7 @@ const CaseTabContent: React.FC = () => {
           showBorders={false}
           columnAutoWidth={false}  // Disable auto width to control column sizes manually
           allowColumnResizing={true}  // Allow user to resize columns if needed
-          wordWrapEnabled={false}  // Disable word wrapping to keep rows compact
+          wordWrapEnabled={true}
           rowAlternationEnabled={true}  // Better visual separation for rows
           height={400}
           noDataText="No documents found. Expand a case to load documents."
@@ -422,145 +426,127 @@ const CaseTabContent: React.FC = () => {
         {/* … Paging, Scrolling … */}
       <Editing
         allowUpdating={false}
-        allowDeleting={allowDeleting}
+        allowDeleting={false}
         allowAdding={false}
         mode="row" />
+        {/* ── Main column: full folder/file tree (FIRST = gets expand arrows) ── */}
         <Column
           dataField="name"
           caption="Name"
-          width="50%"  // Share space between name and description
-          minWidth={200}  // Minimum width to ensure readability
-          allowResizing={true}  // Allow user to resize the name column
-          cellRender={({ data }: { data: HierarchyTree }) => (
-            <div 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center',  // Center align for compact display
-                gap: 6,
-                padding: '2px 0',  // Minimal vertical padding
-                lineHeight: '1.2',  // Compact line height
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'  // Keep text on single line
-              }}
-              title={data.name}  // Show full name on hover
-            >
-              {/* Show loading icon for Akt folders when documents are being loaded */}
-              {data.isStructure && data.url.startsWith('akt:') && 
-               caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? (
-                <i
-                  className="dx-icon dx-icon-refresh"
-                  style={{ 
-                    flexShrink: 0,
-                    fontSize: '14px',
-                    animation: 'spin 1s linear infinite'
-                  }}
-                />
-              ) : (
-                <i
-                  className={
-                    data.isStructure
-                      ? 'dx-icon dx-icon-folder'
-                      : 'dx-icon dx-icon-file'
-                  }
-                  style={{ 
-                    flexShrink: 0,  // Prevent icon from shrinking
-                    fontSize: '14px'  // Smaller icon size
-                  }}
-                />
-              )}
-              <span style={{ 
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                opacity: data.isStructure && data.url.startsWith('akt:') && 
-                         caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? 0.7 : 1
-              }}>
-                {data.name}
-                {data.isStructure && data.url.startsWith('akt:') && 
-                 caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) && ' (Loading...)'}
-              </span>
-            </div>
-          )}
-        />
-        
-        <Column
-          dataField="causa"
-          caption="Description"
-          width="calc(50% - 140px)"  // Take remaining space minus fixed button column width
-          minWidth={150}  // Minimum width to ensure readability
           allowResizing={true}
-          visible={true}
-          cellRender={({ data }: { data: HierarchyTree }) => (
-            <span 
-              style={{ 
-                fontSize: '11px',
-                color: '#666',
-                fontStyle: data.isStructure ? 'italic' : 'normal',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                lineHeight: '1.2'
-              }}
-              title={data.causa}
-            >
-              {data.causa || (data.isStructure ? 'Folder' : 'Document')}
-            </span>
-          )}
-        />
- 
- 
-      <Column 
-        type="buttons" 
-        width={140}  // Fixed width for buttons column (enough for 3 buttons)
-        minWidth={140}  // Minimum width to prevent shrinking
-        allowResizing={true}  // Prevent user from resizing this column
-        fixed={true}  // Keep buttons column fixed/visible
-        fixedPosition="right"  // Fix to the right side
-      > 
-        {/* Open/View button - for documents */}
-        <Button 
-          text="open"
-          hint="Open file"
-          onClick={({ row }) => handleOpen(row.data)}
-          visible={({ row }) => !row.data.isStructure}
+          cellRender={({ data }: { data: HierarchyTree }) => {
+            const isOpening = openingDocumentId !== null && openingDocumentId === data.documentId;
+            return (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 4,
+                  padding: '2px 0',
+                  lineHeight: '1.4',
+                  flexWrap: 'wrap',
+                }}
+                title={data.name}
+              >
+                {/* Open icon — files only */}
+                {!data.isStructure && (
+                  <button
+                    className={`dx-button dx-button-large dx-button-mode-contained${isOpening ? ' loading-button' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); if (!isOpening) handleOpen(data); }}
+                    disabled={isOpening}
+                    title={isOpening ? 'Opening...' : 'Open file'}
+                    style={{
+                      flexShrink: 0,
+                      border: 'none',
+                      borderRadius: '3px',
+                      padding: '2px 5px',
+                      cursor: isOpening ? 'not-allowed' : 'pointer',
+                      color: isOpening ? '#666' : '#1976d2',
+                    }}
+                  >
+                    <i className={`dx-icon dx-icon-${isOpening ? 'refresh' : 'export'}`} style={{ fontSize: 18, color: isOpening ? '#666' : '#1976d2' }} />
+                  </button>
+                )}
+                {/* Add-as-attachment icon — compose mode + files only */}
+                {!data.isStructure && IsComposeMode() && (
+                  <button
+                    className="dx-button dx-button-normal dx-button-mode-contained"
+                    onClick={(e) => { e.stopPropagation(); handleAdd(data); }}
+                    title="Add as attachment"
+                    style={{
+                      flexShrink: 0,
+                      border: 'none',
+                      borderRadius: '3px',
+                      padding: '2px 5px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <i className="dx-icon dx-icon-add" style={{ fontSize: 13 }} />
+                  </button>
+                )}
+
+                {/* Folder / file icon */}
+                {data.isStructure && data.url.startsWith('akt:') &&
+                 caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? (
+                  <i className="dx-icon dx-icon-refresh" style={{ flexShrink: 0, fontSize: 14, animation: 'spin 1s linear infinite' }} />
+                ) : (
+                  <i
+                    className={data.isStructure ? 'dx-icon dx-icon-folder' : 'dx-icon dx-icon-file'}
+                    style={{ flexShrink: 0, fontSize: 14 }}
+                  />
+                )}
+
+                {/* Name */}
+                <span style={{
+                  wordBreak: 'break-word',
+                  whiteSpace: 'normal',
+                  flex: 1,
+                  minWidth: 0,
+                  opacity: data.isStructure && data.url.startsWith('akt:') &&
+                           caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? 0.7 : 1,
+                }}>
+                  {data.name}
+                  {data.isStructure && data.url.startsWith('akt:') &&
+                   caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) && ' (Loading...)'}
+                </span>
+              </div>
+            );
+          }}
         />
 
-        {/* Add attachment button - for documents in compose mode */}
-        <Button 
-          icon="add"
-          hint="Add as attachment"
-          onClick={({ row }) => handleAdd(row.data)}
-          visible={({ row }) => IsComposeMode() && !row.data.isStructure}
-        />
-        
-        {/* Delete favorite button - only for top-level Akten */}
-        <Button
-          render={({ data }) => {
-            const aktId = data.id;
-            const isLoading = removeFromFavoriteLoading && removingFromFavoriteAktId === aktId;
+        {/* ── Right column: delete icon for root Akt nodes only ────── */}
+        <Column
+          width={40}
+          minWidth={40}
+          allowResizing={false}
+          fixed={true}
+          fixedPosition="right"
+          caption=""
+          cellRender={({ data }: { data: HierarchyTree }) => {
+            if (data.rootId !== -1) return null;
+            const isDeleting = removeFromFavoriteLoading && removingFromFavoriteAktId === data.id;
             return (
               <button
-                className={`dx-button dx-button-normal dx-button-mode-contained ${isLoading ? 'loading-button' : ''}`}
-                onClick={() => handleDelete(data)}
-                disabled={isLoading}
-                title={isLoading ? 'Removing from favorites...' : 'Remove from favorites'}
+                className={`dx-button dx-button-normal dx-button-mode-contained delete-favorite-btn${isDeleting ? ' loading-button' : ''}`}
+                onClick={(e) => { e.stopPropagation(); handleDelete(data); }}
+                disabled={isDeleting}
+                title={isDeleting ? 'Removing from favorites...' : 'Remove from favorites'}
                 style={{
-                  backgroundColor: isLoading ? '#f5f5f5' : '#d32f2f',
-                  color: isLoading ? '#666' : 'white',
+                  backgroundColor: isDeleting ? '#f5f5f5' : '#d32f2f',
+                  color: isDeleting ? '#666' : 'white',
                   border: 'none',
                   borderRadius: '3px',
-                  padding: '4px 8px',
-                  cursor: isLoading ? 'not-allowed' : 'pointer'
+                  padding: '2px 5px',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
                 }}
               >
-                <i className={`dx-icon dx-icon-${isLoading ? 'refresh' : 'trash'}`} />
+                <i className={`dx-icon dx-icon-${isDeleting ? 'refresh' : 'trash'}`} style={{ fontSize: 13 }} />
               </button>
             );
           }}
-          visible={({ row }) => row.data.rootId === -1}
         />
-      </Column>
+
+
       </TreeList>
       </div>
     </div>

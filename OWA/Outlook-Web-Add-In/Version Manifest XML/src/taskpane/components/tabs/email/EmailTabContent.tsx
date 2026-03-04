@@ -108,8 +108,8 @@ const EmailTabContent: React.FC = () => {
       return;
     }
 
-    // Validate that all checked items have a folder assigned
-    const checkedItems = attachmentSelected.filter(i => i.checked);
+    // Validate that all checked items have a folder assigned (exclude already-transferred/disabled items)
+    const checkedItems = attachmentSelected.filter(i => i.checked && !i.disabled);
     const itemsWithoutFolder = checkedItems.filter(i => i.option === -1);
     
     if (itemsWithoutFolder.length > 0) {
@@ -177,8 +177,8 @@ const EmailTabContent: React.FC = () => {
       
       const email = Office.context.mailbox.item;
       
-      // Find selected email
-      const firstE = attachmentSelected.find(i => i.checked && i.type === 'E'); // email taken
+      // Find selected email (exclude already-transferred/disabled items)
+      const firstE = attachmentSelected.find(i => i.checked && i.type === 'E' && !i.disabled); // email taken
       let emailContent = '';
       
       // Save email as document if selected
@@ -230,7 +230,7 @@ const EmailTabContent: React.FC = () => {
       }
 
       // Get selected attachments and save each as a document
-      const selectedAttachments = attachmentSelected.filter(i => i.checked && i.type === 'A');
+      const selectedAttachments = attachmentSelected.filter(i => i.checked && i.type === 'A' && !i.disabled);
       
       if (selectedAttachments.length > 0) {
         logger.debug(`Processing ${selectedAttachments.length} attachments for transfer`, 'EmailTabContent');

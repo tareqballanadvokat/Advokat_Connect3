@@ -2,22 +2,39 @@
 
 /* Gold star button styling */
 .star-button-gold {
-  color: #ffd700 !important; /* Gold color */
+  color: #e6b800 !important; /* Slightly deeper gold for white theme visibility */
 }
 
 .star-button-gold:hover {
-  color: #ffed4e !important; /* Lighter gold on hover */
+  color: #ffd700 !important;
   background-color: rgba(255, 215, 0, 0.1) !important; /* Light gold background on hover */
 }
 
 /* Make sure the star icon is visible and properly sized */
-.star-button-gold .dx-icon {
-  color: #ffd700 !important;
+.star-button-gold .dx-icon,
+.star-button-gold .dx-icon::before,
+.star-button-gold .dx-icon::after {
+  color: #e6b800 !important;
   font-size: 16px !important;
 }
 
-.star-button-gold:hover .dx-icon {
-  color: #ffed4e !important;
+.star-button-gold:hover .dx-icon,
+.star-button-gold:hover .dx-icon::before,
+.star-button-gold:hover .dx-icon::after {
+  color: #ffd700 !important;
+}
+
+/* Trash / delete-favorite button: force icon white at all times */
+.delete-favorite-btn .dx-icon,
+.delete-favorite-btn .dx-icon::before,
+.delete-favorite-btn .dx-icon::after {
+  color: white !important;
+}
+
+.delete-favorite-btn.loading-button .dx-icon,
+.delete-favorite-btn.loading-button .dx-icon::before,
+.delete-favorite-btn.loading-button .dx-icon::after {
+  color: #666 !important;
 }
 
 /* Ensure button container is visible */

@@ -1,29 +1,51 @@
-.dx-accordion-item-title .dx-icon {
-    float: left;
+/* Ensure accordion title template wrapper fills the full width */
+.dx-accordion-item-title .dx-template-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
 }
 
-.dx-accordion-item-title::before{
-    position: left;
+/* Give the DX expand/collapse indicator its own space */
+.dx-accordion-item-title .dx-accordion-item-title-caption {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Gold star button styling for SearchPersonList */
 .star-button-gold {
-  color: #ffd700 !important; /* Gold color */
+  color: #e6b800 !important; 
 }
 
 .star-button-gold:hover {
-  color: #ffed4e !important; /* Lighter gold on hover */
+  color: #ffd700 !important;
   background-color: rgba(255, 215, 0, 0.1) !important; /* Light gold background on hover */
 }
 
 /* Make sure the star icon is visible and properly sized */
-.star-button-gold .dx-icon {
-  color: #ffd700 !important;
+.star-button-gold .dx-icon,
+.star-button-gold .dx-icon::before,
+.star-button-gold .dx-icon::after {
+  color: #e6b800 !important;
   font-size: 16px !important;
 }
 
-.star-button-gold:hover .dx-icon {
-  color: #ffed4e !important;
+.star-button-gold:hover .dx-icon,
+.star-button-gold:hover .dx-icon::before,
+.star-button-gold:hover .dx-icon::after {
+  color: #ffd700 !important;
+}
+
+/* Trash / delete-favorite button: force icon white at all times */
+.delete-favorite-btn .dx-icon,
+.delete-favorite-btn .dx-icon::before,
+.delete-favorite-btn .dx-icon::after {
+  color: white !important;
+}
+
+.delete-favorite-btn.loading-button .dx-icon,
+.delete-favorite-btn.loading-button .dx-icon::before,
+.delete-favorite-btn.loading-button .dx-icon::after {
+  color: #666 !important;
 }
 
 /* Ensure button container is visible */
@@ -47,5 +69,48 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ── Expanded person item ─────────────────────────────────── */
+
+/* Header row separator */
+.person-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #d0d0d0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .person-item-header {
+    border-bottom-color: #444;
+  }
+}
+
+/* Section icons */
+.person-item-icon {
+  font-size: 16px;
+  margin-top: 2px;
+  color: #555;
+}
+
+@media (prefers-color-scheme: dark) {
+  .person-item-icon {
+    color: #aaa;
+  }
+}
+
+/* Sub-label / detail text (address lines, contact values) */
+.person-item-detail {
+  font-size: 14px;
+  color: #444;
+}
+
+@media (prefers-color-scheme: dark) {
+  .person-item-detail {
+    color: #f0dcdc;
   }
 }
