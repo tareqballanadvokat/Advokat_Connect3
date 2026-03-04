@@ -46,7 +46,8 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     const filter = searchTerm.trim();
     
     if (!filter) {
-      dispatch(clearCases());
+      notify('Please enter a search term', 'warning', 3000);
+      // dispatch(clearCases());
       return;
     }
 
