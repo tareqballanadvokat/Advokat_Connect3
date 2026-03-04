@@ -57,6 +57,10 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
 
   const handleSearch = async () => {
     if(loading) return; // Prevent multiple simultaneous searches
+    if (!isReady) {
+      notify('Still connecting, please wait...', 'warning', 3000);
+      return;
+    }
     const query = searchTerm.trim();
     
     if (!query) {
@@ -110,13 +114,13 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
           value={searchTerm}
           onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
-          disabled={loading}
+          disabled={loading || !isReady}
         />
         <Button 
           icon="search" 
           stylingMode="contained" 
           onClick={handleSearch}
-          disabled={loading}
+          disabled={loading || !isReady}
           text={loading ? "Searching..." : ""}
         />
       </div>

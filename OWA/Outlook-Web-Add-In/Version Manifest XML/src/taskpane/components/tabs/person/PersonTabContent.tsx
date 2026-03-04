@@ -7,9 +7,9 @@ import SearchPersonList from './SearchPersonList';
 import CustomTitle from './CustomTitle';
 import CustomItem from './CustomItem';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { PersonLookUpResponse, PersonResponse } from '../../interfaces/IPerson';
 import { 
-  personLookUpAsync, 
   addPersonToFavoritesAsync, 
   removePersonFromFavoritesAsync,
   getFavoritePersonsAsync
@@ -24,9 +24,10 @@ interface Props {
   loading?: boolean;
 }
 
-const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
+const PersonTabContent: React.FC<Props> = () => {
   const dispatch = useAppDispatch();
   const { favorites, favoritesLoading, removeFromFavoriteLoading, removingFromFavoritePersonId } = useAppSelector(state => state.person);
+  const isReady = useAppSelector(selectIsReady);
   
   const [expandedItems, setExpandedItems] = useState<PersonResponse[]>([]);
 
@@ -43,8 +44,9 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
 
   // Load favorites on startup
   useEffect(() => {
+    if (!isReady) return;
     dispatch(getFavoritePersonsAsync({ Count: 100, NurFavoriten: true }));
-  }, [dispatch]);
+  }, [isReady, dispatch]);
 
   // callback when someone in SearchPersonList adds a new person
   const handlePersonAdd = useCallback(async (personId: number, personName: string) => {
@@ -109,6 +111,17 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
       <SearchPersonList onPersonSelect={handlePersonAdd} />
 
       {/* Favorites Accordion */}
+      {isReady && !favoritesLoading && favorites.length === 0 && (
+        <div style={{ padding: '12px 16px', color: '#6b7280', fontSize: 14 }}>
+          No favorite personen
+        </div>
+      )}
+      {favoritesLoading && (
+        <div style={{ padding: '12px 16px', color: '#6b7280', fontSize: 14 }}>
+          Loading...
+        </div>
+      )}
+      {isReady && !favoritesLoading && favorites.length > 0 && (
       <Accordion
         dataSource={favorites}
         collapsible={true}
@@ -130,21 +143,6 @@ const PersonTabContent: React.FC<Props> = ({ loading = false }) => {
         )}
         itemRender={(data: PersonResponse) => <CustomItem {...data} />}
       />
-
-      {(loading || favoritesLoading) && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '12px 16px',
-          fontSize: 18,
-          fontWeight: 600,
-          color: '#4a5568',
-          backgroundColor: '#be5911ff'
-        }}>
-          <span style={{ marginLeft: 'auto', fontSize: 14, color: '#fff' }}>
-            Loading…
-          </span>
-        </div>
       )}
     </div>
   );

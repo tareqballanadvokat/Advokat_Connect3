@@ -9,7 +9,7 @@ import { DokumentResponse } from '../../interfaces/IDocument';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 import notify from 'devextreme/ui/notify';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { createSelector } from '@reduxjs/toolkit';
+import { selectIsReady } from '../../../../store/slices/connectionSlice';
 import { 
   getFavoriteAktenAsync, 
   getCaseDocumentsAsync, 
@@ -44,6 +44,7 @@ const CaseTabContent: React.FC = () => {
     removeFromFavoriteLoading,
     removingFromFavoriteAktId
   } = useAppSelector(state => state.akten);
+  const isReady = useAppSelector(selectIsReady);
   
   const [nodes, setNodes] = useState<HierarchyTree[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
@@ -52,15 +53,15 @@ const CaseTabContent: React.FC = () => {
   // Track which document is currently being opened/downloaded
   const [openingDocumentId, setOpeningDocumentId] = useState<number | null>(null);
 
-  // Load favorite Akten on mount (thunk handles cache)
   useEffect(() => {    
+    if (!isReady) return;
     if (!favoritesLoading && favouriteAkten.length === 0) {
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50
       }));
     }
-  }, [dispatch]); // Run once on mount
+  }, [isReady, dispatch]); // Re-run when connection becomes ready
 
   // Transform favorite Akten and loaded documents into HierarchyTree format with folder structure
   useEffect(() => {
@@ -419,7 +420,7 @@ const CaseTabContent: React.FC = () => {
           wordWrapEnabled={true}
           rowAlternationEnabled={true}  // Better visual separation for rows
           height={400}
-          noDataText="No documents found. Expand a case to load documents."
+          noDataText={!isReady ? '' : favoritesLoading ? 'Loading...' : 'No favorite cases'}
         >
         <Scrolling mode="standard" />  {/* Enable horizontal scrolling as fallback */}
         
