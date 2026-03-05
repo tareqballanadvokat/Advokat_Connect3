@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cache Statistics Panel
  * Real-time monitoring of cache performance metrics
  */

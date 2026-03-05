@@ -1,5 +1,6 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { createRoot } from "react-dom/client";
+import '../i18n'; // initialize i18next before anything else
 import App from "./components/App";
 import { FluentProvider, webLightTheme, webDarkTheme } from "@fluentui/react-components";
 import { Provider } from "react-redux";

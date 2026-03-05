@@ -1,7 +1,8 @@
-// src/taskpane/components/tabs/email/EmailSend.tsx
+﻿// src/taskpane/components/tabs/email/EmailSend.tsx
 import React from 'react';
 import { EmailSendProps } from '../../interfaces/IEmail';
 import Button from 'devextreme-react/button';
+import { useTranslation } from 'react-i18next';
 
 // Inject CSS for orange loading button
 const orangeButtonStyles = `
@@ -30,14 +31,16 @@ const EmailSend: React.FC<EmailSendProps> = ({
     onTransfer,
     transferBtnDisable,
     transferLoading = false
-}) => (
+}) => {
+  const { t: translate } = useTranslation('common');
+  return (
   <div>  
-    <h3>Case</h3>
+    <h3>{translate('caseLabel')}</h3>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
 
     <input
       type="text"
-      placeholder="Case ID"
+      placeholder={translate('caseIdPlaceholder')}
       value={caseId}
       width={80}
       readOnly
@@ -52,7 +55,7 @@ const EmailSend: React.FC<EmailSendProps> = ({
       }}
     />
     <Button
-        text={transferLoading ? "Sending..." : "Transfer"}
+        text={transferLoading ? translate('buttons.sending') : translate('buttons.transfer')}
         type={transferLoading ? "default" : "success"}
         width={transferLoading ? 100 : 80}
         disabled={transferBtnDisable || transferLoading}
@@ -67,6 +70,7 @@ const EmailSend: React.FC<EmailSendProps> = ({
       }}
     />
   </div></div>
-);
+  );
+};
 
 export default EmailSend;

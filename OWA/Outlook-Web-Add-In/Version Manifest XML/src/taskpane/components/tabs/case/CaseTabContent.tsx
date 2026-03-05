@@ -1,4 +1,4 @@
-// src/taskpane/components/tabs/cases/CasesAccordion.tsx
+﻿// src/taskpane/components/tabs/cases/CasesAccordion.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
 import './CaseTabContent.css'; // Import our custom CSS
@@ -28,6 +28,7 @@ import {
   isViewableInBrowser 
 } from '../../../utils/fileHelpers';
 import { getLogger } from '../../../../services/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
@@ -35,6 +36,7 @@ const allowDeleting = (e) => e.row.data.ID !== 1;
 
 const CaseTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
+  const { t: translate } = useTranslation(['case', 'common']);
   const { 
     favouriteAkten,
     loading, 
@@ -71,7 +73,7 @@ const CaseTabContent: React.FC = () => {
       const aktNode: HierarchyTree = {
         id: akt.id, // Use actual Akt ID as node ID
         rootId: -1, // Top-level nodes have rootId = -1
-        name: `${akt.aKurz || 'Unknown'}`,
+        name: `${akt.aKurz || translate('unknownAkt')}`,
         isStructure: true, // This is a folder (Akt)
         hasChild: true,
         causa: akt.causa || '',
@@ -114,7 +116,7 @@ const CaseTabContent: React.FC = () => {
         
         // Split the path by backslashes or forward slashes
         const pathParts = relativePath.split(/[\\\/]/).filter(part => part.length > 0);
-        const fileName = pathParts.pop() || doc.betreff || 'Unknown File';
+        const fileName = pathParts.pop() || doc.betreff || translate('unknownFile');
         
         let currentParentId = parentAkt.id;
         
@@ -227,7 +229,7 @@ const CaseTabContent: React.FC = () => {
         
         // Show persistent notification during download
         try {
-          downloadingToast = notify(`Downloading ${node.name}...`, 'info', 0); // 0 means persistent
+          downloadingToast = notify(translate('downloadingFile', { name: node.name }), 'info', 0); // 0 means persistent
         } catch {
           // Fallback if the above doesn't work
           downloadingToast = null;
@@ -242,7 +244,7 @@ const CaseTabContent: React.FC = () => {
         }
         
         if (!fileContentBase64) {
-          notify('Document content is empty', 'warning', 3000);
+          notify(translate('documentContentEmpty'), 'warning', 3000);
           return;
         }
 
@@ -263,7 +265,7 @@ const CaseTabContent: React.FC = () => {
           try {
             const newWindow = window.open(url, '_blank');
             if (newWindow) {
-              notify(`Opened ${fileName} in new tab`, 'success', 3000);
+              notify(translate('openedInNewTab', { name: fileName }), 'success', 3000);
               
               // Clean up the URL after a delay to allow the new window to load
               setTimeout(() => {
@@ -282,7 +284,7 @@ const CaseTabContent: React.FC = () => {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            notify(`Downloaded ${fileName} (could not open in browser)`, 'success', 3000);
+            notify(translate('downloadedFallback', { name: fileName }), 'success', 3000);
           }
         } else {
           // Download non-viewable files (like .msg, .docx, etc.)
@@ -293,7 +295,7 @@ const CaseTabContent: React.FC = () => {
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-          notify(`Downloaded ${fileName}`, 'success', 3000);
+          notify(translate('downloaded', { name: fileName }), 'success', 3000);
         }
       } catch (error) {
         // Hide the downloading notification in case of error
@@ -301,14 +303,14 @@ const CaseTabContent: React.FC = () => {
           downloadingToast.hide();
         }
         logger.error('Failed to download document:', 'CaseTabContent', error);
-        notify(`Failed to download ${node.name}: ${error}`, 'error', 5000);
+        notify(translate('failedToDownload', { name: node.name }), 'error', 5000);
       } finally {
         setOpeningDocumentId(null);
       }
     } else {
       // Fallback for nodes without documentId (shouldn't happen for documents)
       logger.warn('Document node missing documentId', 'CaseTabContent', node);
-      notify('Unable to download: Document ID missing', 'warning', 3000);
+      notify(translate('documentIdMissing'), 'warning', 3000);
     }
   }, [expandedKeys, onExpandedRowKeysChange]);
 
@@ -319,13 +321,13 @@ const CaseTabContent: React.FC = () => {
     let attachingToast: any = null;
     try {
       if (!node.documentId) {
-        notify('Unable to attach: Document ID missing', 'warning', 3000);
+        notify(translate('unableToAttach'), 'warning', 3000);
         return;
       }
 
       // Show persistent notification during attachment process
       try {
-        attachingToast = notify(`Adding ${node.name} as attachment...`, 'info', 0); // 0 means persistent
+        attachingToast = notify(translate('attachingFile', { name: node.name }), 'info', 0); // 0 means persistent
       } catch {
         attachingToast = null;
       }
@@ -337,7 +339,7 @@ const CaseTabContent: React.FC = () => {
         if (attachingToast && typeof attachingToast.hide === 'function') {
           attachingToast.hide();
         }
-        notify('Document content is empty', 'warning', 3000);
+        notify(translate('documentContentEmpty'), 'warning', 3000);
         return;
       }
 
@@ -356,7 +358,7 @@ const CaseTabContent: React.FC = () => {
             }
             
             if (result.status === Office.AsyncResultStatus.Succeeded) {
-              notify(`Attached ${fileName} to email`, 'success', 3000);
+              notify(translate('attachedToEmail', { name: fileName }), 'success', 3000);
               resolve();
             } else { 
               logger.error('Failed to attach file to email', 'CaseTabContent', result);
@@ -371,7 +373,7 @@ const CaseTabContent: React.FC = () => {
         attachingToast.hide();
       }
       logger.error('Failed to add attachment:', 'CaseTabContent', error);
-      notify(`Failed to attach ${node.name}: ${error}`, 'error', 5000);
+      notify(translate('failedToAttach', { name: node.name }), 'error', 5000);
     }
   }, []);
 
@@ -382,7 +384,7 @@ const CaseTabContent: React.FC = () => {
       const aktName = node.name || `Akt ID ${aktId}`;
       // Use the new WebRTC Redux approach
       await dispatch(removeAktFromFavoriteAsync(aktId)).unwrap();
-      notify(`Successfully removed "${aktName}" from favorites!`, 'success', 3000);
+      notify(translate('removedFromFavoritesSuccess', { name: aktName }), 'success', 3000);
       // Refresh favorite Akten to remove the deleted case from the list
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
@@ -390,7 +392,7 @@ const CaseTabContent: React.FC = () => {
       }));
     } catch (error) {
       logger.error('Failed to remove from favorites:', 'CaseTabContent', error);
-      notify(`Failed to remove from favorites: ${error}`, 'error', 5000);
+      notify(translate('failedToRemoveFromFavorites'), 'error', 5000);
     }
   }, [dispatch]);
 
@@ -420,7 +422,7 @@ const CaseTabContent: React.FC = () => {
           wordWrapEnabled={true}
           rowAlternationEnabled={true}  // Better visual separation for rows
           height={400}
-          noDataText={!isReady ? '' : favoritesLoading ? 'Loading...' : 'No favorite cases'}
+          noDataText={!isReady ? '' : favoritesLoading ? translate('common:loading') : translate('noFavoriteCases')}
         >
         <Scrolling mode="standard" />  {/* Enable horizontal scrolling as fallback */}
         
@@ -433,7 +435,7 @@ const CaseTabContent: React.FC = () => {
         {/* ── Main column: full folder/file tree (FIRST = gets expand arrows) ── */}
         <Column
           dataField="name"
-          caption="Name"
+          caption={translate('columns.name')}
           allowResizing={true}
           cellRender={({ data }: { data: HierarchyTree }) => {
             const isOpening = openingDocumentId !== null && openingDocumentId === data.documentId;
@@ -455,7 +457,7 @@ const CaseTabContent: React.FC = () => {
                     className={`dx-button dx-button-large dx-button-mode-contained${isOpening ? ' loading-button' : ''}`}
                     onClick={(e) => { e.stopPropagation(); if (!isOpening) handleOpen(data); }}
                     disabled={isOpening}
-                    title={isOpening ? 'Opening...' : 'Open file'}
+                    title={isOpening ? translate('openingFile') : translate('openFile')}
                     style={{
                       flexShrink: 0,
                       border: 'none',
@@ -473,7 +475,7 @@ const CaseTabContent: React.FC = () => {
                   <button
                     className="dx-button dx-button-normal dx-button-mode-contained"
                     onClick={(e) => { e.stopPropagation(); handleAdd(data); }}
-                    title="Add as attachment"
+                    title={translate('addAsAttachment')}
                     style={{
                       flexShrink: 0,
                       border: 'none',
@@ -508,7 +510,7 @@ const CaseTabContent: React.FC = () => {
                 }}>
                   {data.name}
                   {data.isStructure && data.url.startsWith('akt:') &&
-                   caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) && ' (Loading...)'}
+                   caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) && ` (${translate('common:loading')})`}
                 </span>
               </div>
             );
@@ -531,7 +533,7 @@ const CaseTabContent: React.FC = () => {
                 className={`dx-button dx-button-normal dx-button-mode-contained delete-favorite-btn${isDeleting ? ' loading-button' : ''}`}
                 onClick={(e) => { e.stopPropagation(); handleDelete(data); }}
                 disabled={isDeleting}
-                title={isDeleting ? 'Removing from favorites...' : 'Remove from favorites'}
+                title={isDeleting ? translate('removingFromFavorites') : translate('removeFromFavorites')}
                 style={{
                   backgroundColor: isDeleting ? '#f5f5f5' : '#d32f2f',
                   color: isDeleting ? '#666' : 'white',

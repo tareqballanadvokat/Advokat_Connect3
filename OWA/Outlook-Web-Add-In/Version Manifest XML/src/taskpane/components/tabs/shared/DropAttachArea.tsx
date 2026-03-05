@@ -1,13 +1,15 @@
-// src/taskpane/components/tabs/email/DropAttachArea.tsx
+﻿// src/taskpane/components/tabs/email/DropAttachArea.tsx
 import React, { useState, useCallback } from 'react';
 import LoadPanel from 'devextreme-react/load-panel';
 import { getLogger } from '../../../../services/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
 export default function DropAttachArea() {
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading]   = useState(false);
+  const { t: translate } = useTranslation('common');
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -67,7 +69,7 @@ export default function DropAttachArea() {
       <LoadPanel
         visible={loading}
         shading
-        message="Attaching files…"
+        message={translate('dragDrop.attachingFiles')}
       />
 
       <div
@@ -85,8 +87,8 @@ export default function DropAttachArea() {
         }}
       >
         {dragOver
-          ? 'Release to attach files to this email'
-          : 'Drag & drop files here to attach them'}
+          ? translate('dragDrop.releaseToAttach')
+          : translate('dragDrop.dragFilesHere')}
       </div>
     </>
   );

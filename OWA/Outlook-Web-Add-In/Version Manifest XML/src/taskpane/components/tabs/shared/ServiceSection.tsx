@@ -1,4 +1,4 @@
-// src/taskpane/components/tabs/shared/ServiceSection.tsx
+﻿// src/taskpane/components/tabs/shared/ServiceSection.tsx
 import React, { useEffect } from 'react';
 import SelectBox from 'devextreme-react/select-box';
 import { LeistungAuswahlResponse } from '@components/interfaces/IService';
@@ -6,6 +6,7 @@ import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@store/slices/serviceSlice';
 import notify from 'devextreme/ui/notify';
 import { getLogger } from '../../../../services/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
@@ -15,6 +16,7 @@ export interface ServiceSectionProps {}
 const ServiceSection: React.FC<ServiceSectionProps> = () => {
   // Get Redux dispatch function
   const dispatch = useAppDispatch();
+  const { t: translate } = useTranslation(['service', 'common']);
   
   // Get the service state from Redux store
   const serviceState = useAppSelector(state => state.service);
@@ -113,7 +115,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
     const value = serviceState.sb;
     // If not empty and not exactly 3 letters, show error
     if (value && value.length !== 3) {
-      notify('SB must be exactly 3 letters', 'error', 3000);
+      notify(translate('sbValidationError'), 'error', 3000);
     }
   };
 
@@ -131,15 +133,15 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
 
   return (
     <div style={{ marginBottom: 24 }}>
-  <h3>Services</h3>
+      <h3>{translate('servicesHeading')}</h3>
       {!selectedAktKuerzel ? (
         <div style={{ color: '#666', fontStyle: 'italic' }}>
-          Please select an Akt to load services
+          {translate('selectAktFirst')}
         </div>
       ) : serviceState.servicesLoading ? (
-        <div>Loading services...</div>
+        <div>{translate('loadingServices')}</div>
       ) : serviceState.servicesError ? (
-        <div style={{ color: 'red' }}>Error: {serviceState.servicesError}</div>
+        <div style={{ color: 'red' }}>{translate('common:errorPrefix')}: {serviceState.servicesError}</div>
       ) : (
         <>
           {/* Service dropdown - full width */}
@@ -150,7 +152,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
               value={serviceState.services.length > 0 ? serviceState.selectedServiceId : null}
               valueExpr="id"
               displayExpr="displayText"
-              placeholder={serviceState.services.length > 0 ? "Select Service" : "No services available"}
+              placeholder={serviceState.services.length > 0 ? translate('selectService') : translate('noServicesAvailable')}
               onValueChanged={e => handleServiceChange(e.value)}
               width="100%"
               disabled={serviceState.services.length === 0}
@@ -161,7 +163,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             <input
               type="text"
-              placeholder="SB"
+              placeholder={translate('sbPlaceholder')}
               value={serviceState.sb}
               onChange={e => handleSbChange(e.target.value)}
               onBlur={handleSbBlur}
@@ -180,7 +182,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
             />
             <input
               type="text"
-              placeholder="HH:MM"
+              placeholder={translate('timePlaceholder')}
               value={serviceState.time}
               onChange={e => handleTimeChange(e.target.value)}
               onBlur={handleTimeBlur}
@@ -200,7 +202,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
           <div style={{ marginBottom: 8 }}>
             <input
               type="text"
-              placeholder="Text"
+              placeholder={translate('textPlaceholder')}
               value={serviceState.text}
               onChange={e => handleTextChange(e.target.value)}
               style={{
@@ -216,7 +218,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
           
           {/* Show additional info */}
           <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-            Select a service. It will be handled according to the current context (email or service).
+            {translate('serviceContextHint')}
           </div>
         </>
       )}

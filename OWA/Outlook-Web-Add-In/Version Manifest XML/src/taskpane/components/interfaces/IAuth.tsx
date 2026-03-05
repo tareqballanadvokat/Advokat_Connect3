@@ -1,4 +1,4 @@
-// src/taskpane/components/interfaces/IAuth.tsx
+﻿// src/taskpane/components/interfaces/IAuth.tsx
 
 export interface IAuthRequest {
   grant_type: 'password' | 'client_credentials' | 'windows_auth' | 'refresh_token';

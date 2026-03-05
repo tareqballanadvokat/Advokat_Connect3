@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WebRTC API Communication Interfaces
  * Defines the protocol structure for WebRTC DataChannel communication
  */

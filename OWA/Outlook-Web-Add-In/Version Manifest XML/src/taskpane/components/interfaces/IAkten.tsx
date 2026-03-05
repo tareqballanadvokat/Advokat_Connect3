@@ -1,4 +1,4 @@
-
+﻿
 export interface AktenQuery {
   AktId?: number;
   AKurzLike?: string;

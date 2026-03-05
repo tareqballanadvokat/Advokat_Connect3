@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '../shared/ServiceSection';
 import SearchCaseList from '../shared/SearchCaseList';
@@ -12,12 +12,14 @@ import RegisteredService from './RegisteredService';
 import ServiceSend from './ServiceSend';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 import { getLogger } from '../../../../services/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
 const ServiceTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
   const [transferLoading, setTransferLoading] = useState(false);
+  const { t: translate } = useTranslation(['service', 'common']);
   
   const { selectedServiceId, time, text, sb, services } = useAppSelector(state => state.service);
   const { selectedAkt, cases } = useAppSelector(state => state.akten);
@@ -55,7 +57,7 @@ const ServiceTabContent: React.FC = () => {
   // Handler for sending service
   const sendServiceHandler = async () => {
     if (selectedCaseId === -1) {
-      notify('Please select a case first', 'warning', 3000);
+      notify(translate('common:selectCaseFirst'), 'warning', 3000);
       return;
     }
     
@@ -65,7 +67,7 @@ const ServiceTabContent: React.FC = () => {
     
     // If one is provided, both must be provided
     if ((hasSb && !hasTime) || (!hasSb && hasTime)) {
-      notify('Please provide both SB and time, or leave both empty', 'error', 4000);
+      notify(translate('provideBothSbAndTime'), 'error', 4000);
       return;
     }
     
@@ -117,13 +119,13 @@ const ServiceTabContent: React.FC = () => {
       
       // Send to API via WebRTC using Redux thunk
       await dispatch(saveLeistungAsync(payload)).unwrap();
-      notify('Service saved successfully', 'success', 3000);
+      notify(translate('serviceSavedSuccessfully'), 'success', 3000);
       // Trigger refresh
       setRefreshFlag(f => f + 1);
       
     } catch (error) {
       logger.error('Failed to save service:', 'ServiceTabContent', error);
-      notify('Failed to save service', 'error', 5000);
+      notify(translate('failedToSaveService'), 'error', 5000);
     } finally {
       // Reset loading state
       setTransferLoading(false);

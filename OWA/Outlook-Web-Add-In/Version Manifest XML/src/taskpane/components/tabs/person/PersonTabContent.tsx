@@ -1,4 +1,4 @@
-// src/taskpane/components/tabs/person/PersonTabContent.tsx
+﻿// src/taskpane/components/tabs/person/PersonTabContent.tsx
 import 'devextreme/dist/css/dx.light.css';
 import './person.css'; // Import our custom CSS for animations
 import React, { useState, useEffect, useCallback } from 'react';
@@ -17,6 +17,7 @@ import {
 import notify from 'devextreme/ui/notify';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 import { getLogger } from '../../../../services/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger(); 
 
@@ -28,6 +29,7 @@ const PersonTabContent: React.FC<Props> = () => {
   const dispatch = useAppDispatch();
   const { favorites, favoritesLoading, removeFromFavoriteLoading, removingFromFavoritePersonId } = useAppSelector(state => state.person);
   const isReady = useAppSelector(selectIsReady);
+  const { t: translate } = useTranslation('person');
   
   const [expandedItems, setExpandedItems] = useState<PersonResponse[]>([]);
 
@@ -39,7 +41,7 @@ const PersonTabContent: React.FC<Props> = () => {
     if (person.name1) parts.push(person.name1);
     if (person.name2) parts.push(person.name2);
     if (person.name3) parts.push(person.name3);
-    return parts.join(' ') || person.nKurz || 'Unknown Person';
+    return parts.join(' ') || person.nKurz || translate('unknownPerson');
   };
 
   // Load favorites on startup
@@ -52,10 +54,10 @@ const PersonTabContent: React.FC<Props> = () => {
   const handlePersonAdd = useCallback(async (personId: number, personName: string) => {
     try {
       await dispatch(addPersonToFavoritesAsync(personId)).unwrap();
-      notify(`Added "${personName}" to favorites`, 'success', 3000);
+      notify(translate('addedToFavorites', { name: personName }), 'success', 3000);
     } catch (error) {
       logger.error('Error adding person:', 'PersonTabContent', error);
-      notify('Failed to add person to favorites', 'error', 5000);
+      notify(translate('failedToAddToFavorites'), 'error', 5000);
     }
   }, [dispatch]);
 
@@ -88,10 +90,10 @@ const PersonTabContent: React.FC<Props> = () => {
 
     try {
       await dispatch(removePersonFromFavoritesAsync(personId)).unwrap();
-      notify(`Removed "${personName}" from favorites`, 'success', 3000);
+      notify(translate('removedFromFavorites', { name: personName }), 'success', 3000);
     } catch (error) {
       logger.error('Error removing person:', 'PersonTabContent', error);
-      notify('Failed to remove person from favorites', 'error', 5000);
+      notify(translate('failedToRemoveFromFavorites'), 'error', 5000);
     }
   }, [dispatch, removeFromFavoriteLoading, removingFromFavoritePersonId]);
 
@@ -113,12 +115,12 @@ const PersonTabContent: React.FC<Props> = () => {
       {/* Favorites Accordion */}
       {isReady && !favoritesLoading && favorites.length === 0 && (
         <div style={{ padding: '12px 16px', color: '#6b7280', fontSize: 14 }}>
-          No favorite personen
+          {translate('noFavoritePersons')}
         </div>
       )}
       {favoritesLoading && (
         <div style={{ padding: '12px 16px', color: '#6b7280', fontSize: 14 }}>
-          Loading...
+          {translate('loading', { ns: 'common' })}
         </div>
       )}
       {isReady && !favoritesLoading && favorites.length > 0 && (

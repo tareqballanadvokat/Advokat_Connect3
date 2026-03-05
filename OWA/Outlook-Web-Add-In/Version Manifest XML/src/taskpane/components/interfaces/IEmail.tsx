@@ -1,4 +1,4 @@
-// Email-related interfaces and models
+﻿// Email-related interfaces and models
 import { DokumentArt, TransferAttachmentItem } from './IDocument';
 import { getLogger } from '../../../services/logger';
 

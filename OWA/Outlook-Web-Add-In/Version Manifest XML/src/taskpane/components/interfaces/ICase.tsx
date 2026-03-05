@@ -1,4 +1,4 @@
-// Case-related interfaces and models
+﻿// Case-related interfaces and models
 
 export interface HierarchyTree {
   id: number;

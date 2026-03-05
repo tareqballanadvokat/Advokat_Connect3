@@ -1,4 +1,4 @@
-
+﻿
 export interface PersonKontaktData {
   reihung: number;
   art: string;

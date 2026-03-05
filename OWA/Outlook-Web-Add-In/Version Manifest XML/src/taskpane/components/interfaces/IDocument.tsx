@@ -1,4 +1,4 @@
-// Document interfaces corresponding to C# models
+﻿// Document interfaces corresponding to C# models
 
 // Enum for document types (corresponds to C# DokumentArt enum)
 export enum DokumentArt {

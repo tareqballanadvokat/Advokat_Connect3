@@ -1,8 +1,11 @@
-import React, { useState, Suspense, lazy, useEffect, useRef } from 'react';
+﻿import React, { useState, Suspense, lazy, useEffect } from 'react';
 import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
 import { ENABLE_CACHE_STATS } from '../../config';
 import { getLogger } from '../../services/logger';
+import { useTranslation } from 'react-i18next';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { setLanguage, SupportedLanguage } from '../../store/slices/languageSlice';
 
 const logger = getLogger();
 // lazy-import
@@ -15,6 +18,10 @@ const CacheStatsPanel = lazy(() => import('./shared/CacheStatsPanel'));
 const DevTabs: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showCacheTab, setShowCacheTab] = useState(ENABLE_CACHE_STATS);
+  const { t: translate } = useTranslation('common');
+  const dispatch = useAppDispatch();
+  const lang = useAppSelector(state => state.language.lang);
+  const switchLang = (l: SupportedLanguage) => dispatch(setLanguage(l));
 
   // Keyboard shortcut: Ctrl+Shift+C to toggle cache tab
   useEffect(() => {
@@ -42,7 +49,7 @@ const DevTabs: React.FC = () => {
       case 4: 
         if (!showCacheTab) {
           logger.warn('Cache stats tab not available', 'Tab');
-          return <div style={{ padding: '20px' }}>Cache Statistics not available</div>;
+          return <div style={{ padding: '20px' }}>{translate('cacheNotAvailable')}</div>;
         }
         return <CacheStatsPanel />;
       default: return null;
@@ -50,24 +57,47 @@ const DevTabs: React.FC = () => {
   };
 
   return (
-    <div  className="dx-compact"> 
+    <div className="dx-compact">
+      {/* Language switcher */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, padding: '4px 4px 0' }}>
+        <button
+          type="button"
+          onClick={() => switchLang('de')}
+          style={{
+            padding: '2px 8px', fontSize: 12, cursor: 'pointer', borderRadius: 4,
+            border: lang === 'de' ? '1px solid #0078d4' : '1px solid #ccc',
+            background: lang === 'de' ? '#0078d4' : 'transparent',
+            color: lang === 'de' ? '#fff' : 'inherit',
+          }}
+        >DE</button>
+        <button
+          type="button"
+          onClick={() => switchLang('en')}
+          style={{
+            padding: '2px 8px', fontSize: 12, cursor: 'pointer', borderRadius: 4,
+            border: lang === 'en' ? '1px solid #0078d4' : '1px solid #ccc',
+            background: lang === 'en' ? '#0078d4' : 'transparent',
+            color: lang === 'en' ? '#fff' : 'inherit',
+          }}
+        >EN</button>
+      </div>
       <Tabs
-        width={280}
+        width="100%"
         selectedIndex={selectedIndex}
         onItemClick={e => setSelectedIndex(e.itemIndex)}
        
         showNavButtons={false}
       >
-        <Item text="E-Mail" />
-        <Item text="Service" />
-        <Item text="Case"    />
-        <Item text="Person" />
-        {showCacheTab && <Item text="Cache" />}
+        <Item text={translate('tabs.email')} />
+        <Item text={translate('tabs.service')} />
+        <Item text={translate('tabs.case')} />
+        <Item text={translate('tabs.person')} />
+        {showCacheTab && <Item text={translate('tabs.cache')} />}
       </Tabs>
 
       {/* Suspense pokaże fallback tylko przy pierwszym ładowaniu chunka */}
       <div style={{ marginTop: 16 }}>
-        <Suspense fallback={<div>Loading tab…</div>}>
+        <Suspense fallback={<div>{translate('loadingTab')}</div>}>
           {renderContent()}
         </Suspense>
       </div>

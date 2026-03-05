@@ -1,7 +1,7 @@
-// src/taskpane/components/tabs/service/ServiceSend.tsx
+﻿// src/taskpane/components/tabs/service/ServiceSend.tsx
 import React from 'react';
 import Button from 'devextreme-react/button';
-import { Height } from 'devextreme-react/cjs/chart';
+import { useTranslation } from 'react-i18next';
 
 // Inject CSS for orange loading button
 const orangeButtonStyles = `
@@ -37,12 +37,15 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
     onTransfer,
     transferBtnDisable,
     transferLoading = false
-}) => ( <div>  <h3>Case</h3>
+}) => {
+  const { t: translate } = useTranslation('common');
+  return (
+  <div>  <h3>{translate('caseLabel')}</h3>
   <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
    
     <input
       type="text"
-      placeholder="Case ID"
+      placeholder={translate('caseIdPlaceholder')}
       value={caseId}
       width={80}
       readOnly
@@ -57,7 +60,7 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
       }}
     />
     <Button
-        text={transferLoading ? "Sending..." : "Transfer"}
+        text={transferLoading ? translate('buttons.sending') : translate('buttons.transfer')}
         type={transferLoading ? "default" : "success"}
         width={transferLoading ? 100 : 80}
         disabled={transferBtnDisable || transferLoading}
@@ -72,6 +75,7 @@ const ServiceSend: React.FC<ServiceSendProps> = ({
       }}
     />
   </div>  </div>
-);
+  );
+};
 
 export default ServiceSend;

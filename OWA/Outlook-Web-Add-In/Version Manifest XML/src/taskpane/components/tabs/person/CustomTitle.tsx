@@ -1,4 +1,5 @@
-import React from 'react';
+﻿import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface CustomTitleProps {
   personId: number;
@@ -8,6 +9,7 @@ export interface CustomTitleProps {
 }
 
 export default function CustomTitle({ anzeigename, isDeleting = false, onDelete }: Omit<CustomTitleProps, 'personId'>) {
+  const { t: translate } = useTranslation('person');
   return (
     <div
       className='person-title-row'
@@ -30,7 +32,7 @@ export default function CustomTitle({ anzeigename, isDeleting = false, onDelete 
           whiteSpace: 'nowrap'
         }}>
           {anzeigename}
-          {isDeleting && ' (Removing...)'}
+          {isDeleting && translate('removingLabel')}
         </span>
       </div>
 
@@ -43,7 +45,7 @@ export default function CustomTitle({ anzeigename, isDeleting = false, onDelete 
             if (!isDeleting) onDelete();
           }}
           disabled={isDeleting}
-          title={isDeleting ? 'Removing from favorites...' : 'Remove from favorites'}
+          title={isDeleting ? translate('hints.removingFromFavorites') : translate('hints.removeFromFavorites')}
           style={{
             backgroundColor: isDeleting ? '#f5f5f5' : '#d32f2f',
             color: isDeleting ? '#666' : 'white',

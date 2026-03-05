@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
@@ -9,11 +9,13 @@ import { RootState, AppDispatch } from '../../../../store';
 import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEmailDocuments, selectEmailDocuments } from '../../../../store/slices/aktenSlice';
 import { setAttachmentSelected } from '../../../../store/slices/emailSlice';
 import { getLogger } from '../../../../services/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
 const TransferAndAttachment: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const { t: translate } = useTranslation('email');
   const { 
     folderOptions, 
     foldersLoading, 
@@ -259,7 +261,7 @@ const TransferAndAttachment: React.FC = () => {
         setItems(allRows);
       } catch (e: any) {
         logger.error('Error loading transfer items:', 'TransferAndAttachment', e);
-        setError(e.message || 'Unknown error');
+        setError(e.message || translate('unknownError', { ns: 'common' }));
       } finally {
         setLoading(false);
       }
@@ -283,8 +285,8 @@ const TransferAndAttachment: React.FC = () => {
     });
   }, [attachmentSelected]);
 
-  if (loading) return <div>Loading…</div>;
-  if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;
+  if (loading) return <div>{translate('loading', { ns: 'common' })}</div>;
+  if (error)   return <div style={{ color: 'red' }}>{translate('errorPrefix', { ns: 'common' })}: {error}</div>;
 
   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
  
@@ -298,7 +300,7 @@ const TransferAndAttachment: React.FC = () => {
 
   return (
     <div>
-      <h3>Transfer e-mail and attachments</h3>
+      <h3>{translate('transferEmailAndAttachments')}</h3>
 
       {items.map(item => (
         <div

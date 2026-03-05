@@ -1,4 +1,4 @@
-// src/taskpane/components/tabs/email/RegisteredEmails.tsx
+﻿// src/taskpane/components/tabs/email/RegisteredEmails.tsx
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import notify from 'devextreme/ui/notify';
@@ -15,6 +15,7 @@ import {
   createBlobFromBase64,
   isViewableInBrowser,
 } from '../../../utils/fileHelpers';
+import { useTranslation } from 'react-i18next';
 
 
 const RegisteredEmails: React.FC = () => {
@@ -26,6 +27,7 @@ const RegisteredEmails: React.FC = () => {
   const saveCount = useAppSelector(state => state.email.saveCount);
   const registeredEmailsLoading = useAppSelector(state => state.email.registeredEmailsLoading);
   const selectedAkt = useAppSelector(state => state.akten.selectedAkt);
+  const { t: translate } = useTranslation('email');
 
   useEffect(() => {
     if (!isReady || !selectedAkt) {
@@ -57,12 +59,12 @@ const RegisteredEmails: React.FC = () => {
           });
           setEmails(data);
         } else if (response.statusCode === 404) {
-          setError('No registered e-mails found.');
+          setError(translate('noRegisteredEmails'));
         } else {
-          setError('Failed to load registered e-mails.');
+          setError(translate('failedToLoadEmails'));
         }
       } catch (err) {
-        setError('Error fetching registered e-mails.');
+        setError(translate('errorFetchingEmails'));
         console.error('RegisteredEmails fetch error:', err);
       } finally {
         dispatch(setRegisteredEmailsLoading(false));
@@ -72,9 +74,9 @@ const RegisteredEmails: React.FC = () => {
 
   const handleOpen = async (doc: DokumentResponse) => {
     try {
-      notify(`Opening ${doc.betreff ?? 'email'}...`, 'info', 2000);
+      notify(translate('opening', { name: doc.betreff ?? 'email' }), 'info', 2000);
       const base64 = await dispatch(downloadDocumentAsync(doc.id)).unwrap();
-      if (!base64) { notify('Empty content', 'warning', 3000); return; }
+      if (!base64) { notify(translate('emptyContent'), 'warning', 3000); return; }
 
       // Resolve a filename with extension:
       // 1. Use doc.fileName if available
@@ -99,8 +101,8 @@ const RegisteredEmails: React.FC = () => {
       DownloadFile(url, fileName);
     } catch (err) {
       const msg = err.message.includes('404')
-        ? 'Document not found. It may have been deleted.'
-        : 'Failed to open email.';
+        ? translate('documentNotFound')
+        : translate('failedToOpenDocument');
       notify(msg, 'error', 3000);
       console.error('RegisteredEmails open error:', err);
     }
@@ -119,7 +121,7 @@ const RegisteredEmails: React.FC = () => {
   const typeCell = (data: { data: DokumentResponse }) => {
     const art = data.data.dokumentArt;
     const isSent = art === DokumentArt.MailGesendet || art === 'MailGesendet';
-    return <span>{isSent ? 'Sent' : 'Received'}</span>;
+    return <span>{isSent ? translate('columns.sent') : translate('columns.received')}</span>;
   };
 
 
@@ -127,7 +129,7 @@ const RegisteredEmails: React.FC = () => {
   return (
     <div style={{ marginTop: 24 }}>
       <h3 style={{ alignItems: 'baseline', gap: 8 }}>
-        Registered E-Mails (last 7 days)
+        {translate('registeredEmails')}
       </h3>
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
@@ -139,7 +141,7 @@ const RegisteredEmails: React.FC = () => {
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText={registeredEmailsLoading ? 'Loading...' : !selectedAkt ? 'Select a case to view registered e-mails' : 'No e-mails found'}
+        noDataText={registeredEmailsLoading ? translate('loading', { ns: 'common' }) : !selectedAkt ? translate('selectCaseToViewEmails') : translate('noEmailsFound')}
         height={250}
       >
         <Paging defaultPageSize={7} />
@@ -150,13 +152,13 @@ const RegisteredEmails: React.FC = () => {
           buttons={[
             {
               icon: 'eyeopen',
-              hint: 'Open',
+              hint: translate('common:buttons.open'),
               onClick: (e) => { if (e.row) handleOpen(e.row.data as DokumentResponse); },
             }
           ]}
         />
-        <Column caption="Type" cellRender={typeCell} width={80} alignment="left" />
-        <Column dataField="betreff" caption="Subject" alignment="left" />
+        <Column caption={translate('columns.type')} cellRender={typeCell} width={80} alignment="left" />
+        <Column dataField="betreff" caption={translate('columns.subject')} alignment="left" />
       </DataGrid>
     </div>
   );

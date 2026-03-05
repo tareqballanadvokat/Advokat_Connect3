@@ -1,4 +1,4 @@
-export interface LeistungSachbearbeiter {
+﻿export interface LeistungSachbearbeiter {
   sb: string;  // SB-Kürzel (max 3 chars)
   zeitVerrechenbarInMinuten: number;
   zeitNichtVerrechenbarInMinuten: number;

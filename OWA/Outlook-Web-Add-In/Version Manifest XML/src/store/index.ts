@@ -7,6 +7,7 @@ import personReducer from "./slices/personSlice";
 import authReducer from "./slices/authSlice";
 import connectionReducer from "./slices/connectionSlice";
 import loggingReducer from "./slices/loggingSlice";
+import languageReducer from "./slices/languageSlice";
 
 // Configure the Redux store
 export const store = configureStore({
@@ -18,6 +19,7 @@ export const store = configureStore({
     auth: authReducer,
     connection: connectionReducer,
     logging: loggingReducer,
+    language: languageReducer,
   },
   middleware: (getDefaultMiddleware) => getDefaultMiddleware(),
 });

@@ -1,4 +1,4 @@
-// src/taskpane/hooks/useOfficeItem.ts
+﻿// src/taskpane/hooks/useOfficeItem.ts
 import { useState, useEffect } from 'react';
 import { getLogger } from '../../services/logger';
 

@@ -1,5 +1,6 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { makeStyles } from "@fluentui/react-components";
+import { useTranslation } from 'react-i18next';
 import Tabs from './Tab';
 import { configService } from '../../config/index';
 import { getWebRTCConnectionManager } from '../services/WebRTCConnectionManager';
@@ -22,6 +23,7 @@ const App: React.FC<AppProps> = () => {
   const dispatch = useAppDispatch();
   const loggingEnabled = useAppSelector((state) => state.logging.enabled);
   const logger = getLogger();
+  const { t: translate } = useTranslation('common');
  
   // Initialize logging from config
   React.useEffect(() => {
@@ -49,7 +51,7 @@ const App: React.FC<AppProps> = () => {
             "LoggingToggleNotification",
             {
               type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
-              message: `Logging ${newState ? 'enabled' : 'disabled'}`,
+              message: newState ? translate('logging.enabled') : translate('logging.disabled'),
               icon: "Icon.80x80",
               persistent: false,
             }
