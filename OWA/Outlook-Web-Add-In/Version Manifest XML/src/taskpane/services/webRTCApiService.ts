@@ -1,28 +1,28 @@
 /* eslint-disable no-undef */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { AktenQuery } from "../components/interfaces/IAkten";
+import { AktenQuery } from "@interfaces/IAkten";
 import {
   WebRTCApiResponse,
   PendingRequest,
   ReceivedResponseChunk,
-} from "../components/interfaces/IWebRTC";
+} from "@interfaces/IWebRTC";
 import {
   LeistungenAuswahlQuery,
   LeistungPostData,
   LeistungenQuery,
-} from "../components/interfaces/IService";
+} from "@interfaces/IService";
 import {
   DokumentArt,
   DokumentPostData,
   DokumenteQuery,
-} from "../components/interfaces/IDocument";
-import { PersonenQuery } from "../components/interfaces/IPerson";
-import { IAuthRequest, IAuthResponse } from "../components/interfaces/IAuth";
-import { SipClientInstance } from "../components/SIP_Library/SipClient";
+} from "@interfaces/IDocument";
+import { PersonenQuery } from "@interfaces/IPerson";
+import { IAuthRequest, IAuthResponse } from "@interfaces/IAuth";
+import { SipClientInstance } from "@components/SIP_Library/SipClient";
 import { tokenService } from "./TokenService";
 import { WebRTCDataChannelService, DataChannelObserver } from "./WebRTCDataChannelService";
-import { getLogger } from "../../services/logger";
-import { store } from "../../store";
+import { getLogger } from "@services/logger";
+import { store } from "@store";
 import {
   createProtocolRequest,
   chunkRequest,
@@ -31,7 +31,7 @@ import {
   areAllResponseChunksReceived,
   reassembleChunkedResponse,
   CHUNKING_CONFIG,
-} from "../utils/chunkingUtils";
+} from "@utils/chunkingUtils";
 
 /**
  * WebRTC API Service for handling messaging with chunking support

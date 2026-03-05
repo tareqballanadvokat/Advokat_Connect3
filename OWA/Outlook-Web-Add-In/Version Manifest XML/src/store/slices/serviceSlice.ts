@@ -6,14 +6,14 @@ import {
   LeistungPostData,
   LeistungenQuery,
   LeistungResponse,
-} from "../../taskpane/components/interfaces/IService";
-import { getWebRTCConnectionManager } from "../../taskpane/services/WebRTCConnectionManager";
-import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "../../services/cache";
+} from "@interfaces/IService";
+import { getWebRTCConnectionManager } from "@taskpane/services/WebRTCConnectionManager";
+import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "@services/cache";
 import { selectIsReady, selectNotReadyReason } from "./connectionSlice";
 import type { RootState } from "../index";
 import notify from "devextreme/ui/notify";
-import { getErrorMessage } from "../../utils/errorHelpers";
-import { getLogger } from "../../services/logger";
+import { getErrorMessage } from "@src/utils/errorHelpers";
+import { getLogger } from "@services/logger";
 
 const logger = getLogger();
 

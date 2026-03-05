@@ -30,19 +30,19 @@ import {
   SipClientState,
   SipClientObserver,
   initializeSipClient,
-} from "../components/SIP_Library/SipClient";
+} from "@components/SIP_Library/SipClient";
 import { webRTCApiService } from "./webRTCApiService";
 import { tokenService } from "./TokenService";
 import { IdleActivityMonitor } from "./IdleActivityMonitor";
 import { WebRTCDataChannelService } from "./WebRTCDataChannelService";
-import { store } from "../../store";
-import { getLogger } from "../../services/logger";
+import { store } from "@store";
+import { getLogger } from "@services/logger";
 import {
   startAuthentication,
   authenticationSuccess,
   authenticationFailure,
   selectAuthCredentials,
-} from "../../store/slices/authSlice";
+} from "@slices/authSlice";
 import {
   updateConnectionState as updateReduxConnectionState,
   selectConnectionState,
@@ -52,7 +52,7 @@ import {
   setDisconnectedDueToIdleAt,
   sipClientStateChanged,
   selectIsReady,
-} from "../../store/slices/connectionSlice";
+} from "@slices/connectionSlice";
 
 export type { ConnectionState };
 

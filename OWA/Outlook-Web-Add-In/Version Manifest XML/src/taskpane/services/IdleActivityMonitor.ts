@@ -4,7 +4,7 @@
  * Monitors user activity and triggers callbacks when user goes idle or becomes active
  */
 
-import { getLogger } from "../../services/logger";
+import { getLogger } from "@services/logger";
 
 export interface IdleActivityMonitorConfig {
   idleTimeout: number; // Time in ms before user is considered idle

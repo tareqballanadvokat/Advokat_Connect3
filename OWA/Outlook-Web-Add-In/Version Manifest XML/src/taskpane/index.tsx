@@ -4,12 +4,12 @@ import '../i18n'; // initialize i18next before anything else
 import App from "./components/App";
 import { FluentProvider, webLightTheme, webDarkTheme } from "@fluentui/react-components";
 import { Provider } from "react-redux";
-import { store } from "../store";
-import { APP_VERSION } from "../config";
-import { cacheService } from "../services/cache/CacheService";
-import { CACHE_KEYS, CACHE_CONFIG } from "../services/cache/config";
-import { initializeLogger, getLogger } from "../services/logger";
-import { configService } from "../config";
+import { store } from "@store";
+import { APP_VERSION } from "@config";
+import { cacheService } from "@services/cache/CacheService";
+import { CACHE_KEYS, CACHE_CONFIG } from "@services/cache/config";
+import { initializeLogger, getLogger } from "@services/logger";
+import { configService } from "@config";
 
 /* global document, Office, module, require, HTMLElement */
 

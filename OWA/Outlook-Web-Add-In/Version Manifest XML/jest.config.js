@@ -24,11 +24,19 @@ module.exports = {
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': '<rootDir>/src/__mocks__/styleMock.js',
     '\\.(jpg|jpeg|png|gif|svg|ttf|woff|woff2)$': '<rootDir>/src/__mocks__/fileMock.js',
+    '^@store$': '<rootDir>/src/store/index',
     '^@store/(.*)$': '<rootDir>/src/store/$1',
     '^@components/(.*)$': '<rootDir>/src/taskpane/components/$1',
     '^@utils/(.*)$': '<rootDir>/src/taskpane/utils/$1',
     '^@hooks/(.*)$': '<rootDir>/src/taskpane/hooks/$1',
     '^@src/(.*)$': '<rootDir>/src/$1',
+    '^@services/(.*)$': '<rootDir>/src/services/$1',
+    '^@interfaces/(.*)$': '<rootDir>/src/taskpane/components/interfaces/$1',
+    '^@taskpane/(.*)$': '<rootDir>/src/taskpane/$1',
+    '^@config$': '<rootDir>/src/config/index',
+    '^@config/(.*)$': '<rootDir>/src/config/$1',
+    '^@slices/(.*)$': '<rootDir>/src/store/slices/$1',
+    '^@i18n$': '<rootDir>/src/i18n',
     // Mock DevExtreme components
     '^devextreme-react/(.*)$': '<rootDir>/src/__mocks__/devextremeMock.js',
     '^devextreme/(.*)$': '<rootDir>/src/__mocks__/devextremeMock.js'

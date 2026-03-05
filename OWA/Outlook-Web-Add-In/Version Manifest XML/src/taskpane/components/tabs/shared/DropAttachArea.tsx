@@ -1,7 +1,7 @@
 ﻿// src/taskpane/components/tabs/email/DropAttachArea.tsx
 import React, { useState, useCallback } from 'react';
 import LoadPanel from 'devextreme-react/load-panel';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

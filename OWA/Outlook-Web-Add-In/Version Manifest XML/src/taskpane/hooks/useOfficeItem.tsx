@@ -1,6 +1,6 @@
 ﻿// src/taskpane/hooks/useOfficeItem.ts
 import { useState, useEffect } from 'react';
-import { getLogger } from '../../services/logger';
+import { getLogger } from '@services/logger';
 
 const logger = getLogger();
 

@@ -5,7 +5,7 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { getLogger } from "../../services/logger";
+import { getLogger } from "@services/logger";
 import {
   WebRTCApiRequest,
   WebRTCApiResponse,
@@ -13,7 +13,7 @@ import {
   PendingRequest,
   ChunkingResult,
   ReceivedResponseChunk,
-} from "../components/interfaces/IWebRTC";
+} from "@interfaces/IWebRTC";
 
 /**
  * Configuration constants for chunking

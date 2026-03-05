@@ -6,26 +6,24 @@ import EmailSend from './EmailSend';
 import RegisteredEmails from './RegisteredEmails';  
 // Import Service Section from shared
 import ServiceSection from '../shared/ServiceSection';
-import { getEmailContentAsync, IsComposeMode } from '@hooks/useOfficeItem';
+import { getEmailContentAsync, IsComposeMode, getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 import TransferAndAttachment from './TransferAndAttachment';
-import { TransferAttachmentItem, DokumentPostData, DokumentArt, DokumentResponse } from '@components/interfaces/IDocument';
-import { getDokumentArt } from '@components/interfaces/IEmail';
-import { AktLookUpResponse } from '@components/interfaces/IAkten';
-import { LeistungPostData } from '@components/interfaces/IService';
+import { TransferAttachmentItem, DokumentPostData, DokumentArt, DokumentResponse } from '@interfaces/IDocument';
+import { getDokumentArt } from '@interfaces/IEmail';
+import { AktLookUpResponse } from '@interfaces/IAkten';
+import { LeistungPostData } from '@interfaces/IService';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
-
-import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 import { calculateFileSizeFromBase64 } from '@utils/fileHelpers';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { setSelectedAkt, clearFolders, clearEmailDocuments } from '@store/slices/aktenSlice';
-import { saveDokumentAsync, setAttachmentSelected } from '@store/slices/emailSlice';
-import { saveLeistungAsync, resetLoadCounter } from '@store/slices/serviceSlice';
+import { setSelectedAkt, clearFolders, clearEmailDocuments } from '@slices/aktenSlice';
+import { saveDokumentAsync, setAttachmentSelected } from '@slices/emailSlice';
+import { saveLeistungAsync, resetLoadCounter } from '@slices/serviceSlice';
 
 const EmailTabContent: React.FC = () => {
   // Get Redux dispatch function

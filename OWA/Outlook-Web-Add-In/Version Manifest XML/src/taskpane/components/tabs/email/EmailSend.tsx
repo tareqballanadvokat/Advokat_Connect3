@@ -1,6 +1,6 @@
 ﻿// src/taskpane/components/tabs/email/EmailSend.tsx
 import React from 'react';
-import { EmailSendProps } from '../../interfaces/IEmail';
+import { EmailSendProps } from '@interfaces/IEmail';
 import Button from 'devextreme-react/button';
 import { useTranslation } from 'react-i18next';
 

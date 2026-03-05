@@ -2,16 +2,16 @@
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '../shared/ServiceSection';
 import SearchCaseList from '../shared/SearchCaseList';
-import { setSelectedAkt } from '@store/slices/aktenSlice';
-import { saveLeistungAsync, resetLoadCounter } from '@store/slices/serviceSlice';
+import { setSelectedAkt } from '@slices/aktenSlice';
+import { saveLeistungAsync, resetLoadCounter } from '@slices/serviceSlice';
 import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
-import { LeistungPostData } from '@components/interfaces/IService';
-import { AktLookUpResponse } from '@components/interfaces/IAkten';
+import { LeistungPostData } from '@interfaces/IService';
+import { AktLookUpResponse } from '@interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
 import ServiceSend from './ServiceSend';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

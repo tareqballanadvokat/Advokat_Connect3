@@ -2,7 +2,7 @@
 // src/store/slices/connectionSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../index";
-import { SipClientState } from "../../taskpane/components/SIP_Library/SipClient";
+import { SipClientState } from "@components/SIP_Library/SipClient";
 
 export interface ConnectionState {
   // Core state - single source of truth

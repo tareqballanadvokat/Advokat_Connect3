@@ -1,7 +1,7 @@
 ﻿import * as React from "react";
 import { Image, tokens, makeStyles } from "@fluentui/react-components";
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { setLanguage, SupportedLanguage } from '../../store/slices/languageSlice';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { setLanguage, SupportedLanguage } from '@slices/languageSlice';
 
 export interface HeaderProps {
   title: string;

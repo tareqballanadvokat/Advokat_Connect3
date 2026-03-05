@@ -3,8 +3,8 @@ import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import {
   TransferAttachmentItem,
   DokumentPostData,
-} from "../../taskpane/components/interfaces/IDocument";
-import { getWebRTCConnectionManager } from "../../taskpane/services/WebRTCConnectionManager";
+} from "@interfaces/IDocument";
+import { getWebRTCConnectionManager } from "@taskpane/services/WebRTCConnectionManager";
 
 interface EmailState {
   attachmentSelected: TransferAttachmentItem[];

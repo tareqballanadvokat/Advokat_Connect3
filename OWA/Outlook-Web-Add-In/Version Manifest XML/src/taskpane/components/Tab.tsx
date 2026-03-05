@@ -1,11 +1,11 @@
 ﻿import React, { useState, Suspense, lazy, useEffect } from 'react';
 import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
-import { ENABLE_CACHE_STATS } from '../../config';
-import { getLogger } from '../../services/logger';
+import { ENABLE_CACHE_STATS } from '@config';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { setLanguage, SupportedLanguage } from '../../store/slices/languageSlice';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { setLanguage, SupportedLanguage } from '@slices/languageSlice';
 
 const logger = getLogger();
 // lazy-import

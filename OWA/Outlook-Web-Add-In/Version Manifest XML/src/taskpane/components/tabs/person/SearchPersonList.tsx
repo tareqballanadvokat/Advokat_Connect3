@@ -4,13 +4,13 @@ import './person.css'; // Import our custom CSS for star button styling
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import type { RootState } from '../../../../store';
-import { selectIsReady } from '../../../../store/slices/connectionSlice';
-import { personLookUpAsync, clearPersons, setSearchTerm, clearPreviousSearchTerm } from '../../../../store/slices/personSlice';
-import { PersonLookUpResponse } from '../../interfaces/IPerson';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import type { RootState } from '@store';
+import { selectIsReady } from '@slices/connectionSlice';
+import { personLookUpAsync, clearPersons, setSearchTerm, clearPreviousSearchTerm } from '@slices/personSlice';
+import { PersonLookUpResponse } from '@interfaces/IPerson';
 import notify from 'devextreme/ui/notify';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

@@ -4,16 +4,16 @@ import {
   AktLookUpResponse,
   AktenQuery,
   AktenResponse,
-} from "../../taskpane/components/interfaces/IAkten";
-import { DokumentResponse } from "../../taskpane/components/interfaces/IDocument";
-import { getWebRTCConnectionManager } from "../../taskpane/services/WebRTCConnectionManager";
-import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "../../services/cache";
-import { StorageType } from "../../services/cache/types";
+} from "@interfaces/IAkten";
+import { DokumentResponse } from "@interfaces/IDocument";
+import { getWebRTCConnectionManager } from "@taskpane/services/WebRTCConnectionManager";
+import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "@services/cache";
+import { StorageType } from "@services/cache/types";
 import { selectIsReady, selectNotReadyReason } from "./connectionSlice";
 import type { RootState } from "../index";
 import notify from "devextreme/ui/notify";
-import { getErrorMessage } from "../../utils/errorHelpers";
-import { getLogger } from "../../services/logger";
+import { getErrorMessage } from "@src/utils/errorHelpers";
+import { getLogger } from "@services/logger";
 
 const logger = getLogger();
 

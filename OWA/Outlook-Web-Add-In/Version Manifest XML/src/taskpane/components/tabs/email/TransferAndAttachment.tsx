@@ -2,13 +2,13 @@
 import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
-import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
-import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '../../interfaces/IDocument';
+import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '@hooks/useOfficeItem'; 
+import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '@interfaces/IDocument';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState, AppDispatch } from '../../../../store';
-import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEmailDocuments, selectEmailDocuments } from '../../../../store/slices/aktenSlice';
-import { setAttachmentSelected } from '../../../../store/slices/emailSlice';
-import { getLogger } from '../../../../services/logger';
+import { RootState, AppDispatch } from '@store';
+import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEmailDocuments, selectEmailDocuments } from '@slices/aktenSlice';
+import { setAttachmentSelected } from '@slices/emailSlice';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

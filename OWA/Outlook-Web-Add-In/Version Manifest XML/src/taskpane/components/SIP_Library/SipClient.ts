@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-import { configService } from "../../../config/index";
+import { configService } from "@config";
 
 /**
  * SIP Client Main Controller
@@ -90,7 +90,7 @@ import {
 import { Peer2PeerConnection, SdpExchangeState, Peer2PeerEvents } from "./Peer2PeerConnection";
 import { helper } from "./Helper";
 import { TimeoutManager } from "./TimeoutManager";
-import { getLogger } from "../../../services/logger";
+import { getLogger } from "@services/logger";
 
 const logger = getLogger();
 

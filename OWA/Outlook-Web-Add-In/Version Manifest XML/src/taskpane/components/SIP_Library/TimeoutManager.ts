@@ -9,7 +9,7 @@
  * @version 1.0.0
  */
 
-import { getLogger } from "../../../services/logger";
+import { getLogger } from "@services/logger";
 
 const logger = getLogger();
 

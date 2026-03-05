@@ -2,12 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { selectAuthCredentials } from '@store/slices/authSlice';
-import { selectIsReady } from '@store/slices/connectionSlice';
-import { setRegisteredServicesLoading } from '@store/slices/serviceSlice';
+import { selectAuthCredentials } from '@slices/authSlice';
+import { selectIsReady } from '@slices/connectionSlice';
+import { setRegisteredServicesLoading } from '@slices/serviceSlice';
 import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
-import { LeistungResponse } from '@components/interfaces/IService';
-import { getWebRTCConnectionManager } from '../../../services/WebRTCConnectionManager';
+import { LeistungResponse } from '@interfaces/IService';
+import { getWebRTCConnectionManager } from '@taskpane/services/WebRTCConnectionManager';
 import { useTranslation } from 'react-i18next';
 
 interface RegisteredServiceProps {

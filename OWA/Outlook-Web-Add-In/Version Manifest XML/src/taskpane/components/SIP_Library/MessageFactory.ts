@@ -17,8 +17,8 @@
  */
 
 import { helper } from "./Helper";
-import { configService } from "../../../config/index";
-import { getLogger } from "../../../services/logger";
+import { configService } from "@config";
+import { getLogger } from "@services/logger";
 
 const logger = getLogger();
 

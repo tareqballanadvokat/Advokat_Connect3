@@ -54,7 +54,7 @@
  * @version 2.0.0 - Dual Channel Architecture
  */
 
-import { getLogger } from "../../services/logger";
+import { getLogger } from "@services/logger";
 
 /**
  * Channel type identifier

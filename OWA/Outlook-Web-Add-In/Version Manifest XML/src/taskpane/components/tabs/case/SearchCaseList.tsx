@@ -4,12 +4,12 @@ import './SearchCaseList.css'; // Import our custom CSS
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { selectIsReady } from '../../../../store/slices/connectionSlice';
-import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectIsReady } from '@slices/connectionSlice';
+import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '@slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
-import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
-import { getLogger } from '../../../../services/logger';
+import { getFavoriteAktenAsync } from '@slices/aktenSlice';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

@@ -4,9 +4,9 @@ import {
   IAuthState,
   IAuthCredentials,
   IAuthResponse,
-} from "../../taskpane/components/interfaces/IAuth";
-import { cacheService } from "../../services/cache";
-import { getLogger } from "../../services/logger";
+} from "@interfaces/IAuth";
+import { cacheService } from "@services/cache";
+import { getLogger } from "@services/logger";
 
 const logger = getLogger();
 

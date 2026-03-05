@@ -24,11 +24,19 @@
     ],
     "baseUrl": ".",
     "paths": {
+      "@store": ["src/store/index"],
       "@store/*": ["src/store/*"],
       "@components/*": ["src/taskpane/components/*"],
       "@utils/*": ["src/taskpane/utils/*"],
       "@hooks/*": ["src/taskpane/hooks/*"],
-      "@src/*": ["src/*"]
+      "@src/*": ["src/*"],
+      "@services/*": ["src/services/*"],
+      "@interfaces/*": ["src/taskpane/components/interfaces/*"],
+      "@taskpane/*": ["src/taskpane/*"],
+      "@config": ["src/config/index"],
+      "@config/*": ["src/config/*"],
+      "@slices/*": ["src/store/slices/*"],
+      "@i18n": ["src/i18n"]
     }
   },
   "exclude": [

@@ -22,8 +22,8 @@ import authReducer, {
   selectIsAuthenticating,
   selectAuthError,
   selectIsTokenValid,
-} from "../../../store/slices/authSlice";
-import { IAuthState, IAuthResponse } from "../../../taskpane/components/interfaces/IAuth";
+} from "@slices/authSlice";
+import { IAuthState, IAuthResponse } from "@interfaces/IAuth";
 
 describe("authSlice", () => {
   // Clean up after each test

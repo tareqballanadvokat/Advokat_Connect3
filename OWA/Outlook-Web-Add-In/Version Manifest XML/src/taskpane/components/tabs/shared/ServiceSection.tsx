@@ -1,11 +1,11 @@
 ﻿// src/taskpane/components/tabs/shared/ServiceSection.tsx
 import React, { useEffect } from 'react';
 import SelectBox from 'devextreme-react/select-box';
-import { LeistungAuswahlResponse } from '@components/interfaces/IService';
+import { LeistungAuswahlResponse } from '@interfaces/IService';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@store/slices/serviceSlice';
+import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@slices/serviceSlice';
 import notify from 'devextreme/ui/notify';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

@@ -3,19 +3,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
 import './CaseTabContent.css'; // Import our custom CSS
 import SearchCaseList from './SearchCaseList';
-import {IsComposeMode} from '../../../hooks/useOfficeItem';
-import {HierarchyTree} from '../../interfaces/ICase';
-import { DokumentResponse } from '../../interfaces/IDocument';
+import {IsComposeMode} from '@hooks/useOfficeItem';
+import {HierarchyTree} from '@interfaces/ICase';
+import { DokumentResponse } from '@interfaces/IDocument';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
 import notify from 'devextreme/ui/notify';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { selectIsReady } from '../../../../store/slices/connectionSlice';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectIsReady } from '@slices/connectionSlice';
 import { 
   getFavoriteAktenAsync, 
   getCaseDocumentsAsync, 
   removeAktFromFavoriteAsync,
   downloadDocumentAsync
-} from '../../../../store/slices/aktenSlice';
+} from '@slices/aktenSlice';
 import TreeList, {
   Column,
   Scrolling,
@@ -26,8 +26,8 @@ import {
   getFileExtension, 
   createBlobFromBase64, 
   isViewableInBrowser 
-} from '../../../utils/fileHelpers';
-import { getLogger } from '../../../../services/logger';
+} from '@utils/fileHelpers';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

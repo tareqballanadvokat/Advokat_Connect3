@@ -1,6 +1,6 @@
 ﻿// Email-related interfaces and models
 import { DokumentArt, TransferAttachmentItem } from './IDocument';
-import { getLogger } from '../../../services/logger';
+import { getLogger } from '@services/logger';
 
 const logger = getLogger();
 

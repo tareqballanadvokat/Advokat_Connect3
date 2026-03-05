@@ -1,14 +1,14 @@
 /* eslint-disable no-undef */
-import { store } from "../../store";
+import { store } from "@store";
 import {
   selectAuthToken,
   selectRefreshToken,
   authenticationSuccess,
   startAuthentication,
-} from "../../store/slices/authSlice";
+} from "@slices/authSlice";
 import { webRTCApiService } from "./webRTCApiService";
-import type { IAuthResponse } from "../components/interfaces/IAuth";
-import { getLogger } from "../../services/logger";
+import type { IAuthResponse } from "@interfaces/IAuth";
+import { getLogger } from "@services/logger";
 
 /**
  * Token Service for JWT token validation and management

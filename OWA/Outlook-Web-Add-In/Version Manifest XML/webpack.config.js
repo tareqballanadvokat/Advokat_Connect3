@@ -36,7 +36,13 @@ module.exports = async (env, options) => {
         '@components': path.resolve(__dirname, './src/taskpane/components'),
         '@utils': path.resolve(__dirname, './src/taskpane/utils'),
         '@hooks': path.resolve(__dirname, './src/taskpane/hooks'),
-        '@src': path.resolve(__dirname, './src')
+        '@src': path.resolve(__dirname, './src'),
+        '@services': path.resolve(__dirname, './src/services'),
+        '@interfaces': path.resolve(__dirname, './src/taskpane/components/interfaces'),
+        '@taskpane': path.resolve(__dirname, './src/taskpane'),
+        '@config': path.resolve(__dirname, './src/config'),
+        '@slices': path.resolve(__dirname, './src/store/slices'),
+        '@i18n': path.resolve(__dirname, './src/i18n')
       }
     },
     module: {

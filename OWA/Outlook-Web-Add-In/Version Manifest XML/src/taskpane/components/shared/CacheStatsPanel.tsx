@@ -4,9 +4,9 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { cacheStatistics } from '../../../services/cache/utils/CacheStatistics';
-import type { CacheStats } from '../../../services/cache/utils/CacheStatistics';
-import { cacheService } from '../../../services/cache';
+import { cacheStatistics } from '@services/cache/utils/CacheStatistics';
+import type { CacheStats } from '@services/cache/utils/CacheStatistics';
+import { cacheService } from '@services/cache';
 import './CacheStatsPanel.css';
 
 const CacheStatsPanel: React.FC = () => {

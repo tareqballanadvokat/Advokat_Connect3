@@ -1,6 +1,6 @@
 // src/store/slices/languageSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import i18n from '../../i18n';
+import i18n from '@i18n';
 
 export type SupportedLanguage = 'en' | 'de';
 

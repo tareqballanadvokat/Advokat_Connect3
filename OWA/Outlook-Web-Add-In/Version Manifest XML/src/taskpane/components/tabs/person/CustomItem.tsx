@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { PersonResponse } from '../../interfaces/IPerson';
+import { PersonResponse } from '@interfaces/IPerson';
 import './person.css';
 import { useTranslation } from 'react-i18next';
 

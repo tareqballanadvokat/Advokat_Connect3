@@ -6,17 +6,17 @@ import Accordion, { type AccordionTypes } from 'devextreme-react/accordion';
 import SearchPersonList from './SearchPersonList';
 import CustomTitle from './CustomTitle';
 import CustomItem from './CustomItem';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { selectIsReady } from '../../../../store/slices/connectionSlice';
-import { PersonLookUpResponse, PersonResponse } from '../../interfaces/IPerson';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectIsReady } from '@slices/connectionSlice';
+import { PersonLookUpResponse, PersonResponse } from '@interfaces/IPerson';
 import { 
   addPersonToFavoritesAsync, 
   removePersonFromFavoritesAsync,
   getFavoritePersonsAsync
-} from '../../../../store/slices/personSlice';
+} from '@slices/personSlice';
 import notify from 'devextreme/ui/notify';
 import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger(); 

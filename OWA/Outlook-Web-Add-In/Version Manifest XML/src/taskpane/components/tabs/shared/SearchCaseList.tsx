@@ -4,12 +4,12 @@ import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import LoadIndicator from 'devextreme-react/load-indicator';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { selectIsReady } from '../../../../store/slices/connectionSlice';
-import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
-import { AktLookUpResponse } from '../../interfaces/IAkten';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectIsReady } from '@slices/connectionSlice';
+import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '@slices/aktenSlice';
+import { AktLookUpResponse } from '@interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

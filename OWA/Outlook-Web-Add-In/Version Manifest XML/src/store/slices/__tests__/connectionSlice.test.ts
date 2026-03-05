@@ -25,7 +25,7 @@ import connectionReducer, {
   selectIsReady,
   ConnectionState,
 } from "../connectionSlice";
-import { SipClientState } from "../../../taskpane/components/SIP_Library/SipClient";
+import { SipClientState } from "@components/SIP_Library/SipClient";
 import { cleanupTests } from "./testSetup";
 
 describe("connectionSlice", () => {
