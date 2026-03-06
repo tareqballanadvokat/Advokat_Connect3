@@ -4,7 +4,7 @@ import {
   TransferAttachmentItem,
   DokumentPostData,
 } from "@interfaces/IDocument";
-import { getWebRTCConnectionManager } from "@taskpane/services/WebRTCConnectionManager";
+import { getWebRTCConnectionManager } from "@services/WebRTCConnectionManager";
 
 interface EmailState {
   attachmentSelected: TransferAttachmentItem[];

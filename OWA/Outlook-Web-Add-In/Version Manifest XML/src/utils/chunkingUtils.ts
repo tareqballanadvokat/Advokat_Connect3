@@ -5,7 +5,7 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 import {
   WebRTCApiRequest,
   WebRTCApiResponse,

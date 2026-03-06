@@ -18,7 +18,7 @@
 
 import { helper } from "./Helper";
 import { configService } from "@config";
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 
 const logger = getLogger();
 

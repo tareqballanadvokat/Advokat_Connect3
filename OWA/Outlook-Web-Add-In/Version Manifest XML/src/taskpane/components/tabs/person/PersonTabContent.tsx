@@ -1,4 +1,4 @@
-﻿// src/taskpane/components/tabs/person/PersonTabContent.tsx
+// src/taskpane/components/tabs/person/PersonTabContent.tsx
 import 'devextreme/dist/css/dx.light.css';
 import '../shared/shared.css';
 import './person.css'; // Import our custom CSS for animations
@@ -17,7 +17,7 @@ import {
 } from '@slices/personSlice';
 import notify from 'devextreme/ui/notify';
 import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger(); 

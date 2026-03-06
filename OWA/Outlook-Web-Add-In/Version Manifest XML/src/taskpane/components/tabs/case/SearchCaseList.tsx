@@ -1,4 +1,4 @@
-﻿// src/taskpane/components/tabs/case/SearchCaseList.tsx
+// src/taskpane/components/tabs/case/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
 import '../shared/shared.css';
 import './SearchCaseList.css'; // Import our custom CSS
@@ -10,7 +10,7 @@ import { selectIsReady } from '@slices/connectionSlice';
 import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '@slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
 import { getFavoriteAktenAsync } from '@slices/aktenSlice';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

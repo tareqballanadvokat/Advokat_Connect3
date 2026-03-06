@@ -1,10 +1,10 @@
-﻿// src/taskpane/hooks/useOfficeItem.ts
+// src/taskpane/hooks/useOfficeItem.ts
 import { useState, useEffect } from 'react';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 
 const logger = getLogger();
 
-// Typ dla załączników
+// Typ dla zalacznik�w
 export interface AttachmentInfo {
   id: string;
   name: string;
@@ -21,7 +21,7 @@ export function IsComposeMode(): boolean {
   );
 }
 
-/** Sprawdza, czy jesteśmy w Compose mode */
+/** Sprawdza, czy jestesmy w Compose mode */
 export function isComposeMode(item: OfficeItem): boolean {
   return (
     item.itemType === Office.MailboxEnums.ItemType.Message &&
@@ -62,7 +62,7 @@ export function getInternetMessageIdAsync(item: any): Promise<string> {
     logger.debug('getInternetMessageIdAsync - isCompose: ' + isCompose, 'useOfficeItem');
 
     if (isCompose) {
-      // Compose mode – use itemId as temporary unique identifier
+      // Compose mode � use itemId as temporary unique identifier
       logger.debug('In compose mode, getting itemId...', 'useOfficeItem');
       item.getItemIdAsync((res: Office.AsyncResult<string>) => {
         if (res.status === Office.AsyncResultStatus.Succeeded) {
@@ -74,7 +74,7 @@ export function getInternetMessageIdAsync(item: any): Promise<string> {
         }
       });
     } else {
-      // Read mode – use the internetMessageId property directly
+      // Read mode � use the internetMessageId property directly
       logger.debug('In read mode, getting internetMessageId property...', 'useOfficeItem');
       
       // Check if internetMessageId property is available (it's synchronous in read mode)
@@ -113,10 +113,10 @@ export function getInternetMessageIdAsync(item: any): Promise<string> {
   });
 }
 
-/** Zwraca listę {id,name} dla wszystkich załączników */
+/** Zwraca liste {id,name} dla wszystkich zalacznik�w */
 export function getEmailAttachments(item: OfficeItem): Promise<AttachmentInfo[]> {
   return new Promise(resolve => {
-    // attachments jest od razu dostępne w obu trybach
+    // attachments jest od razu dostepne w obu trybach
     const list = (item.attachments || []).map(att => ({
       id: att.id,
       name: att.name
@@ -125,7 +125,7 @@ export function getEmailAttachments(item: OfficeItem): Promise<AttachmentInfo[]>
   });
 }
 
-/** Zwraca listę {id,name} dla wszystkich załączników */
+/** Zwraca liste {id,name} dla wszystkich zalacznik�w */
 export function getEmailAttachmentData(id: string): Promise<string> {
       return new Promise((resolve) => {
         Office.context.mailbox.item.getAttachmentContentAsync(id, (res) => {
@@ -136,10 +136,10 @@ export function getEmailAttachmentData(id: string): Promise<string> {
     });
 }
 
-/** Pobiera ciało e-maila jako plik/text (lub cokolwiek zwraca API) */
+/** Pobiera cialo e-maila jako plik/text (lub cokolwiek zwraca API) */
 export function getEmailContentAsync(item: OfficeItem): Promise<any> {
   return new Promise((resolve, reject) => {
-    // przykładowo getAsFileAsync, dostosuj do własnych potrzeb
+    // przykladowo getAsFileAsync, dostosuj do wlasnych potrzeb
     (item as any).getAsFileAsync((res: any) => {
       if (res.status === Office.AsyncResultStatus.Succeeded) resolve(res.value);
       else reject(new Error(res.error.message));
@@ -147,7 +147,7 @@ export function getEmailContentAsync(item: OfficeItem): Promise<any> {
   });
 }
 
-/** Pobiera ciało e-maila jako plik/text (lub cokolwiek zwraca API) */
+/** Pobiera cialo e-maila jako plik/text (lub cokolwiek zwraca API) */
 export async function setAttachmentToItemAsync(base64: string, fileName: string ): Promise<any> {
          // 2) Attach to current message (Compose mode)
        
@@ -174,7 +174,7 @@ export async function setAttachmentToItemAsync(base64: string, fileName: string 
  *  - attachments[]
  *  - emailContent
  *  - composeMode
- *  - ready (czy wszystkie powyższe już się załadowały)
+ *  - ready (czy wszystkie powyzsze juz sie zaladowaly)
  */
 export function useOfficeItem() {
   const [subject,      setSubject]      = useState<string>('');
@@ -184,7 +184,7 @@ export function useOfficeItem() {
   const [composeMode,  setComposeMode]  = useState<boolean>(false);
   const [ready,        setReady]        = useState<boolean>(false);
 
-  // 1) Uruchamiamy wszystkie wywołania Office.js
+  // 1) Uruchamiamy wszystkie wywolania Office.js
   useEffect(() => {
     const item = Office.context.mailbox.item;
     setComposeMode(isComposeMode(item));
@@ -206,7 +206,7 @@ export function useOfficeItem() {
       .catch(err => logger.error('Email content error:', 'useOfficeItem', err));
   }, []);
 
-  // 2) Once all four values ​​are set, we turn on ready
+  // 2) Once all four values ??are set, we turn on ready
   useEffect(() => {
     if (
       subject !== '' &&

@@ -1,12 +1,12 @@
-﻿/**
+/**
  * Cache Statistics Panel
  * Real-time monitoring of cache performance metrics
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { cacheStatistics } from '@services/cache/utils/CacheStatistics';
-import type { CacheStats } from '@services/cache/utils/CacheStatistics';
-import { cacheService } from '@services/cache';
+import { cacheStatistics } from '@infra/cache/utils/CacheStatistics';
+import type { CacheStats } from '@infra/cache/utils/CacheStatistics';
+import { cacheService } from '@infra/cache';
 import './CacheStatsPanel.css';
 
 const CacheStatsPanel: React.FC = () => {
@@ -56,23 +56,23 @@ const CacheStatsPanel: React.FC = () => {
   return (
     <div className="cache-stats-panel">
       <div className="cache-stats-header">
-        <h4>📊 Cache Statistics</h4>
+        <h4>?? Cache Statistics</h4>
         <div className="cache-stats-controls">
           <button 
             className="cache-stats-btn" 
             onClick={() => setAutoRefresh(!autoRefresh)}
             title={autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
           >
-            {autoRefresh ? '⏸️' : '▶️'}
+            {autoRefresh ? '??' : '??'}
           </button>
           <button className="cache-stats-btn" onClick={handleRefresh} title="Refresh now">
-            🔄
+            ??
           </button>
           <button className="cache-stats-btn" onClick={handleLogStats} title="Log to console">
-            📝
+            ??
           </button>
           <button className="cache-stats-btn" onClick={handleReset} title="Reset statistics">
-            🔁
+            ??
           </button>
 
         </div>
@@ -81,7 +81,7 @@ const CacheStatsPanel: React.FC = () => {
       <div className="cache-stats-body">
         {/* Performance Metrics */}
         <div className="cache-stats-section">
-          <h5>⚡ Performance</h5>
+          <h5>? Performance</h5>
           <div className="cache-stats-grid">
             <div className="cache-stat">
               <span className="stat-label">Hit Rate</span>
@@ -102,7 +102,7 @@ const CacheStatsPanel: React.FC = () => {
 
         {/* Operations */}
         <div className="cache-stats-section">
-          <h5>📈 Operations</h5>
+          <h5>?? Operations</h5>
           <div className="cache-stats-grid">
             <div className="cache-stat">
               <span className="stat-label">Hits</span>
@@ -129,7 +129,7 @@ const CacheStatsPanel: React.FC = () => {
 
         {/* Compression */}
         <div className="cache-stats-section">
-          <h5>🗜️ Compression</h5>
+          <h5>??? Compression</h5>
           <div className="cache-stats-grid">
             <div className="cache-stat">
               <span className="stat-label">Effectiveness</span>
@@ -164,7 +164,7 @@ const CacheStatsPanel: React.FC = () => {
 
         {/* Storage */}
         <div className="cache-stats-section">
-          <h5>💾 Storage</h5>
+          <h5>?? Storage</h5>
           {Object.entries(stats.storage).map(([type, storage]) => {
             const usagePercent = (storage.bytesUsed / storage.bytesQuota) * 100;
             return (
@@ -190,7 +190,7 @@ const CacheStatsPanel: React.FC = () => {
 
         {/* Top Cache Types */}
         <div className="cache-stats-section">
-          <h5>📋 Top Cache Types</h5>
+          <h5>?? Top Cache Types</h5>
           <div className="cache-types-list">
             {Object.entries(stats.perType)
               .sort((a, b) => (b[1].hits + b[1].writes) - (a[1].hits + a[1].writes))

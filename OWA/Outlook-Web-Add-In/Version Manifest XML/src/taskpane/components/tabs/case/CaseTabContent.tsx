@@ -1,4 +1,4 @@
-﻿// src/taskpane/components/tabs/cases/CasesAccordion.tsx
+// src/taskpane/components/tabs/cases/CasesAccordion.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
 import '../shared/shared.css';
@@ -31,7 +31,7 @@ import {
   createBlobFromBase64, 
   isViewableInBrowser 
 } from '@utils/fileHelpers';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
@@ -409,7 +409,7 @@ const CaseTabContent: React.FC = () => {
       {/* WebRTC Connection Status */}
       <WebRTCConnectionStatus />
       
-      {/* … SearchCaseList, header, LoadPanel … */}
+      {/* � SearchCaseList, header, LoadPanel � */}
 
       <SearchCaseList />
 
@@ -418,7 +418,7 @@ const CaseTabContent: React.FC = () => {
           dataSource={nodes}
           keyExpr="id"
           parentIdExpr="rootId"
-          rootValue={-1}           // top‐level nodes have rootId = -1
+          rootValue={-1}           // top-level nodes have rootId = -1
           expandedRowKeys={expandedKeys}
           onExpandedRowKeysChange={onExpandedRowKeysChange}
           onSelectionChanged={onSelectionChanged}
@@ -434,13 +434,13 @@ const CaseTabContent: React.FC = () => {
         >
         <Scrolling mode="standard" />  {/* Enable horizontal scrolling as fallback */}
         
-        {/* … Paging, Scrolling … */}
+        {/* � Paging, Scrolling � */}
       <Editing
         allowUpdating={false}
         allowDeleting={false}
         allowAdding={false}
         mode="row" />
-        {/* ── Main column: full folder/file tree (FIRST = gets expand arrows) ── */}
+        {/* -- Main column: full folder/file tree (FIRST = gets expand arrows) -- */}
         <Column
           dataField="name"
           caption={translate('columns.name')}
@@ -452,7 +452,7 @@ const CaseTabContent: React.FC = () => {
                 className="case-tab-cell-row"
                 title={data.name}
               >
-                {/* Open icon — files only */}
+                {/* Open icon � files only */}
                 {!data.isStructure && (
                   <button
                     className={`dx-button dx-button-large dx-button-mode-contained case-tab-cell-btn case-tab-cell-btn--open${isOpening ? ' opening loading-button' : ''}`}
@@ -463,7 +463,7 @@ const CaseTabContent: React.FC = () => {
                     <i className={`dx-icon dx-icon-${isOpening ? 'refresh' : 'export'} case-tab-cell-icon case-tab-cell-icon--lg case-tab-cell-icon--open${isOpening ? ' opening' : ''}`} />
                   </button>
                 )}
-                {/* Add-as-attachment icon — compose mode + files only */}
+                {/* Add-as-attachment icon � compose mode + files only */}
                 {!data.isStructure && IsComposeMode() && (
                   <button
                     className="dx-button dx-button-normal dx-button-mode-contained case-tab-cell-btn case-tab-cell-btn--attach"
@@ -495,7 +495,7 @@ const CaseTabContent: React.FC = () => {
           }}
         />
 
-        {/* ── Right column: delete icon for root Akt nodes only ────── */}
+        {/* -- Right column: delete icon for root Akt nodes only ------ */}
         <Column
           width={40}
           minWidth={40}

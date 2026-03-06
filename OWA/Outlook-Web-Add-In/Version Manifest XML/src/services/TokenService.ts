@@ -8,7 +8,7 @@ import {
 } from "@slices/authSlice";
 import { webRTCApiService } from "./webRTCApiService";
 import type { IAuthResponse } from "@interfaces/IAuth";
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 
 /**
  * Token Service for JWT token validation and management

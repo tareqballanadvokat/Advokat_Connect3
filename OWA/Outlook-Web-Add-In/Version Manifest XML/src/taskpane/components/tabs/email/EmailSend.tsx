@@ -28,7 +28,7 @@ const EmailSend: React.FC<EmailSendProps> = ({
     <Button
         text={transferLoading ? translate('buttons.sending') : translate('buttons.transfer')}
         type={transferLoading ? "default" : "success"}
-        width={transferLoading ? 100 : 80}
+        width={transferLoading ? 100 : 110}
         disabled={transferBtnDisable || transferLoading}
         className={`email-send-transfer-btn${transferLoading ? ' transfer-button-loading' : ''}`}
         stylingMode="contained" onClick={() => {

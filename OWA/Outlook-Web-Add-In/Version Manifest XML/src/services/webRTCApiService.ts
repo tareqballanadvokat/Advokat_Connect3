@@ -18,10 +18,10 @@ import {
 } from "@interfaces/IDocument";
 import { PersonenQuery } from "@interfaces/IPerson";
 import { IAuthRequest, IAuthResponse } from "@interfaces/IAuth";
-import { SipClientInstance } from "@components/SIP_Library/SipClient";
+import { SipClientInstance } from "@infra/sip/SipClient";
 import { tokenService } from "./TokenService";
 import { WebRTCDataChannelService, DataChannelObserver } from "./WebRTCDataChannelService";
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 import { store } from "@store";
 import {
   createProtocolRequest,

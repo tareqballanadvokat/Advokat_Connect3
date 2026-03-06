@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
@@ -8,7 +8,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@store';
 import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEmailDocuments, selectEmailDocuments } from '@slices/aktenSlice';
 import { setAttachmentSelected } from '@slices/emailSlice';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 import './TransferAndAttachment.css';
 
@@ -34,8 +34,8 @@ const TransferAndAttachment: React.FC = () => {
 
   /**
    * Extract folder name from the document's file path by going backwards from filename
-   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Email\\Keine\\file.png → "Email"
-   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Default\\MailEmpfangen\\file.eml → "Default"
+   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Email\\Keine\\file.png ? "Email"
+   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Default\\MailEmpfangen\\file.eml ? "Default"
    */
   const extractFolderFromPath = (dateipfad: string | undefined): string => {
     if (!dateipfad) return "Default";

@@ -75,14 +75,14 @@
  * @version 2.1.0
  */
 
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 import { getConfig } from "@config";
 import { TimeoutManager } from "./TimeoutManager";
 import { MessageFactory } from "./MessageFactory";
 
 const logger = getLogger();
 import { SipPhaseEvents } from "./SipClient";
-import { WebRTCDataChannelService } from "@taskpane/services/WebRTCDataChannelService";
+import { WebRTCDataChannelService } from "@services/WebRTCDataChannelService";
 
 /**
  * Event callbacks for Peer2Peer WebRTC phase

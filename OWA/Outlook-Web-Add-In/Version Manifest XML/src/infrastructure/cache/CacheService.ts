@@ -13,7 +13,7 @@ import { LRUManager } from "./utils/LRUManager";
 import { CompressionManager } from "./utils/CompressionManager";
 import { cacheStatistics } from "./utils/CacheStatistics";
 import { STORAGE_PREFIX } from "./config";
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 
 const logger = getLogger();
 

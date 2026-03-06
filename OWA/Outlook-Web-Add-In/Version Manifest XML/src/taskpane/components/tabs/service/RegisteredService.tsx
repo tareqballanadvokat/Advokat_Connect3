@@ -7,7 +7,7 @@ import { selectIsReady } from '@slices/connectionSlice';
 import { setRegisteredServicesLoading } from '@slices/serviceSlice';
 import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import { LeistungResponse } from '@interfaces/IService';
-import { getWebRTCConnectionManager } from '@taskpane/services/WebRTCConnectionManager';
+import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { useTranslation } from 'react-i18next';
 import './RegisteredService.css';
 

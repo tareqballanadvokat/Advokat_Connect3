@@ -1,4 +1,4 @@
-﻿// src/taskpane/components/tabs/email/SearchCaseList.tsx
+// src/taskpane/components/tabs/email/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
 import './SearchCaseList.css';
 import './shared.css';
@@ -11,7 +11,7 @@ import { selectIsReady } from '@slices/connectionSlice';
 import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '@slices/aktenSlice';
 import { AktLookUpResponse } from '@interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

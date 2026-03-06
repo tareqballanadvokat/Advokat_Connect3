@@ -2,8 +2,8 @@
 import React, { useEffect } from 'react';
 import { useAppSelector } from '@store/hooks';
 import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting } from '@slices/connectionSlice';
-import { getWebRTCConnectionManager } from '@taskpane/services/WebRTCConnectionManager';
-import { getLogger } from '@services/logger';
+import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

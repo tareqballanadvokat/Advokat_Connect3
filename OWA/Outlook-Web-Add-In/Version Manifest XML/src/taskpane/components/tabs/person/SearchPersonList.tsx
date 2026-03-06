@@ -1,4 +1,4 @@
-﻿// src/taskpane/components/tabs/person/SearchPersonList.tsx
+// src/taskpane/components/tabs/person/SearchPersonList.tsx
 import React, { useState, useEffect } from 'react';
 import '../shared/shared.css';
 import './person.css'; // Import our custom CSS for star button styling
@@ -11,7 +11,7 @@ import { selectIsReady } from '@slices/connectionSlice';
 import { personLookUpAsync, clearPersons, setSearchTerm, clearPreviousSearchTerm } from '@slices/personSlice';
 import { PersonLookUpResponse } from '@interfaces/IPerson';
 import notify from 'devextreme/ui/notify';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

@@ -1,7 +1,7 @@
 // src/store/slices/loggingSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { LogLevel } from "@config/types";
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 import { configService } from "@config";
 
 /**

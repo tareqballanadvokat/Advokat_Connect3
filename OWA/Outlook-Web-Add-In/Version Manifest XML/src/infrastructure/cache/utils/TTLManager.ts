@@ -2,10 +2,10 @@
  * TTL (Time-To-Live) Manager
  * Handles expiration logic for cached entries
  */
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 
 const logger = getLogger();
-import { CacheEntry } from "@services/cache/types";
+import { CacheEntry } from "@infra/cache/types";
 
 export class TTLManager {
   /**

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import notify from 'devextreme/ui/notify';
 import { DokumentArt, DokumentResponse } from '@interfaces/IDocument';
-import { getWebRTCConnectionManager } from '@taskpane/services/WebRTCConnectionManager';
+import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { selectAuthCredentials } from '@slices/authSlice';
 import { selectIsReady } from '@slices/connectionSlice';

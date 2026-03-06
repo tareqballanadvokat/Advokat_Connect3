@@ -90,7 +90,7 @@ import {
 import { Peer2PeerConnection, SdpExchangeState, Peer2PeerEvents } from "./Peer2PeerConnection";
 import { helper } from "./Helper";
 import { TimeoutManager } from "./TimeoutManager";
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 
 const logger = getLogger();
 

@@ -1,8 +1,8 @@
-﻿// src/taskpane/components/tabs/email/DropAttachArea.tsx
+// src/taskpane/components/tabs/email/DropAttachArea.tsx
 import React, { useState, useCallback } from 'react';
 import './DropAttachArea.css';
 import LoadPanel from 'devextreme-react/load-panel';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
@@ -37,7 +37,7 @@ export default function DropAttachArea() {
           const reader = new FileReader();
           reader.onload = () => {
             const dataUrl = reader.result as string;
-            resolve(dataUrl.split(',')[1]);     // drop the data:… prefix
+            resolve(dataUrl.split(',')[1]);     // drop the data:� prefix
           };
           reader.onerror = reject;
           reader.readAsDataURL(file);

@@ -1,4 +1,4 @@
-﻿// src/taskpane/components/tabs/email/EmailTabContent.tsx
+// src/taskpane/components/tabs/email/EmailTabContent.tsx
 import React, { useEffect, useState } from 'react';
 import SearchCaseList from '@components/tabs/shared/SearchCaseList';
 import notify from 'devextreme/ui/notify';
@@ -14,7 +14,7 @@ import { AktLookUpResponse } from '@interfaces/IAkten';
 import { LeistungPostData } from '@interfaces/IService';
 import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
 import { calculateFileSizeFromBase64 } from '@utils/fileHelpers';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

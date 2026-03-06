@@ -3,7 +3,7 @@
  * Tracks cache performance metrics in real-time
  */
 
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 
 const logger = getLogger();
 

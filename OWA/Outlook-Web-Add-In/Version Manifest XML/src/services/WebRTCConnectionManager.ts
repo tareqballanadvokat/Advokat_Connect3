@@ -30,13 +30,13 @@ import {
   SipClientState,
   SipClientObserver,
   initializeSipClient,
-} from "@components/SIP_Library/SipClient";
+} from "@infra/sip/SipClient";
 import { webRTCApiService } from "./webRTCApiService";
 import { tokenService } from "./TokenService";
 import { IdleActivityMonitor } from "./IdleActivityMonitor";
 import { WebRTCDataChannelService } from "./WebRTCDataChannelService";
 import { store } from "@store";
-import { getLogger } from "@services/logger";
+import { getLogger } from "@infra/logger";
 import {
   startAuthentication,
   authenticationSuccess,

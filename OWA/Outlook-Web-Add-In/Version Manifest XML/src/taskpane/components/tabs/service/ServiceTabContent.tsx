@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import ServiceSection from '@components/tabs/shared/ServiceSection';
 import SearchCaseList from '@components/tabs/shared/SearchCaseList';
@@ -11,7 +11,7 @@ import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
 import ServiceSend from './ServiceSend';
 import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();

@@ -6,8 +6,8 @@
  */
 
 import { IStorageStrategy } from "./IStorageStrategy";
-import { StorageUsage } from "@services/cache/types";
-import { STORAGE_PREFIX } from "@services/cache/config";
+import { StorageUsage } from "@infra/cache/types";
+import { STORAGE_PREFIX } from "@infra/cache/config";
 
 export class SessionStorageStrategy implements IStorageStrategy {
   readonly type = "session";
