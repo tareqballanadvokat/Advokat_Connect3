@@ -6,7 +6,7 @@
 
 import { compress, decompress } from "lz-string";
 import { cacheStatistics } from "./CacheStatistics";
-import { getLogger } from "../../logger";
+import { getLogger } from "@services/logger";
 
 const logger = getLogger();
 

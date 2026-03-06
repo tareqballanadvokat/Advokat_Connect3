@@ -10,6 +10,7 @@ import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEm
 import { setAttachmentSelected } from '@slices/emailSlice';
 import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
+import './TransferAndAttachment.css';
 
 const logger = getLogger();
 
@@ -286,7 +287,7 @@ const TransferAndAttachment: React.FC = () => {
   }, [attachmentSelected]);
 
   if (loading) return <div>{translate('loading', { ns: 'common' })}</div>;
-  if (error)   return <div style={{ color: 'red' }}>{translate('errorPrefix', { ns: 'common' })}: {error}</div>;
+  if (error)   return <div className="transfer-attachment-error">{translate('errorPrefix', { ns: 'common' })}: {error}</div>;
 
   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
  
@@ -305,7 +306,7 @@ const TransferAndAttachment: React.FC = () => {
       {items.map(item => (
         <div
           key={item.id}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}
+          className="transfer-attachment-item"
         >
           <CheckBox
             value={item.checked}

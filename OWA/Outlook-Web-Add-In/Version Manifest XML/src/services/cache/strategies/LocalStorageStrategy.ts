@@ -6,8 +6,8 @@
  */
 
 import { IStorageStrategy } from "./IStorageStrategy";
-import { StorageUsage } from "../types";
-import { STORAGE_PREFIX } from "../config";
+import { StorageUsage } from "@services/cache/types";
+import { STORAGE_PREFIX } from "@services/cache/config";
 
 export class LocalStorageStrategy implements IStorageStrategy {
   public readonly type = "local";

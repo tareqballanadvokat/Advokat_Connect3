@@ -9,10 +9,10 @@ import {
 } from "@interfaces/IService";
 import { getWebRTCConnectionManager } from "@taskpane/services/WebRTCConnectionManager";
 import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "@services/cache";
-import { selectIsReady, selectNotReadyReason } from "./connectionSlice";
-import type { RootState } from "../index";
+import { selectIsReady, selectNotReadyReason } from "@slices/connectionSlice";
+import type { RootState } from "@store";
 import notify from "devextreme/ui/notify";
-import { getErrorMessage } from "@src/utils/errorHelpers";
+import { getErrorMessage } from "@src/taskpane/utils/errorHelpers";
 import { getLogger } from "@services/logger";
 
 const logger = getLogger();

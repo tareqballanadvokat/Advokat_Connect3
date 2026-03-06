@@ -1,5 +1,7 @@
 ﻿// src/taskpane/components/tabs/email/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
+import './SearchCaseList.css';
+import './shared.css';
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
@@ -73,12 +75,12 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
 
   return (
     <div>
-      <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+      <h3 className="shared-search-case-title">
         {translate('searchCases')}
       </h3>
 
       {/* Search panel */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="shared-search-case-panel">
         <TextBox
           width={250}
           stylingMode="outlined"
@@ -99,7 +101,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
 
       {/* Loading indicator */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '10px' }}>
+        <div className="shared-search-case-loading">
           <span>{translate('common:searchingCases')}</span>
         </div>
       )}
@@ -118,12 +120,10 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         noDataText={loading ? translate('common:loading') : hasSearched ? translate('common:noResultsFound') : translate('searchCases')}
         onRowPrepared={e => {
           if (e.rowType === 'data') {
-            e.rowElement.style.height = '36px';
             if (e.data?.id === selectedAkt?.id) {
-              e.rowElement.style.borderLeft = '3px solid #0078d4';
-              e.rowElement.style.fontWeight = '600';
+              e.rowElement.classList.add('selected-akt-row');
             } else {
-              e.rowElement.style.borderLeft = '3px solid transparent';
+              e.rowElement.classList.remove('selected-akt-row');
             }
           }
         }}
@@ -158,7 +158,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
           cellRender={(data: { data: AktLookUpResponse }) => {
             const isSelected = selectedAkt?.id === data.data.id;
             return (
-              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="shared-search-case-select-btn-wrapper">
                 <Button
                   icon="arrowright"
                   stylingMode="text"
@@ -167,7 +167,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
                   elementAttr={{ style: `color: #0078d4; visibility: ${anyAktLoading ? 'hidden' : 'visible'};` }}
                 />
                 {isSelected && anyAktLoading && (
-                  <div style={{ position: 'absolute' }}>
+                  <div className="shared-search-case-loading-indicator">
                     <LoadIndicator width={20} height={20} />
                   </div>
                 )}

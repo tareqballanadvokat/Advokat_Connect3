@@ -1,5 +1,6 @@
 ﻿// src/taskpane/components/tabs/email/DropAttachArea.tsx
 import React, { useState, useCallback } from 'react';
+import './DropAttachArea.css';
 import LoadPanel from 'devextreme-react/load-panel';
 import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
@@ -76,15 +77,7 @@ export default function DropAttachArea() {
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
-        style={{
-          border: dragOver ? '2px dashed #0078d4' : '2px dashed #ccc',
-          borderRadius: 4,
-          padding: 20,
-          textAlign: 'center',
-          color: dragOver ? '#0078d4' : '#666',
-          marginBottom: 16,
-          transition: 'border-color .2s, color .2s'
-        }}
+        className={`drop-attach-area${dragOver ? ' drop-attach-area--active' : ''}`}
       >
         {dragOver
           ? translate('dragDrop.releaseToAttach')

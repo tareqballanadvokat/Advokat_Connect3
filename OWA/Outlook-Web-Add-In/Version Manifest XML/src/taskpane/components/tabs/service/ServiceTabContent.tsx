@@ -1,7 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import ServiceSection from '../shared/ServiceSection';
-import SearchCaseList from '../shared/SearchCaseList';
+import ServiceSection from '@components/tabs/shared/ServiceSection';
+import SearchCaseList from '@components/tabs/shared/SearchCaseList';
 import { setSelectedAkt } from '@slices/aktenSlice';
 import { saveLeistungAsync, resetLoadCounter } from '@slices/serviceSlice';
 import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
@@ -10,7 +10,7 @@ import { AktLookUpResponse } from '@interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
 import ServiceSend from './ServiceSend';
-import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
+import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
 import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';
 

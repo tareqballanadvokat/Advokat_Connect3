@@ -9,6 +9,7 @@ import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import { LeistungResponse } from '@interfaces/IService';
 import { getWebRTCConnectionManager } from '@taskpane/services/WebRTCConnectionManager';
 import { useTranslation } from 'react-i18next';
+import './RegisteredService.css';
 
 interface RegisteredServiceProps {
   /** Refresh trigger – increment to force a reload */
@@ -94,11 +95,11 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
   }, [refreshTrigger, selectedAkt?.id]);
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <h3 style={{ alignItems: 'baseline', gap: 8 }}>
+    <div className="registered-service-container">
+      <h3 className="registered-service-title">
         {translate('registeredServices')}
       </h3>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="registered-service-error">{error}</p>}
 
       <DataGrid
         dataSource={leistungen}

@@ -3,7 +3,7 @@
  * All storage implementations must conform to this interface
  */
 
-import { StorageUsage } from "../types";
+import { StorageUsage } from "@services/cache/types";
 
 export interface IStorageStrategy {
   readonly type: string;

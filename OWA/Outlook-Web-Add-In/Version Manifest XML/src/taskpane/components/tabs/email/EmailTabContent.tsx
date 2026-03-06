@@ -1,18 +1,18 @@
 ﻿// src/taskpane/components/tabs/email/EmailTabContent.tsx
 import React, { useEffect, useState } from 'react';
-import SearchCaseList from '../shared/SearchCaseList'; 
+import SearchCaseList from '@components/tabs/shared/SearchCaseList';
 import notify from 'devextreme/ui/notify';
 import EmailSend from './EmailSend'; 
 import RegisteredEmails from './RegisteredEmails';  
 // Import Service Section from shared
-import ServiceSection from '../shared/ServiceSection';
+import ServiceSection from '@components/tabs/shared/ServiceSection';
 import { getEmailContentAsync, IsComposeMode, getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 import TransferAndAttachment from './TransferAndAttachment';
 import { TransferAttachmentItem, DokumentPostData, DokumentArt, DokumentResponse } from '@interfaces/IDocument';
 import { getDokumentArt } from '@interfaces/IEmail';
 import { AktLookUpResponse } from '@interfaces/IAkten';
 import { LeistungPostData } from '@interfaces/IService';
-import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
+import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
 import { calculateFileSizeFromBase64 } from '@utils/fileHelpers';
 import { getLogger } from '@services/logger';
 import { useTranslation } from 'react-i18next';

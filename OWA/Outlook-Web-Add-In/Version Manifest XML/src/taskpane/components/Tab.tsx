@@ -13,7 +13,7 @@ const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));
 const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
 const PersonTab  = lazy(() => import('./tabs/person/PersonTabContent'));
 const CaseTabContent = lazy(() => import('./tabs/case/CaseTabContent'));
-const CacheStatsPanel = lazy(() => import('./shared/CacheStatsPanel'));
+const CacheStatsPanel = lazy(() => import('./tabs/shared/CacheStatsPanel'));
 
 const DevTabs: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);

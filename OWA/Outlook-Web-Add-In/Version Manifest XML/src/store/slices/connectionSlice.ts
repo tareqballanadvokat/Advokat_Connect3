@@ -1,7 +1,7 @@
 /* eslint-disable no-undef */
 // src/store/slices/connectionSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { RootState } from "../index";
+import { RootState } from "@store";
 import { SipClientState } from "@components/SIP_Library/SipClient";
 
 export interface ConnectionState {

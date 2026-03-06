@@ -3,11 +3,11 @@
  * Handles eviction of oldest cache entries
  */
 
-import { CacheEntry } from "../types";
-import { IStorageStrategy } from "../strategies/IStorageStrategy";
+import { CacheEntry } from "@services/cache/types";
+import { IStorageStrategy } from "@services/cache/strategies/IStorageStrategy";
 import { TTLManager } from "./TTLManager";
-import { STORAGE_PREFIX } from "../config";
-import { getLogger } from "../../logger";
+import { STORAGE_PREFIX } from "@services/cache/config";
+import { getLogger } from "@services/logger";
 
 const logger = getLogger();
 

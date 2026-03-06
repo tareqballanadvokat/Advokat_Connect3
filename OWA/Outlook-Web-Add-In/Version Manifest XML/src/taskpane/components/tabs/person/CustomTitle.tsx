@@ -1,5 +1,7 @@
 ﻿import React from 'react';
 import { useTranslation } from 'react-i18next';
+import './person.css';
+import '../shared/shared.css';
 
 export interface CustomTitleProps {
   personId: number;
@@ -13,54 +15,39 @@ export default function CustomTitle({ anzeigename, isDeleting = false, onDelete 
   return (
     <div
       className='person-title-row'
-      style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 4, paddingRight: 6 }}
     >
       {/* Section 1 – name (takes remaining space, truncates) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, overflow: 'hidden' }}>
+      <div className="person-title-name-section">
         {isDeleting ? (
           <i
-            className="dx-icon dx-icon-refresh"
-            style={{ fontSize: 16, color: '#a0aec0', animation: 'spin 1s linear infinite', flexShrink: 0 }}
+            className="dx-icon dx-icon-refresh person-title-icon person-title-icon--spinning"
           />
         ) : (
-          <i className="dx-icon dx-icon-user" style={{ fontSize: 16, flexShrink: 0 }} />
+          <i className="dx-icon dx-icon-user person-title-icon" />
         )}
-        <span style={{
-          opacity: isDeleting ? 0.7 : 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}>
+        <span className={`person-title-name${isDeleting ? ' person-title-name--deleting' : ''}`}>
           {anzeigename}
           {isDeleting && translate('removingLabel')}
         </span>
       </div>
 
       {/* Section 2 – delete icon (fixed width, always reserves space) */}
-      <div style={{ flexShrink: 0, width: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="person-title-delete-wrapper">
         <button
-          className={`dx-button dx-button-normal dx-button-mode-contained delete-favorite-btn${isDeleting ? ' loading-button' : ''}`}
+          className={`dx-button dx-button-normal dx-button-mode-contained person-title-delete-btn delete-favorite-btn${isDeleting ? ' loading-button' : ''}`}
           onClick={(e) => {
             e.stopPropagation();
             if (!isDeleting) onDelete();
           }}
           disabled={isDeleting}
           title={isDeleting ? translate('hints.removingFromFavorites') : translate('hints.removeFromFavorites')}
-          style={{
-            backgroundColor: isDeleting ? '#f5f5f5' : '#d32f2f',
-            color: isDeleting ? '#666' : 'white',
-            border: 'none',
-            borderRadius: '3px',
-            padding: '4px 8px',
-            cursor: isDeleting ? 'not-allowed' : 'pointer'
-          }}
         >
           <i className={`dx-icon dx-icon-${isDeleting ? 'refresh' : 'trash'}`} />
         </button>
       </div>
 
       {/* Section 3 – reserved space for DevExtreme expansion arrow */}
-      <div style={{ flexShrink: 0, width: 20 }} />
+      <div className="person-title-arrow-spacer" />
     </div>
   );
 }

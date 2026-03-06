@@ -9,7 +9,7 @@ import personReducer, {
   getFavoritePersonsAsync,
   addPersonToFavoritesAsync,
   removePersonFromFavoritesAsync,
-} from "../personSlice";
+} from "@slices/personSlice";
 import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from "./testSetup";
 import { createMockPersonLookUp, createMockPersonResponse } from "./mockFactories";
 

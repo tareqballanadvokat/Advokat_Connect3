@@ -11,7 +11,7 @@ import serviceReducer, {
   clearSaveLeistungError,
   loadServicesAsync,
   saveLeistungAsync,
-} from "../serviceSlice";
+} from "@slices/serviceSlice";
 import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from "./testSetup";
 import { createMockService, createMockLeistungPostData } from "./mockFactories";
 

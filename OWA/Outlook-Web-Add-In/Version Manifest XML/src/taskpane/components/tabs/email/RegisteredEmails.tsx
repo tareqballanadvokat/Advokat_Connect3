@@ -16,6 +16,7 @@ import {
   isViewableInBrowser,
 } from '@utils/fileHelpers';
 import { useTranslation } from 'react-i18next';
+import './RegisteredEmails.css';
 
 
 const RegisteredEmails: React.FC = () => {
@@ -127,11 +128,11 @@ const RegisteredEmails: React.FC = () => {
 
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <h3 style={{ alignItems: 'baseline', gap: 8 }}>
+    <div className="registered-emails-container">
+      <h3 className="registered-emails-title">
         {translate('registeredEmails')}
       </h3>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="registered-emails-error">{error}</p>}
 
       <DataGrid
         dataSource={emails}
@@ -157,7 +158,7 @@ const RegisteredEmails: React.FC = () => {
             }
           ]}
         />
-        <Column caption={translate('columns.type')} cellRender={typeCell} width={80} alignment="left" />
+        <Column caption={translate('columns.type')} cellRender={typeCell} width={90} alignment="left" />
         <Column dataField="betreff" caption={translate('columns.subject')} alignment="left" />
       </DataGrid>
     </div>

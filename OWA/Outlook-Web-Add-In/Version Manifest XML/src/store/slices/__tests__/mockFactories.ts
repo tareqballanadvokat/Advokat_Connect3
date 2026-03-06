@@ -5,7 +5,7 @@
  * Each factory accepts optional overrides to customize the generated objects.
  */
 
-import { FolderOption } from "../aktenSlice";
+import { FolderOption } from "@slices/aktenSlice";
 import { AktLookUpResponse } from "@interfaces/IAkten";
 import {
   DokumentResponse,

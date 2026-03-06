@@ -17,19 +17,19 @@ export default function CustomItem(data: PersonResponse) {
   const { t: translate } = useTranslation('person');
   const fullName = getFullName(data) || translate('unknownPerson');
   return (
-    <div style={{ padding: 16 }}>
+    <div className="person-item-root">
       {/* Full name header */}
       <div className="person-item-header">
-        <i className="dx-icon dx-icon-user person-item-icon" style={{ fontSize: 18, flexShrink: 0 }} />
-        <span style={{ fontSize: 15, fontWeight: 600, wordBreak: 'break-word' }}>{fullName}</span>
+        <i className="dx-icon dx-icon-user person-item-icon person-item-name-icon" />
+        <span className="person-item-name-text">{fullName}</span>
       </div>
 
       {/* Address Section */}
       {data.adressdaten && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
+        <div className="person-item-section-row">
           <i className="dx-icon dx-icon-home person-item-icon" />
           <div>
-          <div style={{ fontWeight: 500 }}>{translate('contactAddress')}</div>
+          <div className="person-item-section-label">{translate('contactAddress')}</div>
             <div className="person-item-detail">
               {data.adressdaten.straße && <div>{data.adressdaten.straße}</div>}
               {(data.adressdaten.plz || data.adressdaten.ort) && (
@@ -63,10 +63,10 @@ export default function CustomItem(data: PersonResponse) {
             }
 
             return (
-              <div key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
+        <div key={index} className="person-item-section-row">
                 <i className={`dx-icon ${icon} person-item-icon`} />
                 <div>
-                  <div style={{ fontWeight: 500 }}>{label}</div>
+                  <div className="person-item-section-label">{label}</div>
                   <div className="person-item-detail">
                     {contact.art?.toLowerCase().includes('website') ? (
                       <a href={contact.telefonnummerOderAdresse} target="_blank" rel="noopener noreferrer">
@@ -76,7 +76,7 @@ export default function CustomItem(data: PersonResponse) {
                       contact.telefonnummerOderAdresse
                     )}
                     {contact.bemerkung && (
-                      <span style={{ marginLeft: 8, fontStyle: 'italic' }}>({contact.bemerkung})</span>
+                      <span className="person-item-contact-note">({contact.bemerkung})</span>
                     )}
                   </div>
                 </div>
@@ -88,7 +88,7 @@ export default function CustomItem(data: PersonResponse) {
 
       {/* Show a message if no contact data is available */}
       {(!data.adressdaten && (!data.kontakte || data.kontakte.length === 0)) && (
-        <div style={{ color: '#999', fontStyle: 'italic', padding: 8 }}>
+        <div className="person-item-empty">
           {translate('noContactInfo')}
         </div>
       )}
