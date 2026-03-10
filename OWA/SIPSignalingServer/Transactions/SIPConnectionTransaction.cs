@@ -41,8 +41,6 @@
 
         private ISIPConnectionPool ConnectionPool { get; set; }
 
-        private ServerSideTransactionParams ServerSideTransactionParams { get; set; }
-
         private SIPMessageRelay MessageRelay { get; set; }
 
         private SIPTunnel? SIPTunnel { get; set; }
@@ -65,8 +63,8 @@
                   sipScheme,
                   transport,
                   new ServerSideTransactionParams(
-                     signalingServerTransactionParams.RemoteParticipant,
-                     signalingServerTransactionParams.ClientParticipant,
+                     new SIPParticipant(signalingServerTransactionParams.RemoteParticipant.Name, signalingServerTransactionParams.RemoteParticipant.Endpoint),
+                     new SIPParticipant(signalingServerTransactionParams.ClientParticipant.Name, signalingServerTransactionParams.ClientParticipant.Endpoint),
                      remoteTag: peerRegistration.FromTag,  // gets set to fromTag of peer - part of the unique identifiers of this connection
                      clientTag: signalingServerTransactionParams.ClientTag,
                      callId: null), // explicitly set to null - gets set when connecting
@@ -76,8 +74,6 @@
             this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
 
             this.Params.RemoteParticipant.Name = peerRegistration.SourceParticipant.Name; // removes null as name
-
-            this.ServerSideTransactionParams = signalingServerTransactionParams;
 
             this.ConnectionPool = connectionPool;
 

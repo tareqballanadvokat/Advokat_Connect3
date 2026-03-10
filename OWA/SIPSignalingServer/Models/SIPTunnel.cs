@@ -45,33 +45,30 @@
 
         public async Task Disconnect()
         {
-            // TODO: Got triggered on disconnect
-            // TODO: Got triggered on connect
-            ObjectDisposedException.ThrowIf(this.disposed, this);
-
-            // TODO: Threw error cannot access disposed object
-            await this.runningLock.WaitAsync();
+            // TODO: Check if try catch for ObjectDisposd should encapsulate whole method. Only applies to runningLock.
+            //       Currently includes StopAsync aswell.
             try
             {
-                if (!this.Running)
-                {
-                    return;
-                }
-
-                await this.StopAsync();
-            }
-            finally
-            {
+                await this.runningLock.WaitAsync();
                 try
                 {
-                    this.runningLock.Release();
+                    if (!this.Running)
+                    {
+                        return;
+                    }
+
+                    await this.StopAsync();
                 }
-                catch (ObjectDisposedException)
+                finally
                 {
-                    // Disconnect was triggered by dispose first - closes tunnel and a listener was still active.
-                    // Listener tries to close tunnel and triggeres an ObjectDisposedException.
-                    // can be safely ignored. Tunnel is already closed and disposed.
+                        this.runningLock.Release();
                 }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Disconnect was triggered by dispose first -> closes tunnel. A listener was still active.
+                // Listener tries to close tunnel and triggeres an ObjectDisposedException.
+                // can be safely ignored. Tunnel is already closed and disposed.
             }
         }
 

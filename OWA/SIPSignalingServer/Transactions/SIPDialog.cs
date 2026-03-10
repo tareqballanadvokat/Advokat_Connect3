@@ -331,7 +331,7 @@ namespace SIPSignalingServer.Transactions
         {
             // TODO: Info could be sensitive if we use names as credentials.
             this.logger.LogInformation("SIP Connection established. {caller} - {remote}",
-                this.Params.SourceParticipant.Name,
+                this.Params.ClientParticipant.Name,
                 this.Params.RemoteParticipant.Name);
         }
 
