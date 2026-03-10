@@ -125,7 +125,7 @@ namespace Caller
             //UserAgent.WebRTCConfig.SIPClientConfig.ReceiveTimeout = 10000;
             //UserAgent.WebRTCConfig.SIPClientConfig.SIPPeerConnectionTimout = 10000;
 
-            UserAgent.OnConnected += async (object? sender, DirectConnectionEventArgs e) =>
+            UserAgent.DirectConnectionEstablished += async (object? sender, DirectConnectionEventArgs e) =>
             {
                 DirectConnection = e.P2PConnection;
                 Console.WriteLine("connected.");
