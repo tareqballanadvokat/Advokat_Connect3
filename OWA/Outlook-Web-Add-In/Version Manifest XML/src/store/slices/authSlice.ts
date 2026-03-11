@@ -5,8 +5,8 @@ import {
   IAuthCredentials,
   IAuthResponse,
 } from "@interfaces/IAuth";
-import { cacheService } from "@services/cache";
-import { getLogger } from "@services/logger";
+import { cacheService } from "@infra/cache";
+import { getLogger } from "@infra/logger";
 
 const logger = getLogger();
 

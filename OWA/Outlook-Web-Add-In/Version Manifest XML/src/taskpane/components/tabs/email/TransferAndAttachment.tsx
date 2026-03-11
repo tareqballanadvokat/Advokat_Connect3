@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
@@ -8,8 +8,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@store';
 import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEmailDocuments, selectEmailDocuments } from '@slices/aktenSlice';
 import { setAttachmentSelected } from '@slices/emailSlice';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
+import './TransferAndAttachment.css';
 
 const logger = getLogger();
 
@@ -33,8 +34,8 @@ const TransferAndAttachment: React.FC = () => {
 
   /**
    * Extract folder name from the document's file path by going backwards from filename
-   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Email\\Keine\\file.png → "Email"
-   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Default\\MailEmpfangen\\file.eml → "Default"
+   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Email\\Keine\\file.png ? "Email"
+   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Default\\MailEmpfangen\\file.eml ? "Default"
    */
   const extractFolderFromPath = (dateipfad: string | undefined): string => {
     if (!dateipfad) return "Default";
@@ -286,7 +287,7 @@ const TransferAndAttachment: React.FC = () => {
   }, [attachmentSelected]);
 
   if (loading) return <div>{translate('loading', { ns: 'common' })}</div>;
-  if (error)   return <div style={{ color: 'red' }}>{translate('errorPrefix', { ns: 'common' })}: {error}</div>;
+  if (error)   return <div className="transfer-attachment-error">{translate('errorPrefix', { ns: 'common' })}: {error}</div>;
 
   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
  
@@ -305,7 +306,7 @@ const TransferAndAttachment: React.FC = () => {
       {items.map(item => (
         <div
           key={item.id}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}
+          className="transfer-attachment-item"
         >
           <CheckBox
             value={item.checked}

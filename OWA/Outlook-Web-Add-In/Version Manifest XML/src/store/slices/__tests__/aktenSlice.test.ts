@@ -23,12 +23,13 @@ import aktenReducer, {
   aktLookUpAsync,
   selectEmailDocuments,
   selectEmailDocumentsForAktAndEmail,
-} from "../aktenSlice";
+} from "@slices/aktenSlice";
 import {
   createMockWebRTCService,
   setupDefaultWebRTCMocks,
   cleanupTests,
   createTestStore,
+  createMockAuthState,
 } from "./testSetup";
 import { createMockAkt, createMockDocument, createMockFolderOption } from "./mockFactories";
 
@@ -93,6 +94,8 @@ describe("aktenSlice", () => {
     foldersLoadedForAktId: null,
     foldersLoading: false,
     foldersError: null,
+    caseTabExpandedKeys: [],
+    caseTabDocumentsByAkt: {},
   };
 
   // Mock data - using factory functions
@@ -811,6 +814,7 @@ describe("aktenSlice", () => {
       state = aktenReducer(state, {
         type: aktLookUpAsync.fulfilled.type,
         payload: [mockAktLookup],
+        meta: { arg: "test" },
       });
       expect(state.cases).toHaveLength(1);
 
@@ -1021,7 +1025,7 @@ describe("aktenSlice", () => {
         mockWebRTCService.GetDocuments.mockRejectedValue(new Error("Network timeout"));
 
         const dispatch = jest.fn();
-        const getState = jest.fn(() => ({ akten: initialState, auth: { username: "testuser" } }));
+        const getState = jest.fn(() => ({ akten: initialState, auth: { credentials: { username: "testuser" } } }));
 
         const result = await getCaseDocumentsAsync({ aktId: 1 })(dispatch, getState, undefined);
 
@@ -1035,7 +1039,7 @@ describe("aktenSlice", () => {
         mockWebRTCService.GetDocuments.mockRejectedValue(new Error("Connection refused"));
 
         const dispatch = jest.fn();
-        const getState = jest.fn(() => ({ akten: initialState, auth: { username: "testuser" } }));
+        const getState = jest.fn(() => ({ akten: initialState, auth: { credentials: { username: "testuser" } } }));
 
         const result = await getCaseDocumentsAsync({ aktId: 1 })(dispatch, getState, undefined);
 
@@ -1052,7 +1056,7 @@ describe("aktenSlice", () => {
         });
 
         const dispatch = jest.fn();
-        const getState = jest.fn(() => ({ akten: initialState, auth: { username: "testuser" } }));
+        const getState = jest.fn(() => ({ akten: initialState, auth: { credentials: { username: "testuser" } } }));
 
         const result = await getCaseDocumentsAsync({ aktId: 1 })(dispatch, getState, undefined);
 
@@ -1168,7 +1172,10 @@ describe("aktenSlice", () => {
       it("should handle rejected state with default error message", async () => {
         mockWebRTCService.aktLookUp.mockResolvedValue({ statusCode: 500, body: "" });
 
-        const store = createTestStore();
+        const store = createTestStore({
+          auth: createMockAuthState(),
+          connection: { sipClientState: "CONNECTED", connectionStatus: "Connected", reconnectAttempts: 0, isIdle: false },
+        });
         await store.dispatch(aktLookUpAsync("test") as any);
 
         const state = store.getState().akten;

@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { createRoot } from "react-dom/client";
 import '../i18n'; // initialize i18next before anything else
 import App from "./components/App";
@@ -6,9 +6,9 @@ import { FluentProvider, webLightTheme, webDarkTheme } from "@fluentui/react-com
 import { Provider } from "react-redux";
 import { store } from "@store";
 import { APP_VERSION } from "@config";
-import { cacheService } from "@services/cache/CacheService";
-import { CACHE_KEYS, CACHE_CONFIG } from "@services/cache/config";
-import { initializeLogger, getLogger } from "@services/logger";
+import { cacheService } from "@infra/cache/CacheService";
+import { CACHE_KEYS, CACHE_CONFIG } from "@infra/cache/config";
+import { initializeLogger, getLogger } from "@infra/logger";
 import { configService } from "@config";
 
 /* global document, Office, module, require, HTMLElement */
@@ -28,7 +28,7 @@ const checkAndClearCacheIfNeeded = async (logger: ReturnType<typeof getLogger>) 
     
     if (storedVersion !== APP_VERSION) {
       const oldVersion = storedVersion || 'none';
-      logger.info('CacheVersion', `App version changed (${oldVersion} → ${APP_VERSION}), clearing cache`);
+      logger.info('CacheVersion', `App version changed (${oldVersion} ? ${APP_VERSION}), clearing cache`);
       
       // Clear all cache data using CacheService
       const clearedCount = await cacheService.clearAll();
@@ -64,12 +64,12 @@ Office.onReady(async () => {
     logger.error('AppInit', 'Critical cache initialization error', error);
   }
 
- // 1) Spróbuj użyć Office.context.officeTheme (Office.js 1.1+ i niektóre hosty)
+ // 1) Spr�buj uzyc Office.context.officeTheme (Office.js 1.1+ i niekt�re hosty)
   const officeTh = (Office.context as any).officeTheme;
   let isDark = false;
 
   if (officeTh && officeTh.bodyBackgroundColor) {
-    // większość motywów ciemnych ma tło bardzo ciemne ⇒ prosta detekcja
+    // wiekszosc motyw�w ciemnych ma tlo bardzo ciemne ? prosta detekcja
     const bg = officeTh.bodyBackgroundColor.toLowerCase();
     isDark = (bg === "#000000" || bg === "black" || bg.startsWith("#") && parseInt(bg.substr(1),16) < 0x444444);
   } else if (window.matchMedia) {

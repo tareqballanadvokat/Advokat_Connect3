@@ -1,5 +1,6 @@
-﻿// src/taskpane/components/tabs/person/PersonTabContent.tsx
+// src/taskpane/components/tabs/person/PersonTabContent.tsx
 import 'devextreme/dist/css/dx.light.css';
+import '../shared/shared.css';
 import './person.css'; // Import our custom CSS for animations
 import React, { useState, useEffect, useCallback } from 'react';
 import Accordion, { type AccordionTypes } from 'devextreme-react/accordion';
@@ -15,8 +16,8 @@ import {
   getFavoritePersonsAsync
 } from '@slices/personSlice';
 import notify from 'devextreme/ui/notify';
-import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
-import { getLogger } from '@services/logger';
+import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger(); 
@@ -100,11 +101,7 @@ const PersonTabContent: React.FC<Props> = () => {
 
 
   return (
-    <div id="accordion" style={{
-      margin: '0 auto',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-      overflow: 'hidden'
-    }}>
+    <div id="accordion" className="person-tab-root">
       
       {/* WebRTC Connection Status */}
       <WebRTCConnectionStatus />
@@ -114,12 +111,12 @@ const PersonTabContent: React.FC<Props> = () => {
 
       {/* Favorites Accordion */}
       {isReady && !favoritesLoading && favorites.length === 0 && (
-        <div style={{ padding: '12px 16px', color: '#6b7280', fontSize: 14 }}>
+        <div className="person-tab-empty">
           {translate('noFavoritePersons')}
         </div>
       )}
       {favoritesLoading && (
-        <div style={{ padding: '12px 16px', color: '#6b7280', fontSize: 14 }}>
+        <div className="person-tab-empty">
           {translate('loading', { ns: 'common' })}
         </div>
       )}

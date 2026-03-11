@@ -6,7 +6,7 @@
 
 import { AppConfig, SipServerConfig, ApiServerConfig } from "./types";
 import { getEnvironmentConfig, isProduction } from "./environment";
-import { getLogger } from "../services/logger";
+import { getLogger } from "@infra/logger";
 
 const logger = getLogger();
 

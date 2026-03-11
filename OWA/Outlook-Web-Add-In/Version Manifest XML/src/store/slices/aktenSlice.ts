@@ -1,4 +1,4 @@
-﻿// Redux slice for managing Akten (Cases) state
+// Redux slice for managing Akten (Cases) state
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import {
   AktLookUpResponse,
@@ -6,14 +6,14 @@ import {
   AktenResponse,
 } from "@interfaces/IAkten";
 import { DokumentResponse } from "@interfaces/IDocument";
-import { getWebRTCConnectionManager } from "@taskpane/services/WebRTCConnectionManager";
-import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "@services/cache";
-import { StorageType } from "@services/cache/types";
-import { selectIsReady, selectNotReadyReason } from "./connectionSlice";
-import type { RootState } from "../index";
+import { getWebRTCConnectionManager } from "@services/WebRTCConnectionManager";
+import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "@infra/cache";
+import { StorageType } from "@infra/cache/types";
+import { selectIsReady, selectNotReadyReason } from "@slices/connectionSlice";
+import type { RootState } from "@store";
 import notify from "devextreme/ui/notify";
-import { getErrorMessage } from "@src/utils/errorHelpers";
-import { getLogger } from "@services/logger";
+import { getErrorMessage } from "@utils/errorHelpers";
+import { getLogger } from "@infra/logger";
 
 const logger = getLogger();
 
@@ -61,6 +61,10 @@ interface AktenState {
   foldersLoadedForAktId: number | null; // Track which Akt ID the current folders were loaded for
   foldersLoading: boolean;
   foldersError: string | null;
+
+  // Case Tab UI state � persisted across tab switches (component unmount/remount)
+  caseTabExpandedKeys: (string | number)[];
+  caseTabDocumentsByAkt: Record<number, DokumentResponse[]>;
 }
 
 // Initial state
@@ -101,6 +105,10 @@ const initialState: AktenState = {
   foldersLoadedForAktId: null,
   foldersLoading: false,
   foldersError: null,
+
+  // Case Tab UI state
+  caseTabExpandedKeys: [],
+  caseTabDocumentsByAkt: {},
 };
 
 // New async thunk for getting favorite Akten
@@ -379,8 +387,8 @@ export const aktLookUpAsync = createAsyncThunk(
 
         if (cached) {
           logger.debug(`${reason}. Using cached search results for: ${searchText}`, "aktenSlice");
-          // notify(`⚠️ ${reason}. Showing cached results.`, "warning", 4000);
-          notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
+          // notify(`?? ${reason}. Showing cached results.`, "warning", 4000);
+          notify(`?? Something went wrong, please try again.`, "warning", 4000);
           return cached;
         }
       } catch (error: unknown) {
@@ -445,7 +453,7 @@ export const aktLookUpAsync = createAsyncThunk(
         if (staleCache) {
           logger.warn("API failed, returning stale cached data", "aktenSlice");
           // notify("Something went wrong. Showing cached results.", "warning", 4000);
-            notify(`⚠️ Something went wrong, please try again.`, "warning", 4000);
+            notify(`?? Something went wrong, please try again.`, "warning", 4000);
           return staleCache;
         }
       } catch (cacheError: unknown) {
@@ -481,7 +489,7 @@ const aktenSlice = createSlice({
       // immutable state based off those changes
       state.cases = [];
       // DON'T clear favouriteAkten here - it should be managed separately
-      // state.favouriteAkten = []; // ← REMOVED: This was clearing favorites unexpectedly
+      // state.favouriteAkten = []; // ? REMOVED: This was clearing favorites unexpectedly
       state.selectedAkt = null; // Clear selected Akt when clearing search results
       state.error = null;
       state.caseDocumentsError = null;
@@ -521,6 +529,16 @@ const aktenSlice = createSlice({
     clearPreviousSearchTerm: (state) => {
       state.previousSearchTerm = null;
       state.searchCounter = 0;
+    },
+    // Case Tab UI persistence
+    setCaseTabExpandedKeys: (state, action: PayloadAction<(string | number)[]>) => {
+      state.caseTabExpandedKeys = action.payload;
+    },
+    addCaseTabDocuments: (state, action: PayloadAction<{ aktId: number; documents: DokumentResponse[] }>) => {
+      state.caseTabDocumentsByAkt[action.payload.aktId] = action.payload.documents;
+    },
+    removeCaseTabAktDocuments: (state, action: PayloadAction<number>) => {
+      delete state.caseTabDocumentsByAkt[action.payload];
     },
   },
   // The `extraReducers` field lets the slice handle actions defined elsewhere,
@@ -663,6 +681,9 @@ export const {
   setSelectedAkt,
   setSearchTerm,
   clearPreviousSearchTerm,
+  setCaseTabExpandedKeys,
+  addCaseTabDocuments,
+  removeCaseTabAktDocuments,
 } = aktenSlice.actions;
 
 // Selectors

@@ -1,12 +1,13 @@
-﻿// src/taskpane/components/tabs/cases/CasesAccordion.tsx
+// src/taskpane/components/tabs/cases/CasesAccordion.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
+import '../shared/shared.css';
 import './CaseTabContent.css'; // Import our custom CSS
 import SearchCaseList from './SearchCaseList';
 import {IsComposeMode} from '@hooks/useOfficeItem';
 import {HierarchyTree} from '@interfaces/ICase';
 import { DokumentResponse } from '@interfaces/IDocument';
-import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
+import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
 import notify from 'devextreme/ui/notify';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { selectIsReady } from '@slices/connectionSlice';
@@ -14,7 +15,10 @@ import {
   getFavoriteAktenAsync, 
   getCaseDocumentsAsync, 
   removeAktFromFavoriteAsync,
-  downloadDocumentAsync
+  downloadDocumentAsync,
+  setCaseTabExpandedKeys,
+  addCaseTabDocuments,
+  removeCaseTabAktDocuments,
 } from '@slices/aktenSlice';
 import TreeList, {
   Column,
@@ -27,7 +31,7 @@ import {
   createBlobFromBase64, 
   isViewableInBrowser 
 } from '@utils/fileHelpers';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
@@ -49,9 +53,9 @@ const CaseTabContent: React.FC = () => {
   const isReady = useAppSelector(selectIsReady);
   
   const [nodes, setNodes] = useState<HierarchyTree[]>([]);
-  const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
-  // Store documents in component state (keyed by aktId)
-  const [dokumentsByAkt, setDokumentsByAkt] = useState<Map<number, DokumentResponse[]>>(new Map());
+  // Persisted in Redux so state survives tab switching (component unmount/remount)
+  const expandedKeys = useAppSelector(state => state.akten.caseTabExpandedKeys);
+  const caseTabDocumentsByAkt = useAppSelector(state => state.akten.caseTabDocumentsByAkt);
   // Track which document is currently being opened/downloaded
   const [openingDocumentId, setOpeningDocumentId] = useState<number | null>(null);
 
@@ -87,9 +91,9 @@ const CaseTabContent: React.FC = () => {
     const folderMap = new Map<string, HierarchyTree>();
     let nextId = Math.max(...favouriteAkten.map(a => a.id), 0) + 10000; // Start IDs after Akt IDs
 
-    // Get all documents from component state
+    // Get all documents from Redux state
     const allDocs: DokumentResponse[] = [];
-    dokumentsByAkt.forEach(docs => allDocs.push(...docs));
+    Object.values(caseTabDocumentsByAkt).forEach(docs => allDocs.push(...docs));
     
     allDocs.forEach((doc) => {
       // Find the parent Akt ID
@@ -162,17 +166,17 @@ const CaseTabContent: React.FC = () => {
     });
 
     setNodes(transformedNodes);
-  }, [favouriteAkten, dokumentsByAkt]);
+  }, [favouriteAkten, caseTabDocumentsByAkt]);
 
   const onSelectionChanged = useCallback((e) => {
     // keep expandedKeys in sync
-    setExpandedKeys(e.component.getSelectedRowKeys());
-  }, []);
+    dispatch(setCaseTabExpandedKeys(e.component.getSelectedRowKeys()));
+  }, [dispatch]);
 
   // Handle expanding nodes to load documents (cache handled by thunk)
   const onExpandedRowKeysChange = useCallback(async (newExpandedKeys: (string | number)[]) => {
     const previousExpandedKeys = expandedKeys;
-    setExpandedKeys(newExpandedKeys);
+    dispatch(setCaseTabExpandedKeys(newExpandedKeys));
     
     // Find newly expanded keys (keys that were added)
     const newlyExpanded = newExpandedKeys.filter(key => !previousExpandedKeys.includes(key));
@@ -189,8 +193,8 @@ const CaseTabContent: React.FC = () => {
         
         const aktId = parseInt(node.url.replace('akt:', ''));
         
-        // Check if documents are already loaded in component state
-        const hasLoadedDocuments = dokumentsByAkt.has(aktId);
+        // Check if documents are already loaded in Redux state
+        const hasLoadedDocuments = aktId in caseTabDocumentsByAkt;
         
         // Only load documents if not already loaded and not currently loading
         if (!hasLoadedDocuments && 
@@ -199,8 +203,8 @@ const CaseTabContent: React.FC = () => {
           logger.debug(`Loading documents for Akt ${aktId}`, 'CaseTabContent');
           try {
             const result = await dispatch(getCaseDocumentsAsync({ aktId, Count: 100 })).unwrap();
-            // Store documents in component state
-            setDokumentsByAkt(prev => new Map(prev).set(aktId, result.documents));
+            // Store documents in Redux state (persists across tab switches)
+            dispatch(addCaseTabDocuments({ aktId, documents: result.documents }));
           } catch (error) {
             logger.error(`Failed to load documents for Akt ${aktId}:`, 'CaseTabContent', error);
           }
@@ -209,7 +213,7 @@ const CaseTabContent: React.FC = () => {
         }
       }
     }
-  }, [nodes, expandedKeys, caseDocumentsLoading, loadingCaseDocumentsForAktId, dokumentsByAkt, dispatch]);
+  }, [nodes, expandedKeys, caseDocumentsLoading, loadingCaseDocumentsForAktId, caseTabDocumentsByAkt, dispatch]);
 
 
   const handleOpen = useCallback(async (node: HierarchyTree) => {
@@ -386,6 +390,10 @@ const CaseTabContent: React.FC = () => {
       await dispatch(removeAktFromFavoriteAsync(aktId)).unwrap();
       notify(translate('removedFromFavoritesSuccess', { name: aktName }), 'success', 3000);
       // Refresh favorite Akten to remove the deleted case from the list
+      // Also remove the cached documents for that akt from Redux state
+      dispatch(removeCaseTabAktDocuments(aktId));
+      // Remove from expanded keys
+      dispatch(setCaseTabExpandedKeys(expandedKeys.filter(k => k !== aktId)));
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50
@@ -394,14 +402,14 @@ const CaseTabContent: React.FC = () => {
       logger.error('Failed to remove from favorites:', 'CaseTabContent', error);
       notify(translate('failedToRemoveFromFavorites'), 'error', 5000);
     }
-  }, [dispatch]);
+  }, [dispatch, expandedKeys]);
 
    return (
-    <div /* … */ style={{ position: 'relative', overflow: 'hidden' }}>
+    <div className="case-tab-root">
       {/* WebRTC Connection Status */}
       <WebRTCConnectionStatus />
       
-      {/* … SearchCaseList, header, LoadPanel … */}
+      {/* � SearchCaseList, header, LoadPanel � */}
 
       <SearchCaseList />
 
@@ -410,7 +418,7 @@ const CaseTabContent: React.FC = () => {
           dataSource={nodes}
           keyExpr="id"
           parentIdExpr="rootId"
-          rootValue={-1}           // top‐level nodes have rootId = -1
+          rootValue={-1}           // top-level nodes have rootId = -1
           expandedRowKeys={expandedKeys}
           onExpandedRowKeysChange={onExpandedRowKeysChange}
           onSelectionChanged={onSelectionChanged}
@@ -426,13 +434,13 @@ const CaseTabContent: React.FC = () => {
         >
         <Scrolling mode="standard" />  {/* Enable horizontal scrolling as fallback */}
         
-        {/* … Paging, Scrolling … */}
+        {/* � Paging, Scrolling � */}
       <Editing
         allowUpdating={false}
         allowDeleting={false}
         allowAdding={false}
         mode="row" />
-        {/* ── Main column: full folder/file tree (FIRST = gets expand arrows) ── */}
+        {/* -- Main column: full folder/file tree (FIRST = gets expand arrows) -- */}
         <Column
           dataField="name"
           caption={translate('columns.name')}
@@ -441,73 +449,43 @@ const CaseTabContent: React.FC = () => {
             const isOpening = openingDocumentId !== null && openingDocumentId === data.documentId;
             return (
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 4,
-                  padding: '2px 0',
-                  lineHeight: '1.4',
-                  flexWrap: 'wrap',
-                }}
+                className="case-tab-cell-row"
                 title={data.name}
               >
-                {/* Open icon — files only */}
+                {/* Open icon � files only */}
                 {!data.isStructure && (
                   <button
-                    className={`dx-button dx-button-large dx-button-mode-contained${isOpening ? ' loading-button' : ''}`}
+                    className={`dx-button dx-button-large dx-button-mode-contained case-tab-cell-btn case-tab-cell-btn--open${isOpening ? ' opening loading-button' : ''}`}
                     onClick={(e) => { e.stopPropagation(); if (!isOpening) handleOpen(data); }}
                     disabled={isOpening}
                     title={isOpening ? translate('openingFile') : translate('openFile')}
-                    style={{
-                      flexShrink: 0,
-                      border: 'none',
-                      borderRadius: '3px',
-                      padding: '2px 5px',
-                      cursor: isOpening ? 'not-allowed' : 'pointer',
-                      color: isOpening ? '#666' : '#1976d2',
-                    }}
                   >
-                    <i className={`dx-icon dx-icon-${isOpening ? 'refresh' : 'export'}`} style={{ fontSize: 18, color: isOpening ? '#666' : '#1976d2' }} />
+                    <i className={`dx-icon dx-icon-${isOpening ? 'refresh' : 'export'} case-tab-cell-icon case-tab-cell-icon--lg case-tab-cell-icon--open${isOpening ? ' opening' : ''}`} />
                   </button>
                 )}
-                {/* Add-as-attachment icon — compose mode + files only */}
+                {/* Add-as-attachment icon � compose mode + files only */}
                 {!data.isStructure && IsComposeMode() && (
                   <button
-                    className="dx-button dx-button-normal dx-button-mode-contained"
+                    className="dx-button dx-button-normal dx-button-mode-contained case-tab-cell-btn case-tab-cell-btn--attach"
                     onClick={(e) => { e.stopPropagation(); handleAdd(data); }}
                     title={translate('addAsAttachment')}
-                    style={{
-                      flexShrink: 0,
-                      border: 'none',
-                      borderRadius: '3px',
-                      padding: '2px 5px',
-                      cursor: 'pointer',
-                    }}
                   >
-                    <i className="dx-icon dx-icon-add" style={{ fontSize: 13 }} />
+                    <i className="dx-icon dx-icon-add case-tab-cell-icon case-tab-cell-icon--sm" />
                   </button>
                 )}
 
                 {/* Folder / file icon */}
                 {data.isStructure && data.url.startsWith('akt:') &&
                  caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? (
-                  <i className="dx-icon dx-icon-refresh" style={{ flexShrink: 0, fontSize: 14, animation: 'spin 1s linear infinite' }} />
+                  <i className="dx-icon dx-icon-refresh case-tab-cell-icon case-tab-cell-icon--spin" />
                 ) : (
                   <i
-                    className={data.isStructure ? 'dx-icon dx-icon-folder' : 'dx-icon dx-icon-file'}
-                    style={{ flexShrink: 0, fontSize: 14 }}
+                    className={`${data.isStructure ? 'dx-icon dx-icon-folder' : 'dx-icon dx-icon-file'} case-tab-cell-icon`}
                   />
                 )}
 
                 {/* Name */}
-                <span style={{
-                  wordBreak: 'break-word',
-                  whiteSpace: 'normal',
-                  flex: 1,
-                  minWidth: 0,
-                  opacity: data.isStructure && data.url.startsWith('akt:') &&
-                           caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? 0.7 : 1,
-                }}>
+                <span className={`case-tab-cell-name${data.isStructure && data.url.startsWith('akt:') && caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? ' case-tab-cell-name--loading' : ''}`}>
                   {data.name}
                   {data.isStructure && data.url.startsWith('akt:') &&
                    caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) && ` (${translate('common:loading')})`}
@@ -517,7 +495,7 @@ const CaseTabContent: React.FC = () => {
           }}
         />
 
-        {/* ── Right column: delete icon for root Akt nodes only ────── */}
+        {/* -- Right column: delete icon for root Akt nodes only ------ */}
         <Column
           width={40}
           minWidth={40}
@@ -534,16 +512,8 @@ const CaseTabContent: React.FC = () => {
                 onClick={(e) => { e.stopPropagation(); handleDelete(data); }}
                 disabled={isDeleting}
                 title={isDeleting ? translate('removingFromFavorites') : translate('removeFromFavorites')}
-                style={{
-                  backgroundColor: isDeleting ? '#f5f5f5' : '#d32f2f',
-                  color: isDeleting ? '#666' : 'white',
-                  border: 'none',
-                  borderRadius: '3px',
-                  padding: '2px 5px',
-                  cursor: isDeleting ? 'not-allowed' : 'pointer',
-                }}
               >
-                <i className={`dx-icon dx-icon-${isDeleting ? 'refresh' : 'trash'}`} style={{ fontSize: 13 }} />
+                <i className={`dx-icon dx-icon-${isDeleting ? 'refresh' : 'trash'} case-tab-cell-icon case-tab-cell-icon--sm`} />
               </button>
             );
           }}

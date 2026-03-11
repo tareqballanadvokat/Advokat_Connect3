@@ -7,13 +7,13 @@ import {
   LeistungenQuery,
   LeistungResponse,
 } from "@interfaces/IService";
-import { getWebRTCConnectionManager } from "@taskpane/services/WebRTCConnectionManager";
-import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "@services/cache";
-import { selectIsReady, selectNotReadyReason } from "./connectionSlice";
-import type { RootState } from "../index";
+import { getWebRTCConnectionManager } from "@services/WebRTCConnectionManager";
+import { cacheService, CACHE_KEYS, CACHE_CONFIG } from "@infra/cache";
+import { selectIsReady, selectNotReadyReason } from "@slices/connectionSlice";
+import type { RootState } from "@store";
 import notify from "devextreme/ui/notify";
-import { getErrorMessage } from "@src/utils/errorHelpers";
-import { getLogger } from "@services/logger";
+import { getErrorMessage } from "@utils/errorHelpers";
+import { getLogger } from "@infra/logger";
 
 const logger = getLogger();
 

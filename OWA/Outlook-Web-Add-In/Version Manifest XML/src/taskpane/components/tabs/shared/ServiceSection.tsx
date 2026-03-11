@@ -1,11 +1,12 @@
-﻿// src/taskpane/components/tabs/shared/ServiceSection.tsx
+// src/taskpane/components/tabs/shared/ServiceSection.tsx
 import React, { useEffect } from 'react';
+import './ServiceSection.css';
 import SelectBox from 'devextreme-react/select-box';
 import { LeistungAuswahlResponse } from '@interfaces/IService';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@slices/serviceSlice';
 import notify from 'devextreme/ui/notify';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
@@ -132,20 +133,20 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   }));
 
   return (
-    <div style={{ marginBottom: 24 }}>
+    <div className="service-section-root">
       <h3>{translate('servicesHeading')}</h3>
       {!selectedAktKuerzel ? (
-        <div style={{ color: '#666', fontStyle: 'italic' }}>
+        <div className="service-section-placeholder">
           {translate('selectAktFirst')}
         </div>
       ) : serviceState.servicesLoading ? (
         <div>{translate('loadingServices')}</div>
       ) : serviceState.servicesError ? (
-        <div style={{ color: 'red' }}>{translate('common:errorPrefix')}: {serviceState.servicesError}</div>
+        <div className="service-section-error">{translate('common:errorPrefix')}: {serviceState.servicesError}</div>
       ) : (
         <>
           {/* Service dropdown - full width */}
-          <div style={{ marginBottom: 8 }}>
+          <div className="service-section-field">
             <SelectBox
               stylingMode="outlined"
               dataSource={servicesWithDisplayText}
@@ -160,7 +161,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
           </div>
           
           {/* Time and SB inputs - side by side */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <div className="service-section-inline-row">
             <input
               type="text"
               placeholder={translate('sbPlaceholder')}
@@ -169,16 +170,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
               onBlur={handleSbBlur}
               maxLength={3}
               pattern="[A-Za-z]{0,3}"
-              style={{
-                width: 50,
-                padding: '8px 12px',
-                fontSize: 14,
-                border: '1px solid #ccc',
-                borderRadius: 4,
-                textAlign: 'center',
-                backgroundColor: '#f4f4f4',
-                textTransform: 'uppercase'
-              }}
+              className="service-section-sb-input"
             />
             <input
               type="text"
@@ -188,36 +180,23 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
               onBlur={handleTimeBlur}
               maxLength={5}
               pattern="[0-9]{2}:[0-9]{2}"
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                fontSize: 14,
-                border: '1px solid #ccc',
-                borderRadius: 4,
-              }}
+              className="service-section-time-input"
             />
           </div>
           
           {/* Text input - full width */}
-          <div style={{ marginBottom: 8 }}>
+          <div className="service-section-field">
             <input
               type="text"
               placeholder={translate('textPlaceholder')}
               value={serviceState.text}
               onChange={e => handleTextChange(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                fontSize: 14,
-                border: '1px solid #ccc',
-                borderRadius: 4,
-                boxSizing: 'border-box',
-              }}
+              className="service-section-text-input"
             />
           </div>
           
           {/* Show additional info */}
-          <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+          <div className="service-section-hint">
             {translate('serviceContextHint')}
           </div>
         </>

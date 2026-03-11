@@ -1,5 +1,6 @@
-﻿// src/taskpane/components/tabs/case/SearchCaseList.tsx
+// src/taskpane/components/tabs/case/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
+import '../shared/shared.css';
 import './SearchCaseList.css'; // Import our custom CSS
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
@@ -9,7 +10,7 @@ import { selectIsReady } from '@slices/connectionSlice';
 import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '@slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
 import { getFavoriteAktenAsync } from '@slices/aktenSlice';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
@@ -99,12 +100,12 @@ const SearchCaseList: React.FC = () => {
 
   return (
     <div>
-        <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <h3 className="search-case-title">
           {translate('searchCasesHeading')}
         </h3>
 
       {/* Search panel */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="search-case-panel">
         <TextBox
           width={250}
           stylingMode="outlined"
@@ -125,14 +126,14 @@ const SearchCaseList: React.FC = () => {
 
       {/* Error message */}
       {error && (
-        <div style={{ color: 'red', marginBottom: 16, padding: 8, backgroundColor: '#fee' }}>
+        <div className="search-case-error">
           {translate('common:errorPrefix')}: {error}
         </div>
       )}
 
       {/* Loading indicator */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: 16 }}>
+        <div className="search-case-loading">
           {translate('common:searchingViaWebRTC')}
         </div>
       )}

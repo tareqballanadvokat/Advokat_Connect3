@@ -3,10 +3,10 @@ import { makeStyles } from "@fluentui/react-components";
 import { useTranslation } from 'react-i18next';
 import Tabs from './Tab';
 import { configService } from '@config';
-import { getWebRTCConnectionManager } from '@taskpane/services/WebRTCConnectionManager';
+import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { toggleLogging, initializeLogging } from '@slices/loggingSlice';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 
 interface AppProps {
   title: string;

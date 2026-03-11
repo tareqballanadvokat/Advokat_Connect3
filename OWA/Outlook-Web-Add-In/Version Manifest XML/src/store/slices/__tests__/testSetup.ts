@@ -28,11 +28,12 @@
  */
 
 import { configureStore } from "@reduxjs/toolkit";
-import emailReducer from "../emailSlice";
-import serviceReducer from "../serviceSlice";
-import aktenReducer from "../aktenSlice";
-import personReducer from "../personSlice";
-import authReducer from "../authSlice";
+import emailReducer from "@slices/emailSlice";
+import serviceReducer from "@slices/serviceSlice";
+import aktenReducer from "@slices/aktenSlice";
+import personReducer from "@slices/personSlice";
+import authReducer from "@slices/authSlice";
+import connectionReducer from "@slices/connectionSlice";
 
 /**
  * Create a mock Redux store for testing
@@ -46,6 +47,7 @@ export function createTestStore(preloadedState?: any) {
     akten: aktenReducer,
     person: personReducer,
     auth: authReducer,
+    connection: connectionReducer,
   };
 
   return configureStore({

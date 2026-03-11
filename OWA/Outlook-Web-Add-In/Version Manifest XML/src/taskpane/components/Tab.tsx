@@ -1,8 +1,8 @@
-﻿import React, { useState, Suspense, lazy, useEffect } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
 import Tabs, { Item } from 'devextreme-react/tabs';
 import 'devextreme/dist/css/dx.light.css';
 import { ENABLE_CACHE_STATS } from '@config';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { setLanguage, SupportedLanguage } from '@slices/languageSlice';
@@ -13,7 +13,7 @@ const ServiceTab = lazy(() => import('./tabs/service/ServiceTabContent'));
 const EmailTab  = lazy(() => import('./tabs/email/EmailTabContent'));
 const PersonTab  = lazy(() => import('./tabs/person/PersonTabContent'));
 const CaseTabContent = lazy(() => import('./tabs/case/CaseTabContent'));
-const CacheStatsPanel = lazy(() => import('./shared/CacheStatsPanel'));
+const CacheStatsPanel = lazy(() => import('./tabs/shared/CacheStatsPanel'));
 
 const DevTabs: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -95,7 +95,7 @@ const DevTabs: React.FC = () => {
         {showCacheTab && <Item text={translate('tabs.cache')} />}
       </Tabs>
 
-      {/* Suspense pokaże fallback tylko przy pierwszym ładowaniu chunka */}
+      {/* Suspense pokaze fallback tylko przy pierwszym ladowaniu chunka */}
       <div style={{ marginTop: 16 }}>
         <Suspense fallback={<div>{translate('loadingTab')}</div>}>
           {renderContent()}

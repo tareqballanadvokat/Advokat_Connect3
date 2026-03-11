@@ -1,0 +1,39 @@
+/* shared/SearchCaseList.css */
+
+.shared-search-case-title {
+  width: 220px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.shared-search-case-panel {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.shared-search-case-loading {
+  text-align: center;
+  padding: 10px;
+}
+
+.shared-search-case-select-btn-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shared-search-case-loading-indicator {
+  position: absolute;
+}
+
+/* Highlight the selected row with a left accent border */
+.dx-datagrid-rowsview .dx-data-row.selected-akt-row > td:first-of-type {
+  border-left: 3px solid #0078d4;
+}
+
+.dx-datagrid-rowsview .dx-data-row.selected-akt-row {
+  font-weight: 600;
+}

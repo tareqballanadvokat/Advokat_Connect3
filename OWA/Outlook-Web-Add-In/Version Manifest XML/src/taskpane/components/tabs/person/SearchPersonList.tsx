@@ -1,5 +1,6 @@
-﻿// src/taskpane/components/tabs/person/SearchPersonList.tsx
+// src/taskpane/components/tabs/person/SearchPersonList.tsx
 import React, { useState, useEffect } from 'react';
+import '../shared/shared.css';
 import './person.css'; // Import our custom CSS for star button styling
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
@@ -10,7 +11,7 @@ import { selectIsReady } from '@slices/connectionSlice';
 import { personLookUpAsync, clearPersons, setSearchTerm, clearPreviousSearchTerm } from '@slices/personSlice';
 import { PersonLookUpResponse } from '@interfaces/IPerson';
 import notify from 'devextreme/ui/notify';
-import { getLogger } from '@services/logger';
+import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
@@ -104,11 +105,11 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
 
   return (
     <div>
-       <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+       <h3 className="search-person-title">
         {translate('searchPersons')}
       </h3>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="search-person-panel">
         <TextBox
           width={250}
           stylingMode="outlined"
@@ -128,7 +129,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
       </div>
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '10px' }}>
+        <div className="search-person-loading">
           <span>{translate('searchingPersons')}</span>
         </div>
       )}
