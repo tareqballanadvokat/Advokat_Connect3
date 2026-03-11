@@ -1,15 +1,21 @@
-﻿using Advokat.WebRTC.Library.SIP;
-using Advokat.WebRTC.Library.SIP.Interfaces;
-using Microsoft.Extensions.Logging;
-using SIPSignalingServer.Interfaces;
-using SIPSignalingServer.Transactions;
-using SIPSorcery.SIP;
-using System.Diagnostics.CodeAnalysis;
-using System.Net;
-using System.Text.Json;
+﻿// <copyright file="SignalingServer.cs" company="Advokat GmbH">
+// Copyright (c) Advokat GmbH. Alle Rechte vorbehalten.
+// </copyright>
 
 namespace SIPSignalingServer
 {
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Net;
+    using System.Text.Json;
+    using Advokat.WebRTC.Library.SIP;
+    using Advokat.WebRTC.Library.SIP.Interfaces;
+    using Microsoft.Extensions.Logging;
+    using SIPSignalingServer.Interfaces;
+    using SIPSignalingServer.Transactions;
+    using SIPSorcery.SIP;
+
     public class SignalingServer
     {
         private readonly ILoggerFactory loggerFactory;
@@ -26,6 +32,8 @@ namespace SIPSignalingServer
 
         private ISIPConnection? Connection { get; set; }
 
+        private ConcurrentDictionary<string, SIPDialog> dialogs = [];
+
         private ISIPConnectionPool connectionPool;
 
         [MemberNotNullWhen(true, nameof(this.Connection))]
@@ -39,8 +47,8 @@ namespace SIPSignalingServer
         public event ServerEventDelegate? ServerStopped;
 
         public SignalingServer(IPEndPoint serverEndpoint, ILoggerFactory loggerFactory)
-            :this(serverEndpoint, new SignalingServerOptions(), loggerFactory)
-        {            
+            : this(serverEndpoint, new SignalingServerOptions(), loggerFactory)
+        {
         }
 
         public SignalingServer(IPEndPoint serverEndpoint, SignalingServerOptions options, ILoggerFactory loggerFactory)
@@ -63,27 +71,35 @@ namespace SIPSignalingServer
                 // server already running
                 return;
             }
+
             this.Transport = this.GetTransport(this.ServerEndpoint);
-            
+
             this.Connection = new SIPConnection(this.Options.SIPScheme, this.Transport, this.loggerFactory, this.IsRegistrationRequest);
             this.Connection.SIPRequestReceived += this.RequestListener;
-            
+
             this.Running = true;
-            
+
             this.ServerStarted?.Invoke(this);
             this.logger.LogInformation("Server started. Listening on {endpoint}", this.ServerEndpoint);
         }
 
         public void StopServer()
         {
-            // TODO: close all connections properly. STOP all Dialogs
 
             if (!this.Running)
             {
                 // server not running
                 return;
             }
+
             this.Connection.SIPRequestReceived -= this.RequestListener;
+
+            // TODO: close all connections properly. STOP all Dialogs
+            //foreach (KeyValuePair<string, SIPDialog> dialogEntry in this.dialogs)
+            //{
+            //    // TODO: Remove listener for TransactionStopped. -> it tries to remove the dialog. Cannot be removed while iterating over dict
+            //    await dialogEntry.Value.DisposeAsync();
+            //}
 
             this.Transport = null;
 
@@ -128,15 +144,36 @@ namespace SIPSignalingServer
         {
             ISIPDialogConfig config = this.GetConfig(sipRequest);
 
-            SIPDialog SIPDialog = new SIPDialog(this.Options.SIPScheme, this.Transport!, sipRequest, localEndPoint, this.registry, this.connectionPool, this.loggerFactory);
-            SIPDialog.Config = config;
-            await SIPDialog.Start();
+            bool existing = this.dialogs.TryGetValue(sipRequest.Header.From.FromName, out SIPDialog? existingDialog);
+            if (existing && existingDialog != null)
+            {
+                await existingDialog.Stop();
+                this.dialogs.TryRemove(new KeyValuePair<string, SIPDialog>(sipRequest.Header.From.FromName, existingDialog));
+                await existingDialog.DisposeAsync();
+            }
+
+            SIPDialog sipDialog = new SIPDialog(this.Options.SIPScheme, this.Transport!, sipRequest, localEndPoint, this.registry, this.connectionPool, this.loggerFactory);
+            this.dialogs.TryAdd(sipRequest.Header.From.FromName, sipDialog);
+
+            // TODO: remove async event
+            sipDialog.TransactionStopped += async (ISIPTransaction sender) =>
+            {
+                if (sender is SIPDialog dialog)
+                {
+                    // TODO: ArgumentNullException -> key was null?? --> breakpoint in SIPDialog StartRunning
+                    bool success = this.dialogs.TryRemove(dialog.Params.ClientParticipant.Name, out SIPDialog? _);
+                    await dialog.DisposeAsync();
+                }
+            };
+
+            sipDialog.Config = config;
+            await sipDialog.Start();
         }
 
         private ISIPDialogConfig GetConfig(SIPRequest initialRequest)
         {
             ISIPDialogConfig config = (ISIPDialogConfig)this.Options.SIPConfig.Clone();
-            
+
             if (this.Options.AllowClientConfigs == false)
             {
                 return config;

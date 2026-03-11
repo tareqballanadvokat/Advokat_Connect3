@@ -1,10 +1,14 @@
-﻿using Microsoft.Extensions.Logging;
-using SIPSignalingServer.Interfaces;
-using SIPSignalingServer.Models;
-using SIPSignalingServer.Utils.CustomEventArgs;
+﻿// <copyright file="SIPMemoryRegistry.cs" company="Advokat GmbH">
+// Copyright (c) Advokat GmbH. Alle Rechte vorbehalten.
+// </copyright>
 
 namespace SIPSignalingServer
 {
+    using Microsoft.Extensions.Logging;
+    using SIPSignalingServer.Interfaces;
+    using SIPSignalingServer.Models;
+    using SIPSignalingServer.Utils.CustomEventArgs;
+
     internal class SIPMemoryRegistry : ISIPRegistry
     {
         private ILogger logger;
@@ -13,7 +17,9 @@ namespace SIPSignalingServer
 
         public event EventHandler<RegistrationEventArgs>? Unregistered;
 
-        private List<SIPRegistration> RegisteredConnections { get; set; } = new List<SIPRegistration>();
+        public event EventHandler<RegistrationEventArgs>? Registered;
+
+        private List<SIPRegistration> Registrations { get; set; } = new List<SIPRegistration>();
 
         public SIPMemoryRegistry(ILoggerFactory loggerFactory)
         {
@@ -27,7 +33,7 @@ namespace SIPSignalingServer
                 if (!this.IsRegistered(registration))
                 {
                     this.logger.LogDebug("Registering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
-                    RegisteredConnections.Add(registration);
+                    this.Registrations.Add(registration);
                 }
             }
         }
@@ -40,7 +46,9 @@ namespace SIPSignalingServer
                 if (registeredObject != null)
                 {
                     this.logger.LogDebug("Unregistering. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
-                    RegisteredConnections.Remove(registeredObject);
+                    this.Registrations.Remove(registeredObject);
+                    registeredObject.Confirmed = false;
+                    registration.Confirmed = false;
                     this.Unregistered?.Invoke(this, new RegistrationEventArgs(registeredObject));
                 }
             }
@@ -55,6 +63,8 @@ namespace SIPSignalingServer
                 {
                     this.logger.LogDebug("Confirmed registration. Caller:'{caller}' remote:\"{remote name}\".", registration.SourceParticipant, registration.RemoteUser);
                     registeredObject.Confirmed = registration.Confirmed = true;
+
+                    this.Registered?.Invoke(this, new RegistrationEventArgs(registration));
                 }
             }
         }
@@ -64,14 +74,14 @@ namespace SIPSignalingServer
             lock (this.lockObject)
             {
                 return this.GetRegisteredObject(registration)?.Confirmed
-                    ?? false; // not registered, cannot be confirmed
+                    ?? false; // not in Registry, cannot be confirmed
             }
         }
 
         public bool IsRegistered(SIPRegistration registration)
         {
              // TODO: && Confirmed?
-            return this.RegisteredConnections.Contains(registration);
+            return this.Registrations.Contains(registration);
         }
 
         //public bool IsRegistered(string name)
@@ -87,33 +97,25 @@ namespace SIPSignalingServer
                 return null;
             }
 
-            return this.RegisteredConnections.Single(r => r == registration);
+            return this.Registrations.Single(r => r == registration);
         }
 
         public SIPRegistration? GetRegisteredObject(string name)
         {
             // TODO: What to do on multiple registartions with the same name? Only allow the name once when adding?
 
-            // TODO: Got a null reference error when registering both quickly. Twice.
-            //       Maybe lock it?
             lock (this.lockObject)
             {
-                return this.RegisteredConnections.SingleOrDefault(r => r.SourceParticipant.Name == name);
+                return this.Registrations.SingleOrDefault(r => r.SourceParticipant.Name == name);
             }
         }
 
-        public bool PeerIsRegistered(SIPRegistration registration)
+        public List<SIPRegistration> GetPeerRegistration(SIPRegistration registration)
         {
-            SIPRegistration? peerRegistration = this.GetPeerRegistration(registration);
-            return peerRegistration != null
-                && peerRegistration.RemoteUser == registration.SourceParticipant.Name
-                && peerRegistration.Confirmed;
-        }
-
-        public SIPRegistration? GetPeerRegistration(SIPRegistration registration)
-        {
-            // TODO: We assume the remote connects first. If the remote connects later without a targer client (RemoteUser) this breaks
-            return this.GetRegisteredObject(registration.RemoteUser);
+            lock (this.lockObject)
+            {
+                return this.Registrations.Where(registration.IsPeer).ToList();
+            }
         }
     }
 }

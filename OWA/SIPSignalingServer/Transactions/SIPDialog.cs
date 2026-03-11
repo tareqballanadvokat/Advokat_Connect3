@@ -1,19 +1,23 @@
-﻿using Advokat.WebRTC.Library.SIP;
-using Advokat.WebRTC.Library.SIP.Interfaces;
-using Microsoft.Extensions.Logging;
-using SIPSignalingServer.Interfaces;
-using SIPSignalingServer.Models;
-using SIPSignalingServer.Transactions.Interfaces;
-using SIPSignalingServer.Transactions.Interfaces.TransactionFactories;
-using SIPSignalingServer.Transactions.TransactionFactories;
-using SIPSignalingServer.Utils.CustomEventArgs;
-using SIPSorcery.SIP;
-using System.Diagnostics.CodeAnalysis;
-using static Advokat.WebRTC.Library.Utils.TaskHelpers;
+﻿// <copyright file="SIPDialog.cs" company="Advokat GmbH">
+// Copyright (c) Advokat GmbH. Alle Rechte vorbehalten.
+// </copyright>
 
 namespace SIPSignalingServer.Transactions
 {
-    internal class SIPDialog : ServerSideSIPTransaction // ,IAsyncDisposable  
+    using System.Diagnostics.CodeAnalysis;
+    using Advokat.WebRTC.Library.SIP;
+    using Advokat.WebRTC.Library.SIP.Interfaces;
+    using Microsoft.Extensions.Logging;
+    using SIPSignalingServer.Interfaces;
+    using SIPSignalingServer.Models;
+    using SIPSignalingServer.Transactions.Interfaces;
+    using SIPSignalingServer.Transactions.Interfaces.TransactionFactories;
+    using SIPSignalingServer.Transactions.TransactionFactories;
+    using SIPSignalingServer.Utils.CustomEventArgs;
+    using SIPSorcery.SIP;
+    using static Advokat.WebRTC.Library.Utils.TaskHelpers;
+
+    internal class SIPDialog : ServerSideSIPTransaction
     {
         private readonly ILoggerFactory loggerFactory;
 
@@ -39,18 +43,22 @@ namespace SIPSignalingServer.Transactions
 
         public ISIPConnectionTransactionFactory SIPConnectionTransactionFactory { get; set; }
 
-        private ISIPConnectionTransaction? SIPConnectionTransaction { get; set; }
+        private readonly List<ISIPConnectionTransaction> SIPConnectionTransactions = [];
 
         private ISIPTransport Transport { get; set; }
 
-        [MemberNotNullWhen(true, nameof(this.SIPConnectionTransaction))]
-        public bool Connected { get => this.SIPConnectionTransaction?.Connected ?? false; }
+        // TODO: not correct - temporary now with connection list. Reevaluate
+        public bool Connected { get => this.SIPConnectionTransactions.FirstOrDefault()?.Connected ?? false; }
 
         public override bool Running
         {
             get => base.Running || this.Connected;
             protected set => base.Running = value;
         }
+
+        private bool multipleConnections;
+
+        private bool WaitingForPeer { get; set; }
 
         private CancellationTokenSource? WaitForPeerCts { get; set; }
 
@@ -66,8 +74,7 @@ namespace SIPSignalingServer.Transactions
                   sipScheme,
                   transport,
                   ServerSideTransactionParams.Empty(),
-                  loggerFactory
-            )
+                  loggerFactory)
         {
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPDialog>();
@@ -84,6 +91,9 @@ namespace SIPSignalingServer.Transactions
 
             this.SIPRegistrationTransactionFactory = new SIPRegistrationTransactionFactory();
             this.SIPConnectionTransactionFactory = new SIPConnectionTransactionFactory();
+
+            // TODO: Check params
+            this.multipleConnections = this.Params.RemoteParticipant == null;
         }
 
         protected async override Task StartRunning()
@@ -93,6 +103,8 @@ namespace SIPSignalingServer.Transactions
             {
                 // request was not a register request.
                 // TODO: dispose this dialog / send event that it should be disposed
+                // TODO: Failed? Should this check be in the constructor?
+                await this.Stop();
                 return;
             }
 
@@ -116,11 +128,12 @@ namespace SIPSignalingServer.Transactions
                 this.Registry.Unregister(oldRegistration);
             }
 
-            SIPTunnel? oldTunnel = this.ConnectionPool.GetConnection(this.InitialRequest.Header.From.FromName, this.InitialRequest.Header.To.ToName);
+            // TODO: use this.Params?
+            IEnumerable<SIPTunnel> oldTunnels = this.ConnectionPool.GetConnections(this.InitialRequest.Header.From.FromName, this.InitialRequest.Header.To.ToName);
 
-            if (oldTunnel != null)
+            foreach (SIPTunnel oldTunnel in oldTunnels)
             {
-                await oldTunnel.Disconnect();
+               await oldTunnel.Disconnect();
             }
 
             // TODO: Close direct connection as well?
@@ -133,15 +146,10 @@ namespace SIPSignalingServer.Transactions
             this.SetSIPRegistrationTransaction();
             await this.SIPRegistrationTransaction.Start(this.Ct);
 
-            await WaitForAsync(
-                () => this.SIPRegistrationTransaction.Registered,
-                timeOut: this.Config.RegistrationTimeout,
-                this.Ct,
-                // TODO: interval?
-                successCallback: this.WaitForPeer,
-                timeoutCallback: this.Stop, // ??
-                cancellationCallback: this.Stop // ??
-                );
+            if (this.SIPRegistrationTransaction.Registered)
+            {
+                await this.WaitForPeer();
+            }
 
             this.SIPRegistrationTransaction.OnRegistrationFailed -= this.RegistrationFailedListener;
         }
@@ -160,6 +168,8 @@ namespace SIPSignalingServer.Transactions
 
             this.SIPRegistrationTransaction.Config = this.Config;
             this.SIPRegistrationTransaction.OnRegistrationFailed += this.RegistrationFailedListener;
+            this.SIPRegistrationTransaction.TransactionStopped += this.OnUnregisterd;
+
         }
 
         private async Task RegistrationFailedListener(ISIPRegistrationTransaction sender, FailedRegistrationEventArgs e)
@@ -167,33 +177,74 @@ namespace SIPSignalingServer.Transactions
             await this.Stop();
         }
 
+        private async Task OnUnregisterd(ISIPTransaction sender)
+        {
+            if (!this.Connected)
+            {
+                await this.Stop();
+            }
+        }
+
         private async Task WaitForPeer()
         {
+            // TODO Reevaluate this check
             if ((!this.SIPRegistrationTransaction?.Registered ?? false)
-                || this.Ct.IsCancellationRequested 
+                || this.Ct.IsCancellationRequested
                 || (this.WaitForPeerCts != null && this.WaitForPeerCts.IsCancellationRequested))
             {
                 await this.Stop();
                 return;
             }
 
+            if (this.WaitingForPeer)
+            {
+                // already waiting
+                return;
+            }
+
+            SIPRegistration registration = new SIPRegistration(this.Params);
+
+            List<SIPRegistration>? peerRegistrations = this.Registry.GetPeerRegistration(registration);
+            if (peerRegistrations.Count > 0)
+            {
+                foreach (SIPRegistration peerRegistration in peerRegistrations)
+                {
+                    await this.Connect(peerRegistration);
+                }
+
+                if (!this.multipleConnections)
+                {
+                    return;
+                }
+            }
+
+            this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", registration.RemoteUser, registration.SourceParticipant);
+
+            this.WaitingForPeer = true;
+            this.Registry.Registered += this.OnPeerRegistered;
+
             if (this.WaitForPeerCts == null)
             {
                 this.SetWaitingForPeerToken();
             }
+        }
 
-            SIPRegistration registration = new SIPRegistration(this.Params);
-            this.logger.LogDebug("Waiting for peer \"{peerName}\" to register. Caller: {caller}", registration.RemoteUser, registration.SourceParticipant);
-            
-            await WaitForAsync(
-                () => this.Registry.PeerIsRegistered(registration), // TODO: make PeerIsRegistered an event. If registry is a db we shouldn't hit it this often.
-                this.WaitForPeerCts.Token,
-                this.Ct,
-                successCallback: this.Connect,
-                timeoutCallback: this.Stop, // peer took too long to register
-                cancellationCallback: this.Stop // dialog cancelled
-                // TODO: interval?
-                );
+        private async void OnPeerRegistered(object? sender, RegistrationEventArgs e)
+        {
+            if (this.WaitForPeerCts?.Token.IsCancellationRequested ?? true)
+            {
+                this.WaitingForPeer = false;
+                this.Registry.Registered -= this.OnPeerRegistered;
+
+                // timed out
+                return;
+            }
+
+            // Check if registration is the peer for this dialog
+            if (e.Registration.IsPeer(this.Params))
+            {
+                await this.Connect(e.Registration);
+            }
         }
 
         private async Task ConnectionTransactionStopped(ISIPTransaction sender)
@@ -211,85 +262,100 @@ namespace SIPSignalingServer.Transactions
                 : new CancellationTokenSource();
 
             this.WaitForPeerCts = CancellationTokenSource.CreateLinkedTokenSource(this.Ct, timeoutToken.Token);
+            this.WaitForPeerCts.Token.Register(async () => await this.Stop()); // TODO: create a canceled method
         }
 
-        private async Task Connect()
+        private async Task Connect(SIPRegistration peerRegistration)
         {
-            this.SetSIPConnectonTransaction();
+            if (this.Ct.IsCancellationRequested)
+            {
+                await this.Stop();
+                return;
+            }
 
-            await this.SIPConnectionTransaction.Start(this.Ct);
-            
-            await WaitForAsync(() => this.Connected,
+            if (!this.multipleConnections)
+            {
+                this.WaitingForPeer = false;
+                this.Registry.Registered -= this.OnPeerRegistered;
+            }
+
+            // TODO: create overload - pass params directly
+            SIPRegistration? registration = this.Registry.GetRegisteredObject(this.Params.ClientParticipant.Name);
+            if (registration == null)
+            {
+                // not registerd - do not start new connection
+                return;
+            }
+
+            ISIPConnectionTransaction connectionTransaction = this.GetSIPConnectonTransaction(registration, peerRegistration);
+
+            // TODO: lock
+            this.SIPConnectionTransactions.Add(connectionTransaction);
+            await connectionTransaction.Start(this.Ct);
+
+            await WaitForAsync(() => connectionTransaction.Connected,
                 this.Config.ConnectionTimeout,
                 this.Ct,
                 // TODO: interval?
                 successCallback: this.ConnectionEstablished,
-                timeoutCallback: this.SIPConnectionTransaction.Stop,
+                timeoutCallback: connectionTransaction.Stop,
                 cancellationCallback: this.Stop
                 );
 
-            this.SIPConnectionTransaction.OnConnectionFailed -= this.ConnectionFailedListener;
-            this.SIPConnectionTransaction.ConnectionLost -= this.ConnectionLostListener;
+            connectionTransaction.OnConnectionFailed -= this.ConnectionFailedListener;
+            connectionTransaction.ConnectionLost -= this.ConnectionLostListener;
         }
 
-        [MemberNotNull(nameof(this.SIPConnectionTransaction))]
-        private void SetSIPConnectonTransaction()
+        private ISIPConnectionTransaction GetSIPConnectonTransaction(SIPRegistration registration, SIPRegistration peerRegistration)
         {
-            this.SIPConnectionTransaction = SIPConnectionTransactionFactory.Create(
+            ISIPConnectionTransaction connectionTransaction = SIPConnectionTransactionFactory.Create(
                 this.SIPScheme,
                 this.Transport,
-                this.Params,
-                this.Registry,
+                this.Params, // TODO: Construct Params for connection here
+                registration,
+                peerRegistration,
                 this.ConnectionPool,
                 this.loggerFactory);
 
-            this.SIPConnectionTransaction.StartCseq = this.SIPRegistrationTransaction.CurrentCseq;
-            this.SIPConnectionTransaction.Config = this.Config;
+            connectionTransaction.StartCseq = this.SIPRegistrationTransaction.CurrentCseq;
+            connectionTransaction.Config = this.Config;
 
-            this.SIPConnectionTransaction.OnConnectionFailed += this.ConnectionFailedListener;
-            this.SIPConnectionTransaction.ConnectionLost += this.ConnectionLostListener;
-            this.SIPConnectionTransaction.TransactionStopped += this.ConnectionTransactionStopped;
+            connectionTransaction.OnConnectionFailed += this.ConnectionFailedListener;
+            connectionTransaction.ConnectionLost += this.ConnectionLostListener;
+            connectionTransaction.TransactionStopped += this.ConnectionTransactionStopped;
+
+            return connectionTransaction;
         }
 
         private async Task ConnectionEstablished()
         {
             // TODO: Info could be sensitive if we use names as credentials.
             this.logger.LogInformation("SIP Connection established. {caller} - {remote}",
-                this.Params.SourceParticipant.Name,
+                this.Params.ClientParticipant.Name,
                 this.Params.RemoteParticipant.Name);
         }
-
-        //// TODO: Move to Signaling server. Outside of this class.
-        //private async Task StartICENegotiation()
-        //{
-        //    if (this.Connected)
-        //    {
-        //        SIPTunnel? tunnel = this.ConnectionPool.GetConnection(this.SIPConnectionTransaction.Params);
-        //        if (tunnel == null)
-        //        {
-        //            // not connected
-        //            return;
-        //        }
-
-        //        if (tunnel.Left.Params == this.SIPConnectionTransaction.Params)
-        //        {
-        //            // only start negotiation once per connection
-        //            ICENegotiation iceNegotiation = new ICENegotiation(tunnel, this.loggerFactory);
-        //            await iceNegotiation.Start();
-        //        }
-        //    }
-        //}
 
         protected override void StopRunning()
         {
             base.StopRunning();
+
+            this.WaitingForPeer = false;
+            this.Registry.Registered -= this.OnPeerRegistered;
             this.WaitForPeerCts?.Cancel();
+            this.WaitForPeerCts?.Dispose();
             this.WaitForPeerCts = null;
         }
 
         protected async override Task Finish()
         {
-            await (this.SIPConnectionTransaction?.Stop() ?? Task.CompletedTask);
+            foreach (ISIPConnectionTransaction connectionTransaction in this.SIPConnectionTransactions)
+            {
+                await connectionTransaction.Stop();
+                await connectionTransaction.DisposeAsync();
+            }
+
+            this.SIPConnectionTransactions.Clear();
+
             await (this.SIPRegistrationTransaction?.Stop() ?? Task.CompletedTask);
             await base.Finish();
         }

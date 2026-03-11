@@ -1,49 +1,133 @@
-﻿using SIPSignalingServer.Transactions;
-using System.Diagnostics.CodeAnalysis;
-
-namespace SIPSignalingServer.Models
+﻿namespace SIPSignalingServer.Models
 {
-    public class SIPTunnel
+    using System.Diagnostics.CodeAnalysis;
+    using SIPSignalingServer.Transactions;
+    using SIPSignalingServer.Utils.CustomEventArgs;
+
+    public class SIPTunnel(SIPMessageRelay left) : IAsyncDisposable
     {
-        public SIPMessageRelay Left { get; private set; }
+        private readonly SemaphoreSlim runningLock = new SemaphoreSlim(1, 1);
+
+        private bool disposed;
+
+        public event EventHandler<SIPTunnelConnectionStateEventArgs>? ConnectionStateChanged;
+
+        public SIPMessageRelay Left => left;
 
         public SIPMessageRelay? Right { get; private set; }
 
         [MemberNotNullWhen(true, nameof(this.Right))]
         public bool Connected { get => this.Left.Relaying && (this.Right?.Relaying ?? false); }
 
-        public delegate Task ConnectionStateChangedDelegate(SIPTunnel sender);
-
-        public event ConnectionStateChangedDelegate? ConnectionEstablished;
-
-        public event ConnectionStateChangedDelegate? ConnectionStopped;
-
-        //public CancellationToken Ct { get; private set; }
-
-        public SIPTunnel(SIPMessageRelay left) //, SIPMessageRelay right)
-        {
-            // TODO: Check that relays are not relaying right now?
-
-            // TODO: Check params if they match?
-            Left = left;
-            this.Left.RelayStarted += this.RelayStarted;
-            this.Left.RelayStopped += this.RelayStopped;
-        }
+        private bool Running { get; set; }
 
         [MemberNotNull(nameof(this.Right))]
         public void Connect(SIPMessageRelay right)
         {
+            ObjectDisposedException.ThrowIf(this.disposed, this);
+
             // TODO: Check params if they match
+            this.runningLock.Wait();
+            try
+            {
+                if (this.Running && this.Right != right)
+                {
+                    throw new InvalidOperationException("Cannot change relay. Already running with different relay.");
+                }
+
+                this.Start(right);
+            }
+            finally
+            {
+                this.runningLock.Release();
+            }
+        }
+
+        public async Task Disconnect()
+        {
+            // TODO: Check if try catch for ObjectDisposd should encapsulate whole method. Only applies to runningLock.
+            //       Currently includes StopAsync aswell.
+            try
+            {
+                await this.runningLock.WaitAsync();
+                try
+                {
+                    if (!this.Running)
+                    {
+                        return;
+                    }
+
+                    await this.StopAsync();
+                }
+                finally
+                {
+                        this.runningLock.Release();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Disconnect was triggered by dispose first -> closes tunnel. A listener was still active.
+                // Listener tries to close tunnel and triggeres an ObjectDisposedException.
+                // can be safely ignored. Tunnel is already closed and disposed.
+            }
+        }
+
+        [MemberNotNull(nameof(this.Right))]
+        private void Start(SIPMessageRelay right)
+        {
+            this.Running = true;
+            this.Right = right;
+            this.AddListeners();
 
             if (this.Connected)
             {
-                throw new InvalidOperationException("Cannot change relay while it is connected.");
+                this.ConnectionStateChanged?.Invoke(this, new SIPTunnelConnectionStateEventArgs(true));
+            }
+        }
+
+        private async Task StopAsync()
+        {
+            await this.Left.Stop();
+
+            if (this.Right != null)
+            {
+                await this.Right.Stop();
+                this.RemoveListeners();
+                this.Right = null;
             }
 
-            this.Right = right;
+            this.Running = false;
+        }
 
-            this.Left.OnRequestReceived += this.Right.RelayRequest;
+        private void RelayStarted(object? sender, EventArgs e)
+        {
+            if (sender is SIPMessageRelay 
+                && (sender == this.Left || sender == this.Right)
+                && this.Connected)
+            {
+                this.ConnectionStateChanged?.Invoke(this, new SIPTunnelConnectionStateEventArgs(true));
+            }
+        }
+
+        private async void RelayStopped(object? sender, EventArgs e)
+        {
+            if (sender is SIPMessageRelay
+                && (sender == this.Left || sender == this.Right))
+            {
+                await this.Disconnect();
+
+                // TODO: maybe pass wich side stopped
+                this.ConnectionStateChanged?.Invoke(this, new SIPTunnelConnectionStateEventArgs(false));
+            }
+        }
+
+        private void AddListeners()
+        {
+            this.Left.OnRequestReceived += this.Right!.RelayRequest;
             this.Left.OnResponseReceived += this.Right.RelayResponse;
+
+            this.Left.RelayStarted += this.RelayStarted;
+            this.Left.RelayStopped += this.RelayStopped;
 
             this.Right.OnRequestReceived += this.Left.RelayRequest;
             this.Right.OnResponseReceived += this.Left.RelayResponse;
@@ -52,42 +136,40 @@ namespace SIPSignalingServer.Models
             this.Right.RelayStopped += this.RelayStopped;
         }
 
-        /// <summary> Should be called right after the Connect method.
-        ///     This should be at the end of the Connect method.
-        ///     We cannot use the connect method in a lock statement if that is that case</summary>
-        public async Task CheckForConnection()
+        private void RemoveListeners()
         {
-            if (this.Connected)
-            {
-                await (this.ConnectionEstablished?.Invoke(this) ?? Task.CompletedTask);
-            }
+            this.Left.OnRequestReceived -= this.Right!.RelayRequest;
+            this.Left.OnResponseReceived -= this.Right.RelayResponse;
+
+            this.Left.RelayStarted -= this.RelayStarted;
+            this.Left.RelayStopped -= this.RelayStopped;
+
+            this.Right.OnRequestReceived -= this.Left.RelayRequest;
+            this.Right.OnResponseReceived -= this.Left.RelayResponse;
+
+            this.Right.RelayStarted -= this.RelayStarted;
+            this.Right.RelayStopped -= this.RelayStopped;
         }
 
-        public async Task Disconnect()
+        public async ValueTask DisposeAsync()
         {
-            await this.Left.Stop();
-            await (this.Right?.Stop() ?? Task.CompletedTask);
+            await this.DisposeAsync(true);
         }
 
-        private async Task RelayStarted(SIPMessageRelay relay)
+        protected virtual async ValueTask DisposeAsync(bool disposing)
         {
-            if ((relay == this.Left || relay == this.Right)
-                && this.Connected)
+            if (this.disposed)
             {
-                await (this.ConnectionEstablished?.Invoke(this) ?? Task.CompletedTask);
+                return;
             }
-        }
 
-        private async Task RelayStopped(SIPMessageRelay relay)
-        {
-            if (relay == this.Left || relay == this.Right)
-                //&& this.Connected)  uncomment if connected is its own bool property. Otherwise it would always be false
+            if (disposing)
             {
-                await this.Disconnect();
-
-                // TODO: maybe pass wich side stopped
-                await (this.ConnectionStopped?.Invoke(this) ?? Task.CompletedTask);
+                await this.Disconnect().ConfigureAwait(false);
+                this.runningLock.Dispose();
             }
+
+            this.disposed = true;
         }
     }
 }

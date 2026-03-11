@@ -35,7 +35,8 @@ namespace Caller
 
             while (true)
             {
-            };
+            }
+            ;
         }
 
         private static string[]? Response = null;
@@ -124,7 +125,7 @@ namespace Caller
             //UserAgent.WebRTCConfig.SIPClientConfig.ReceiveTimeout = 10000;
             //UserAgent.WebRTCConfig.SIPClientConfig.SIPPeerConnectionTimout = 10000;
 
-            UserAgent.DirectConnectionEstablished += async (object? sender, DirectConnectionEventArgs e)  =>
+            UserAgent.DirectConnectionEstablished += async (object? sender, DirectConnectionEventArgs e) =>
             {
                 DirectConnection = e.P2PConnection;
                 Console.WriteLine("connected.");
@@ -264,10 +265,10 @@ namespace Caller
                     "Accept":"application/json"
                 }
                 """;
-            
+
             Console.WriteLine();
             Console.WriteLine($"Enter to send GET request to {uri}");
-            
+
             Console.ReadLine();
 
             List<string> chunks = [

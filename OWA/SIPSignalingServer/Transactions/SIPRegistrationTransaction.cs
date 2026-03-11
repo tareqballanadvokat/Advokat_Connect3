@@ -1,26 +1,33 @@
-﻿using static Advokat.WebRTC.Library.Utils.TaskHelpers;
-using SIPSorcery.SIP;
-using SIPSignalingServer.Models;
-using SIPSignalingServer.Utils.CustomEventArgs;
-using Microsoft.Extensions.Logging;
-using System.Net.Sockets;
+﻿// <copyright file="SIPRegistrationTransaction.cs" company="Advokat GmbH">
+// Copyright (c) Advokat GmbH. Alle Rechte vorbehalten.
+// </copyright>
+
 using System.Runtime.CompilerServices;
-using SIPSignalingServer.Interfaces;
-using SIPSignalingServer.Transactions.Interfaces;
-using System.Text.Json;
-using Advokat.WebRTC.Library.SIP.Interfaces;
-using Advokat.WebRTC.Library.SIP.Models;
-using Advokat.WebRTC.Library.SIP.Utils;
-using Advokat.WebRTC.Library.SIP;
 
 [assembly: InternalsVisibleTo("SignalingServerTests")]
+
 namespace SIPSignalingServer.Transactions
 {
+    using System.Net.Sockets;
+    using System.Text.Json;
+    using Advokat.WebRTC.Library.SIP;
+    using Advokat.WebRTC.Library.SIP.Interfaces;
+    using Advokat.WebRTC.Library.SIP.Models;
+    using Advokat.WebRTC.Library.SIP.Utils;
+    using Microsoft.Extensions.Logging;
+    using SIPSignalingServer.Interfaces;
+    using SIPSignalingServer.Models;
+    using SIPSignalingServer.Transactions.Interfaces;
+    using SIPSignalingServer.Utils.CustomEventArgs;
+    using SIPSorcery.SIP;
+
     internal class SIPRegistrationTransaction : ServerSideSIPTransaction, ISIPRegistrationTransaction
     {
         private readonly ILoggerFactory loggerFactory;
 
         private readonly ILogger<SIPRegistrationTransaction> logger;
+
+        public event ISIPRegistrationTransaction.RegistrationFailedDelegate? OnRegistrationFailed;
 
         public new ISIPDialogConfig Config
         {
@@ -33,10 +40,14 @@ namespace SIPSignalingServer.Transactions
         private ISIPRegistry Registry { get; set; }
 
         private SIPRequest InitialRequest { get; set; }
-        
+
         private SIPRegistration Registration { get; set; }
 
-        public event ISIPRegistrationTransaction.RegistrationFailedDelegate? OnRegistrationFailed;
+        private TaskCompletionSource RegistrationTask { get; set; }
+
+        private CancellationTokenSource? TimeoutCts { get; set; }
+
+        private CancellationTokenSource? ACKTimeoutCts { get; set; }
 
         public SIPRegistrationTransaction(
             ISIPConnection connection,
@@ -44,11 +55,12 @@ namespace SIPSignalingServer.Transactions
             SIPEndPoint signalingServer,
             ISIPRegistry registry,
             ILoggerFactory loggerFactory)
-            : this(connection,
-                initialRequest,
-                GetParamsFromRequest(initialRequest, signalingServer),
-                registry,
-                loggerFactory)
+            : this(
+                  connection,
+                  initialRequest,
+                  GetParamsFromRequest(initialRequest, signalingServer),
+                  registry,
+                  loggerFactory)
         {
         }
 
@@ -58,9 +70,10 @@ namespace SIPSignalingServer.Transactions
             ServerSideTransactionParams transactionsParams,
             ISIPRegistry registry,
             ILoggerFactory loggerFactory)
-            : base(connection,
-                 transactionsParams,
-                 loggerFactory)
+            : base(
+                  connection,
+                  transactionsParams,
+                  loggerFactory)
         {
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPRegistrationTransaction>();
@@ -70,6 +83,9 @@ namespace SIPSignalingServer.Transactions
             this.Registration = new SIPRegistration(this.Params);
 
             this.Config = new SIPDialogConfig();
+
+            this.RegistrationTask = new TaskCompletionSource();
+            this.RegistrationTask.SetResult();
         }
 
         protected async override Task StartRunning()
@@ -80,7 +96,6 @@ namespace SIPSignalingServer.Transactions
 
         private async Task Register()
         {
-
             if (this.Ct.IsCancellationRequested)
             {
                 await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Registration was cancelled.");
@@ -110,33 +125,47 @@ namespace SIPSignalingServer.Transactions
 
             // SendAcceptedResponse handles failed registration state. Stop registration in that case
             bool success = await this.SendAcceptedResponse();
-            if (!success) return;
+            if (!success)
+            {
+                return;
+            }
 
-            await WaitForAsync(
-                () => this.Registered,
-                timeOut: this.Config.ReceiveTimeout,
-                this.Ct,
-                // TODO: interval?
-                timeoutCallback: async () => await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."),
-                cancellationCallback: async () => await this.RegistrationFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Registration was cancelled."));
+            this.ACKTimeoutCts?.Cancel();
+            this.ACKTimeoutCts?.Dispose();
 
-            // remove listener
-            this.Connection.SIPRequestReceived -= this.ACKListener;
+            this.ACKTimeoutCts = new CancellationTokenSource(this.Config.ReceiveTimeout);
+            this.ACKTimeoutCts.Token.Register(async () =>
+                await this.CanceledAsync(SIPResponseStatusCodesEnum.RequestTimeout, "Confirmation for registration timed out."));
+
+            await this.RegistrationTask.Task;
         }
 
-        private SIPResponse GetRegisteredAcceptedResponse()
+        protected override void SetInitalParametes(CancellationToken? newCt)
         {
-            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: this.CurrentCseq);
-            string body = JsonSerializer.Serialize(this.Config);
-            string contentType = "text/json";
+            base.SetInitalParametes(newCt);
 
-            return SIPHelper.GetResponse(this.SIPScheme, SIPResponseStatusCodesEnum.Accepted, headerParams, body, contentType);
+            this.RegistrationTask = new TaskCompletionSource();
+            this.Ct.Register(async () => await this.CanceledAsync(SIPResponseStatusCodesEnum.InternalServerError, "Registration cancelled."));
+
+            this.TimeoutCts?.Cancel();
+            this.TimeoutCts?.Dispose();
+
+            this.TimeoutCts = new CancellationTokenSource(this.Config.RegistrationTimeout);
+            this.TimeoutCts.Token.Register(async () => await this.CanceledAsync(SIPResponseStatusCodesEnum.RequestTimeout, "Registration timed out."));
+        }
+
+        private async Task CanceledAsync(SIPResponseStatusCodesEnum errorCode, string message)
+        {
+            if (this.Running && !this.Registered)
+            {
+                await this.RegistrationFailed(errorCode, message);
+            }
         }
 
         private async Task<bool> SendAcceptedResponse()
         {
             SIPResponse accpetedResponse = this.GetRegisteredAcceptedResponse();
-                
+
             // must be before sending response. A fast response happens before Cseq can be updated
             this.CurrentCseq++; // 3
 
@@ -145,7 +174,7 @@ namespace SIPSignalingServer.Transactions
                 // send Accepted response
                 SocketError socketState = await this.Connection.SendSIPResponse(accpetedResponse, this.Ct);
 
-                if (SocketError.Success != socketState)
+                if (socketState != SocketError.Success)
                 {
                     // response did not get sent
                     this.CurrentCseq--; // 2 - accept did not get sent. Revert current cseq.
@@ -162,6 +191,15 @@ namespace SIPSignalingServer.Transactions
             }
 
             return true;
+        }
+
+        private SIPResponse GetRegisteredAcceptedResponse()
+        {
+            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: this.CurrentCseq);
+            string body = JsonSerializer.Serialize(this.Config);
+            string contentType = "text/json";
+
+            return SIPHelper.GetResponse(this.SIPScheme, SIPResponseStatusCodesEnum.Accepted, headerParams, body, contentType);
         }
 
         private async Task ACKListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
@@ -187,9 +225,12 @@ namespace SIPSignalingServer.Transactions
                 return;
             }
 
+            this.Connection.SIPRequestReceived -= this.ACKListener;
+
             // TODO: Registry should fire an event when registration was successful or return a bool
             this.Registry.Confirm(this.Registration);
             this.Registered = true;
+            this.RegistrationTask.TrySetResult();
         }
 
         private async Task BYEListener(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
@@ -201,7 +242,7 @@ namespace SIPSignalingServer.Transactions
             }
 
             this.CurrentCseq = request.Header.CSeq + 1;
-            await this.Unregister();
+            await this.Stop();
         }
 
         private async Task SendBYEMessage()
@@ -223,12 +264,9 @@ namespace SIPSignalingServer.Transactions
 
         private async Task RegistrationFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null)
         {
-            this.Connection.SIPRequestReceived -= this.BYEListener;
-            this.Connection.SIPRequestReceived -= this.ACKListener;
-
             this.logger.LogInformation("Registration failed {statusCode}. {message}", statusCode, message);
 
-            await this.Unregister();
+            await this.Stop();
 
             FailedRegistrationEventArgs eventArgs = new FailedRegistrationEventArgs();
             eventArgs.StatusCode = statusCode;
@@ -242,20 +280,29 @@ namespace SIPSignalingServer.Transactions
         {
             base.StopRunning();
 
+            this.Connection.SIPRequestReceived -= this.BYEListener;
+            this.Connection.SIPRequestReceived -= this.ACKListener;
+
+            this.TimeoutCts?.Cancel();
+            this.TimeoutCts?.Dispose();
+            this.TimeoutCts = null;
+
+            this.ACKTimeoutCts?.Cancel();
+            this.ACKTimeoutCts?.Dispose();
+            this.ACKTimeoutCts = null;
+
             this.Registry.Unregistered -= this.OnUnregistered;
             this.Registry.Unregister(this.Registration);
             this.Registered = false;
+
+            // Sets it as cancelled if its not already completed - happens when Stop is called while not fully registered
+            this.RegistrationTask.TrySetCanceled();
         }
 
         protected async override Task Finish()
         {
             await base.Finish();
             await this.SendBYEMessage();
-        }
-
-        public async Task Unregister()
-        {
-            await this.Stop();
         }
 
         private async void OnUnregistered(object? sender, RegistrationEventArgs e)
@@ -286,6 +333,6 @@ namespace SIPSignalingServer.Transactions
                 remoteTag: CallProperties.CreateNewTag(),
                 clientTag: request.Header.From.FromTag, // TODO: What if request does not contain a tag?
                 callId: request.Header.CallId);
-        } 
+        }
     }
 }

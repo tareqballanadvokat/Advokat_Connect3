@@ -1,4 +1,6 @@
 ﻿using Advokat.WebRTC.Library.SIP.Models;
+using SIPSorcery.SIP;
+using System.Net;
 
 namespace SIPSignalingServer.Models
 {
@@ -26,7 +28,7 @@ namespace SIPSignalingServer.Models
             SIPParticipant clientParticipant,
             string? callId = null,
             string? remoteTag = null,
-            string? clientTag = null) 
+            string? clientTag = null)
             : base(
                   sourceParticipant: remoteParticipant,
                   remoteParticipant: clientParticipant,
@@ -36,6 +38,7 @@ namespace SIPSignalingServer.Models
         {
         }
 
+        // TODO: Check this evaluation
         public bool IsPeer(ServerSideTransactionParams peerParams)
         {
             string peerClientTag = peerParams.RemoteTag; // TODO: could not be set
@@ -52,7 +55,7 @@ namespace SIPSignalingServer.Models
 
                 // TODO: names could be null?
                 && this.ClientParticipant.Name == peerUsername
-                && this.RemoteParticipant.Name == peerRemoteUser;
+                && (this.RemoteParticipant.Name == null || this.RemoteParticipant.Name == peerRemoteUser);
         }
 
         public static ServerSideTransactionParams Empty()

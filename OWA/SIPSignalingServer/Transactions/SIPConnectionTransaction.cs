@@ -1,32 +1,23 @@
-﻿using Microsoft.Extensions.Logging;
-using SIPSignalingServer.Interfaces;
-using SIPSignalingServer.Models;
-using SIPSignalingServer.Transactions.Interfaces;
-using SIPSignalingServer.Utils.CustomEventArgs;
-using SIPSorcery.SIP;
-using System.Net.Sockets;
-using Advokat.WebRTC.Library.SIP.Models;
-using Advokat.WebRTC.Library.SIP.Interfaces;
-using static Advokat.WebRTC.Library.Utils.TaskHelpers;
-using Advokat.WebRTC.Library.SIP.Utils;
-
-namespace SIPSignalingServer.Transactions
+﻿namespace SIPSignalingServer.Transactions
 {
+    using System.Net.Sockets;
+    using Advokat.WebRTC.Library.SIP.Interfaces;
+    using Advokat.WebRTC.Library.SIP.Models;
+    using Advokat.WebRTC.Library.SIP.Utils;
+    using Microsoft.Extensions.Logging;
+    using SIPSignalingServer.Interfaces;
+    using SIPSignalingServer.Models;
+    using SIPSignalingServer.Transactions.Interfaces;
+    using SIPSignalingServer.Utils.CustomEventArgs;
+    using SIPSorcery.SIP;
+
     internal class SIPConnectionTransaction : ServerSideSIPTransaction, ISIPConnectionTransaction
     {
         private readonly ILoggerFactory loggerFactory;
 
         private readonly ILogger<SIPConnectionTransaction> logger;
 
-        private bool Connecting
-        {
-            get => base.Running;
-            set => base.Running = value;
-        }
-
         public bool Connected { get; private set; }
-
-        private bool ConnectionAcknowledged { get; set; }
 
         public override bool Running
         {
@@ -34,36 +25,47 @@ namespace SIPSignalingServer.Transactions
             protected set => this.Connecting = value;
         }
 
+        private bool Connecting
+        {
+            get => base.Running;
+            set => base.Running = value;
+        }
+
+        private bool ConnectionAcknowledged { get; set; }
+
         private bool NewCallParametersSent { get; set; }
 
         private SIPRegistration Registration { get; set; }
 
-        private ISIPRegistry Registry { get; set; }
+        private SIPRegistration PeerRegistration { get; set; }
 
         private ISIPConnectionPool ConnectionPool { get; set; }
 
-        private ServerSideTransactionParams ServerSideTransactionParams { get; set; }
-
-        private readonly SIPMessageRelay messageRelay;
+        private SIPMessageRelay MessageRelay { get; set; }
 
         private SIPTunnel? SIPTunnel { get; set; }
 
         public event ISIPConnectionTransaction.ConnectionFailedDelegate? OnConnectionFailed;
 
+        private TaskCompletionSource ConnectionTask { get; set; }
+
+        private CancellationTokenSource? AckTimeoutCts { get; set; }
+
         public SIPConnectionTransaction(
             SIPSchemesEnum sipScheme,
             ISIPTransport transport,
             ServerSideTransactionParams signalingServerTransactionParams,
-            ISIPRegistry registry,
+            SIPRegistration registration,
+            SIPRegistration peerRegistration,
             ISIPConnectionPool connectionPool,
             ILoggerFactory loggerFactory)
             : base(
                   sipScheme,
                   transport,
                   new ServerSideTransactionParams(
-                     signalingServerTransactionParams.RemoteParticipant,
-                     signalingServerTransactionParams.ClientParticipant,
-                     remoteTag: null, // explicitly set to null - gets set when connection is found - fromTag of peer
+                     new SIPParticipant(signalingServerTransactionParams.RemoteParticipant.Name, signalingServerTransactionParams.RemoteParticipant.Endpoint),
+                     new SIPParticipant(signalingServerTransactionParams.ClientParticipant.Name, signalingServerTransactionParams.ClientParticipant.Endpoint),
+                     remoteTag: peerRegistration.FromTag,  // gets set to fromTag of peer - part of the unique identifiers of this connection
                      clientTag: signalingServerTransactionParams.ClientTag,
                      callId: null), // explicitly set to null - gets set when connecting
                   loggerFactory)
@@ -71,84 +73,216 @@ namespace SIPSignalingServer.Transactions
             this.loggerFactory = loggerFactory;
             this.logger = this.loggerFactory.CreateLogger<SIPConnectionTransaction>();
 
-            this.ServerSideTransactionParams = signalingServerTransactionParams;
-            this.Registry = registry;
+            this.Params.RemoteParticipant.Name = peerRegistration.SourceParticipant.Name; // removes null as name
+
             this.ConnectionPool = connectionPool;
 
-            this.Registration = new SIPRegistration(this.ServerSideTransactionParams);
+            this.Registration = registration;
+            this.PeerRegistration = peerRegistration;
 
-            this.messageRelay = new SIPMessageRelay(this.Connection, this.Params, this.loggerFactory);
+            this.MessageRelay = new SIPMessageRelay(this.Connection, this.Params, this.loggerFactory);
+
+            this.ConnectionTask = new TaskCompletionSource();
+            this.ConnectionTask.TrySetResult();
+        }
+
+        public override async ValueTask DisposeAsync()
+        {
+            await base.DisposeAsync().ConfigureAwait(false);
+            await this.MessageRelay.DisposeAsync().ConfigureAwait(false);
+        }
+
+        protected override void SetInitalParametes(CancellationToken? newCt)
+        {
+            base.SetInitalParametes(newCt);
+
+            this.Params.RemoteTag = this.PeerRegistration.FromTag;
+
+            this.ConnectionTask = new TaskCompletionSource();
+            this.Ct.Register(async () => await this.CanceledAsync());
         }
 
         protected async override Task StartRunning()
         {
-            if (!this.Registry.IsRegistered(this.Registration))
+            await base.StartRunning();
+
+            if (!this.Registration.Confirmed)
             {
                 await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Cannot connect. Not registered.", connectionLost: true);
                 return;
             }
 
-            if (!this.Registry.PeerIsRegistered(this.Registration))
+            if (!this.PeerRegistration.Confirmed)
             {
                 await this.ConnectionFailed(SIPResponseStatusCodesEnum.PreconditionFailure, "Peer not registered.");
                 return;
             }
 
-            await this.Connect();
-        }
-
-        private async Task Connect()
-        {
             if (this.Ct.IsCancellationRequested)
             {
-                // TODO: should be a connectionLost?
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Connection cancelled.", connectionLost: true);
+                await this.CanceledAsync();
                 return;
             }
 
-            this.messageRelay.RelayStopped += async (r) => { await this.Stop(); };
+            // TOOD: Throws TaskCanceledException when cancelled
+            await this.ConnectAsync();
+        }
 
-            await this.SetRemoteTag();
-            await this.CreateConnection();
+        protected override void StopRunning()
+        {
+            base.StopRunning();
+
+            this.Connection.SIPRequestReceived -= this.ListenForAck;
+            this.Connection.SIPRequestReceived -= this.ListenForConnectionBye;
+
+            this.Connected = false;
+            this.ConnectionAcknowledged = false;
+
+            this.AckTimeoutCts?.Dispose();
+            this.AckTimeoutCts = null;
+
+            if (this.SIPTunnel != null)
+            {
+                this.SIPTunnel.ConnectionStateChanged -= this.SIPTunnelConnectionStateChanged;
+            }
+
+            this.ConnectionPool.ConnectionRemoved -= this.Disconnected;
+            this.MessageRelay.RelayStopped -= this.Disconnected;
+        }
+
+        protected async override Task Finish()
+        {
+            await base.Finish();
+
+            if (this.SIPTunnel != null)
+            {
+                await this.ConnectionPool.Disconnect(this.SIPTunnel);
+                await this.SIPTunnel.DisposeAsync();
+                this.SIPTunnel = null;
+            }
+            else
+            {
+                await this.MessageRelay.Stop();
+                await this.ConnectionPool.Disconnect(this.MessageRelay);
+            }
+
+            await this.SendBye();
+
+            this.NewCallParametersSent = false;
+            this.Params.SourceTag = null;
+            this.ConnectionTask.TrySetResult();
+        }
+
+        private async Task ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null, bool connectionLost = false)
+        {
+            // TODO: add some identifier for request that failed. (caller ip/name/tag, remote name/tag)
+            this.logger.LogInformation("Connection failed {statusCode}. {message}", statusCode, message);
+
+            FailureEventArgs eventArgs = new FailureEventArgs()
+            {
+                StatusCode = statusCode,
+                Message = message,
+            };
+
+            // TODO Make ConnecitonFailed event with Eventargs -> connectionLost - one event
+            if (connectionLost)
+            {
+                await this.InvokeConnectionLost();
+            }
+
+            await (this.OnConnectionFailed?.Invoke(this, eventArgs) ?? Task.CompletedTask);
+            await this.Stop();
+        }
+
+        private async Task CanceledAsync()
+        {
+            if (this.Running && !this.Connected)
+            {
+                this.ConnectionTask.TrySetCanceled();
+
+                // TODO: should be a connectionLost?
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Connection cancelled.", connectionLost: true);
+            }
+        }
+
+        private async Task ConnectAsync()
+        {
+            this.CreateConnection();
 
             this.Connection.SIPRequestReceived += this.ListenForAck;
             this.Connection.SIPRequestReceived += this.ListenForConnectionBye;
 
             // SendNotifyRequest handles failurestate itself.
-            bool notifySent = await this.SendConnectionReadyNotify();
+            bool notifySent = await this.SendConnectionReadyNotifyAsync();
             if (!notifySent)
             {
                 // sending notify failed
                 return;
             }
 
-            await WaitForAsync(
-                () => this.ConnectionAcknowledged,
-                timeOut: this.Config.ReceiveTimeout,
-                this.Ct,
-                successCallback: this.StartConnection,
-                timeoutCallback: async () =>
-                    await this.ConnectionFailed(
-                        SIPResponseStatusCodesEnum.RequestTimeout,
+            this.AckTimeoutCts = new CancellationTokenSource(this.Config.ReceiveTimeout);
+            this.AckTimeoutCts.Token.Register(async () => await this.AckTimeout());
 
-                        // TODO: I think this should not be a connectionLost
-                        "Client took to long to send acknowledge to connection notify. Timeout.", connectionLost: true),
-                cancellationCallback: async () =>
-
-                    // TODO: should be a connectionLost?
-                    await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled.",
-                    connectionLost: true));
-
-            this.Connection.SIPRequestReceived -= this.ListenForAck;
+            // TODO: Task was cancelled Exception
+            // DEBUG: try catch is just for debugging
+            //try
+            //{
+                await this.ConnectionTask.Task;
+            //}
+            //catch (TaskCanceledException ex)
+            //{
+            //}
         }
 
-        private SIPRequest GetNotifyRequest()
+        private void CreateConnection()
         {
-            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: this.CurrentCseq);
-            return SIPHelper.GetRequest(this.SIPScheme, SIPMethodsEnum.NOTIFY, headerParams);
+            // adds connection, does not start it yet
+            // TODO: Can throw argumentexception
+            this.SIPTunnel = this.ConnectionPool.Connect(this.MessageRelay);
+            this.SIPTunnel.ConnectionStateChanged += this.SIPTunnelConnectionStateChanged;
+
+            this.ConnectionPool.ConnectionRemoved += this.Disconnected;
         }
 
-        private async Task<bool> SendConnectionReadyNotify()
+        private async void SIPTunnelConnectionStateChanged(object? sender, SIPTunnelConnectionStateEventArgs e)
+        {
+            if (sender is SIPTunnel && this.SIPTunnel == sender)
+            {
+                if (e.Connected && !this.Connected)
+                {
+                    bool success = await this.SendConnectionEstablishedNotify();
+                    if (!success)
+                    {
+                        // sending failed. Failurestate already handled.
+                        return;
+                    }
+
+                    this.ConnectionEstablished();
+                }
+                else if (!e.Connected && (this.Connected || this.Connecting))
+                {
+                    await this.Stop();
+                }
+            }
+        }
+
+        private async void Disconnected(object? sender, SIPConnectionPoolEventArgs e)
+        {
+            if (sender is ISIPConnectionPool && e.Tunnel == this.SIPTunnel)
+            {
+                await this.Stop();
+            }
+        }
+
+        private async void Disconnected(object? sender, EventArgs e)
+        {
+            if (sender is SIPMessageRelay messageRelay && messageRelay == this.MessageRelay)
+            {
+                await this.Stop();
+            }
+        }
+
+        private async Task<bool> SendConnectionReadyNotifyAsync()
         {
             SIPRequest notifyRequest = this.GetNotifyRequest();
 
@@ -163,8 +297,7 @@ namespace SIPSignalingServer.Transactions
                 // request not sent
                 this.CurrentCseq--;
 
-                // TODO: should be a connectionLost?
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled.", connectionLost: true);
+                await this.CanceledAsync();
                 return false;
             }
 
@@ -180,6 +313,12 @@ namespace SIPSignalingServer.Transactions
 
             this.NewCallParametersSent = true;
             return true;
+        }
+
+        private SIPRequest GetNotifyRequest()
+        {
+            SIPHeaderParams headerParams = this.GetHeaderParams(cSeq: this.CurrentCseq);
+            return SIPHelper.GetRequest(this.SIPScheme, SIPMethodsEnum.NOTIFY, headerParams);
         }
 
         private async Task ListenForAck(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
@@ -205,7 +344,9 @@ namespace SIPSignalingServer.Transactions
 
             this.ConnectionAcknowledged = true;
             this.CurrentCseq++; // 3
-            //this.ConnectionPool.ConnectionEstablished += this.ConnectionEstablished;
+
+            this.Connection.SIPRequestReceived -= this.ListenForAck;
+            await this.StartConnectionAsync();
         }
 
         private async Task ListenForConnectionBye(SIPEndPoint localEndPoint, SIPEndPoint remoteEndPoint, SIPRequest request)
@@ -219,17 +360,22 @@ namespace SIPSignalingServer.Transactions
             await this.Stop();
         }
 
-        private async Task ConnectionEstablished(SIPTunnel tunnel)
-        //private async Task ConnectionEstablished(ISIPConnectionPool sender, SIPTunnel tunnel)
+        private async Task StartConnectionAsync()
         {
-            if (tunnel == this.SIPTunnel && (tunnel.Left == this.messageRelay || tunnel.Right == this.messageRelay))
-            {
-                this.Connected = true;
-                this.Connecting = false;   
-            }
+            this.MessageRelay.RelayStopped += this.Disconnected;
+            await this.MessageRelay.Start(); // TODO: Pass a ct? - should be a general ct for the entire connection
         }
 
-        private async Task SendConnectionEstablishedNotify()
+        private void ConnectionEstablished()
+        {
+            this.Connected = true;
+            this.Connecting = false;
+
+            // TODO: event - connected
+            this.ConnectionTask.TrySetResult();
+        }
+
+        private async Task<bool> SendConnectionEstablishedNotify()
         {
             SIPRequest notifyRequest = this.GetNotifyRequest();
             this.CurrentCseq++;
@@ -244,9 +390,8 @@ namespace SIPSignalingServer.Transactions
                 // request not sent
                 this.CurrentCseq--;
 
-                // TODO: should be a connectionLost?
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTerminated, "Operation cancelled.", connectionLost: true);
-                return;
+                await this.CanceledAsync();
+                return false;
             }
 
             if (result != SocketError.Success)
@@ -255,121 +400,18 @@ namespace SIPSignalingServer.Transactions
                 this.CurrentCseq--;
 
                 await this.ConnectionFailed(SIPResponseStatusCodesEnum.InternalServerError, "Sending connection Notify failed.", connectionLost: true);
-                return;
+                return false;
             }
+
+            return true;
         }
 
         private async Task AckTimeout()
         {
-            await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.");
-        }
-
-        private async Task CreateConnection()
-        {
-
-            //this.ConnectionPool.ConnectionEstablished
-
-            // adds connection, does not start it
-            this.SIPTunnel = await this.ConnectionPool.Connect(this.messageRelay);
-            this.SIPTunnel.ConnectionStopped += this.Disconnected;
-            this.SIPTunnel.ConnectionEstablished += this.ConnectionEstablished;
-
-            this.ConnectionPool.ConnectionRemoved += this.Disconnected;
-        }
-
-        private async Task StartConnection()
-        {
-            //this.SIPTunnel.ConnectionEstablished += this.ConnectionEstablished;
-            this.messageRelay.RelayStopped += this.Disconnected;
-            await this.messageRelay.Start(); // TODO: Pass a ct?
-
-            await WaitForAsync(
-                () => this.Connected,
-                this.Ct, // TODO: differentiate between timeout and cancellation?
-                this.Ct,
-                successCallback: this.SendConnectionEstablishedNotify,
-                timeoutCallback: this.AckTimeout,
-                cancellationCallback: this.AckTimeout // TODO: Other method. connectionLost = false?
-                                                      // TODO: interval?
-                );
-
-            this.Connecting = false;
-        }
-
-        private async Task Disconnected(SIPTunnel tunnel)
-        {
-            if (tunnel == this.SIPTunnel)
+            if (this.Connecting && !this.ConnectionAcknowledged && !this.Connected)
             {
-                await this.Stop();
+                await this.ConnectionFailed(SIPResponseStatusCodesEnum.RequestTimeout, "Peer took to long to respond to connection notify. Timeout.", connectionLost: true);
             }
-        }
-
-        private async Task Disconnected(ISIPConnectionPool sender, SIPTunnel tunnel)
-        {
-            await this.Disconnected(tunnel);
-        }
-
-        private async Task Disconnected(SIPMessageRelay messageRelay)
-        {
-            if (messageRelay == this.messageRelay)
-            {
-                await this.Stop();
-            }
-        }
-
-        private async Task SetRemoteTag()
-        {
-            SIPRegistration? peerRegistration = this.Registry.GetPeerRegistration(this.Registration);
-
-            if (peerRegistration == null)
-            {
-                // TODO: schould we send registered bye?
-                await this.ConnectionFailed(SIPResponseStatusCodesEnum.NotFound, "Could not set remote tag, peer not registered.");
-                return;
-            }
-
-            this.Params.RemoteTag = peerRegistration.FromTag;
-        }
-
-        protected override void StopRunning()
-        {
-            base.StopRunning();         
-            this.Connection.SIPRequestReceived -= this.ListenForAck;
-            this.Connection.SIPRequestReceived -= this.ListenForConnectionBye;
-
-            this.ConnectionAcknowledged = false;
-            this.Connected = false;
-
-            if (this.SIPTunnel != null)
-            {
-                this.SIPTunnel.ConnectionStopped -= this.Disconnected;
-                this.SIPTunnel.ConnectionEstablished -= this.ConnectionEstablished;
-            }
-
-            this.ConnectionPool.ConnectionRemoved -= this.Disconnected;
-            this.messageRelay.RelayStopped -= this.Disconnected;
-        }
-
-        protected async override Task Finish()
-        {
-            await base.Finish();
-
-            //await (this.SIPTunnel?.Disconnect() ?? Task.CompletedTask);
-            if (this.SIPTunnel != null)
-            {
-                await this.ConnectionPool.Disconnect(this.SIPTunnel);
-            }
-            else
-            {
-                await this.messageRelay.Stop();
-                await this.ConnectionPool.Disconnect(this.messageRelay);
-            }
-             
-            await this.SendBye();
-
-            this.SIPTunnel = null;
-            this.NewCallParametersSent = false;
-            this.Params.SourceTag = null;
         }
 
         private async Task SendBye()
@@ -391,24 +433,6 @@ namespace SIPSignalingServer.Transactions
                 // Bye failed.
                 // TODO: What to do?
             }
-        }
-
-        private async Task ConnectionFailed(SIPResponseStatusCodesEnum statusCode = SIPResponseStatusCodesEnum.None, string? message = null, bool connectionLost = false)
-        {
-            // TODO: add some identifier for request that failed. (caller ip/name/tag, remote name/tag)
-            this.logger.LogInformation("Connection failed {statusCode}. {message}", statusCode, message);
-
-            FailureEventArgs eventArgs = new FailureEventArgs();
-            eventArgs.StatusCode = statusCode;
-            eventArgs.Message = message;
-
-            if (connectionLost)
-            {
-                await this.InvokeConnectionLost();
-            }
-
-            await (this.OnConnectionFailed?.Invoke(this, eventArgs) ?? Task.CompletedTask);
-            await this.Stop();
         }
     }
 }

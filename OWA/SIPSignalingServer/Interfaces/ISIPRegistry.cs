@@ -1,11 +1,17 @@
-﻿using SIPSignalingServer.Models;
-using SIPSignalingServer.Utils.CustomEventArgs;
+﻿// <copyright file="ISIPRegistry.cs" company="Advokat GmbH">
+// Copyright (c) Advokat GmbH. Alle Rechte vorbehalten.
+// </copyright>
 
 namespace SIPSignalingServer.Interfaces
 {
+    using SIPSignalingServer.Models;
+    using SIPSignalingServer.Utils.CustomEventArgs;
+
     public interface ISIPRegistry
     {
         public event EventHandler<RegistrationEventArgs>? Unregistered;
+
+        public event EventHandler<RegistrationEventArgs>? Registered;
 
         public void Register(SIPRegistration registration);
 
@@ -21,8 +27,6 @@ namespace SIPSignalingServer.Interfaces
 
         public SIPRegistration? GetRegisteredObject(string name);
 
-        public bool PeerIsRegistered(SIPRegistration registration);
-
-        public SIPRegistration? GetPeerRegistration(SIPRegistration registration);
+        public List<SIPRegistration> GetPeerRegistration(SIPRegistration registration);
     }
 }
