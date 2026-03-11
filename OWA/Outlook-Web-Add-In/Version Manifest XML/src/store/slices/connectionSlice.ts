@@ -1,8 +1,8 @@
 /* eslint-disable no-undef */
 // src/store/slices/connectionSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { RootState } from "../index";
-import { SipClientState } from "../../taskpane/components/SIP_Library/SipClient";
+import { RootState } from "@store";
+import { SipClientState } from "@infra/sip/SipClient";
 
 export interface ConnectionState {
   // Core state - single source of truth

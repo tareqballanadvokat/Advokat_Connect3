@@ -1,20 +1,117 @@
 /* CaseTabContent specific styles to ensure buttons column visibility */
 
+/* Root container */
+.case-tab-root {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Name cell layout */
+.case-tab-cell-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 2px 0;
+  line-height: 1.4;
+  flex-wrap: wrap;
+}
+
+/* Shared inline action button (open / add-attachment) */
+.case-tab-cell-btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 3px;
+  padding: 2px 5px;
+  cursor: pointer;
+}
+
+/* Open-file button */
+.case-tab-cell-btn--open {
+  /* background-color: #1976d2 !important; */
+  color: rgb(255, 255, 255) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: unset !important;
+}
+
+.case-tab-cell-btn--open:hover:not(.opening) {
+  background-color: #1565c0 !important;
+}
+
+.case-tab-cell-btn--open.opening {
+  cursor: not-allowed;
+  background-color: #f5f5f5 !important;
+  color: #666 !important;
+}
+
+/* Add-as-attachment button — inherits flex-shrink: 0 from base .case-tab-cell-btn */
+/* (no additional declarations needed) */
+
+/* Shared cell icon */
+.case-tab-cell-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.case-tab-cell-icon--lg {
+  font-size: 18px;
+}
+
+.case-tab-cell-icon--sm {
+  font-size: 13px;
+}
+
+.case-tab-cell-icon--spin {
+  animation: spin 1s linear infinite;
+}
+
+.case-tab-cell-icon--open {
+  color: white;
+}
+
+.case-tab-cell-icon--open.opening {
+  color: #666;
+}
+
+/* Name span */
+.case-tab-cell-name {
+  word-break: break-word;
+  white-space: normal;
+  flex: 1;
+  min-width: 0;
+}
+
+.case-tab-cell-name--loading {
+  opacity: 0.7;
+}
+
+/* Delete-favorite button — scoped to treelist to avoid padding conflict with person tab */
+.case-tab-treelist-container .delete-favorite-btn {
+  background-color: #d32f2f !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 3px !important;
+  padding: 4px 8px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: unset !important;
+  width: auto !important;
+}
+
+.case-tab-treelist-container .delete-favorite-btn.loading-button {
+  background-color: #f5f5f5;
+  color: #666;
+  cursor: not-allowed;
+}
+
 .case-tab-treelist-container {
   position: relative;
   width: 100%;
   max-width: 100%;
   overflow: hidden;
-}
-
-/* Spinning animation for loading icons */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* Reduce row height and padding for more compact display */

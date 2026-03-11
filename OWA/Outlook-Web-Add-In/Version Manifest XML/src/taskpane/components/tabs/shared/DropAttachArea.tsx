@@ -1,13 +1,16 @@
 // src/taskpane/components/tabs/email/DropAttachArea.tsx
 import React, { useState, useCallback } from 'react';
+import './DropAttachArea.css';
 import LoadPanel from 'devextreme-react/load-panel';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
 export default function DropAttachArea() {
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading]   = useState(false);
+  const { t: translate } = useTranslation('common');
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -34,7 +37,7 @@ export default function DropAttachArea() {
           const reader = new FileReader();
           reader.onload = () => {
             const dataUrl = reader.result as string;
-            resolve(dataUrl.split(',')[1]);     // drop the data:… prefix
+            resolve(dataUrl.split(',')[1]);     // drop the data:� prefix
           };
           reader.onerror = reject;
           reader.readAsDataURL(file);
@@ -67,26 +70,18 @@ export default function DropAttachArea() {
       <LoadPanel
         visible={loading}
         shading
-        message="Attaching files…"
+        message={translate('dragDrop.attachingFiles')}
       />
 
       <div
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
-        style={{
-          border: dragOver ? '2px dashed #0078d4' : '2px dashed #ccc',
-          borderRadius: 4,
-          padding: 20,
-          textAlign: 'center',
-          color: dragOver ? '#0078d4' : '#666',
-          marginBottom: 16,
-          transition: 'border-color .2s, color .2s'
-        }}
+        className={`drop-attach-area${dragOver ? ' drop-attach-area--active' : ''}`}
       >
         {dragOver
-          ? 'Release to attach files to this email'
-          : 'Drag & drop files here to attach them'}
+          ? translate('dragDrop.releaseToAttach')
+          : translate('dragDrop.dragFilesHere')}
       </div>
     </>
   );

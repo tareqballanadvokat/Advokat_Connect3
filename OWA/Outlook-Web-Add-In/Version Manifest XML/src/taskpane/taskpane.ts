@@ -1,6 +1,6 @@
 /* global Office */
 
-import { getLogger } from "../services/logger";
+import { getLogger } from "@infra/logger";
 const logger = getLogger();
 
 export async function insertText(text: string) {

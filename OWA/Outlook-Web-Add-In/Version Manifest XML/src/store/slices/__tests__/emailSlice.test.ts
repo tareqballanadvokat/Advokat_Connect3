@@ -8,7 +8,7 @@ import emailReducer, {
   setAttachmentSelected,
   clearSaveDokumentError,
   saveDokumentAsync,
-} from "../emailSlice";
+} from "@slices/emailSlice";
 import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from "./testSetup";
 import { createMockAttachment, createMockDokumentPostData } from "./mockFactories";
 

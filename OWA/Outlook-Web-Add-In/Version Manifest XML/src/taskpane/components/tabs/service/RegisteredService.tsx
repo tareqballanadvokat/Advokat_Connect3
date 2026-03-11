@@ -1,13 +1,15 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { selectAuthCredentials } from '@store/slices/authSlice';
-import { selectIsReady } from '@store/slices/connectionSlice';
-import { setRegisteredServicesLoading } from '@store/slices/serviceSlice';
+import { selectAuthCredentials } from '@slices/authSlice';
+import { selectIsReady } from '@slices/connectionSlice';
+import { setRegisteredServicesLoading } from '@slices/serviceSlice';
 import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
-import { LeistungResponse } from '@components/interfaces/IService';
-import { getWebRTCConnectionManager } from '../../../services/WebRTCConnectionManager';
+import { LeistungResponse } from '@interfaces/IService';
+import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
+import { useTranslation } from 'react-i18next';
+import './RegisteredService.css';
 
 interface RegisteredServiceProps {
   /** Refresh trigger – increment to force a reload */
@@ -18,6 +20,7 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
   const dispatch = useAppDispatch();
   const [leistungen, setLeistungen] = useState<LeistungResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const { t: translate } = useTranslation('service');
 
   const credentials = useAppSelector(selectAuthCredentials);
   const isReady = useAppSelector(selectIsReady);
@@ -78,12 +81,12 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
           const data = JSON.parse(response.body || '[]') as LeistungResponse[];
           setLeistungen(data);
         } else if (response.statusCode === 404) {
-          setError('No registered services found.');
+          setError(translate('noRegisteredServices'));
         } else {
-          setError('Failed to load registered services.');
+          setError(translate('failedToLoadServices'));
         }
       } catch (err) {
-        setError('Error fetching registered services.');
+        setError(translate('errorFetchingServices'));
         console.error('RegisteredService fetch error:', err);
       } finally {
         dispatch(setRegisteredServicesLoading(false));
@@ -92,11 +95,11 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
   }, [refreshTrigger, selectedAkt?.id]);
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <h3 style={{ alignItems: 'baseline', gap: 8 }}>
-        Registered Services (last 7 days)
+    <div className="registered-service-container">
+      <h3 className="registered-service-title">
+        {translate('registeredServices')}
       </h3>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="registered-service-error">{error}</p>}
 
       <DataGrid
         dataSource={leistungen}
@@ -106,35 +109,35 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText={loading ? 'Loading...' : !selectedAkt ? 'Select a case to view registered services' : 'No services found'}
+        noDataText={loading ? translate('loading', { ns: 'common' }) : !selectedAkt ? translate('selectCaseToViewServices') : translate('noServicesFound')}
         height={250}
       >
         <Paging defaultPageSize={7} />
         <Pager visible showPageSizeSelector={false} allowedPageSizes={[7]} showInfo />
         <Column
           dataField="leistungKurz"
-          caption="Kürzel"
+          caption={translate('columns.kuerzel')}
           alignment="left"
         />
         <Column
           dataField="datum"
-          caption="Date"
+          caption={translate('columns.date')}
           dataType="date"
           format="yyyy-MM-dd"
           alignment="left"
         />
         <Column
           dataField="honorartext"
-          caption="Text"
+          caption={translate('columns.text')}
           alignment="left"
         />
         <Column
-          caption="Time"
+          caption={translate('columns.time')}
           alignment="left"
           calculateCellValue={getTimeDisplay}
         />
         <Column
-          caption="SB"
+          caption={translate('columns.sb')}
           alignment="left"
           calculateCellValue={getSbDisplay}
         />

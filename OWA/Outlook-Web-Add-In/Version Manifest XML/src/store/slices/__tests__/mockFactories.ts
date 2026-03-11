@@ -5,21 +5,21 @@
  * Each factory accepts optional overrides to customize the generated objects.
  */
 
-import { FolderOption } from "../aktenSlice";
-import { AktLookUpResponse } from "../../../taskpane/components/interfaces/IAkten";
+import { FolderOption } from "@slices/aktenSlice";
+import { AktLookUpResponse } from "@interfaces/IAkten";
 import {
   DokumentResponse,
   DokumentPostData,
   TransferAttachmentItem,
-} from "../../../taskpane/components/interfaces/IDocument";
+} from "@interfaces/IDocument";
 import {
   LeistungAuswahlResponse,
   LeistungPostData,
-} from "../../../taskpane/components/interfaces/IService";
+} from "@interfaces/IService";
 import {
   PersonLookUpResponse,
   PersonResponse,
-} from "../../../taskpane/components/interfaces/IPerson";
+} from "@interfaces/IPerson";
 
 // ============================================================================
 // Akten (Case) Factories

@@ -1,9 +1,10 @@
-// src/taskpane/components/tabs/shared/WebRTCConnectionStatus.tsx
+﻿// src/taskpane/components/tabs/shared/WebRTCConnectionStatus.tsx
 import React, { useEffect } from 'react';
 import { useAppSelector } from '@store/hooks';
-import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting } from '@store/slices/connectionSlice';
-import { getWebRTCConnectionManager } from '../../../services/WebRTCConnectionManager';
-import { getLogger } from '../../../../services/logger';
+import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting } from '@slices/connectionSlice';
+import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
@@ -17,6 +18,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
   const isReady = useAppSelector(selectIsReady);
   const isConnected = useAppSelector(selectIsConnected);
   const isConnecting = useAppSelector(selectIsConnecting);
+  const { t: translate } = useTranslation('common');
 
   useEffect(() => {
     const suffix = connectionState.reconnectAttempts > 0
@@ -38,15 +40,15 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
 
   const getFriendlyMessage = (): string => {
     if (connectionState.idleDisconnectedAt || (!isConnecting && !isConnected && !isReady && !isFailing()))
-      return 'Disconnected';
-    if (isReady) return 'Connected';
-    if (isFailedPermanently()) return 'Connection Failed Permanently.';
+      return translate('webrtc.disconnected');
+    if (isReady) return translate('webrtc.connected');
+    if (isFailedPermanently()) return translate('webrtc.connectionFailedPermanently');
     if (isFailing()) {
       const max = getWebRTCConnectionManager().getConfig().maxReconnectAttempts;
       const attempt = connectionState.reconnectAttempts;
-      return `Connection failed, trying to reconnect (${attempt}/${max})`;
+      return translate('webrtc.connectionFailedReconnecting', { attempt, max });
     }
-    return 'Connecting...';
+    return translate('webrtc.connecting');
   };
 
   const getStatusStyle = (): React.CSSProperties => {

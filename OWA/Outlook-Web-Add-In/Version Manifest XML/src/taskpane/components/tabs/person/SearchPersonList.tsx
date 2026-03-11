@@ -1,16 +1,18 @@
 // src/taskpane/components/tabs/person/SearchPersonList.tsx
 import React, { useState, useEffect } from 'react';
+import '../shared/shared.css';
 import './person.css'; // Import our custom CSS for star button styling
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import type { RootState } from '../../../../store';
-import { selectIsReady } from '../../../../store/slices/connectionSlice';
-import { personLookUpAsync, clearPersons, setSearchTerm, clearPreviousSearchTerm } from '../../../../store/slices/personSlice';
-import { PersonLookUpResponse } from '../../interfaces/IPerson';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import type { RootState } from '@store';
+import { selectIsReady } from '@slices/connectionSlice';
+import { personLookUpAsync, clearPersons, setSearchTerm, clearPreviousSearchTerm } from '@slices/personSlice';
+import { PersonLookUpResponse } from '@interfaces/IPerson';
 import notify from 'devextreme/ui/notify';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
@@ -24,6 +26,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   const personState = useAppSelector((state: RootState) => state.person);
   const isReady = useAppSelector(selectIsReady);
   const { persons, loading, addToFavoriteLoading, addingToFavoritePersonId, error, searchTerm, favorites } = personState;
+  const { t: translate } = useTranslation(['person', 'common']);
 
   // Helper function to create display name from person data
   const getDisplayName = (person: PersonLookUpResponse) => {
@@ -33,7 +36,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     if (person.name1) parts.push(person.name1);
     if (person.name2) parts.push(person.name2);
     if (person.name3) parts.push(person.name3);
-    return parts.join(' ') || person.nKurz || 'Unknown Person';
+    return parts.join(' ') || person.nKurz || translate('unknownPerson');
   };
 
   // Check if person is in favorites
@@ -58,13 +61,13 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
   const handleSearch = async () => {
     if(loading) return; // Prevent multiple simultaneous searches
     if (!isReady) {
-      notify('Still connecting, please wait...', 'warning', 3000);
+      notify(translate('common:connectingWait'), 'warning', 3000);
       return;
     }
     const query = searchTerm.trim();
     
     if (!query) {
-      notify('Please enter a search term', 'warning', 3000);
+      notify(translate('common:enterSearchTerm'), 'warning', 3000);
       // dispatch(clearPersons());
       return;
     }
@@ -75,7 +78,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
     } catch (error) {
       logger.error('Search failed:', 'SearchPersonList', error);
       if (isReady) {
-        notify('Search failed', 'error', 5000);
+        notify(translate('searchPersonsFailed'), 'error', 5000);
       }
     }
   };
@@ -95,22 +98,22 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
       await onPersonSelect(person.id, getDisplayName(person));
     } catch (error) {
       logger.error('Failed to add person to favorites:', 'SearchPersonList', error);
-      notify('Failed to add person to favorites', 'error', 3000);
+      notify(translate('failedToAddToFavorites'), 'error', 3000);
     }
   };
 
 
   return (
     <div>
-       <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        Search Persons
+       <h3 className="search-person-title">
+        {translate('searchPersons')}
       </h3>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="search-person-panel">
         <TextBox
           width={250}
           stylingMode="outlined"
-          placeholder="Search..."
+          placeholder={translate('searchPersonPlaceholder')}
           value={searchTerm}
           onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
@@ -121,13 +124,13 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
           stylingMode="contained" 
           onClick={handleSearch}
           disabled={loading || !isReady}
-          text={loading ? "Searching..." : ""}
+          text={loading ? translate('common:buttons.searching') : ""}
         />
       </div>
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '10px' }}>
-          <span>Searching persons...</span>
+        <div className="search-person-loading">
+          <span>{translate('searchingPersons')}</span>
         </div>
       )}
 
@@ -141,7 +144,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText={loading ? 'Loading...' : hasSearched ? 'No results found, try a different search term' : 'Search Persons'}
+        noDataText={loading ? translate('common:loading') : hasSearched ? translate('noResultsFound') : translate('searchPersons')}
       >
         <Paging defaultPageSize={5} />
         <Pager
@@ -152,7 +155,7 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
         />
         <Column
           dataField="id"
-          caption="Person ID"
+          caption={translate('columns.personId')}
           visible={false}
           alignment="left"
         />
@@ -162,21 +165,21 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
           buttons={[
             {
               icon: 'favorites',
-              hint: 'Add to favorites',
+              hint: translate('hints.addToFavorites'),
               cssClass: 'star-button-gold',
               visible: e => !isInFavorites(e.row.data.id) && !isAddingToFavorites(e.row.data.id),
               onClick: (e) => handleAddToFavorites(e.row.data)
             },
             {
               icon: 'refresh',
-              hint: 'Adding to favorites...',
+              hint: translate('hints.addingToFavorites'),
               cssClass: 'loading-button',
               visible: e => isAddingToFavorites(e.row.data.id),
               disabled: true
             },
             {
               icon: 'check',
-              hint: 'Already in favorites',
+              hint: translate('hints.alreadyInFavorites'),
               visible: e => isInFavorites(e.row.data.id),
               disabled: true
             }
@@ -184,18 +187,18 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
         />
         <Column
           dataField="nKurz"
-          caption="Kürzl"
+          caption={translate('columns.kuerzel')}
           alignment="left"
           width={100}
         />
         <Column
-          caption="Name"
+          caption={translate('columns.name')}
           alignment="left"
           cellRender={(data) => <span>{getDisplayName(data.data)}</span>}
         />
         <Column
           dataField="adresse.ort"
-          caption="City"
+          caption={translate('columns.city')}
           alignment="left"
           width={120}
         />

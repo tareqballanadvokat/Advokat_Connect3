@@ -24,11 +24,20 @@
     ],
     "baseUrl": ".",
     "paths": {
+      "@store": ["src/store/index"],
       "@store/*": ["src/store/*"],
       "@components/*": ["src/taskpane/components/*"],
-      "@utils/*": ["src/taskpane/utils/*"],
-      "@hooks/*": ["src/taskpane/hooks/*"],
-      "@src/*": ["src/*"]
+      "@utils/*": ["src/utils/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@src/*": ["src/*"],
+      "@infra/*": ["src/infrastructure/*"],
+      "@interfaces/*": ["src/types/*"],
+      "@services/*": ["src/services/*"],
+      "@taskpane/*": ["src/taskpane/*"],
+      "@config": ["src/config/index"],
+      "@config/*": ["src/config/*"],
+      "@slices/*": ["src/store/slices/*"],
+      "@i18n": ["src/i18n"]
     }
   },
   "exclude": [

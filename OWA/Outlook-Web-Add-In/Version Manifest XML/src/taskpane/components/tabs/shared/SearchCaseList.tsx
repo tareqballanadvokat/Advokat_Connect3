@@ -1,15 +1,18 @@
 // src/taskpane/components/tabs/email/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
+import './SearchCaseList.css';
+import './shared.css';
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import LoadIndicator from 'devextreme-react/load-indicator';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { selectIsReady } from '../../../../store/slices/connectionSlice';
-import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
-import { AktLookUpResponse } from '../../interfaces/IAkten';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectIsReady } from '@slices/connectionSlice';
+import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '@slices/aktenSlice';
+import { AktLookUpResponse } from '@interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
@@ -27,6 +30,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const registeredServicesLoading = useAppSelector(state => state.service.registeredServicesLoading);
   const isReady = useAppSelector(selectIsReady);
   const anyAktLoading = foldersLoading || servicesLoading || registeredEmailsLoading || emailDocumentsLoading || registeredServicesLoading;
+  const { t: translate } = useTranslation(['email', 'common']);
 
   // Handle Redux error states
   useEffect(() => {
@@ -45,13 +49,13 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const handleSearch = async () => {
     if(loading) return; // Prevent multiple simultaneous searches
     if (!isReady) {
-      notify('Still connecting, please wait...', 'warning', 3000);
+      notify(translate('common:connectingWait'), 'warning', 3000);
       return;
     }
     const filter = searchTerm.trim();
     
     if (!filter) {
-      notify('Please enter a search term', 'warning', 3000);
+      notify(translate('common:enterSearchTerm'), 'warning', 3000);
       // dispatch(clearCases());
       return;
     }
@@ -64,23 +68,23 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     } catch (error) {
       logger.error('Search failed', 'SearchCaseList', error);
       if (isReady) {
-        notify('Search cases failed', 'error', 5000);
+        notify(translate('searchCasesFailed'), 'error', 5000);
       }
     }
   };
 
   return (
     <div>
-      <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        Search Cases
+      <h3 className="shared-search-case-title">
+        {translate('searchCases')}
       </h3>
 
       {/* Search panel */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="shared-search-case-panel">
         <TextBox
           width={250}
           stylingMode="outlined"
-          placeholder="Search by Akt Kürzel (ABC)..."
+          placeholder={translate('searchCasePlaceholder')}
           value={searchTerm}
           onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
@@ -91,14 +95,14 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
           stylingMode="contained" 
           onClick={handleSearch}
           disabled={loading || !isReady}
-          text={loading ? "Searching..." : ""}
+          text={loading ? translate('common:buttons.searching') : ""}
         />
       </div>
 
       {/* Loading indicator */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '10px' }}>
-          <span>Searching cases...</span>
+        <div className="shared-search-case-loading">
+          <span>{translate('common:searchingCases')}</span>
         </div>
       )}
 
@@ -113,15 +117,13 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText={loading ? 'Loading...' : hasSearched ? 'No results found, try a different search term' : 'Search Akten'}
+        noDataText={loading ? translate('common:loading') : hasSearched ? translate('common:noResultsFound') : translate('searchCases')}
         onRowPrepared={e => {
           if (e.rowType === 'data') {
-            e.rowElement.style.height = '36px';
             if (e.data?.id === selectedAkt?.id) {
-              e.rowElement.style.borderLeft = '3px solid #0078d4';
-              e.rowElement.style.fontWeight = '600';
+              e.rowElement.classList.add('selected-akt-row');
             } else {
-              e.rowElement.style.borderLeft = '3px solid transparent';
+              e.rowElement.classList.remove('selected-akt-row');
             }
           }
         }}
@@ -136,18 +138,18 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         {/* -------------------------------- */}
         <Column
           dataField="id"
-          caption="Case ID"
+          caption={translate('common:columns.caseId')}
           visible={false} 
           alignment="left"
         />
         <Column
           dataField="aKurz"
-          caption="Kürzel"
+          caption={translate('common:columns.kuerzel')}
           alignment="left"
         />
         <Column
           dataField="causa"
-          caption="Causa"
+          caption={translate('common:columns.causa')}
           alignment="left"
         />
         <Column
@@ -156,16 +158,16 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
           cellRender={(data: { data: AktLookUpResponse }) => {
             const isSelected = selectedAkt?.id === data.data.id;
             return (
-              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="shared-search-case-select-btn-wrapper">
                 <Button
                   icon="arrowright"
                   stylingMode="text"
-                  hint={!anyAktLoading ? 'Select' : undefined}
+                  hint={!anyAktLoading ? translate('common:select') : undefined}
                   onClick={() => !anyAktLoading && onCaseSelect(data.data)}
                   elementAttr={{ style: `color: #0078d4; visibility: ${anyAktLoading ? 'hidden' : 'visible'};` }}
                 />
                 {isSelected && anyAktLoading && (
-                  <div style={{ position: 'absolute' }}>
+                  <div className="shared-search-case-loading-indicator">
                     <LoadIndicator width={20} height={20} />
                   </div>
                 )}

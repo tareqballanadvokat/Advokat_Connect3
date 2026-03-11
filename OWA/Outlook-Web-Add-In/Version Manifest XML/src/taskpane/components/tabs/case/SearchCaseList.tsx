@@ -1,19 +1,22 @@
 // src/taskpane/components/tabs/case/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
+import '../shared/shared.css';
 import './SearchCaseList.css'; // Import our custom CSS
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { selectIsReady } from '../../../../store/slices/connectionSlice';
-import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '../../../../store/slices/aktenSlice';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectIsReady } from '@slices/connectionSlice';
+import { aktLookUpAsync, clearCases, setSearchTerm, addAktToFavoriteAsync, clearPreviousSearchTerm } from '@slices/aktenSlice';
 import notify from 'devextreme/ui/notify';
-import { getFavoriteAktenAsync } from '../../../../store/slices/aktenSlice';
-import { getLogger } from '../../../../services/logger';
+import { getFavoriteAktenAsync } from '@slices/aktenSlice';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 const SearchCaseList: React.FC = () => {
   const dispatch = useAppDispatch();
+  const { t: translate } = useTranslation(['case', 'common']);
   const [hasSearched, setHasSearched] = useState(false);
   const { cases, favouriteAkten, loading, favoritesLoading, favoritesLoaded, addToFavoriteLoading, addingToFavoriteAktId, error, searchTerm } = useAppSelector(state => state.akten);
   const isReady = useAppSelector(selectIsReady);
@@ -59,10 +62,10 @@ const SearchCaseList: React.FC = () => {
               NurFavoriten: true,
               Count: 50
             })).unwrap();
-      notify(`Successfully added "${aKurz}" to favorites!`, 'success', 3000);
+      notify(translate('addedToFavorites', { aKurz }), 'success', 3000);
     } catch (error) {
       logger.error('Failed to add to favorites:', 'SearchCaseList', error);
-      notify(`Failed to add "${aKurz}" to favorites: ${error}`, 'error', 5000);
+      notify(translate('failedToAddToFavorites', { aKurz }), 'error', 5000);
     }
   };
 
@@ -72,14 +75,14 @@ const SearchCaseList: React.FC = () => {
       return;
     }
     if (!isReady) {
-      notify('Still connecting, please wait...', 'warning', 3000);
+      notify(translate('common:connectingWait'), 'warning', 3000);
       return;
     }
 
     const query = searchTerm.trim();
     
     if (!query) {
-      notify('Please enter a search term', 'warning', 3000);
+      notify(translate('common:enterSearchTerm'), 'warning', 3000);
       // dispatch(clearCases());
       return;
     }
@@ -90,23 +93,23 @@ const SearchCaseList: React.FC = () => {
     } catch (error) {
       logger.error('Search failed:', 'SearchCaseList', error);
       if (isReady) {
-        notify('Search cases failed via WebRTC', 'error', 5000);
+        notify(translate('searchCasesFailed'), 'error', 5000);
       }
     }
   };
 
   return (
     <div>
-        <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          Search Cases via WebRTC
+        <h3 className="search-case-title">
+          {translate('searchCasesHeading')}
         </h3>
 
       {/* Search panel */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="search-case-panel">
         <TextBox
           width={250}
           stylingMode="outlined"
-          placeholder="Search by Kürzel..."
+          placeholder={translate('searchCasePlaceholder')}
           value={searchTerm}
           onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
@@ -117,21 +120,21 @@ const SearchCaseList: React.FC = () => {
           stylingMode="contained" 
           onClick={handleSearch}
           disabled={loading || !isReady}
-          text={loading ? "Searching..." : ""}
+          text={loading ? translate('common:buttons.searching') : ""}
         />
       </div>
 
       {/* Error message */}
       {error && (
-        <div style={{ color: 'red', marginBottom: 16, padding: 8, backgroundColor: '#fee' }}>
-          Error: {error}
+        <div className="search-case-error">
+          {translate('common:errorPrefix')}: {error}
         </div>
       )}
 
       {/* Loading indicator */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: 16 }}>
-          Searching via WebRTC...
+        <div className="search-case-loading">
+          {translate('common:searchingViaWebRTC')}
         </div>
       )}
 
@@ -145,7 +148,7 @@ const SearchCaseList: React.FC = () => {
       showRowLines={true}
       columnAutoWidth={true}
       rowAlternationEnabled={false}
-      noDataText={loading ? 'Loading...' : hasSearched ? 'No results found, try a different search term' : 'Search Akten'}
+      noDataText={loading ? translate('common:loading') : hasSearched ? translate('common:noResultsFound') : translate('searchAkten')}
     >
       <Paging defaultPageSize={5} />
       <Pager
@@ -157,7 +160,7 @@ const SearchCaseList: React.FC = () => {
       
       <Column
         dataField="id"
-        caption="Akt ID"
+        caption={translate('columns.aktId')}
         visible={false}
         alignment="left"
       />
@@ -167,7 +170,7 @@ const SearchCaseList: React.FC = () => {
         buttons={[
           {
             icon: 'favorites',
-            hint: favoritesLoading ? 'Loading favorites...' : 'Add to Favorites',
+            hint: favoritesLoading ? translate('loadingFavorites') : translate('addToFavorites'),
             cssClass: 'star-button-gold',
             visible: e => !isInFavorites(e.row.data.id) && !isAddingToFavorites(e.row.data.id),
             disabled: e => isStarButtonDisabled(e.row.data.id),
@@ -175,14 +178,14 @@ const SearchCaseList: React.FC = () => {
           },
           {
             icon: 'refresh',
-            hint: 'Adding to favorites...',
+            hint: translate('addingToFavorites'),
             cssClass: 'loading-button',
             visible: e => isAddingToFavorites(e.row.data.id),
             disabled: true
           },
           {
             icon: 'check',
-            hint: 'Already in Favorites',
+            hint: translate('alreadyInFavorites'),
             visible: e => isInFavorites(e.row.data.id),
             disabled: true
           }
@@ -190,12 +193,12 @@ const SearchCaseList: React.FC = () => {
       />
       <Column
         dataField="aKurz"
-        caption="Kürzel"
+        caption={translate('columns.kuerzel')}
         alignment="left"
       />
       <Column
         dataField="causa"
-        caption="Causa"
+        caption={translate('columns.causa')}
         alignment="left"
       />
     </DataGrid>

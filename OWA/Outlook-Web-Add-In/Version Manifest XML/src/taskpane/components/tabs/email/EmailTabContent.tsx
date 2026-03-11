@@ -1,34 +1,34 @@
 // src/taskpane/components/tabs/email/EmailTabContent.tsx
 import React, { useEffect, useState } from 'react';
-import SearchCaseList from '../shared/SearchCaseList'; 
+import SearchCaseList from '@components/tabs/shared/SearchCaseList';
 import notify from 'devextreme/ui/notify';
 import EmailSend from './EmailSend'; 
 import RegisteredEmails from './RegisteredEmails';  
 // Import Service Section from shared
-import ServiceSection from '../shared/ServiceSection';
-import { getEmailContentAsync, IsComposeMode } from '@hooks/useOfficeItem';
+import ServiceSection from '@components/tabs/shared/ServiceSection';
+import { getEmailContentAsync, IsComposeMode, getInternetMessageIdAsync } from '@hooks/useOfficeItem';
 import TransferAndAttachment from './TransferAndAttachment';
-import { TransferAttachmentItem, DokumentPostData, DokumentArt, DokumentResponse } from '@components/interfaces/IDocument';
-import { getDokumentArt } from '@components/interfaces/IEmail';
-import { AktLookUpResponse } from '@components/interfaces/IAkten';
-import { LeistungPostData } from '@components/interfaces/IService';
-import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
-
-import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
+import { TransferAttachmentItem, DokumentPostData, DokumentArt, DokumentResponse } from '@interfaces/IDocument';
+import { getDokumentArt } from '@interfaces/IEmail';
+import { AktLookUpResponse } from '@interfaces/IAkten';
+import { LeistungPostData } from '@interfaces/IService';
+import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
 import { calculateFileSizeFromBase64 } from '@utils/fileHelpers';
-import { getLogger } from '../../../../services/logger';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
 
 // Import Redux hooks and actions
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { setSelectedAkt, clearFolders, clearEmailDocuments } from '@store/slices/aktenSlice';
-import { saveDokumentAsync, setAttachmentSelected } from '@store/slices/emailSlice';
-import { saveLeistungAsync, resetLoadCounter } from '@store/slices/serviceSlice';
+import { setSelectedAkt, clearFolders, clearEmailDocuments } from '@slices/aktenSlice';
+import { saveDokumentAsync, setAttachmentSelected } from '@slices/emailSlice';
+import { saveLeistungAsync, resetLoadCounter } from '@slices/serviceSlice';
 
 const EmailTabContent: React.FC = () => {
   // Get Redux dispatch function
   const dispatch = useAppDispatch();
+  const { t: translate } = useTranslation(['email', 'common']);
   
   // Get cases from aktenSlice to find selected case data
   const { cases } = useAppSelector(state => state.akten);
@@ -99,12 +99,12 @@ const EmailTabContent: React.FC = () => {
   // Handler for sending email
   const sendEmailHandler = async () => {
     if (selectedCaseId === -1) {
-      notify('Please select a case first', 'warning', 3000);
+      notify(translate('common:selectCaseFirst'), 'warning', 3000);
       return;
     }
     logger.debug(`Starting transfer for case ${selectedCaseName} (ID: ${selectedCaseId}) with message ID: ${messageId}`, 'EmailTabContent');
     if (!messageId) {
-      notify('Email message ID not available', 'warning', 3000);
+      notify(translate('emailMessageIdNotAvailable'), 'warning', 3000);
       return;
     }
 
@@ -113,7 +113,7 @@ const EmailTabContent: React.FC = () => {
     const itemsWithoutFolder = checkedItems.filter(i => i.option === -1);
     
     if (itemsWithoutFolder.length > 0) {
-      notify('Please select a folder for all items before transferring', 'error', 4000);
+      notify(translate('selectFolderForAllItems'), 'error', 4000);
       return;
     }
 
@@ -129,7 +129,7 @@ const EmailTabContent: React.FC = () => {
         
         // If one is provided, both must be provided
         if ((hasSb && !hasTime) || (!hasSb && hasTime)) {
-          notify('Please provide both SB and time, or leave both empty', 'error', 4000);
+          notify(translate('provideBothSbAndTime'), 'error', 4000);
           setTransferLoading(false);
           return;
         }
@@ -167,7 +167,7 @@ const EmailTabContent: React.FC = () => {
         // Send Leistung to API via WebRTC using Redux thunk
         await dispatch(saveLeistungAsync(leistungPayload)).unwrap();
         logger.info('Leistung saved successfully', 'EmailTabContent');
-        notify('Service saved successfully', 'success', 3000);
+        notify(translate('serviceSavedSuccessfully'), 'success', 3000);
       } else {
         logger.debug('No service selected, skipping Leistung save', 'EmailTabContent');
       }
@@ -193,7 +193,7 @@ const EmailTabContent: React.FC = () => {
         // Create DokumentPostData for email
         const emailDokument: DokumentPostData = {
           aktId: selectedCaseId,
-          betreff: email.subject || 'No Subject',
+          betreff: email.subject || translate('noSubject'),
           mailAdresse: email.from?.emailAddress || undefined,
           empfangenAm: email.dateTimeCreated ? new Date(email.dateTimeCreated) : new Date(),
           memo: `Email transferred from Outlook: ${messageId}`,
@@ -201,14 +201,14 @@ const EmailTabContent: React.FC = () => {
           dokumentArt: emailDokumentArt, // Properly detected: sent vs received
           outlookEmailId: messageId,
           anzahlMailAnhänge: attachmentSelected.filter(i => i.type === 'A').length,
-          dateiName: `${email.subject || 'Email'}.eml`,
+          dateiName: `${email.subject || translate('noEmailName')}.eml`,
           ordnerName: getFolderName(firstE)
         };
         
         // Save email document via WebRTC using Redux thunk
         const savedEmailResponse = await dispatch(saveDokumentAsync(emailDokument)).unwrap();
         logger.info('Email document saved successfully', 'EmailTabContent');
-        notify('Email saved successfully', 'success', 3000);
+        notify(translate('emailSavedSuccessfully'), 'success', 3000);
         console.log('Saved email document response:', savedEmailResponse);
         // Build a partial DokumentResponse so RegisteredEmails can update its cache immediately
         // Use the real ID returned by CreateAsync so the user can download immediately
@@ -268,20 +268,20 @@ const EmailTabContent: React.FC = () => {
             logger.info(`Attachment '${attachment.name}' saved successfully`, 'EmailTabContent');
           } catch (attachmentError) {
             logger.error(`Failed to save attachment '${attachment.name}':`, 'EmailTabContent', attachmentError);
-            notify(`Failed to save attachment '${attachment.name}'`, 'warning', 4000);
+            notify(translate('failedToSaveAttachment', { name: attachment.name }), 'warning', 4000);
             // Continue with other attachments
           }
         }
         
         if (selectedAttachments.length > 0) {
-          notify(`${selectedAttachments.length} attachments processed`, 'success', 3000);
+          notify(translate('attachmentsProcessed', { count: selectedAttachments.length }), 'success', 3000);
         }
       }
 
       // Show success notification if any documents were saved
       if (firstE || selectedAttachments.length > 0) {
         const itemCount = (firstE ? 1 : 0) + selectedAttachments.length;
-        notify(`${itemCount} document(s) transferred successfully to case ${selectedCaseName}`, 'success', 4000);
+        notify(translate('documentsTransferred', { count: itemCount, caseName: selectedCaseName }), 'success', 4000);
       }
 
       // Mark all successfully transferred items as disabled/readonly in Redux
@@ -303,7 +303,7 @@ const EmailTabContent: React.FC = () => {
 
     } catch (error) {
       logger.error('Failed to transfer:', 'EmailTabContent', error);
-      notify('Failed to transfer to ADVOKAT', 'error', 5000);
+      notify(translate('failedToTransfer'), 'error', 5000);
     } finally {
       // Reset loading state
       setTransferLoading(false);
