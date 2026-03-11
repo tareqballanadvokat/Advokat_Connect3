@@ -1,12 +1,20 @@
 // src/taskpane/components/tabs/email/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
+import './SearchCaseList.css';
+import './shared.css';
 import TextBox from 'devextreme-react/text-box';
 import Button from 'devextreme-react/button';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { aktLookUpAsync, setSearchTerm, clearCases } from '../../../../store/slices/aktenSlice';
-import { AktLookUpResponse } from '../../interfaces/IAkten';
+import LoadIndicator from 'devextreme-react/load-indicator';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectIsReady } from '@slices/connectionSlice';
+import { aktLookUpAsync, setSearchTerm, clearCases, clearPreviousSearchTerm } from '@slices/aktenSlice';
+import { AktLookUpResponse } from '@interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
+
+const logger = getLogger();
 
 // Updated interface to match the new API model
 interface SearchProps {
@@ -15,9 +23,14 @@ interface SearchProps {
 
 const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
   const dispatch = useAppDispatch();
-  const { cases, loading, error, searchTerm } = useAppSelector(state => state.akten);
-  
-  const [gridVisible, setGridVisible] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const { cases, loading, error, searchTerm, selectedAkt, foldersLoading, emailDocumentsLoading } = useAppSelector(state => state.akten);
+  const servicesLoading = useAppSelector(state => state.service.servicesLoading);
+  const registeredEmailsLoading = useAppSelector(state => state.email.registeredEmailsLoading);
+  const registeredServicesLoading = useAppSelector(state => state.service.registeredServicesLoading);
+  const isReady = useAppSelector(selectIsReady);
+  const anyAktLoading = foldersLoading || servicesLoading || registeredEmailsLoading || emailDocumentsLoading || registeredServicesLoading;
+  const { t: translate } = useTranslation(['email', 'common']);
 
   // Handle Redux error states
   useEffect(() => {
@@ -26,60 +39,70 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
     }
   }, [error]);
 
-  // Update grid visibility when cases change
+  // Clear previous search term on unmount to allow cache hits when returning
   useEffect(() => {
-    setGridVisible(cases.length > 0);
-  }, [cases]);
+    return () => {
+      dispatch(clearPreviousSearchTerm());
+    };
+  }, [dispatch]);
 
   const handleSearch = async () => {
+    if(loading) return; // Prevent multiple simultaneous searches
+    if (!isReady) {
+      notify(translate('common:connectingWait'), 'warning', 3000);
+      return;
+    }
     const filter = searchTerm.trim();
     
     if (!filter) {
-      dispatch(clearCases());
-      setGridVisible(false);
+      notify(translate('common:enterSearchTerm'), 'warning', 3000);
+      // dispatch(clearCases());
       return;
     }
 
     try {
       // Dispatch Redux action to search for cases
       // Using aktLookUpAsync - includes fake response for testing when WebRTC is not ready
+      setHasSearched(true);
       await dispatch(aktLookUpAsync(filter)).unwrap();
     } catch (error) {
-      console.error('Search failed:', error);
-      notify('Search cases failed', 'error', 5000);
+      logger.error('Search failed', 'SearchCaseList', error);
+      if (isReady) {
+        notify(translate('searchCasesFailed'), 'error', 5000);
+      }
     }
   };
 
   return (
     <div>
-      <h3 style={{ width:'220px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        Search Cases
+      <h3 className="shared-search-case-title">
+        {translate('searchCases')}
       </h3>
 
       {/* Search panel */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="shared-search-case-panel">
         <TextBox
           width={250}
           stylingMode="outlined"
-          placeholder="Search by AktId (123) or Kürzel (ABC)..."
+          placeholder={translate('searchCasePlaceholder')}
           value={searchTerm}
           onValueChanged={e => dispatch(setSearchTerm(e.value || ''))}
           onEnterKey={handleSearch}
-          disabled={loading}
+          disabled={loading || !isReady}
         />
         <Button 
           icon="search" 
           stylingMode="contained" 
           onClick={handleSearch}
-          disabled={loading}
-          text={loading ? "Searching..." : ""}
+          disabled={loading || !isReady}
+          text={loading ? translate('common:buttons.searching') : ""}
         />
       </div>
 
       {/* Loading indicator */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '10px' }}>
-          <span>Searching cases...</span>
+        <div className="shared-search-case-loading">
+          <span>{translate('common:searchingCases')}</span>
         </div>
       )}
 
@@ -89,12 +112,21 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         dataSource={cases}
         keyExpr="id"               
         showBorders={false}
-        visible={gridVisible && !loading}
+        visible={!loading}
         showColumnLines={false}
         showRowLines={true}
         columnAutoWidth={true}
         rowAlternationEnabled={false}
-        noDataText="No cases found. Try a different search term."
+        noDataText={loading ? translate('common:loading') : hasSearched ? translate('common:noResultsFound') : translate('searchCases')}
+        onRowPrepared={e => {
+          if (e.rowType === 'data') {
+            if (e.data?.id === selectedAkt?.id) {
+              e.rowElement.classList.add('selected-akt-row');
+            } else {
+              e.rowElement.classList.remove('selected-akt-row');
+            }
+          }
+        }}
       >
         <Paging defaultPageSize={5} />
         <Pager
@@ -106,33 +138,42 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         {/* -------------------------------- */}
         <Column
           dataField="id"
-          caption="Case ID"
+          caption={translate('common:columns.caseId')}
           visible={false} 
           alignment="left"
         />
         <Column
           dataField="aKurz"
-          caption="Kürzel"
+          caption={translate('common:columns.kuerzel')}
           alignment="left"
         />
         <Column
           dataField="causa"
-          caption="Causa"
+          caption={translate('common:columns.causa')}
           alignment="left"
         />
         <Column
-          type="buttons"
-          width={50}
-          buttons={[
-            {
-              icon: 'arrowright',
-              hint: 'Select',
-              onClick: e => {
-                const selectedCase = e.row.data as AktLookUpResponse;
-                 onCaseSelect(selectedCase);
-              }
-            }
-          ]}
+          width={40}
+          alignment="center"
+          cellRender={(data: { data: AktLookUpResponse }) => {
+            const isSelected = selectedAkt?.id === data.data.id;
+            return (
+              <div className="shared-search-case-select-btn-wrapper">
+                <Button
+                  icon="arrowright"
+                  stylingMode="text"
+                  hint={!anyAktLoading ? translate('common:select') : undefined}
+                  onClick={() => !anyAktLoading && onCaseSelect(data.data)}
+                  elementAttr={{ style: `color: #0078d4; visibility: ${anyAktLoading ? 'hidden' : 'visible'};` }}
+                />
+                {isSelected && anyAktLoading && (
+                  <div className="shared-search-case-loading-indicator">
+                    <LoadIndicator width={20} height={20} />
+                  </div>
+                )}
+              </div>
+            );
+          }}
         />
       </DataGrid>
     </div>

@@ -1,12 +1,13 @@
+/* eslint-disable no-undef */
 // Setup file for Jest tests
-import '@testing-library/jest-dom';
+import "@testing-library/jest-dom";
 
 // Mock Office.js global object
 global.Office = {
   context: {
     mailbox: {
       item: {
-        subject: 'Test Subject',
+        subject: "Test Subject",
         body: {
           getAsync: jest.fn(),
           setAsync: jest.fn(),
@@ -17,8 +18,8 @@ global.Office = {
         attachments: [],
       },
       userProfile: {
-        emailAddress: 'test@example.com',
-        displayName: 'Test User',
+        emailAddress: "test@example.com",
+        displayName: "Test User",
       },
     },
     requirements: {
@@ -44,8 +45,8 @@ global.WebSocket = jest.fn(() => ({
 
 // Mock RTCPeerConnection for WebRTC tests
 global.RTCPeerConnection = jest.fn(() => ({
-  createOffer: jest.fn(() => Promise.resolve({ type: 'offer', sdp: 'mock-sdp' })),
-  createAnswer: jest.fn(() => Promise.resolve({ type: 'answer', sdp: 'mock-sdp' })),
+  createOffer: jest.fn(() => Promise.resolve({ type: "offer", sdp: "mock-sdp" })),
+  createAnswer: jest.fn(() => Promise.resolve({ type: "answer", sdp: "mock-sdp" })),
   setLocalDescription: jest.fn(() => Promise.resolve()),
   setRemoteDescription: jest.fn(() => Promise.resolve()),
   addIceCandidate: jest.fn(() => Promise.resolve()),
@@ -66,9 +67,9 @@ global.RTCSessionDescription = jest.fn((init) => init) as any;
 global.RTCIceCandidate = jest.fn((init) => init) as any;
 
 // Mock window.matchMedia for theme detection
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: jest.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -85,9 +86,9 @@ const originalError = console.error;
 beforeAll(() => {
   console.error = (...args: any[]) => {
     if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Warning: ReactDOM.render') ||
-       args[0].includes('Not implemented: HTMLFormElement.prototype.submit'))
+      typeof args[0] === "string" &&
+      (args[0].includes("Warning: ReactDOM.render") ||
+        args[0].includes("Not implemented: HTMLFormElement.prototype.submit"))
     ) {
       return;
     }

@@ -1,9 +1,15 @@
 // src/taskpane/components/tabs/shared/ServiceSection.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
+import './ServiceSection.css';
 import SelectBox from 'devextreme-react/select-box';
-import { LeistungAuswahlResponse } from '@components/interfaces/IService';
+import { LeistungAuswahlResponse } from '@interfaces/IService';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@store/slices/serviceSlice';
+import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@slices/serviceSlice';
+import notify from 'devextreme/ui/notify';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
+
+const logger = getLogger();
 
 // Unified interface for both Email and Service tabs
 export interface ServiceSectionProps {}
@@ -11,6 +17,7 @@ export interface ServiceSectionProps {}
 const ServiceSection: React.FC<ServiceSectionProps> = () => {
   // Get Redux dispatch function
   const dispatch = useAppDispatch();
+  const { t: translate } = useTranslation(['service', 'common']);
   
   // Get the service state from Redux store
   const serviceState = useAppSelector(state => state.service);
@@ -18,34 +25,21 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   // Get selected Akt from aktenSlice
   const selectedAkt = useAppSelector(state => state.akten.selectedAkt);
   const selectedAktKuerzel = selectedAkt?.aKurz;
-  
-  // Track previous Kürzel so we only reload when the Akt actually changes
-  const prevKuerzelRef = useRef<string | null>(null);
+  const selectedAktId = selectedAkt?.id;
 
-  // Load services when selectedAktKuerzel changes OR when there are no services yet
+  // Load services whenever an Akt is selected (uses cache after first load)
   useEffect(() => {
-    const servicesEmpty = serviceState.services.length === 0;
-    const aktChanged = prevKuerzelRef.current !== null && prevKuerzelRef.current !== selectedAktKuerzel;
-
-    if (selectedAktKuerzel) {
-      if (aktChanged || servicesEmpty) {
-        console.log(`Loading services for Akt: ${selectedAktKuerzel}`);
-        dispatch(setSelectedServiceId(0));
-        dispatch(loadServicesAsync({
-          Kürzel: null,
-          OnlyQuickListe: true,
-          Limit: null
-        }));
-        prevKuerzelRef.current = selectedAktKuerzel;
-      } else {
-        // Use cached services - nothing to do
-        // console.log(`Using cached services for Akt: ${selectedAktKuerzel}`);
-      }
+    if (selectedAktId) {
+      logger.debug('Loading global services list for Akt ' + selectedAktId, 'ServiceSection');
+      dispatch(loadServicesAsync({
+        Kürzel: null,
+        OnlyQuickListe: true,
+        Limit: null
+      }));
     } else {
       dispatch(clearServices());
-      prevKuerzelRef.current = null;
     }
-  }, [selectedAktKuerzel, dispatch, serviceState.services.length]);
+  }, [selectedAktId, dispatch]);
   
   // Handle value changes using Redux dispatch
   const handleServiceChange = (value: number) => {
@@ -53,7 +47,58 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   };
   
   const handleTimeChange = (value: string) => {
-    dispatch(setTime(value));
+    // Validate and format HH:MM input
+    const timePattern = /^([0-9]{0,2}):?([0-9]{0,2})$/;
+    const match = value.match(timePattern);
+    
+    if (match || value === '') {
+      // Auto-format: add colon after 2 digits
+      let formatted = value;
+      if (value.length === 2 && !value.includes(':')) {
+        formatted = value + ':';
+      }
+      dispatch(setTime(formatted));
+    }
+  };
+  
+  const handleTimeBlur = () => {
+    const value = serviceState.time;
+    if (!value || value.trim() === '') return;
+    
+    // Remove any existing colons and non-digits
+    const digitsOnly = value.replace(/[^0-9]/g, '');
+    
+    if (digitsOnly === '') {
+      dispatch(setTime(''));
+      return;
+    }
+    
+    let hours = 0;
+    let minutes = 0;
+    
+    if (digitsOnly.length === 1) {
+      // Single digit: treat as hours (e.g., "1" -> "01:00")
+      hours = parseInt(digitsOnly);
+    } else if (digitsOnly.length === 2) {
+      // Two digits: treat as hours (e.g., "02" -> "02:00")
+      hours = parseInt(digitsOnly);
+    } else if (digitsOnly.length === 3) {
+      // Three digits: first digit is hours, last two are minutes (e.g., "130" -> "01:30")
+      hours = parseInt(digitsOnly.charAt(0));
+      minutes = parseInt(digitsOnly.substring(1));
+    } else if (digitsOnly.length >= 4) {
+      // Four or more digits: first two are hours, next two are minutes (e.g., "0130" -> "01:30")
+      hours = parseInt(digitsOnly.substring(0, 2));
+      minutes = parseInt(digitsOnly.substring(2, 4));
+    }
+    
+    // Validate and cap values
+    hours = Math.min(Math.max(0, hours), 23);
+    minutes = Math.min(Math.max(0, minutes), 59);
+    
+    // Format as HH:MM
+    const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    dispatch(setTime(formatted));
   };
   
   const handleTextChange = (value: string) => {
@@ -61,7 +106,18 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   };
   
   const handleSbChange = (value: string) => {
-    dispatch(setSb(value));
+    // Allow empty or only letters (max 3)
+    if (value === '' || /^[a-zA-Z]{0,3}$/.test(value)) {
+      dispatch(setSb(value.toUpperCase()));
+    }
+  };
+  
+  const handleSbBlur = () => {
+    const value = serviceState.sb;
+    // If not empty and not exactly 3 letters, show error
+    if (value && value.length !== 3) {
+      notify(translate('sbValidationError'), 'error', 3000);
+    }
   };
 
   // Create display text for services dropdown
@@ -77,27 +133,27 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   }));
 
   return (
-    <div style={{ marginBottom: 24 }}>
-  <h3>Services</h3>
+    <div className="service-section-root">
+      <h3>{translate('servicesHeading')}</h3>
       {!selectedAktKuerzel ? (
-        <div style={{ color: '#666', fontStyle: 'italic' }}>
-          Please select an Akt to load services
+        <div className="service-section-placeholder">
+          {translate('selectAktFirst')}
         </div>
       ) : serviceState.servicesLoading ? (
-        <div>Loading services...</div>
+        <div>{translate('loadingServices')}</div>
       ) : serviceState.servicesError ? (
-        <div style={{ color: 'red' }}>Error: {serviceState.servicesError}</div>
+        <div className="service-section-error">{translate('common:errorPrefix')}: {serviceState.servicesError}</div>
       ) : (
         <>
           {/* Service dropdown - full width */}
-          <div style={{ marginBottom: 8 }}>
+          <div className="service-section-field">
             <SelectBox
               stylingMode="outlined"
               dataSource={servicesWithDisplayText}
               value={serviceState.services.length > 0 ? serviceState.selectedServiceId : null}
               valueExpr="id"
               displayExpr="displayText"
-              placeholder={serviceState.services.length > 0 ? "Select Service" : "No services available"}
+              placeholder={serviceState.services.length > 0 ? translate('selectService') : translate('noServicesAvailable')}
               onValueChanged={e => handleServiceChange(e.value)}
               width="100%"
               disabled={serviceState.services.length === 0}
@@ -105,58 +161,43 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
           </div>
           
           {/* Time and SB inputs - side by side */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <div className="service-section-inline-row">
             <input
               type="text"
-              placeholder="SB"
+              placeholder={translate('sbPlaceholder')}
               value={serviceState.sb}
               onChange={e => handleSbChange(e.target.value)}
-              style={{
-                width: 50,
-                padding: '8px 12px',
-                fontSize: 14,
-                border: '1px solid #ccc',
-                borderRadius: 4,
-                textAlign: 'center',
-                backgroundColor: '#f4f4f4',
-              }}
+              onBlur={handleSbBlur}
+              maxLength={3}
+              pattern="[A-Za-z]{0,3}"
+              className="service-section-sb-input"
             />
             <input
               type="text"
-              placeholder="Time"
+              placeholder={translate('timePlaceholder')}
               value={serviceState.time}
               onChange={e => handleTimeChange(e.target.value)}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                fontSize: 14,
-                border: '1px solid #ccc',
-                borderRadius: 4,
-              }}
+              onBlur={handleTimeBlur}
+              maxLength={5}
+              pattern="[0-9]{2}:[0-9]{2}"
+              className="service-section-time-input"
             />
           </div>
           
           {/* Text input - full width */}
-          <div style={{ marginBottom: 8 }}>
+          <div className="service-section-field">
             <input
               type="text"
-              placeholder="Text"
+              placeholder={translate('textPlaceholder')}
               value={serviceState.text}
               onChange={e => handleTextChange(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                fontSize: 14,
-                border: '1px solid #ccc',
-                borderRadius: 4,
-                boxSizing: 'border-box',
-              }}
+              className="service-section-text-input"
             />
           </div>
           
           {/* Show additional info */}
-          <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-            Select a service. It will be handled according to the current context (email or service).
+          <div className="service-section-hint">
+            {translate('serviceContextHint')}
           </div>
         </>
       )}

@@ -1,78 +1,75 @@
 // src/taskpane/components/tabs/cases/CasesAccordion.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import 'devextreme/dist/css/dx.light.css';
+import '../shared/shared.css';
 import './CaseTabContent.css'; // Import our custom CSS
 import SearchCaseList from './SearchCaseList';
-import {IsComposeMode} from '../../../hooks/useOfficeItem';
-import {HierarchyTree} from '../../interfaces/ICase';
-import { DokumentResponse } from '../../interfaces/IDocument';
-import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
+import {IsComposeMode} from '@hooks/useOfficeItem';
+import {HierarchyTree} from '@interfaces/ICase';
+import { DokumentResponse } from '@interfaces/IDocument';
+import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
 import notify from 'devextreme/ui/notify';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { createSelector } from '@reduxjs/toolkit';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectIsReady } from '@slices/connectionSlice';
 import { 
   getFavoriteAktenAsync, 
   getCaseDocumentsAsync, 
   removeAktFromFavoriteAsync,
-  downloadDocumentAsync
-} from '../../../../store/slices/aktenSlice';
+  downloadDocumentAsync,
+  setCaseTabExpandedKeys,
+  addCaseTabDocuments,
+  removeCaseTabAktDocuments,
+} from '@slices/aktenSlice';
 import TreeList, {
   Column,
   Scrolling,
   Editing,
-  Button,
 } from 'devextreme-react/tree-list';
 import { 
   getMimeTypeFromExtension, 
   getFileExtension, 
   createBlobFromBase64, 
   isViewableInBrowser 
-} from '../../../utils/fileHelpers';
+} from '@utils/fileHelpers';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
+
+const logger = getLogger();
 
 const allowDeleting = (e) => e.row.data.ID !== 1; 
 
-// Memoized selector for all cached documents to prevent unnecessary rerenders
-const selectAllCachedDocuments = createSelector(
-  [(state) => state.akten.caseDocumentsCache],
-  (caseDocumentsCache) => {
-    const allDocs: DokumentResponse[] = [];
-    caseDocumentsCache.forEach(cache => {
-      allDocs.push(...cache.documents);
-    });
-    return allDocs;
-  }
-);
-
 const CaseTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
+  const { t: translate } = useTranslation(['case', 'common']);
   const { 
     favouriteAkten,
     loading, 
     favoritesLoading,
-    favoritesLoaded,
     caseDocumentsLoading, 
     loadingCaseDocumentsForAktId,
     removeFromFavoriteLoading,
     removingFromFavoriteAktId
   } = useAppSelector(state => state.akten);
+  const isReady = useAppSelector(selectIsReady);
   
   const [nodes, setNodes] = useState<HierarchyTree[]>([]);
-  const [expandedKeys, setExpandedKeys] = useState<(string | number)[]>([]);
+  // Persisted in Redux so state survives tab switching (component unmount/remount)
+  const expandedKeys = useAppSelector(state => state.akten.caseTabExpandedKeys);
+  const caseTabDocumentsByAkt = useAppSelector(state => state.akten.caseTabDocumentsByAkt);
+  // Track which document is currently being opened/downloaded
+  const [openingDocumentId, setOpeningDocumentId] = useState<number | null>(null);
 
-  // Load favorite Akten only once when component mounts and favorites haven't been loaded yet
   useEffect(() => {    
-    if (!favoritesLoaded && !favoritesLoading) {
+    if (!isReady) return;
+    if (!favoritesLoading && favouriteAkten.length === 0) {
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50
       }));
     }
-  }, [dispatch, favoritesLoaded, favoritesLoading]); // Only depend on the loading flags, not the data itself
+  }, [isReady, dispatch]); // Re-run when connection becomes ready
 
-  // Get all cached documents for display using memoized selector
-  const allCachedDocuments = useAppSelector(selectAllCachedDocuments);
-
-  // Transform favorite Akten and cached documents into HierarchyTree format with folder structure
+  // Transform favorite Akten and loaded documents into HierarchyTree format with folder structure
   useEffect(() => {
     const transformedNodes: HierarchyTree[] = [];
     // Add favorite Akten as root nodes (AktenResponse format: Id, AKurz, Causa)
@@ -80,7 +77,7 @@ const CaseTabContent: React.FC = () => {
       const aktNode: HierarchyTree = {
         id: akt.id, // Use actual Akt ID as node ID
         rootId: -1, // Top-level nodes have rootId = -1
-        name: `${akt.aKurz || 'Unknown'}`,
+        name: `${akt.aKurz || translate('unknownAkt')}`,
         isStructure: true, // This is a folder (Akt)
         hasChild: true,
         causa: akt.causa || '',
@@ -94,8 +91,11 @@ const CaseTabContent: React.FC = () => {
     const folderMap = new Map<string, HierarchyTree>();
     let nextId = Math.max(...favouriteAkten.map(a => a.id), 0) + 10000; // Start IDs after Akt IDs
 
-    // Use all cached documents
-    allCachedDocuments.forEach((doc) => {
+    // Get all documents from Redux state
+    const allDocs: DokumentResponse[] = [];
+    Object.values(caseTabDocumentsByAkt).forEach(docs => allDocs.push(...docs));
+    
+    allDocs.forEach((doc) => {
       // Find the parent Akt ID
       const parentAkt = favouriteAkten.find(akt => akt.id === doc.aktId);
       
@@ -120,7 +120,7 @@ const CaseTabContent: React.FC = () => {
         
         // Split the path by backslashes or forward slashes
         const pathParts = relativePath.split(/[\\\/]/).filter(part => part.length > 0);
-        const fileName = pathParts.pop() || doc.betreff || 'Unknown File';
+        const fileName = pathParts.pop() || doc.betreff || translate('unknownFile');
         
         let currentParentId = parentAkt.id;
         
@@ -166,26 +166,23 @@ const CaseTabContent: React.FC = () => {
     });
 
     setNodes(transformedNodes);
-  }, [favouriteAkten, allCachedDocuments]);
+  }, [favouriteAkten, caseTabDocumentsByAkt]);
 
   const onSelectionChanged = useCallback((e) => {
     // keep expandedKeys in sync
-    setExpandedKeys(e.component.getSelectedRowKeys());
-  }, []);
+    dispatch(setCaseTabExpandedKeys(e.component.getSelectedRowKeys()));
+  }, [dispatch]);
 
-  // Get cache state for checking
-  const caseDocumentsCache = useAppSelector(state => state.akten.caseDocumentsCache);
-
-  // Handle expanding nodes to load documents with caching
-  const onExpandedRowKeysChange = useCallback((newExpandedKeys: (string | number)[]) => {
+  // Handle expanding nodes to load documents (cache handled by thunk)
+  const onExpandedRowKeysChange = useCallback(async (newExpandedKeys: (string | number)[]) => {
     const previousExpandedKeys = expandedKeys;
-    setExpandedKeys(newExpandedKeys);
+    dispatch(setCaseTabExpandedKeys(newExpandedKeys));
     
     // Find newly expanded keys (keys that were added)
     const newlyExpanded = newExpandedKeys.filter(key => !previousExpandedKeys.includes(key));
     
     // Only process newly expanded Akten (not collapsed ones or re-expanded folders)
-    newlyExpanded.forEach((key) => {
+    for (const key of newlyExpanded) {
       const node = nodes.find(n => n.id === key);
       
       // Check if this is an Akt node (root level with akt: URL)
@@ -196,24 +193,27 @@ const CaseTabContent: React.FC = () => {
         
         const aktId = parseInt(node.url.replace('akt:', ''));
         
-        // Check if documents are already cached for this Akt
-        const hasCachedDocuments = caseDocumentsCache.some(cache => cache.aktId === aktId);
+        // Check if documents are already loaded in Redux state
+        const hasLoadedDocuments = aktId in caseTabDocumentsByAkt;
         
-        // Only load documents if:
-        // 1. They're not already cached
-        // 2. We're not currently loading for this specific Akt
-        // 3. We're not already loading something else
-        if (!hasCachedDocuments && 
+        // Only load documents if not already loaded and not currently loading
+        if (!hasLoadedDocuments && 
             loadingCaseDocumentsForAktId !== aktId && 
             !caseDocumentsLoading) {
-          console.log(`ðŸ“„ Loading documents for Akt ${aktId} (not cached)`);
-          dispatch(getCaseDocumentsAsync({ aktId, Count: 100 }));
-        } else if (hasCachedDocuments) {
-          console.log(`ðŸ“„ Documents for Akt ${aktId} already cached, skipping API call`);
+          logger.debug(`Loading documents for Akt ${aktId}`, 'CaseTabContent');
+          try {
+            const result = await dispatch(getCaseDocumentsAsync({ aktId, Count: 100 })).unwrap();
+            // Store documents in Redux state (persists across tab switches)
+            dispatch(addCaseTabDocuments({ aktId, documents: result.documents }));
+          } catch (error) {
+            logger.error(`Failed to load documents for Akt ${aktId}:`, 'CaseTabContent', error);
+          }
+        } else if (hasLoadedDocuments) {
+          logger.debug(`Documents for Akt ${aktId} already loaded`, 'CaseTabContent');
         }
       }
-    });
-  }, [nodes, expandedKeys, caseDocumentsLoading, loadingCaseDocumentsForAktId, caseDocumentsCache, dispatch]);
+    }
+  }, [nodes, expandedKeys, caseDocumentsLoading, loadingCaseDocumentsForAktId, caseTabDocumentsByAkt, dispatch]);
 
 
   const handleOpen = useCallback(async (node: HierarchyTree) => {
@@ -226,13 +226,14 @@ const CaseTabContent: React.FC = () => {
       }
     } else if (!node.isStructure && node.documentId) {
       // This is a document, download and open the file
+      setOpeningDocumentId(node.documentId);
       let downloadingToast: any = null;
       try {
-        console.log(`Downloading document with ID: ${node.documentId}`);
+        logger.debug(`Downloading document with ID: ${node.documentId}`, 'CaseTabContent');
         
         // Show persistent notification during download
         try {
-          downloadingToast = notify(`Downloading ${node.name}...`, 'info', 0); // 0 means persistent
+          downloadingToast = notify(translate('downloadingFile', { name: node.name }), 'info', 0); // 0 means persistent
         } catch {
           // Fallback if the above doesn't work
           downloadingToast = null;
@@ -247,7 +248,7 @@ const CaseTabContent: React.FC = () => {
         }
         
         if (!fileContentBase64) {
-          notify('Document content is empty', 'warning', 3000);
+          notify(translate('documentContentEmpty'), 'warning', 3000);
           return;
         }
 
@@ -268,7 +269,7 @@ const CaseTabContent: React.FC = () => {
           try {
             const newWindow = window.open(url, '_blank');
             if (newWindow) {
-              notify(`Opened ${fileName} in new tab`, 'success', 3000);
+              notify(translate('openedInNewTab', { name: fileName }), 'success', 3000);
               
               // Clean up the URL after a delay to allow the new window to load
               setTimeout(() => {
@@ -279,7 +280,7 @@ const CaseTabContent: React.FC = () => {
             }
           } catch (error) {
             // Fallback to download if opening fails
-            console.log('Failed to open in new window, falling back to download:', error);
+            logger.debug('Failed to open in new window, falling back to download', 'CaseTabContent', error);
             const a = document.createElement('a');
             a.href = url;
             a.download = fileName;
@@ -287,7 +288,7 @@ const CaseTabContent: React.FC = () => {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            notify(`Downloaded ${fileName} (could not open in browser)`, 'success', 3000);
+            notify(translate('downloadedFallback', { name: fileName }), 'success', 3000);
           }
         } else {
           // Download non-viewable files (like .msg, .docx, etc.)
@@ -298,20 +299,22 @@ const CaseTabContent: React.FC = () => {
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-          notify(`Downloaded ${fileName}`, 'success', 3000);
+          notify(translate('downloaded', { name: fileName }), 'success', 3000);
         }
       } catch (error) {
         // Hide the downloading notification in case of error
         if (downloadingToast && typeof downloadingToast.hide === 'function') {
           downloadingToast.hide();
         }
-        console.error('Failed to download document:', error);
-        notify(`Failed to download ${node.name}: ${error}`, 'error', 5000);
+        logger.error('Failed to download document:', 'CaseTabContent', error);
+        notify(translate('failedToDownload', { name: node.name }), 'error', 5000);
+      } finally {
+        setOpeningDocumentId(null);
       }
     } else {
       // Fallback for nodes without documentId (shouldn't happen for documents)
-      console.warn('Document node missing documentId:', node);
-      notify('Unable to download: Document ID missing', 'warning', 3000);
+      logger.warn('Document node missing documentId', 'CaseTabContent', node);
+      notify(translate('documentIdMissing'), 'warning', 3000);
     }
   }, [expandedKeys, onExpandedRowKeysChange]);
 
@@ -322,13 +325,13 @@ const CaseTabContent: React.FC = () => {
     let attachingToast: any = null;
     try {
       if (!node.documentId) {
-        notify('Unable to attach: Document ID missing', 'warning', 3000);
+        notify(translate('unableToAttach'), 'warning', 3000);
         return;
       }
 
       // Show persistent notification during attachment process
       try {
-        attachingToast = notify(`Adding ${node.name} as attachment...`, 'info', 0); // 0 means persistent
+        attachingToast = notify(translate('attachingFile', { name: node.name }), 'info', 0); // 0 means persistent
       } catch {
         attachingToast = null;
       }
@@ -340,7 +343,7 @@ const CaseTabContent: React.FC = () => {
         if (attachingToast && typeof attachingToast.hide === 'function') {
           attachingToast.hide();
         }
-        notify('Document content is empty', 'warning', 3000);
+        notify(translate('documentContentEmpty'), 'warning', 3000);
         return;
       }
 
@@ -359,10 +362,10 @@ const CaseTabContent: React.FC = () => {
             }
             
             if (result.status === Office.AsyncResultStatus.Succeeded) {
-              notify(`Attached ${fileName} to email`, 'success', 3000);
+              notify(translate('attachedToEmail', { name: fileName }), 'success', 3000);
               resolve();
             } else { 
-              console.log(result);
+              logger.error('Failed to attach file to email', 'CaseTabContent', result);
               reject(result.error);
             }
           }
@@ -373,8 +376,8 @@ const CaseTabContent: React.FC = () => {
       if (attachingToast && typeof attachingToast.hide === 'function') {
         attachingToast.hide();
       }
-      console.error('Failed to add attachment:', error);
-      notify(`Failed to attach ${node.name}: ${error}`, 'error', 5000);
+      logger.error('Failed to add attachment:', 'CaseTabContent', error);
+      notify(translate('failedToAttach', { name: node.name }), 'error', 5000);
     }
   }, []);
 
@@ -385,68 +388,37 @@ const CaseTabContent: React.FC = () => {
       const aktName = node.name || `Akt ID ${aktId}`;
       // Use the new WebRTC Redux approach
       await dispatch(removeAktFromFavoriteAsync(aktId)).unwrap();
-      notify(`Successfully removed "${aktName}" from favorites!`, 'success', 3000);
+      notify(translate('removedFromFavoritesSuccess', { name: aktName }), 'success', 3000);
       // Refresh favorite Akten to remove the deleted case from the list
+      // Also remove the cached documents for that akt from Redux state
+      dispatch(removeCaseTabAktDocuments(aktId));
+      // Remove from expanded keys
+      dispatch(setCaseTabExpandedKeys(expandedKeys.filter(k => k !== aktId)));
       dispatch(getFavoriteAktenAsync({ 
         NurFavoriten: true,
         Count: 50
       }));
     } catch (error) {
-      console.error('Failed to remove from favorites:', error);
-      notify(`Failed to remove from favorites: ${error}`, 'error', 5000);
+      logger.error('Failed to remove from favorites:', 'CaseTabContent', error);
+      notify(translate('failedToRemoveFromFavorites'), 'error', 5000);
     }
-  }, [dispatch]);
-
-  // Handler to manually reload favorite Akten (force refresh from API)
-  const handleLoadFavorites = useCallback(() => {
-    dispatch(getFavoriteAktenAsync({ 
-      NurFavoriten: true,
-      Count: 50
-    }));
-  }, [dispatch]);
+  }, [dispatch, expandedKeys]);
 
    return (
-    <div /* â€¦ */ style={{ position: 'relative', overflow: 'hidden' }}>
+    <div className="case-tab-root">
       {/* WebRTC Connection Status */}
       <WebRTCConnectionStatus />
       
-      {/* â€¦ SearchCaseList, header, LoadPanel â€¦ */}
+      {/* … SearchCaseList, header, LoadPanel … */}
 
       <SearchCaseList />
-
-      {/* Load Favorites Button - only visible when favorites are already cached (subsequent visits) */}
-      {favouriteAkten.length > 0 && (
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          margin: '10px 0',
-          padding: '5px 0'
-        }}>
-          <button
-            onClick={handleLoadFavorites}
-            disabled={favoritesLoading}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: favoritesLoading ? '#ccc' : '#0078d4',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: favoritesLoading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}
-          >
-            {favoritesLoading ? 'Loading...' : 'Reload Favorites'}
-          </button>
-        </div>
-      )}
 
       <div className="case-tab-treelist-container">
         <TreeList
           dataSource={nodes}
           keyExpr="id"
           parentIdExpr="rootId"
-          rootValue={-1}           // topâ€level nodes have rootId = -1
+          rootValue={-1}           // top-level nodes have rootId = -1
           expandedRowKeys={expandedKeys}
           onExpandedRowKeysChange={onExpandedRowKeysChange}
           onSelectionChanged={onSelectionChanged}
@@ -455,155 +427,99 @@ const CaseTabContent: React.FC = () => {
           showBorders={false}
           columnAutoWidth={false}  // Disable auto width to control column sizes manually
           allowColumnResizing={true}  // Allow user to resize columns if needed
-          wordWrapEnabled={false}  // Disable word wrapping to keep rows compact
+          wordWrapEnabled={true}
           rowAlternationEnabled={true}  // Better visual separation for rows
           height={400}
-          noDataText="No documents found. Expand a case to load documents."
+          noDataText={!isReady ? '' : favoritesLoading ? translate('common:loading') : translate('noFavoriteCases')}
         >
         <Scrolling mode="standard" />  {/* Enable horizontal scrolling as fallback */}
         
-        {/* â€¦ Paging, Scrolling â€¦ */}
+        {/* … Paging, Scrolling … */}
       <Editing
         allowUpdating={false}
-        allowDeleting={allowDeleting}
+        allowDeleting={false}
         allowAdding={false}
         mode="row" />
+        {/* -- Main column: full folder/file tree (FIRST = gets expand arrows) -- */}
         <Column
           dataField="name"
-          caption="Name"
-          width="50%"  // Share space between name and description
-          minWidth={200}  // Minimum width to ensure readability
-          allowResizing={true}  // Allow user to resize the name column
-          cellRender={({ data }: { data: HierarchyTree }) => (
-            <div 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center',  // Center align for compact display
-                gap: 6,
-                padding: '2px 0',  // Minimal vertical padding
-                lineHeight: '1.2',  // Compact line height
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'  // Keep text on single line
-              }}
-              title={data.name}  // Show full name on hover
-            >
-              {/* Show loading icon for Akt folders when documents are being loaded */}
-              {data.isStructure && data.url.startsWith('akt:') && 
-               caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? (
-                <i
-                  className="dx-icon dx-icon-refresh"
-                  style={{ 
-                    flexShrink: 0,
-                    fontSize: '14px',
-                    animation: 'spin 1s linear infinite'
-                  }}
-                />
-              ) : (
-                <i
-                  className={
-                    data.isStructure
-                      ? 'dx-icon dx-icon-folder'
-                      : 'dx-icon dx-icon-file'
-                  }
-                  style={{ 
-                    flexShrink: 0,  // Prevent icon from shrinking
-                    fontSize: '14px'  // Smaller icon size
-                  }}
-                />
-              )}
-              <span style={{ 
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                opacity: data.isStructure && data.url.startsWith('akt:') && 
-                         caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? 0.7 : 1
-              }}>
-                {data.name}
-                {data.isStructure && data.url.startsWith('akt:') && 
-                 caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) && ' (Loading...)'}
-              </span>
-            </div>
-          )}
-        />
-        
-        <Column
-          dataField="causa"
-          caption="Description"
-          width="calc(50% - 140px)"  // Take remaining space minus fixed button column width
-          minWidth={150}  // Minimum width to ensure readability
+          caption={translate('columns.name')}
           allowResizing={true}
-          visible={true}
-          cellRender={({ data }: { data: HierarchyTree }) => (
-            <span 
-              style={{ 
-                fontSize: '11px',
-                color: '#666',
-                fontStyle: data.isStructure ? 'italic' : 'normal',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                lineHeight: '1.2'
-              }}
-              title={data.causa}
-            >
-              {data.causa || (data.isStructure ? 'Folder' : 'Document')}
-            </span>
-          )}
-        />
- 
- 
-      <Column 
-        type="buttons" 
-        width={140}  // Fixed width for buttons column (enough for 3 buttons)
-        minWidth={140}  // Minimum width to prevent shrinking
-        allowResizing={true}  // Prevent user from resizing this column
-        fixed={true}  // Keep buttons column fixed/visible
-        fixedPosition="right"  // Fix to the right side
-      > 
-        {/* Open/View button - for documents */}
-        <Button 
-          text="open"
-          hint="Open file"
-          onClick={({ row }) => handleOpen(row.data)}
-          visible={({ row }) => !row.data.isStructure}
+          cellRender={({ data }: { data: HierarchyTree }) => {
+            const isOpening = openingDocumentId !== null && openingDocumentId === data.documentId;
+            return (
+              <div
+                className="case-tab-cell-row"
+                title={data.name}
+              >
+                {/* Open icon — files only */}
+                {!data.isStructure && (
+                  <button
+                    className={`dx-button dx-button-large dx-button-mode-contained case-tab-cell-btn case-tab-cell-btn--open${isOpening ? ' opening loading-button' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); if (!isOpening) handleOpen(data); }}
+                    disabled={isOpening}
+                    title={isOpening ? translate('openingFile') : translate('openFile')}
+                  >
+                    <i className={`dx-icon dx-icon-${isOpening ? 'refresh' : 'export'} case-tab-cell-icon case-tab-cell-icon--lg case-tab-cell-icon--open${isOpening ? ' opening' : ''}`} />
+                  </button>
+                )}
+                {/* Add-as-attachment icon — compose mode + files only */}
+                {!data.isStructure && IsComposeMode() && (
+                  <button
+                    className="dx-button dx-button-normal dx-button-mode-contained case-tab-cell-btn case-tab-cell-btn--attach"
+                    onClick={(e) => { e.stopPropagation(); handleAdd(data); }}
+                    title={translate('addAsAttachment')}
+                  >
+                    <i className="dx-icon dx-icon-add case-tab-cell-icon case-tab-cell-icon--sm" />
+                  </button>
+                )}
+
+                {/* Folder / file icon */}
+                {data.isStructure && data.url.startsWith('akt:') &&
+                 caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? (
+                  <i className="dx-icon dx-icon-refresh case-tab-cell-icon case-tab-cell-icon--spin" />
+                ) : (
+                  <i
+                    className={`${data.isStructure ? 'dx-icon dx-icon-folder' : 'dx-icon dx-icon-file'} case-tab-cell-icon`}
+                  />
+                )}
+
+                {/* Name */}
+                <span className={`case-tab-cell-name${data.isStructure && data.url.startsWith('akt:') && caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) ? ' case-tab-cell-name--loading' : ''}`}>
+                  {data.name}
+                  {data.isStructure && data.url.startsWith('akt:') &&
+                   caseDocumentsLoading && loadingCaseDocumentsForAktId === parseInt(data.url.replace('akt:', '')) && ` (${translate('common:loading')})`}
+                </span>
+              </div>
+            );
+          }}
         />
 
-        {/* Add attachment button - for documents in compose mode */}
-        <Button 
-          icon="add"
-          hint="Add as attachment"
-          onClick={({ row }) => handleAdd(row.data)}
-          visible={({ row }) => IsComposeMode() && !row.data.isStructure}
-        />
-        
-        {/* Delete favorite button - only for top-level Akten */}
-        <Button
-          render={({ data }) => {
-            const aktId = data.id;
-            const isLoading = removeFromFavoriteLoading && removingFromFavoriteAktId === aktId;
+        {/* -- Right column: delete icon for root Akt nodes only ------ */}
+        <Column
+          width={40}
+          minWidth={40}
+          allowResizing={false}
+          fixed={true}
+          fixedPosition="right"
+          caption=""
+          cellRender={({ data }: { data: HierarchyTree }) => {
+            if (data.rootId !== -1) return null;
+            const isDeleting = removeFromFavoriteLoading && removingFromFavoriteAktId === data.id;
             return (
               <button
-                className={`dx-button dx-button-normal dx-button-mode-contained ${isLoading ? 'loading-button' : ''}`}
-                onClick={() => handleDelete(data)}
-                disabled={isLoading}
-                title={isLoading ? 'Removing from favorites...' : 'Remove from favorites'}
-                style={{
-                  backgroundColor: isLoading ? '#f5f5f5' : '#d32f2f',
-                  color: isLoading ? '#666' : 'white',
-                  border: 'none',
-                  borderRadius: '3px',
-                  padding: '4px 8px',
-                  cursor: isLoading ? 'not-allowed' : 'pointer'
-                }}
+                className={`dx-button dx-button-normal dx-button-mode-contained delete-favorite-btn${isDeleting ? ' loading-button' : ''}`}
+                onClick={(e) => { e.stopPropagation(); handleDelete(data); }}
+                disabled={isDeleting}
+                title={isDeleting ? translate('removingFromFavorites') : translate('removeFromFavorites')}
               >
-                <i className={`dx-icon dx-icon-${isLoading ? 'refresh' : 'trash'}`} />
+                <i className={`dx-icon dx-icon-${isDeleting ? 'refresh' : 'trash'} case-tab-cell-icon case-tab-cell-icon--sm`} />
               </button>
             );
           }}
-          visible={({ row }) => row.data.rootId === -1}
         />
-      </Column>
+
+
       </TreeList>
       </div>
     </div>

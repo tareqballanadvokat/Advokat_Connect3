@@ -1,8 +1,12 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { makeStyles } from "@fluentui/react-components";
+import { useTranslation } from 'react-i18next';
 import Tabs from './Tab';
-import { DEVEXPRESS_THEME, COMPACT} from '../../config';
-import { getWebRTCConnectionManager } from '../services/WebRTCConnectionManager';
+import { configService } from '@config';
+import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { toggleLogging, initializeLogging } from '@slices/loggingSlice';
+import { getLogger } from '@infra/logger';
 
 interface AppProps {
   title: string;
@@ -16,13 +20,56 @@ const useStyles = makeStyles({
 
 const App: React.FC<AppProps> = () => {
   const styles = useStyles();
+  const dispatch = useAppDispatch();
+  const loggingEnabled = useAppSelector((state) => state.logging.enabled);
+  const logger = getLogger();
+  const { t: translate } = useTranslation('common');
+ 
+  // Initialize logging from config
+  React.useEffect(() => {
+    const config = configService.getConfig();
+    dispatch(initializeLogging({
+      enabled: config.logging.enabled,
+      level: config.logging.level,
+    }));
+  }, [dispatch]);
+
+  // Keyboard shortcut: Ctrl+Shift+L to toggle logging
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+Shift+L
+      if (event.ctrlKey && event.shiftKey && event.key === 'L') {
+        event.preventDefault();
+        console.log('[App] Ctrl+Shift+L pressed - toggling logging. Current state:', loggingEnabled);
+        dispatch(toggleLogging());
+        
+        // Show notification with correct new state
+        const newState = !loggingEnabled;
+        console.log('[App] New logging state will be:', newState);
+        if (Office?.context?.mailbox?.item?.notificationMessages) {
+          Office.context.mailbox.item.notificationMessages.replaceAsync(
+            "LoggingToggleNotification",
+            {
+              type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
+              message: newState ? translate('logging.enabled') : translate('logging.disabled'),
+              icon: "Icon.80x80",
+              persistent: false,
+            }
+          );
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dispatch, loggingEnabled]);
  
   // Initialize WebRTC connection manager once at app level
   React.useEffect(() => {
-    console.log('🚀 App mounted - initializing WebRTC connection manager...');
+    logger.info('App', 'App mounted - initializing WebRTC connection manager...');
     const manager = getWebRTCConnectionManager();
     manager.initialize().catch(error => {
-      console.error('❌ Failed to initialize WebRTC connection:', error);
+      logger.error('App', 'Failed to initialize WebRTC connection', error);
     });
     
     let isDisconnected = false;
@@ -30,7 +77,7 @@ const App: React.FC<AppProps> = () => {
     // Handle window/tab close - disconnect gracefully
     const handleUnload = () => {
       if (!isDisconnected) {
-        console.log('🔴 Window closing - disconnecting WebRTC...');
+        logger.info('App', 'Window closing - disconnecting WebRTC...');
         isDisconnected = true;
         manager.disconnect();
       }
@@ -41,29 +88,32 @@ const App: React.FC<AppProps> = () => {
     // Cleanup when add-in closes
     return () => {
       if (!isDisconnected) {
-        console.log('🔴 App unmounting - disconnecting WebRTC...');
+        logger.info('App', 'App unmounting - disconnecting WebRTC...');
         isDisconnected = true;
         manager.disconnect();
       }
       window.removeEventListener('unload', handleUnload);
     };
-  }, []);
+  }, [logger]);
 
   const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
   React.useEffect(() => {
-    const path =  DEVEXPRESS_THEME+`${isDarkMode ? 'dark' : 'light'}${COMPACT}.css`;
+    const theme = configService.getConfig().theme;
+    const compact = theme.compact ? '.compact' : '';
+    const themePath = `${theme.name}${isDarkMode ? 'dark' : 'light'}${compact}.css`;
+    
     import(
-        `devextreme/dist/css/dx.${isDarkMode ? 'dark' : 'light'}.css`
+        `devextreme/dist/css/dx.${isDarkMode ? 'dark' : 'light'}${compact}.css`
     );
   }, [isDarkMode]);
 
 
   return (
     <div className={styles.root}>
-    <div> 
-       <Tabs />
-     </div>
+      <div> 
+        <Tabs />
+      </div>
     </div>
   );
 };

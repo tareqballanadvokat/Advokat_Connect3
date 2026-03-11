@@ -2,15 +2,21 @@ import React, { useState, useEffect } from 'react';
 import CheckBox from 'devextreme-react/check-box';
 import TextBox from 'devextreme-react/text-box';
 import SelectBox from 'devextreme-react/select-box';
-import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '../../../hooks/useOfficeItem'; 
-import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '../../interfaces/IDocument';
+import { useOfficeItem, getInternetMessageIdAsync, getEmailSubjectAsync, getEmailAttachments } from '@hooks/useOfficeItem'; 
+import { TransferAttachmentItem, DokumentResponse, DokumentArt } from '@interfaces/IDocument';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState, AppDispatch } from '../../../../store';
-import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEmailDocuments, selectEmailDocuments } from '../../../../store/slices/aktenSlice';
-import { setAttachmentSelected } from '../../../../store/slices/emailSlice';
+import { RootState, AppDispatch } from '@store';
+import { getAvailableFoldersAsync, clearFolders, getEmailDocumentsAsync, clearEmailDocuments, selectEmailDocuments } from '@slices/aktenSlice';
+import { setAttachmentSelected } from '@slices/emailSlice';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
+import './TransferAndAttachment.css';
+
+const logger = getLogger();
 
 const TransferAndAttachment: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const { t: translate } = useTranslation('email');
   const { 
     folderOptions, 
     foldersLoading, 
@@ -20,10 +26,39 @@ const TransferAndAttachment: React.FC = () => {
     emailDocumentsLoadedForAktId,
     selectedAkt 
   } = useSelector((state: RootState) => state.akten);
+  const attachmentSelected = useSelector((state: RootState) => state.email.attachmentSelected);
   
   const [items, setItems] = useState<TransferAttachmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+
+  /**
+   * Extract folder name from the document's file path by going backwards from filename
+   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Email\\Keine\\file.png ? "Email"
+   * Example: C:\\ADVOKAT\\Daten\\WINWORD\\ADVOKAT\\TEST\\Default\\MailEmpfangen\\file.eml ? "Default"
+   */
+  const extractFolderFromPath = (dateipfad: string | undefined): string => {
+    if (!dateipfad) return "Default";
+
+    const parts = dateipfad.split(/[\\/]/).filter(p => p.length > 0);
+    
+    if (parts.length < 2) return "Default";
+    
+    // DokumentArt subfolders that should be skipped
+    const dokumentArtFolders = ["MailEmpfangen", "MailGesendet", "Keine"];
+    
+    // Start from the end (filename is last) and go backwards
+    // Skip the filename itself (last element)
+    for (let i = parts.length - 2; i >= 0; i--) {
+      const folder = parts[i];
+      // Skip DokumentArt folders, return the first non-DokumentArt folder
+      if (!dokumentArtFolders.includes(folder)) {
+        return folder;
+      }
+    }
+    
+    return "Default";
+  };
 
   // Clear folders and errors ONLY when selectedAkt actually changes
   useEffect(() => {
@@ -34,7 +69,7 @@ const TransferAndAttachment: React.FC = () => {
         foldersLoadedForAktId !== currentAktId && 
         currentAktId != null && 
         currentAktId !== -1) {
-      console.log('Akt changed, clearing folders. Previous:', foldersLoadedForAktId, 'Current:', currentAktId);
+      logger.debug(`Akt changed, clearing folders. Previous: ${foldersLoadedForAktId}, Current: ${currentAktId}`, 'TransferAndAttachment');
       dispatch(clearFolders());
     }
   }, [selectedAkt?.id, foldersLoadedForAktId, dispatch]);
@@ -46,7 +81,7 @@ const TransferAndAttachment: React.FC = () => {
         foldersLoadedForAktId !== selectedAkt.id && // Only load if not already loaded for this Akt
         !foldersLoading && 
         !foldersError) { // Don't retry if there's already an error
-      console.log('Loading folders for case:', selectedAkt.id);
+      logger.debug('Loading folders for case: ' + selectedAkt.id, 'TransferAndAttachment');
       dispatch(getAvailableFoldersAsync(selectedAkt.id));
     }
   }, [selectedAkt?.id, foldersLoadedForAktId, foldersLoading, foldersError, dispatch]);
@@ -61,7 +96,7 @@ const TransferAndAttachment: React.FC = () => {
           emailDocumentsLoadedForAktId !== currentAktId && 
           currentAktId != null && 
           currentAktId !== -1) {
-        console.log('Akt changed, clearing email documents. Previous:', emailDocumentsLoadedForAktId, 'Current:', currentAktId);
+        logger.debug(`Akt changed, clearing email documents. Previous: ${emailDocumentsLoadedForAktId}, Current: ${currentAktId}`, 'TransferAndAttachment');
         dispatch(clearEmailDocuments());
       }
       
@@ -72,13 +107,13 @@ const TransferAndAttachment: React.FC = () => {
         try {
           const email = Office.context.mailbox.item;
           const messageId = await getInternetMessageIdAsync(email);
-          console.log('Loading documents for case:', currentAktId, 'and email:', messageId);
+          logger.debug(`Loading documents for case: ${currentAktId} and email: ${messageId}`, 'TransferAndAttachment');
           dispatch(getEmailDocumentsAsync({ 
             aktId: currentAktId, 
             outlookEmailId: messageId || undefined // Handle missing messageId gracefully
           }));
         } catch (error) {
-          console.error('Failed to get message ID for document loading:', error);
+          logger.error('Failed to get message ID for document loading:', 'TransferAndAttachment', error);
           // Still attempt to load documents without email ID
           dispatch(getEmailDocumentsAsync({ 
             aktId: currentAktId, 
@@ -122,15 +157,15 @@ const TransferAndAttachment: React.FC = () => {
 
         // Get messageId for email row
         const messageId = await getInternetMessageIdAsync(email);
-        console.log('📧 Current email messageId:', messageId);
-        console.log('📄 Saved documents:', savedDocuments);
+        logger.debug('Current email messageId: ' + messageId, 'TransferAndAttachment');
+        logger.debug(`Saved documents: ${savedDocuments.length} found`, 'TransferAndAttachment');
         
         // Find saved email document by matching outlookEmailId
         const savedEmailDoc = savedDocuments.find(doc => {
           // Check if this document has an outlookEmailId that matches the current email
           const hasMatchingId = doc.outlookEmailId && doc.outlookEmailId === messageId;
 
-          console.log(`🔍 Checking doc ${doc.id}: outlookEmailId=${doc.outlookEmailId},  matches=${hasMatchingId}`);
+          logger.debug(`Checking doc ${doc.id}: outlookEmailId=${doc.outlookEmailId}, matches=${hasMatchingId}`, 'TransferAndAttachment');
           
           return hasMatchingId;
         });
@@ -150,8 +185,16 @@ const TransferAndAttachment: React.FC = () => {
 
         // If email is already saved, mark it as disabled and readonly
         if (savedEmailDoc) {
-          newEmailRow.option = 1; // Default to first folder for now
-          newEmailRow.folderName = "Default"; // We'll need to map this from the folder structure
+          const folderName = extractFolderFromPath(savedEmailDoc.dateipfad);
+          logger.debug(`Extracted folder for email from path "${savedEmailDoc.dateipfad}": "${folderName}"`, 'TransferAndAttachment');
+          
+          // Find the matching folder option by name
+          const matchingFolder = folderOptions.find(f => f.text === folderName);
+          const optionId = matchingFolder?.id ?? folderOptions[0]?.id ?? 1;
+          logger.debug(`Matched folder "${folderName}" to option ID: ${optionId}`, 'TransferAndAttachment');
+          
+          newEmailRow.option = optionId;
+          newEmailRow.folderName = folderName;
           newEmailRow.label = savedEmailDoc.betreff || emailSubject;
           newEmailRow.checked = true;
           newEmailRow.readonly = true;
@@ -164,7 +207,10 @@ const TransferAndAttachment: React.FC = () => {
           // Match by outlookEmailId (email context) and attachment name
           const savedAttachmentDoc = savedDocuments.find(doc => {
             // Must be a file attachment (not an email)
-            const isAttachment = doc.dokumentArt === DokumentArt.Keine;
+            // Handle both string and numeric enum values from server
+            const isAttachment = doc.dokumentArt === DokumentArt.Keine || 
+                               doc.dokumentArt === "Keine" || 
+                               (doc.dokumentArt as any) === 0;
             // Must belong to the same email (via outlookEmailId)
             const belongsToThisEmail = doc.outlookEmailId && doc.outlookEmailId === messageId;
             // Must match the attachment name
@@ -172,7 +218,7 @@ const TransferAndAttachment: React.FC = () => {
                                doc.betreff?.includes(att.name) || 
                                doc.fileName?.includes(att.name);
             
-            console.log(`🔍 Checking attachment "${att.name}" against doc ${doc.id}: isAttachment=${isAttachment}, belongsToThisEmail=${belongsToThisEmail}, nameMatches=${nameMatches}`);
+            logger.debug(`Checking attachment "${att.name}" against doc ${doc.id}: isAttachment=${isAttachment}, belongsToThisEmail=${belongsToThisEmail}, nameMatches=${nameMatches}`, 'TransferAndAttachment');
             
             return isAttachment && belongsToThisEmail && nameMatches;
           });
@@ -192,8 +238,16 @@ const TransferAndAttachment: React.FC = () => {
 
           // If attachment is already saved, mark it as disabled and readonly
           if (savedAttachmentDoc) {
-            attachmentItem.option = 1; // Default to first folder for now
-            attachmentItem.folderName = "Default"; // We'll need to map this from the folder structure
+            const folderName = extractFolderFromPath(savedAttachmentDoc.dateipfad);
+            logger.debug(`Extracted folder for attachment "${att.name}" from path "${savedAttachmentDoc.dateipfad}": "${folderName}"`, 'TransferAndAttachment');
+            
+            // Find the matching folder option by name
+            const matchingFolder = folderOptions.find(f => f.text === folderName);
+            const optionId = matchingFolder?.id ?? folderOptions[0]?.id ?? 1;
+            logger.debug(`Matched folder "${folderName}" to option ID: ${optionId}`, 'TransferAndAttachment');
+            
+            attachmentItem.option = optionId;
+            attachmentItem.folderName = folderName;
             attachmentItem.label = savedAttachmentDoc.betreff || att.name;
             attachmentItem.checked = true;
             attachmentItem.readonly = true;
@@ -207,16 +261,33 @@ const TransferAndAttachment: React.FC = () => {
         const allRows: TransferAttachmentItem[] = [newEmailRow, ...attachmentItems];
         setItems(allRows);
       } catch (e: any) {
-        console.error(e);
-        setError(e.message || 'Unknown error');
+        logger.error('Error loading transfer items:', 'TransferAndAttachment', e);
+        setError(e.message || translate('unknownError', { ns: 'common' }));
       } finally {
         setLoading(false);
       }
     })();
   }, [selectedAkt?.id, emailDocumentsLoadedForAktId, emailDocuments]);
 
-  if (loading) return <div>Loading…</div>;
-  if (error)   return <div style={{ color: 'red' }}>Error: {error}</div>;
+  // Sync disabled/readonly state from Redux back to local items.
+  // Fires when EmailTabContent marks transferred items as disabled after a successful save.
+  useEffect(() => {
+    setItems(prev => {
+      let changed = false;
+      const next = prev.map(item => {
+        const reduxItem = attachmentSelected.find(i => i.id === item.id);
+        if (reduxItem?.disabled && !item.disabled) {
+          changed = true;
+          return { ...item, disabled: true, readonly: true, checked: true };
+        }
+        return item;
+      });
+      return changed ? next : prev;
+    });
+  }, [attachmentSelected]);
+
+  if (loading) return <div>{translate('loading', { ns: 'common' })}</div>;
+  if (error)   return <div className="transfer-attachment-error">{translate('errorPrefix', { ns: 'common' })}: {error}</div>;
 
   const updateItem = (id: string, changes: Partial<TransferAttachmentItem>) => {
  
@@ -230,12 +301,12 @@ const TransferAndAttachment: React.FC = () => {
 
   return (
     <div>
-      <h3>Transfer e-mail and attachments</h3>
+      <h3>{translate('transferEmailAndAttachments')}</h3>
 
       {items.map(item => (
         <div
           key={item.id}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}
+          className="transfer-attachment-item"
         >
           <CheckBox
             value={item.checked}
