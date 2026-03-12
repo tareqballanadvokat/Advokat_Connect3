@@ -50,11 +50,12 @@ const logger = getLogger();
  *                              ↓
  * ┌────────────────────────────────────────────────────────────────────┐
  * │ CONNECTION BYE Received from server/peer:                         │
- * │   → Cancel CONNECTION_TIMEOUT                                     │
- * │   → Check PeerRegistrationTimeout remaining time                  │
- * │   → If time remaining > 0: Reset to WAITING_NOTIFY_4              │
- * │   → If time exhausted: Mark as FAILED                             │
- * │   → Respond with CONNECTION BYE (per protocol)                    │
+ * │   → If state = WAITING_NOTIFY_4: IGNORE — server resends NOTIFY4  │
+ * │   → Otherwise: Cancel CONNECTION_TIMEOUT                          │
+ * │       → Check PeerRegistrationTimeout remaining time              │
+ * │       → If time remaining > 0: Reset to WAITING_NOTIFY_4 (retry)  │
+ * │       → If time exhausted: Mark as FAILED                         │
+ * │       → Respond with CONNECTION BYE (per protocol)                │
  * └────────────────────────────────────────────────────────────────────┘
  *
  * ERROR HANDLING:
@@ -114,7 +115,7 @@ export class EstablishingConnection {
 
   public sipUri: string;
   public tag = "";
-  private callId = "";
+  public callId = "";
   public isConnectionEstablished = false;
   private branch = "";
   private fromDisplayName: string;
@@ -508,6 +509,17 @@ export class EstablishingConnection {
    */
   private handleConnectionBye(data: string): string {
     logger.debug("Received CONNECTION BYE from server/peer", "EstablishingConnection");
+
+    // If we are still waiting for NOTIFY4 (never acknowledged it), the server's BYE is its
+    // reaction to our silence — it will resend NOTIFY4.  Do NOT fail; just keep waiting until
+    // PEER_REGISTRATION_TIMEOUT expires.
+    if (this.connectionState === ConnectionState.WAITING_NOTIFY_4) {
+      logger.debug(
+        "CONNECTION BYE received in WAITING_NOTIFY_4 state - ignoring, server will resend NOTIFY4",
+        "EstablishingConnection"
+      );
+      return "";
+    }
 
     this.lastByeReceived = new Date().toISOString();
     this.cancelConnectionTimeout();

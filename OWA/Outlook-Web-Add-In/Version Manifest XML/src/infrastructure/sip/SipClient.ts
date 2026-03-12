@@ -144,6 +144,7 @@ const REGEX_SERVICE = /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
 const REGEX_CSEQ = /CSeq:\s*(\d+)/;
 const REGEX_CALL_ID = /^Call-ID:\s*([^\r\n]+)/m;
 const REGEX_FROM_LINE = /^From:.*$/m;
+const REGEX_TO_TAG = /^To:.*?;tag=([^\s;>\r\n]+)/m;
 
 /**
  * Configuration interface for SIP client initialization
@@ -187,6 +188,27 @@ function logWithPrefix(message: string): void {
 function extractCallId(message: string): string {
   const match = message.match(REGEX_CALL_ID);
   return match ? match[1] : "";
+}
+
+/**
+ * Validate that an incoming BYE belongs to the given active session.
+ * Checks both Call-ID and the To-tag (our local tag) so that stale BYEs
+ * from a previous session are silently dropped before any side effects occur.
+ * @param message  - Raw SIP BYE message
+ * @param callId   - Active session Call-ID
+ * @param localTag - Our local tag (To-tag in server-initiated BYEs)
+ * @returns true if the BYE matches the active session, false if it is stale
+ */
+function isByeForSession(message: string, callId: string, localTag: string): boolean {
+  const msgCallId = extractCallId(message);
+  if (msgCallId && msgCallId !== callId) {
+    return false;
+  }
+  const toTagMatch = message.match(REGEX_TO_TAG);
+  if (toTagMatch && localTag && toTagMatch[1] !== localTag) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -273,20 +295,26 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
    * - Not in an active connection phase (must allow connection to complete/fail)
    */
   function canRetryRegistration(): boolean {
-    return (
-      registrationRetryCount < maxRetries &&
-      !isRegistered() &&
-      !isRegistering() &&
-      !isConnecting() &&
-      !isConnected()
+    const withinRetryLimit = registrationRetryCount < maxRetries;
+    const notRegistered    = !isRegistered();
+    const notRegistering   = !isRegistering();
+    const notConnecting    = !isConnecting();
+    const notConnected     = !isConnected();
+    const result = withinRetryLimit && notRegistered && notRegistering && notConnecting && notConnected;
+    logWithPrefix(
+      `canRetryRegistration → ${result} | ` +
+      `retryCount=${registrationRetryCount}/${maxRetries} ` +
+      `withinLimit=${withinRetryLimit} notRegistered=${notRegistered} ` +
+      `notRegistering=${notRegistering} notConnecting=${notConnecting} notConnected=${notConnected}`
     );
+    return result;
   }
 
   /**
    * Check if connection retry is allowed
    */
   function canRetryConnection(): boolean {
-    return connectionRetryCount < maxRetries && isRegistered() && !isConnecting() && !isConnected();
+    return connectionRetryCount < maxRetries && isRegistered() && !isConnected();
   }
 
   /**
@@ -560,13 +588,14 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         logWithPrefix(
           "❌ Connection retry limit reached or peer timeout expired or I received a Registration BYE so I am not registered anymore"
         );
+        // Transition and reset BEFORE canRetryRegistration() so !isConnecting() and !isRegistered() are true
         transitionClientState(SipClientState.FAILED, "Connection retry exhausted");
+        resetForNewRegistration();
 
         if (canRetryRegistration()) {
           registrationRetryCount++;
           logWithPrefix(`🔄 Restarting registration (${registrationRetryCount}/${maxRetries})`);
-          resetForNewRegistration();
-
+          // resetForNewRegistration() already called above — do NOT call again here
           const retryMsg = registrationObj.getInitialRegistration();
           sendMessage(retryMsg, "REGISTER (after connection failure)");
           transitionClientState(
@@ -722,10 +751,10 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
   function handlePeerRegistrationTimeout(): void {
     logWithPrefix("⏱️ PEER_REGISTRATION_TIMEOUT expired");
 
-    // Check if still connecting - if so, wait for it to finish
+    // Skip if the connection phase is already failing/terminating (already being handled)
     const connState = establishingConnectionObject.getState();
-    if (connState !== ConnectionState.FAILED && connState !== ConnectionState.TERMINATING) {
-      logWithPrefix("⏱️ Still in active connection state - will wait for completion");
+    if (connState === ConnectionState.FAILED || connState === ConnectionState.TERMINATING) {
+      logWithPrefix("⚠️ Connection already FAILED/TERMINATING - skipping duplicate timeout handling");
       return;
     }
 
@@ -733,10 +762,16 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
     const byeMessage = registrationObj.createRegistrationBye(CSEQ_BYE_PEER_TIMEOUT);
     sendMessage(byeMessage, "REGISTRATION BYE (peer timeout)");
 
+    // Transition and reset BEFORE calling canRetryRegistration(), because that check
+    // requires !isRegistered() and !isConnecting() — both of which are false here
+    // unless we clear the state first.
+    transitionClientState(SipClientState.FAILED, "Peer registration timeout");
+    resetForNewRegistration();
+
     if (canRetryRegistration()) {
       registrationRetryCount++;
       logWithPrefix(`🔄 Retrying registration (${registrationRetryCount}/${maxRetries})`);
-      resetForNewRegistration();
+      // resetForNewRegistration() already called above — do NOT call again here
       const retryMsg = registrationObj.getInitialRegistration();
       sendMessage(retryMsg, "REGISTER (peer timeout retry)");
       transitionClientState(SipClientState.REGISTERING, "Retry after peer timeout");
@@ -782,9 +817,18 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
       if (isByeMessage) {
         const cseqMatch = data.match(REGEX_CSEQ);
         const incomingCSeq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
+        const incomingCallId = extractCallId(data);
 
         // Check Reason header to determine BYE type
         if (REGEX_REASON_REGISTRATION.test(data)) {
+          // Stale session check: drop BYE if Call-ID or To-tag don't match the active registration
+          if (!isByeForSession(data, registrationObj.callId, registrationObj.tag)) {
+            logWithPrefix(
+              `🗑️ REGISTRATION BYE ignored - stale session (Call-ID: ${incomingCallId}, current: ${registrationObj.callId})`
+            );
+            return;
+          }
+
           // REGISTRATION BYE - route to Registration phase
           // Loop prevention: Check if this is a response to our REGISTRATION BYE
           const lastSentCSeq = registrationObj.lastSentRegistrationByeCSeq;
@@ -807,6 +851,14 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
           }
           return; // Don't process further - REGISTRATION BYE handled
         } else if (REGEX_REASON_CONNECTION.test(data)) {
+          // Stale session check: drop BYE if Call-ID or To-tag don't match the active connection
+          if (!isByeForSession(data, establishingConnectionObject.callId, establishingConnectionObject.tag)) {
+            logWithPrefix(
+              `🗑️ CONNECTION BYE ignored - stale session (Call-ID: ${incomingCallId}, current: ${establishingConnectionObject.callId})`
+            );
+            return;
+          }
+
           // CONNECTION BYE - route to Connection phase
           logWithPrefix(`📥 CONNECTION BYE received (CSeq: ${incomingCSeq})`);
           const connRequest = establishingConnectionObject.parseMessage(data);
