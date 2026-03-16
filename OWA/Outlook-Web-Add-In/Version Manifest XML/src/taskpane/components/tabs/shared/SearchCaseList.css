@@ -30,10 +30,8 @@
 }
 
 /* Highlight the selected row with a left accent border */
-.dx-datagrid-rowsview .dx-data-row.selected-akt-row > td:first-of-type {
-  border-left: 3px solid #0078d4;
-}
-
-.dx-datagrid-rowsview .dx-data-row.selected-akt-row {
-  font-weight: 600;
+.dx-datagrid-rowsview .dx-data-row.dx-selection > td:first-of-type,
+.dx-datagrid-rowsview .dx-data-row.dx-selection.dx-row-focused > td:first-of-type,
+.dx-datagrid-rowsview .dx-data-row.dx-selection:hover > td:first-of-type {
+  border-left: 4px solid #0078d4 !important;
 }

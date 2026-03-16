@@ -1,4 +1,4 @@
-// src/taskpane/components/tabs/email/SearchCaseList.tsx
+﻿// src/taskpane/components/tabs/email/SearchCaseList.tsx
 import React, { useState, useEffect } from 'react';
 import './SearchCaseList.css';
 import './shared.css';
@@ -110,7 +110,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
       <DataGrid
         className="compact-grid"
         dataSource={cases}
-        keyExpr="id"               
+        keyExpr="id"
         showBorders={false}
         visible={!loading}
         showColumnLines={false}
@@ -118,15 +118,7 @@ const SearchCaseList: React.FC<SearchProps> = ({ onCaseSelect }) => {
         columnAutoWidth={true}
         rowAlternationEnabled={false}
         noDataText={loading ? translate('common:loading') : hasSearched ? translate('common:noResultsFound') : translate('searchCases')}
-        onRowPrepared={e => {
-          if (e.rowType === 'data') {
-            if (e.data?.id === selectedAkt?.id) {
-              e.rowElement.classList.add('selected-akt-row');
-            } else {
-              e.rowElement.classList.remove('selected-akt-row');
-            }
-          }
-        }}
+        selectedRowKeys={selectedAkt ? [selectedAkt.id] : []}
       >
         <Paging defaultPageSize={5} />
         <Pager
