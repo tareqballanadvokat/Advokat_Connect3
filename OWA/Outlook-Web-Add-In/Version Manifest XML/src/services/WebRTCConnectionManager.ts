@@ -81,7 +81,10 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
   // Timers
   private reconnectTimer: NodeJS.Timeout | null = null;
-  private waitForConnectionTimer: NodeJS.Timeout | null = null;
+
+  // Pending waitForFullConnection promise callbacks (state-change driven, no polling timer)
+  private _connectionResolve: (() => void) | null = null;
+  private _connectionReject: ((err: Error) => void) | null = null;
 
   // Idle monitoring
   private idleMonitor: IdleActivityMonitor | null = null;
@@ -106,29 +109,34 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
     store.dispatch(sipClientStateChanged(newState));
 
-    if (newState === SipClientState.FAILED_PERMANENTLY) {
-      // FAILED_PERMANENTLY indicates SipClient exhausted all its internal retries
-      // WebRTCConnectionManager should handle higher-level reconnection by creating new SipClient
+    if (newState === SipClientState.CONNECTED) {
+      // Successfully connected - resolve any pending waitForFullConnection promise first,
+      // then update Redux. handlePermanentFailure is NOT called here.
+      this.logger.info("ConnectionManager", "CONNECTED state detected");
+      this._resolvePendingConnection();
+      this.updateConnectionState({
+        reconnectAttempts: 0,
+        lastError: undefined,
+      });
+    } else if (newState === SipClientState.FAILED_PERMANENTLY) {
+      // Reject the pending promise BEFORE handlePermanentFailure() sets isReconnecting=true.
+      // That flag will block handleConnectionError() from scheduling a duplicate reconnect
+      // once connect()'s catch block runs as a microtask.
       this.logger.info(
         "ConnectionManager",
         "FAILED_PERMANENTLY state detected - will attempt full reconnection"
       );
+      this._rejectPendingConnection(new Error(`Connection failed permanently: ${reason}`));
       this.handlePermanentFailure(reason);
     } else if (newState === SipClientState.DISCONNECTED) {
-      // DISCONNECTED indicates deliberate disconnect - do not reconnect
+      // DISCONNECTED indicates deliberate disconnect - reject any pending promise and do not reconnect
       this.logger.info(
         "ConnectionManager",
         "DISCONNECTED state detected - no automatic reconnection"
       );
+      this._rejectPendingConnection(new Error(`Connection disconnected: ${reason}`));
       this.updateConnectionState({
         reconnectAttempts: 0,
-      });
-    } else if (newState === SipClientState.CONNECTED) {
-      // Successfully connected - reset reconnect attempts
-      this.logger.info("ConnectionManager", "CONNECTED state detected");
-      this.updateConnectionState({
-        reconnectAttempts: 0,
-        lastError: undefined,
       });
     }
   }
@@ -200,8 +208,12 @@ export class WebRTCConnectionManager implements SipClientObserver {
         webRTCApiService.initialize(this.sipClient);
       }
 
-      // Wait for full connection establishment
-      await this.waitForFullConnection();
+      // Suspend until onSipClientStateChanged resolves (CONNECTED) or rejects
+      // (FAILED_PERMANENTLY / DISCONNECTED / clearAllTimers called by disconnect())
+      await new Promise<void>((resolve, reject) => {
+        this._connectionResolve = resolve;
+        this._connectionReject = reject;
+      });
 
       // Automatically authenticate after connection is established
       await this.performAuthentication();
@@ -512,56 +524,6 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
   // Private methods
 
-  private async waitForFullConnection(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const maxWaitTime = 30000; // 30 seconds max wait time
-      const checkInterval = 500;
-      let elapsedTime = 0;
-
-      // Terminal SipClient states where connection can never succeed
-      const terminalStates = [
-        SipClientState.FAILED_PERMANENTLY,
-        SipClientState.DISCONNECTED,
-      ];
-
-      // Use setInterval instead of recursive setTimeout
-      this.waitForConnectionTimer = setInterval(() => {
-        if (elapsedTime >= maxWaitTime) {
-          this.clearWaitForConnectionTimer();
-          reject(new Error("Connection timeout"));
-          return;
-        }
-
-        if (!this.sipClient) {
-          elapsedTime += checkInterval;
-          return;
-        }
-
-        const sipState = this.sipClient.getState();
-
-        // Abort immediately if SipClient reached a terminal state
-        if (terminalStates.includes(sipState)) {
-          this.clearWaitForConnectionTimer();
-          reject(new Error(`Connection failed: SipClient entered terminal state ${sipState}`));
-          return;
-        }
-
-        // Check if SipClient is in CONNECTED or CONNECTING_P2P state AND both channels are open
-        const isFullyConnected = !!(
-          (sipState === SipClientState.CONNECTED || sipState === SipClientState.CONNECTING_P2P) &&
-          WebRTCDataChannelService.getInstance().isReadyForCommunication
-        );
-
-        if (isFullyConnected) {
-          this.clearWaitForConnectionTimer();
-          resolve();
-        } else {
-          elapsedTime += checkInterval;
-        }
-      }, checkInterval);
-    });
-  }
-
   private handleConnectionError(error: any): void {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -737,16 +699,26 @@ export class WebRTCConnectionManager implements SipClientObserver {
     }
   }
 
-  private clearWaitForConnectionTimer(): void {
-    if (this.waitForConnectionTimer) {
-      clearInterval(this.waitForConnectionTimer);
-      this.waitForConnectionTimer = null;
-    }
+  /** Resolve the pending waitForFullConnection promise, if any. */
+  private _resolvePendingConnection(): void {
+    const resolve = this._connectionResolve;
+    this._connectionResolve = null;
+    this._connectionReject = null;
+    resolve?.();
+  }
+
+  /** Reject the pending waitForFullConnection promise, if any. Idempotent. */
+  private _rejectPendingConnection(err: Error): void {
+    const reject = this._connectionReject;
+    this._connectionResolve = null;
+    this._connectionReject = null;
+    reject?.(err);
   }
 
   private clearAllTimers(): void {
     this.clearReconnectTimer();
-    this.clearWaitForConnectionTimer();
+    // Reject any pending waitForFullConnection so connect() unblocks on explicit teardown
+    this._rejectPendingConnection(new Error("Connection aborted: timers cleared"));
   }
 
   private updateConnectionState(updates: Partial<ConnectionState>): void {

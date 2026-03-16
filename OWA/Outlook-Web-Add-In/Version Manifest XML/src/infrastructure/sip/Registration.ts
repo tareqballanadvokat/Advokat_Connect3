@@ -347,7 +347,6 @@ export class Registration {
     this.isRegistered = false;
     this.lastByeReceived = null;
     this.lastSentRegistrationByeCSeq = 0;
-    this.testIncrem = 1; // Reset test counter for new registration attempt
 
     this.generateSessionIds();
 
