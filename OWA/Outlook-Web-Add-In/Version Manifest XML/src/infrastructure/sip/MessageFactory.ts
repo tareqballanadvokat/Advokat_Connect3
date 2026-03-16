@@ -198,6 +198,7 @@ export class MessageFactory {
       `BYE message created (Type: ${params.reasonType || "standard"})`,
       "MessageFactory"
     );
+    logger.debug(`Bye Message - ${byeMessage}`, "MessageFactory");
     return byeMessage;
   }
 

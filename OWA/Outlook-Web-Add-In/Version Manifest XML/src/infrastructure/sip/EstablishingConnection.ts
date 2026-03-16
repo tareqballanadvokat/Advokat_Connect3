@@ -102,7 +102,7 @@ export enum ConnectionState {
 
 export class EstablishingConnection {
   private static readonly REGEX_CALL_ID = /^Call-ID:\s*([^\r\n]+)/m;
-  private static readonly REGEX_TO_LINE = /^To:.*$/m;
+  private static readonly REGEX_TO_TAG = /^To:.*?;tag=([^\s;>\r\n]+)/m;  private static readonly REGEX_FROM_TAG = /^From:.*?;tag=([^\ s;>\r\n]+)/m;  private static readonly REGEX_TO_LINE = /^To:.*$/m;
   private static readonly REGEX_FROM_LINE = /^From:.*$/m;
   private static readonly REGEX_CSEQ = /CSeq:\s*(\d+)/;
 
@@ -115,6 +115,7 @@ export class EstablishingConnection {
 
   public sipUri: string;
   public tag = "";
+  public toTag = "";
   public callId = "";
   public isConnectionEstablished = false;
   private branch = "";
@@ -317,13 +318,29 @@ export class EstablishingConnection {
   private handleNotify4(data: string): string | undefined {
     logger.info("NOTIFY4 RECEIVED - Connection phase starting", "EstablishingConnection");
 
-    // Extract and update Call-ID from NOTIFY4 (overwrites registration Call-ID)
+    // Extract and update Call-ID and To-tag from NOTIFY4 (overwrites registration values)
     const callIdMatch = data.match(EstablishingConnection.REGEX_CALL_ID);
     if (callIdMatch) {
       this.callId = callIdMatch[1];
       logger.debug(`Updated Call-ID from NOTIFY4: ${this.callId}`, "EstablishingConnection");
     } else {
       logger.warn("WARNING: NOTIFY4 missing Call-ID header", "EstablishingConnection");
+    }
+
+    const toTagMatch = data.match(EstablishingConnection.REGEX_TO_TAG);
+    if (toTagMatch) {
+      this.tag = toTagMatch[1];
+      logger.debug(`Updated fromTag from NOTIFY4 To-header: ${this.tag}`, "EstablishingConnection");
+    } else {
+      logger.warn("WARNING: NOTIFY4 To-header missing tag", "EstablishingConnection");
+    }
+
+    const fromTagMatch = data.match(EstablishingConnection.REGEX_FROM_TAG);
+    if (fromTagMatch) {
+      this.toTag = fromTagMatch[1];
+      logger.debug(`Updated toTag from NOTIFY4 From-header: ${this.toTag}`, "EstablishingConnection");
+    } else {
+      logger.warn("WARNING: NOTIFY4 From-header missing tag", "EstablishingConnection");
     }
 
     // Mark CSeq 4 as processed
@@ -566,6 +583,7 @@ export class EstablishingConnection {
       branch: this.branch,
       callId: this.callId,
       tag: this.tag,
+      toTag: this.toTag,
       cseq: cseqNum,
       toDisplayName: this.toDisplayName,
       fromDisplayName: this.fromDisplayName,
@@ -574,6 +592,11 @@ export class EstablishingConnection {
     });
 
     logger.debug(`Created CONNECTION BYE - ${reason || "no reason"}`, "EstablishingConnection");
+    logger.debug(`callId - ${this.callId}`, "EstablishingConnection");
+    logger.debug(`fromTag - ${this.tag}`, "EstablishingConnection");
+    logger.debug(`toTag - ${this.toTag}`, "EstablishingConnection");
+    logger.debug(`toDisplayName - ${this.toDisplayName}`, "EstablishingConnection");
+    logger.debug(`fromDisplayName - ${this.fromDisplayName}`, "EstablishingConnection");
     return byeMessage;
   }
 
@@ -622,6 +645,7 @@ export class EstablishingConnection {
     // Clear session tracking
     this.processedCSeqs.clear();
     this.lastSentConnectionByeCSeq = 0;
+    this.toTag = "";
     // Note: testSkipAck5 is NOT reset here - we want to send ACK5 on retry
 
     this.transitionTo(ConnectionState.WAITING_NOTIFY_4, "reset for retry");

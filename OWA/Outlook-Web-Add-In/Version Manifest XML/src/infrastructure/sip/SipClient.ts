@@ -854,7 +854,7 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
           // Stale session check: drop BYE if Call-ID or To-tag don't match the active connection
           if (!isByeForSession(data, establishingConnectionObject.callId, establishingConnectionObject.tag)) {
             logWithPrefix(
-              `🗑️ CONNECTION BYE ignored - stale session (Call-ID: ${incomingCallId}, current: ${establishingConnectionObject.callId})`
+              `🗑️ CONNECTION BYE ignored - The CallId was not received in Notify 4, and therefore was not updated on the client side, so we are comparin it to the Registration CallId - stale session (Call-ID: ${incomingCallId}, current: ${establishingConnectionObject.callId})`
             );
             return;
           }
