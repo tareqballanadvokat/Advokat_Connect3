@@ -4,7 +4,7 @@ import { getLogger } from '@infra/logger';
 
 const logger = getLogger();
 
-// Typ dla zalaczników
+// Typ dla zalacznikï¿½w
 export interface AttachmentInfo {
   id: string;
   name: string;
@@ -41,18 +41,15 @@ export function getEmailSubjectAsync(): Promise<string> {
   });
 }
 
-/** Gets Message-ID from headers */
+/** Gets Message-ID from item property (available since Mailbox 1.1 in read mode) */
 function getInternetMessageId(item: OfficeItem): Promise<string> {
   return new Promise((resolve, reject) => {
-    item.getAllInternetHeadersAsync(res => {
-      if (res.status === Office.AsyncResultStatus.Succeeded) {
-        const match = (res.value as string).match(/Message-ID:\s*(.+)/i);
-        if (match) resolve(match[1].trim());
-        else reject(new Error('No Message-ID header found.'));
-      } else {
-        reject(new Error(res.error.message));
-      }
-    });
+    const msgId = (item as any).internetMessageId as string | undefined;
+    if (msgId) {
+      resolve(msgId.replace(/^<|>$/g, ''));
+    } else {
+      reject(new Error('internetMessageId not available on this item.'));
+    }
   });
 }
 
@@ -62,19 +59,31 @@ export function getInternetMessageIdAsync(item: any): Promise<string> {
     logger.debug('getInternetMessageIdAsync - isCompose: ' + isCompose, 'useOfficeItem');
 
     if (isCompose) {
-      // Compose mode – use itemId as temporary unique identifier
+      // Compose mode: getItemIdAsync requires Mailbox 1.8; use it if available, else generate a session-scoped ID
       logger.debug('In compose mode, getting itemId...', 'useOfficeItem');
-      item.getItemIdAsync((res: Office.AsyncResult<string>) => {
-        if (res.status === Office.AsyncResultStatus.Succeeded) {
-          logger.debug('Compose mode itemId: ' + res.value, 'useOfficeItem');
-          resolve(res.value);
-        } else {
-          logger.error('Failed to get itemId in compose mode: ' + res.error.message, 'useOfficeItem');
-          reject(new Error("Failed to get itemId in compose mode: " + res.error.message));
+      if (typeof item.getItemIdAsync === 'function') {
+        item.getItemIdAsync((res: Office.AsyncResult<string>) => {
+          if (res.status === Office.AsyncResultStatus.Succeeded) {
+            logger.debug('Compose mode itemId: ' + res.value, 'useOfficeItem');
+            resolve(res.value);
+          } else {
+            logger.error('Failed to get itemId in compose mode: ' + res.error.message, 'useOfficeItem');
+            reject(new Error("Failed to get itemId in compose mode: " + res.error.message));
+          }
+        });
+      } else {
+        // Mailbox < 1.8 fallback: generate a stable temporary ID for this compose session
+        const storageKey = 'advokat_compose_temp_id';
+        let tempId = sessionStorage.getItem(storageKey);
+        if (!tempId) {
+          tempId = 'compose-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11);
+          sessionStorage.setItem(storageKey, tempId);
         }
-      });
+        logger.debug('Compose mode fallback tempId: ' + tempId, 'useOfficeItem');
+        resolve(tempId);
+      }
     } else {
-      // Read mode – use the internetMessageId property directly
+      // Read mode ï¿½ use the internetMessageId property directly
       logger.debug('In read mode, getting internetMessageId property...', 'useOfficeItem');
       
       // Check if internetMessageId property is available (it's synchronous in read mode)
@@ -85,35 +94,15 @@ export function getInternetMessageIdAsync(item: any): Promise<string> {
         logger.debug('internetMessageId from property: ' + messageId, 'useOfficeItem');
         resolve(messageId);
       } else {
-        // Fallback to parsing headers if internetMessageId is not available
-        logger.warn('internetMessageId property not available, falling back to headers...', 'useOfficeItem');
-        item.getAllInternetHeadersAsync((res: Office.AsyncResult<string>) => {
-          if (res.status === Office.AsyncResultStatus.Succeeded) {
-            logger.debug('Raw headers received (first 500 chars): ' + res.value.substring(0, 500), 'useOfficeItem');
-            // Match Message-ID header value, stopping at newline or carriage return
-            const match = res.value.match(/Message-ID:\s*([^\r\n]+)/i);
-            if (match) {
-              logger.debug('Message-ID matched from headers: ' + match[1], 'useOfficeItem');
-              // Remove angle brackets if present
-              let messageId = match[1].trim();
-              messageId = messageId.replace(/^<|>$/g, '');
-              logger.debug('Final messageId (after cleanup): ' + messageId, 'useOfficeItem');
-              resolve(messageId);
-            } else {
-              logger.error('Missing Message-ID header', 'useOfficeItem');
-              reject(new Error("Missing Message-ID header."));
-            }
-          } else {
-            logger.error('Error downloading headers: ' + res.error.message, 'useOfficeItem');
-            reject(new Error("Error downloading headers: " + res.error.message));
-          }
-        });
+        // internetMessageId is available since Mailbox 1.1 in read mode; if absent the environment is unsupported
+        logger.error('internetMessageId property not available â€” Outlook version may be too old.', 'useOfficeItem');
+        reject(new Error('internetMessageId is not available on this item.'));
       }
     }
   });
 }
 
-/** Zwraca liste {id,name} dla wszystkich zalaczników */
+/** Zwraca liste {id,name} dla wszystkich zalacznikï¿½w */
 export function getEmailAttachments(item: OfficeItem): Promise<AttachmentInfo[]> {
   return new Promise(resolve => {
     // attachments jest od razu dostepne w obu trybach
@@ -125,7 +114,7 @@ export function getEmailAttachments(item: OfficeItem): Promise<AttachmentInfo[]>
   });
 }
 
-/** Zwraca liste {id,name} dla wszystkich zalaczników */
+/** Zwraca liste {id,name} dla wszystkich zalacznikï¿½w */
 export function getEmailAttachmentData(id: string): Promise<string> {
       return new Promise((resolve) => {
         Office.context.mailbox.item.getAttachmentContentAsync(id, (res) => {
@@ -136,11 +125,10 @@ export function getEmailAttachmentData(id: string): Promise<string> {
     });
 }
 
-/** Pobiera cialo e-maila jako plik/text (lub cokolwiek zwraca API) */
-export function getEmailContentAsync(item: OfficeItem): Promise<any> {
+/** Returns the email body as an HTML string (Mailbox 1.1+) */
+export function getEmailContentAsync(item: OfficeItem): Promise<string> {
   return new Promise((resolve, reject) => {
-    // przykladowo getAsFileAsync, dostosuj do wlasnych potrzeb
-    (item as any).getAsFileAsync((res: any) => {
+    item.body.getAsync(Office.CoercionType.Html, res => {
       if (res.status === Office.AsyncResultStatus.Succeeded) resolve(res.value);
       else reject(new Error(res.error.message));
     });
