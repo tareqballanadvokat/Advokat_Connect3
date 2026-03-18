@@ -44,7 +44,7 @@ export function detectEnvironment(): Environment {
     }
 
     // Production patterns (explicit domains only)
-    if (hostname.includes("advokatconnect.com") || hostname.includes("advokat-connect.de")) {
+    if (hostname.includes("azurestaticapps.net")) {
       return Environment.PRODUCTION;
     }
   }
