@@ -128,6 +128,14 @@ module.exports = async (env, options) => {
               }
             },
           },
+          {
+            from: "staticwebapp.config.json",
+            to: "[name][ext]",
+          },
+          {
+            from: "index.html",
+            to: "[name][ext]",
+          },
         ],
       }),
       new HtmlWebpackPlugin({
