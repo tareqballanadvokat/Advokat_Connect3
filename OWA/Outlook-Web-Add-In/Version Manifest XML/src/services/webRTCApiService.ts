@@ -950,7 +950,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "akten.getFavoriteAkten",
       "GET",
-      `api/v1.1/akten?${queryParams.toString()}`,
+      `api/v2/akten?${queryParams.toString()}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -970,7 +970,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "akten.aktLookUp",
       "GET",
-      `api/v1.1/akten/LookUp?${queryParams.toString()}`,
+      `api/v2/akten/LookUp?${queryParams.toString()}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -986,7 +986,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "akten.addAktToFavorite",
       "POST",
-      `api/v1.1/akten/AddToFavorites/${aktId}`,
+      `api/v2/akten/AddToFavorites/${aktId}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -1003,7 +1003,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "akten.removeAktFromFavorite",
       "DELETE",
-      `api/v1.1/akten/RemoveFromFavorites/${aktId}`,
+      `api/v2/akten/RemoveFromFavorites/${aktId}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -1029,7 +1029,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "service.loadServices",
       "GET",
-      `api/v1.1/leistungen/Auswahl?${queryParams.toString()}`,
+      `api/v2/leistungen/Auswahl?${queryParams.toString()}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -1203,7 +1203,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "person.getFavoritePersons",
       "GET",
-      `api/v1.1/personen?${queryParams.toString()}`,
+      `api/v2/personen?${queryParams.toString()}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -1222,7 +1222,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "person.personLookUp",
       "GET",
-      `api/v1.1/personen/Lookup?${queryParams.toString()}`,
+      `api/v2/personen/Lookup?${queryParams.toString()}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -1237,7 +1237,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "person.addPersonToFavorites",
       "POST",
-      `api/v1.1/personen/AddToFavorites/${personId}`,
+      `api/v2/personen/AddToFavorites/${personId}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -1252,7 +1252,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "person.removePersonFromFavorites",
       "DELETE",
-      `api/v1.1/personen/RemoveFromFavorites/${personId}`,
+      `api/v2/personen/RemoveFromFavorites/${personId}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
