@@ -649,7 +649,7 @@ describe("serviceSlice", () => {
           connection: { sipClientState: "CONNECTED" },
         }));
 
-        const result = await loadServicesAsync({ OnlyQuickListe: true, Limit: 50 })(
+        const result = await loadServicesAsync({ OnlyQuickListe: true, Count: 50 })(
           dispatch,
           getState,
           undefined

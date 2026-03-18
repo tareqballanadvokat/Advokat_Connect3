@@ -1023,8 +1023,8 @@ export class WebRTCApiService implements DataChannelObserver {
       queryParams.append("Kürzel", query.Kürzel);
     if (query.OnlyQuickListe !== undefined)
       queryParams.append("OnlyQuickListe", query.OnlyQuickListe.toString());
-    if (query.Limit != null && query.Limit != undefined)
-      queryParams.append("Limit", query.Limit.toString());
+    if (query.Count != null && query.Count != undefined)
+      queryParams.append("Count", query.Count.toString());
 
     return this.sendRequest(
       "service.loadServices",

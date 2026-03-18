@@ -19,7 +19,7 @@ export interface LeistungPostData {
 export interface LeistungenAuswahlQuery {
   Kürzel?: string;           
   OnlyQuickListe: boolean;
-  Limit?: number;            
+  Count?: number;            
 }
 
 export interface LeistungAuswahlResponse {
