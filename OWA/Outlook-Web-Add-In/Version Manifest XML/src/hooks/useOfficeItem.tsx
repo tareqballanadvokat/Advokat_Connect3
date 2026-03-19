@@ -125,10 +125,10 @@ export function getEmailAttachmentData(id: string): Promise<string> {
     });
 }
 
-/** Returns the email body as an HTML string (Mailbox 1.1+) */
-export function getEmailContentAsync(item: OfficeItem): Promise<string> {
+/** Returns the email as a file (EML, base64-encoded binary) via getAsFileAsync (Mailbox 1.9+) */
+export function getEmailContentAsync(item: OfficeItem): Promise<any> {
   return new Promise((resolve, reject) => {
-    item.body.getAsync(Office.CoercionType.Html, res => {
+    (item as any).getAsFileAsync((res: any) => {
       if (res.status === Office.AsyncResultStatus.Succeeded) resolve(res.value);
       else reject(new Error(res.error.message));
     });
