@@ -52,6 +52,9 @@ bld/
 .*
 # but not .gitgnore
 !.gitignore
+# but not .github (needed for GitHub Actions deployment workflows)
+!.github
+!.github/**
 
 # MSTest test Results
 [Tt]est[Rr]esult*/
