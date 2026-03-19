@@ -3,6 +3,9 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "@store";
 import { SipClientState } from "@infra/sip/SipClient";
+import { SelectedCandidateType } from "@infra/sip/Peer2PeerConnection";
+
+export type { SelectedCandidateType };
 
 export interface ConnectionState {
   // Core state - single source of truth
@@ -22,6 +25,9 @@ export interface ConnectionState {
   isIdle: boolean;
   lastActivityTimestamp?: string;
   idleDisconnectedAt?: string;
+
+  // Dev-only: ICE candidate type selected for the active connection
+  selectedCandidateType?: SelectedCandidateType;
 }
 
 const initialState: ConnectionState = {
@@ -59,6 +65,10 @@ const connectionSlice = createSlice({
 
     resetConnection: () => {
       return initialState;
+    },
+
+    setSelectedCandidateType: (state, action: PayloadAction<SelectedCandidateType | undefined>) => {
+      state.selectedCandidateType = action.payload;
     },
 
     setIdle: (state, action: PayloadAction<boolean>) => {
@@ -115,6 +125,7 @@ export const {
   incrementReconnectAttempts,
   resetReconnectAttempts,
   resetConnection,
+  setSelectedCandidateType,
   setIdle,
   updateLastActivity,
   setDisconnectedDueToIdleAt,
@@ -139,6 +150,9 @@ export const selectIsFailed = (state: RootState) => state.connection.sipClientSt
 
 export const selectIsDisconnected = (state: RootState) =>
   state.connection.sipClientState === SipClientState.DISCONNECTED;
+
+export const selectSelectedCandidateType = (state: RootState) =>
+  state.connection.selectedCandidateType;
 
 // Network availability (browser online/offline)
 export const selectIsNavigatorOffline = () =>

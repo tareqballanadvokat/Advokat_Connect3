@@ -85,10 +85,22 @@ import { SipPhaseEvents } from "./SipClient";
 import { WebRTCDataChannelService } from "@services/WebRTCDataChannelService";
 
 /**
+ * The type of ICE candidate that was selected for the active WebRTC connection.
+ * - 'mdns'    – host candidate resolved via mDNS (.local address)
+ * - 'direct'  – host candidate via a regular LAN/local IP
+ * - 'stun'    – server-reflexive candidate discovered via STUN
+ * - 'turn'    – relay candidate via TURN server
+ * - 'unknown' – could not be determined
+ */
+export type SelectedCandidateType = "mdns" | "direct" | "stun" | "turn" | "unknown";
+
+/**
  * Event callbacks for Peer2Peer WebRTC phase
  * Specialized from generic SipPhaseEvents with SdpExchangeState and 'RECEIVE_TIMEOUT'
  */
-export type Peer2PeerEvents = SipPhaseEvents<SdpExchangeState, "RECEIVE_TIMEOUT">;
+export interface Peer2PeerEvents extends SipPhaseEvents<SdpExchangeState, "RECEIVE_TIMEOUT"> {
+  onCandidateTypeSelected?: (type: SelectedCandidateType) => void;
+}
 
 /**
  * WebRTC SDP Exchange state machine enum
@@ -247,6 +259,9 @@ export class Peer2PeerConnection {
       // Both channels successfully opened - WebRTC connection established
       this.logWithPrefix("✅ Both channels ready - bidirectional communication established");
       this.events.onSuccess?.();
+
+      // Detect and report which ICE candidate type was selected (fire-and-forget)
+      this.querySelectedCandidateType();
     } else if (state === "closed" && channelType === "answer") {
       // Only log if we were in COMPLETE state (unexpected close)
       if (this.sdpExchangeState === SdpExchangeState.COMPLETE) {
@@ -277,6 +292,71 @@ export class Peer2PeerConnection {
     this.cancelAllTimeouts();
     this.transitionTo(SdpExchangeState.FAILED);
     this.events.onFailure?.(`${channelType} channel error: ${error}`);
+  }
+
+  /**
+   * Query RTCPeerConnection stats to determine which ICE candidate type was selected.
+   * Results are emitted via onCandidateTypeSelected callback (fire-and-forget).
+   */
+  private async querySelectedCandidateType(): Promise<void> {
+    try {
+      const stats = await this.pc.getStats();
+      let localCandidateId: string | undefined;
+
+      stats.forEach((report) => {
+        if (
+          report.type === "candidate-pair" &&
+          (report as RTCIceCandidatePairStats).nominated &&
+          (report as RTCIceCandidatePairStats).state === "succeeded"
+        ) {
+          localCandidateId = (report as RTCIceCandidatePairStats).localCandidateId;
+        }
+      });
+
+      // Fallback: pick any nominated pair if no succeeded one found
+      if (!localCandidateId) {
+        stats.forEach((report) => {
+          if (report.type === "candidate-pair" && (report as RTCIceCandidatePairStats).nominated) {
+            localCandidateId = (report as RTCIceCandidatePairStats).localCandidateId;
+          }
+        });
+      }
+
+      if (!localCandidateId) {
+        this.logWithPrefix("⚠️ Could not find nominated candidate pair in stats");
+        this.events.onCandidateTypeSelected?.("unknown");
+        return;
+      }
+
+      stats.forEach((report) => {
+        if (report.id === localCandidateId && report.type === "local-candidate") {
+          const localCand = report as { candidateType?: string; address?: string };
+          const candidateType = localCand.candidateType ?? "";
+          const address = localCand.address ?? "";
+
+          let type: SelectedCandidateType;
+          if (candidateType === "relay") {
+            type = "turn";
+          } else if (candidateType === "srflx") {
+            type = "stun";
+          } else if (candidateType === "host" && address.endsWith(".local")) {
+            type = "mdns";
+          } else if (candidateType === "host" || candidateType === "prflx") {
+            type = "direct";
+          } else {
+            type = "unknown";
+          }
+
+          this.logWithPrefix(
+            `🔍 Selected ICE candidate → type: ${type} (candidateType: ${candidateType}, address: ${address})`
+          );
+          this.events.onCandidateTypeSelected?.(type);
+        }
+      });
+    } catch (e) {
+      this.logWithPrefix(`⚠️ Failed to query ICE candidate stats: ${e}`);
+      this.events.onCandidateTypeSelected?.("unknown");
+    }
   }
 
   /**
