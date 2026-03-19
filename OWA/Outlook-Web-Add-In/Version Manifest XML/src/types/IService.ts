@@ -19,7 +19,7 @@ export interface LeistungPostData {
 export interface LeistungenAuswahlQuery {
   Kürzel?: string;           
   OnlyQuickListe: boolean;
-  Limit?: number;            
+  Count?: number;            
 }
 
 export interface LeistungAuswahlResponse {
@@ -43,6 +43,7 @@ export interface LeistungenQuery {
   aktId?: number | null;
   outlookEmailId?: string | null;
   count?: number | null;
+  maxId?: number | null;                 // Legt die maximale ID fest, bis zu der Datensätze für die Paginierung geladen werden.
   
   // BearbeitungsInfoQuery fields
   erstelltAb?: Date | string | null;

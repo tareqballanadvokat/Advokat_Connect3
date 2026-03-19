@@ -34,7 +34,7 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
       dispatch(loadServicesAsync({
         Kürzel: null,
         OnlyQuickListe: true,
-        Limit: null
+        Count: null
       }));
     } else {
       dispatch(clearServices());

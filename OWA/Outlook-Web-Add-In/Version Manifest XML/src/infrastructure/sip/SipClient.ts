@@ -87,7 +87,12 @@ import {
   ConnectionState,
   ConnectionEvents,
 } from "./EstablishingConnection";
-import { Peer2PeerConnection, SdpExchangeState, Peer2PeerEvents } from "./Peer2PeerConnection";
+import {
+  Peer2PeerConnection,
+  SdpExchangeState,
+  Peer2PeerEvents,
+  SelectedCandidateType,
+} from "./Peer2PeerConnection";
 import { helper } from "./Helper";
 import { TimeoutManager } from "./TimeoutManager";
 import { getLogger } from "@infra/logger";
@@ -129,6 +134,8 @@ export enum SipClientState {
  */
 export interface SipClientObserver {
   onSipClientStateChanged(newState: SipClientState, reason: string): void;
+  /** Called once the ICE candidate type used for the active connection is known. */
+  onSelectedCandidateType?(type: SelectedCandidateType): void;
 }
 
 const MAX_RETRIES = 3;
@@ -252,6 +259,19 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         observer.onSipClientStateChanged(newState, reason);
       } catch (error) {
         logWithPrefix(`Error notifying observer: ${error}`);
+      }
+    });
+  }
+
+  /**
+   * Notify all observers of the selected ICE candidate type
+   */
+  function notifySelectedCandidateType(type: SelectedCandidateType): void {
+    observers.forEach((observer) => {
+      try {
+        observer.onSelectedCandidateType?.(type);
+      } catch (error) {
+        logWithPrefix(`Error notifying observer (candidateType): ${error}`);
       }
     });
   }
@@ -742,6 +762,11 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
 
     onMessageToSend: (message, context) => {
       sendMessage(message, context);
+    },
+
+    onCandidateTypeSelected: (type) => {
+      logWithPrefix(`🔍 ICE candidate type selected: ${type}`);
+      notifySelectedCandidateType(type);
     },
   };
 

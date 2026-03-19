@@ -51,8 +51,10 @@ import {
   updateLastActivity,
   setDisconnectedDueToIdleAt,
   sipClientStateChanged,
+  setSelectedCandidateType,
   selectIsReady,
 } from "@slices/connectionSlice";
+import { SelectedCandidateType } from "@infra/sip/Peer2PeerConnection";
 
 export type { ConnectionState };
 
@@ -139,6 +141,14 @@ export class WebRTCConnectionManager implements SipClientObserver {
         reconnectAttempts: 0,
       });
     }
+  }
+
+  /**
+   * Observer pattern callback - called when the ICE candidate type used for the connection is known
+   */
+  onSelectedCandidateType(type: SelectedCandidateType): void {
+    this.logger.info("ConnectionManager", `Selected ICE candidate type: ${type}`);
+    store.dispatch(setSelectedCandidateType(type));
   }
 
   /**

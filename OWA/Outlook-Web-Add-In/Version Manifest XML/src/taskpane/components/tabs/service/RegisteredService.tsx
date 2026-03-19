@@ -5,7 +5,6 @@ import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { selectAuthCredentials } from '@slices/authSlice';
 import { selectIsReady } from '@slices/connectionSlice';
 import { setRegisteredServicesLoading } from '@slices/serviceSlice';
-import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
 import { LeistungResponse } from '@interfaces/IService';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { useTranslation } from 'react-i18next';
@@ -58,30 +57,17 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
         const connectionManager = getWebRTCConnectionManager();
         const webRTCApiService = connectionManager.getWebRTCApiService();
 
-        const isCompose = IsComposeMode();
-        let outlookEmailId: string | null = null;
-
-        if (!isCompose) {
-          try {
-            const email = Office.context.mailbox.item;
-            outlookEmailId = await getInternetMessageIdAsync(email);
-          } catch {
-            // Proceed without outlookEmailId
-          }
-        }
-
         const response = await webRTCApiService.getLeistungenByAkt({
-          aktId: selectedAkt?.id ?? null,
-          // outlookEmailId,
+          aktId: selectedAkt.id,
           erstelltAb,
           erstelltVon: credentials?.username,
         });
 
-        if (response.statusCode === 200) {
-          const data = JSON.parse(response.body || '[]') as LeistungResponse[];
+        if (response.statusCode === 200 || response.statusCode === 404) {
+          const data = response.statusCode === 200
+            ? JSON.parse(response.body || '[]') as LeistungResponse[]
+            : [];
           setLeistungen(data);
-        } else if (response.statusCode === 404) {
-          setError(translate('noRegisteredServices'));
         } else {
           setError(translate('failedToLoadServices'));
         }
