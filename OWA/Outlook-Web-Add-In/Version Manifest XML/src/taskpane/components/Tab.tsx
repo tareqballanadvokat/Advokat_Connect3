@@ -96,14 +96,14 @@ const DevTabs: React.FC = () => {
   return (
     <div className="dx-compact">
       {/* Dev-only: ICE candidate type indicator */}
-      {isDevelopment() && (
+      {/* {isDevelopment() && ( */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '2px 4px 0', gap: 4 }}>
           <span style={{ fontSize: 15, color: '#666' }}>ICE:</span>
           <span style={iceBadgeStyle(selectedCandidateType)}>
             {iceBadgeLabel(selectedCandidateType)}
           </span>
         </div>
-      )}
+      {/* )} */}
       {/* Language switcher */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, padding: '4px 4px 0' }}>
         <button
