@@ -1,5 +1,7 @@
 ﻿import * as React from "react";
 import { createRoot } from "react-dom/client";
+import config from "devextreme/core/config";
+config({ licenseKey: process.env.DEVEXTREME_LICENSE_KEY });
 import '../i18n'; // initialize i18next before anything else
 import App from "./components/App";
 import { FluentProvider, webLightTheme, webDarkTheme } from "@fluentui/react-components";

@@ -1,4 +1,5 @@
 /* eslint-disable no-undef */
+require("dotenv").config();
 
 const path = require('path');
 const devCerts = require("office-addin-dev-certs");
@@ -6,7 +7,7 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const webpack = require("webpack");
 const urlDev = "https://localhost:3000/";
-const urlProd = "https://witty-meadow-033760c03.1.azurestaticapps.net/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+const urlProd = "https://green-sea-08a52e81e.2.azurestaticapps.net/"; 
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
@@ -16,7 +17,7 @@ async function getHttpsOptions() {
 module.exports = async (env, options) => {
   const dev = options.mode === "development";
   const config = {
-    devtool: "source-map",
+    devtool: dev ? "source-map" : false,
     entry: {
       polyfill: ["core-js/stable", "regenerator-runtime/runtime"],
       react: ["react", "react-dom"],
@@ -128,6 +129,14 @@ module.exports = async (env, options) => {
               }
             },
           },
+          {
+            from: "staticwebapp.config.json",
+            to: "[name][ext]",
+          },
+          {
+            from: "index.html",
+            to: "[name][ext]",
+          },
         ],
       }),
       new HtmlWebpackPlugin({
@@ -137,6 +146,9 @@ module.exports = async (env, options) => {
       }),
       new webpack.ProvidePlugin({
         Promise: ["es6-promise", "Promise"],
+      }),
+      new webpack.DefinePlugin({
+        "process.env.DEVEXTREME_LICENSE_KEY": JSON.stringify(process.env.DEVEXTREME_LICENSE_KEY || ""),
       }),
     ],
     devServer: {
