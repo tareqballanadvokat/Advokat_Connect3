@@ -1,4 +1,4 @@
-import * as React from "react";
+ï»¿import * as React from "react";
 import { createRoot } from "react-dom/client";
 import '../i18n'; // initialize i18next before anything else
 import App from "./components/App";
@@ -57,6 +57,12 @@ Office.onReady(async () => {
   // Initialize logger with config
   const config = configService.getConfig();
   const logger = initializeLogger(config.logging);
+
+  // Startup origin log â€” confirms whether loading from Azure or localhost
+  logger.info('AppInit', `Loading from: ${window.location.origin}`);
+  logger.info('AppInit', `Environment: ${config.environment}`);
+  logger.info('AppInit', `SIP server: ${config.sip.wsUri}`);
+  logger.info('AppInit', `API: ${config.api.baseUrl}`);
   
   try {
     await checkAndClearCacheIfNeeded(logger);
@@ -64,12 +70,12 @@ Office.onReady(async () => {
     logger.error('AppInit', 'Critical cache initialization error', error);
   }
 
- // 1) Spróbuj uzyc Office.context.officeTheme (Office.js 1.1+ i niektóre hosty)
+ // 1) Sprï¿½buj uzyc Office.context.officeTheme (Office.js 1.1+ i niektï¿½re hosty)
   const officeTh = (Office.context as any).officeTheme;
   let isDark = false;
 
   if (officeTh && officeTh.bodyBackgroundColor) {
-    // wiekszosc motywów ciemnych ma tlo bardzo ciemne ? prosta detekcja
+    // wiekszosc motywï¿½w ciemnych ma tlo bardzo ciemne ? prosta detekcja
     const bg = officeTh.bodyBackgroundColor.toLowerCase();
     isDark = (bg === "#000000" || bg === "black" || bg.startsWith("#") && parseInt(bg.substr(1),16) < 0x444444);
   } else if (window.matchMedia) {

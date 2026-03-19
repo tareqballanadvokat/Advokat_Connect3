@@ -681,10 +681,17 @@ export class WebRTCApiService implements DataChannelObserver {
         return;
       }
 
+      // 404 means "no results" for filtered list endpoints – resolve as success so
+      // callers can check statusCode and treat it as an empty list.
+      if (actualStatusCode === 404) {
+        this.completeRequest(pendingRequest, { ...response, body: decodedBody });
+        return;
+      }
+
       // For certain error codes, we want to retry (temporary errors)
       // For others, we want to fail immediately (permanent errors)
       const retryableErrors = [500, 502, 503, 504, 408, 429]; // Server errors, timeouts, rate limits
-      const permanentErrors = [400, 403, 404, 422]; // Bad request, forbidden, not found, validation errors
+      const permanentErrors = [400, 403, 422]; // Bad request, forbidden, validation errors
 
       if (retryableErrors.includes(actualStatusCode)) {
         this.logger.info(
@@ -950,7 +957,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "akten.getFavoriteAkten",
       "GET",
-      `api/v2/akten?${queryParams.toString()}`,
+      `api/v2.0/akten?${queryParams.toString()}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -970,7 +977,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "akten.aktLookUp",
       "GET",
-      `api/v2/akten/LookUp?${queryParams.toString()}`,
+      `api/v2.0/akten/LookUp?${queryParams.toString()}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -986,7 +993,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "akten.addAktToFavorite",
       "POST",
-      `api/v2/akten/AddToFavorites/${aktId}`,
+      `api/v2.0/akten/AddToFavorites/${aktId}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -1003,7 +1010,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "akten.removeAktFromFavorite",
       "DELETE",
-      `api/v2/akten/RemoveFromFavorites/${aktId}`,
+      `api/v2.0/akten/RemoveFromFavorites/${aktId}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -1029,7 +1036,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "service.loadServices",
       "GET",
-      `api/v2/leistungen/Auswahl?${queryParams.toString()}`,
+      `api/v2.0/leistungen/Auswahl?${queryParams.toString()}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -1065,6 +1072,7 @@ export class WebRTCApiService implements DataChannelObserver {
     if (query.aktId != null) queryParams.append("AktId", query.aktId.toString());
     if (query.outlookEmailId != null) queryParams.append("OutlookEmailId", query.outlookEmailId);
     if (query.count != null) queryParams.append("Count", query.count.toString());
+    if (query.maxId != null) queryParams.append("MaxId", query.maxId.toString());
     if (query.erstelltAb != null) queryParams.append("ErstelltAb", query.erstelltAb instanceof Date ? query.erstelltAb.toISOString() : query.erstelltAb);
     if (query.erstelltBis != null) queryParams.append("ErstelltBis", query.erstelltBis instanceof Date ? query.erstelltBis.toISOString() : query.erstelltBis);
     if (query.erstelltVon != null) queryParams.append("ErstelltVon", query.erstelltVon);
@@ -1075,7 +1083,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "service.getLeistungenByAkt",
       "GET",
-      `api/v1.1/Leistungen?${queryParams.toString()}`,
+      `api/v2.0/Leistungen?${queryParams.toString()}`,
       {
         "Content-Type": "application/json",
         Accept: "application/json",
