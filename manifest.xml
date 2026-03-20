@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0" xsi:type="MailApp">
-  <Id>d094843d-3f06-4690-9572-30a06d6eaa36</Id>
+  <Id>c77bdb94-6c27-4e68-be12-b26014c5903f</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>Advokat</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
