@@ -65,13 +65,12 @@ export const PRODUCTION_CONFIG: Partial<AppConfig> = {
   environment: Environment.PRODUCTION,
 
   sip: {
-    // Update with production signaling server
-    wsUri: "wss://signaling.production.com:8009",
-    sipUri: "sip:user@signaling.production.com:8009",
-    host: "signaling.production.com",
-    port: 8009,
-    fromDisplayName: "user",
-    toDisplayName: "server",
+    wsUri: "wss://advokat-addin-test.italynorth.cloudapp.azure.com:443",
+    sipUri: "sip:macc@advokat-addin-test.italynorth.cloudapp.azure.com:443",
+    host: "advokat-addin-test.italynorth.cloudapp.azure.com",
+    port: 443,
+    fromDisplayName: "macc",
+    toDisplayName: "macs",
     maxRetries: 5,
     connectionTimeout: 30000,
   },
