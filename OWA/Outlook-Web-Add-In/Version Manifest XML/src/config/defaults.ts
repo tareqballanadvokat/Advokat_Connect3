@@ -65,9 +65,9 @@ export const PRODUCTION_CONFIG: Partial<AppConfig> = {
   environment: Environment.PRODUCTION,
 
   sip: {
-    wsUri: "wss://advokat-addin-test.italynorth.cloudapp.azure.com:443",
-    sipUri: "sip:macc@advokat-addin-test.italynorth.cloudapp.azure.com:443",
-    host: "advokat-addin-test.italynorth.cloudapp.azure.com",
+    wsUri: "wss://4.232.250.132:443",
+    sipUri: "sip:macc@4.232.250.132:443",
+    host: "4.232.250.132",
     port: 443,
     fromDisplayName: "macc",
     toDisplayName: "macs",
