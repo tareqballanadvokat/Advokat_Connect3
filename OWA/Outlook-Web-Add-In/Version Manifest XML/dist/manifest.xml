@@ -105,7 +105,7 @@
           <bt:Url id="Taskpane.Url" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/taskpane.html"/>
         </bt:Urls>
         <bt:ShortStrings>
-          <bt:String id="GroupLabel" DefaultValue="Contoso Add-in"/>
+          <bt:String id="GroupLabel" DefaultValue="Advokat Add-in"/>
           <bt:String id="TaskpaneButton.Label" DefaultValue="Advokat Add-In"/>
         </bt:ShortStrings>
         <bt:LongStrings>

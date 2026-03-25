@@ -12,14 +12,22 @@ export const DEFAULT_CONFIG: AppConfig = {
   environment: Environment.DEVELOPMENT,
 
   sip: {
-    wsUri: "wss://localhost:8009",
-    sipUri: "sip:macc@127.0.0.1:8009",
-    host: "127.0.0.1",
-    port: 8009,
+    // wsUri: "wss://localhost:8009",
+    // sipUri: "sip:macc@127.0.0.1:8009",
+    // host: "127.0.0.1",
+    // port: 8009,
+    // fromDisplayName: "macc",
+    // toDisplayName: "macs",
+    // maxRetries: 3,
+    // connectionTimeout: 30000, // 30 seconds
+    wsUri: "wss://4.232.250.132:443",
+    sipUri: "sip:macc@4.232.250.132:443",
+    host: "4.232.250.132",
+    port: 443,
     fromDisplayName: "macc",
     toDisplayName: "macs",
-    maxRetries: 3,
-    connectionTimeout: 30000, // 30 seconds
+    maxRetries: 2,
+    connectionTimeout: 30000,
   },
 
   api: {
@@ -71,7 +79,7 @@ export const PRODUCTION_CONFIG: Partial<AppConfig> = {
     port: 443,
     fromDisplayName: "macc",
     toDisplayName: "macs",
-    maxRetries: 5,
+    maxRetries: 2,
     connectionTimeout: 30000,
   },
 
@@ -126,7 +134,7 @@ export const STAGING_CONFIG: Partial<AppConfig> = {
     port: 8009,
     fromDisplayName: "staging-user",
     toDisplayName: "staging-server",
-    maxRetries: 3,
+    maxRetries: 2,
     connectionTimeout: 30000,
   },
 
@@ -174,13 +182,21 @@ export const TEST_CONFIG: AppConfig = {
   environment: Environment.TEST,
 
   sip: {
-    wsUri: "wss://localhost:8009",
-    sipUri: "sip:macc@127.0.0.1:8009",
-    host: "127.0.0.1",
-    port: 8009,
+    // wsUri: "wss://localhost:8009",
+    // sipUri: "sip:macc@127.0.0.1:8009",
+    // host: "127.0.0.1",
+    // port: 8009,
+    // fromDisplayName: "macc",
+    // toDisplayName: "macs",
+    // maxRetries: 3,
+    // connectionTimeout: 30000,
+    wsUri: "wss://4.232.250.132:443",
+    sipUri: "sip:macc@4.232.250.132:443",
+    host: "4.232.250.132",
+    port: 443,
     fromDisplayName: "macc",
     toDisplayName: "macs",
-    maxRetries: 3,
+    maxRetries: 2,
     connectionTimeout: 30000,
   },
 
