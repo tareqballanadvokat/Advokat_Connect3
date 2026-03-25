@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import { useAppSelector } from '@store/hooks';
 import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting } from '@slices/connectionSlice';
+import { selectAuthError } from '@slices/authSlice';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +19,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
   const isReady = useAppSelector(selectIsReady);
   const isConnected = useAppSelector(selectIsConnected);
   const isConnecting = useAppSelector(selectIsConnecting);
+  const authError = useAppSelector(selectAuthError);
   const { t: translate } = useTranslation('common');
 
   useEffect(() => {
@@ -41,6 +43,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
   const getFriendlyMessage = (): string => {
     if (connectionState.idleDisconnectedAt || (!isConnecting && !isConnected && !isReady && !isFailing()))
       return translate('webrtc.disconnected');
+    if (authError && !isReady) return translate('webrtc.authenticationFailed');
     if (isReady) return translate('webrtc.connected');
     if (isFailedPermanently()) return translate('webrtc.connectionFailedPermanently');
     if (isFailing()) {
@@ -63,6 +66,8 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
     };
     if (connectionState.idleDisconnectedAt || (!isConnecting && !isConnected && !isReady && !isFailing()))
       return { ...base, backgroundColor: '#6c757d', border: '1px solid #5a6268' };
+    if (authError && !isReady)
+      return { ...base, backgroundColor: '#dc3545', border: '1px solid #bd2130' };
     if (isReady)
       return { ...base, backgroundColor: '#28a745', border: '1px solid #1e7e34' };
     if (isFailedPermanently())

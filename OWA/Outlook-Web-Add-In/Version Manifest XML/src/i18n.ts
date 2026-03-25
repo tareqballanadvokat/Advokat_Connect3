@@ -24,6 +24,7 @@ const enCommon = {
   webrtc: {
     disconnected: 'Disconnected',
     connected: 'Connected',
+    authenticationFailed: 'Authentication failed. Please check your credentials.',
     connectionFailedPermanently: 'Connection Failed Permanently.',
     connectionFailedReconnecting: 'Connection failed, trying to reconnect ({{attempt}}/{{max}})',
     connecting: 'Connecting...',
@@ -132,6 +133,7 @@ const deCommon = {
   webrtc: {
     disconnected: 'Getrennt',
     connected: 'Verbunden',
+    authenticationFailed: 'Authentifizierung fehlgeschlagen. Bitte Zugangsdaten prüfen.',
     connectionFailedPermanently: 'Verbindung dauerhaft fehlgeschlagen.',
     connectionFailedReconnecting: 'Verbindung fehlgeschlagen, Wiederverbindung wird versucht ({{attempt}}/{{max}})',
     connecting: 'Verbinde...',
