@@ -108,7 +108,7 @@ export const PRODUCTION_CONFIG: Partial<AppConfig> = {
   },
 
   logging: {
-    enabled: false, // Disabled in production by default
+    enabled: true, // Disabled in production by default
     level: LogLevel.ERROR, // Only critical errors in production
     includeTimestamp: true,
     includeStack: true,
@@ -211,7 +211,7 @@ export const TEST_CONFIG: AppConfig = {
   },
 
   logging: {
-    enabled: false, // Disabled in tests to avoid console noise
+    enabled: true, // Disabled in tests to avoid console noise
     level: LogLevel.ERROR,
     includeTimestamp: false,
     includeStack: false,
