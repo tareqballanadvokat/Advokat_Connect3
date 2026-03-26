@@ -109,7 +109,7 @@ export const PRODUCTION_CONFIG: Partial<AppConfig> = {
 
   logging: {
     enabled: true, // Disabled in production by default
-    level: LogLevel.ERROR, // Only critical errors in production
+    level: LogLevel.DEBUG, // Only critical errors in production
     includeTimestamp: true,
     includeStack: true,
   },
