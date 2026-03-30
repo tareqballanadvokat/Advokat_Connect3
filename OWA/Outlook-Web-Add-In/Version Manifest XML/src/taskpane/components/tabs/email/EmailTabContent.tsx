@@ -68,8 +68,8 @@ const EmailTabContent: React.FC = () => {
   // useEffect removed
 
   // Helper function to get folder name from attachment item
-  const getFolderName = (item: TransferAttachmentItem): string => {
-    return item.folderName || 'Default';
+  const getFolderName = (item: TransferAttachmentItem): string | null => {
+    return item.folderName || null;
   };
 
   const setCaseHandler = async (selectedCase: AktLookUpResponse) => {
@@ -105,15 +105,6 @@ const EmailTabContent: React.FC = () => {
     logger.debug(`Starting transfer for case ${selectedCaseName} (ID: ${selectedCaseId}) with message ID: ${messageId}`, 'EmailTabContent');
     if (!messageId) {
       notify(translate('emailMessageIdNotAvailable'), 'warning', 3000);
-      return;
-    }
-
-    // Validate that all checked items have a folder assigned (exclude already-transferred/disabled items)
-    const checkedItems = attachmentSelected.filter(i => i.checked && !i.disabled);
-    const itemsWithoutFolder = checkedItems.filter(i => i.option === -1);
-    
-    if (itemsWithoutFolder.length > 0) {
-      notify(translate('selectFolderForAllItems'), 'error', 4000);
       return;
     }
 
