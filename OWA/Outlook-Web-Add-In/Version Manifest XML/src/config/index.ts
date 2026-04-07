@@ -4,7 +4,7 @@
  * Main entry point for all configuration access
  */
 
-import { AppConfig, SipServerConfig, ApiServerConfig } from "./types";
+import { AppConfig, SipServerConfig } from "./types";
 import { getEnvironmentConfig, isProduction } from "./environment";
 import { getLogger } from "@infra/logger";
 
@@ -52,28 +52,10 @@ class ConfigService {
   }
 
   /**
-   * Get API server configuration
+   * Patch SIP configuration at runtime (e.g. after user identity is resolved).
    */
-  public getApiConfig(): Readonly<ApiServerConfig> {
-    return Object.freeze({ ...this.config.api });
-  }
-
-  /**
-   * Get API base URL with trailing slash handling
-   */
-  public getApiBaseUrl(): string {
-    const baseUrl = this.config.api.baseUrl;
-    return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-  }
-
-  /**
-   * Get full API endpoint URL
-   * @param path - API endpoint path (e.g., 'api/service/get-services')
-   */
-  public getApiUrl(path: string): string {
-    const baseUrl = this.getApiBaseUrl();
-    const cleanPath = path.startsWith("/") ? path.substring(1) : path;
-    return `${baseUrl}${cleanPath}`;
+  public patchSipConfig(patch: Partial<SipServerConfig>): void {
+    this.config = { ...this.config, sip: { ...this.config.sip, ...patch } };
   }
 
   /**
@@ -110,11 +92,6 @@ class ConfigService {
       errors.push("SIP port is invalid");
     }
 
-    // Validate API config
-    if (!this.config.api.baseUrl) {
-      errors.push("API base URL is not configured");
-    }
-
     // Production-specific validations
     if (isProduction()) {
       if (
@@ -122,9 +99,6 @@ class ConfigService {
         this.config.sip.host.includes("127.0.0.1")
       ) {
         errors.push("CRITICAL: Production environment is using localhost for SIP server");
-      }
-      if (this.config.api.baseUrl.includes("localhost")) {
-        errors.push("CRITICAL: Production environment is using localhost for API server");
       }
     }
 
@@ -140,8 +114,7 @@ class ConfigService {
     logger.debug(`SIP WebSocket URI: ${this.config.sip.wsUri}`, "ConfigService");
     logger.debug(`SIP Host: ${this.config.sip.host}`, "ConfigService");
     logger.debug(`SIP Port: ${this.config.sip.port}`, "ConfigService");
-    logger.debug(`API Base URL: ${this.config.api.baseUrl}`, "ConfigService");
-    logger.debug(`API Logging: ${this.config.api.enableLogging}`, "ConfigService");
+    logger.debug(`SIP fromDisplayName: ${this.config.sip.fromDisplayName ?? "(not set)"}`, "ConfigService");
   }
 
   /**
