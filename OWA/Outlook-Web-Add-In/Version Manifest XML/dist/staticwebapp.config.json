@@ -1,11 +1,15 @@
 {
   "navigationFallback": {
-    "rewrite": "/taskpane.html"
+    "rewrite": "/taskpane.html",
+    "exclude": ["/*.{css,js,map,png,jpg,jpeg,gif,ico,woff,woff2,ttf,eot,svg,xml,json}"]
   },
   "routes": [
     {
       "route": "/",
       "rewrite": "/taskpane.html"
     }
-  ]
+  ],
+  "globalHeaders": {
+    "Content-Security-Policy": "frame-ancestors 'self' https://*.office.com https://*.office365.com https://*.microsoft.com https://outlook.live.com https://*.officeapps.live.com"
+  }
 }

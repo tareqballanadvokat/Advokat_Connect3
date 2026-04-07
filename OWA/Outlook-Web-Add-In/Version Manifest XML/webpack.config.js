@@ -150,6 +150,8 @@ module.exports = async (env, options) => {
       new webpack.DefinePlugin({
         "process.env.DEVEXTREME_LICENSE_KEY": JSON.stringify(process.env.DEVEXTREME_LICENSE_KEY || ""),
         "process.env.SIP_WS_URI": JSON.stringify(process.env.SIP_WS_URI || ""),
+        "process.env.TURN_USERNAME": JSON.stringify(process.env.TURN_USERNAME || ""),
+        "process.env.TURN_CREDENTIAL": JSON.stringify(process.env.TURN_CREDENTIAL || ""),
       }),
     ],
     devServer: {
