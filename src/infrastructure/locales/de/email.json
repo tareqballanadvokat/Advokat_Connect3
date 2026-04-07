@@ -1,0 +1,31 @@
+{
+  "searchCases": "Akten suchen",
+  "searchCasePlaceholder": "Nach Akten-Kürzel suchen (ABC)...",
+  "searchCasesFailed": "Aktensuche fehlgeschlagen",
+  "registeredEmails": "Registrierte E-Mails (letzte 7 Tage)",
+  "noRegisteredEmails": "Keine registrierten E-Mails gefunden.",
+  "failedToLoadEmails": "Registrierte E-Mails konnten nicht geladen werden.",
+  "errorFetchingEmails": "Fehler beim Abrufen der registrierten E-Mails.",
+  "selectCaseToViewEmails": "Akte auswählen, um registrierte E-Mails anzuzeigen",
+  "noEmailsFound": "Keine E-Mails gefunden",
+  "opening": "{{name}} wird geöffnet...",
+  "emptyContent": "Leerer Inhalt",
+  "failedToOpenDocument": "E-Mail konnte nicht geöffnet werden.",
+  "documentNotFound": "Dokument nicht gefunden. Es wurde möglicherweise gelöscht.",
+  "transferEmailAndAttachments": "E-Mail und Anhänge übertragen",
+  "emailMessageIdNotAvailable": "E-Mail-Nachrichten-ID nicht verfügbar",
+  "selectFolderForAllItems": "Bitte für alle Elemente einen Ordner auswählen",
+  "provideBothSbAndTime": "Bitte SB und Zeit angeben oder beides leer lassen",
+  "serviceSavedSuccessfully": "Leistung erfolgreich gespeichert",
+  "emailSavedSuccessfully": "E-Mail erfolgreich gespeichert",
+  "failedToTransfer": "Übertragung zu ADVOKAT fehlgeschlagen",
+  "failedToSaveAttachment": "Anhang '{{name}}' konnte nicht gespeichert werden",
+  "attachmentsProcessed": "{{count}} Anhänge verarbeitet",
+  "documentsTransferred": "{{count}} Dokument(e) erfolgreich in Akte {{caseName}} übertragen",
+  "columns": {
+    "type": "Typ",
+    "subject": "Betreff",
+    "sent": "Gesendet",
+    "received": "Empfangen"
+  }
+}

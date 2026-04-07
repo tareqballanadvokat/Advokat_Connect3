@@ -1,0 +1,153 @@
+﻿import * as React from "react";
+import { makeStyles } from "@fluentui/react-components";
+import { useTranslation } from 'react-i18next';
+import Tabs from './Tab';
+import { configService } from '@config';
+import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { toggleLogging, initializeLogging } from '@slices/loggingSlice';
+import { getLogger } from '@infra/logger';
+
+interface AppProps {
+  title: string;
+}
+
+const isLocalhost = typeof window !== "undefined" && window.location.hostname === "localhost";
+
+const useStyles = makeStyles({
+  root: {
+    minHeight: "100vh",
+  },
+  envBanner: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "3px 8px",
+    fontSize: "11px",
+    fontWeight: "600",
+    letterSpacing: "0.3px",
+    backgroundColor: isLocalhost ? "#fff3cd" : "#d4edda",
+    color: isLocalhost ? "#856404" : "#155724",
+    borderBottom: isLocalhost ? "1px solid #ffc107" : "1px solid #28a745",
+  },
+  envDot: {
+    width: "7px",
+    height: "7px",
+    borderRadius: "50%",
+    display: "inline-block",
+    backgroundColor: isLocalhost ? "#ffc107" : "#28a745",
+    flexShrink: 0,
+  },
+});
+
+const App: React.FC<AppProps> = () => {
+  const styles = useStyles();
+  const dispatch = useAppDispatch();
+  const loggingEnabled = useAppSelector((state) => state.logging.enabled);
+  const logger = getLogger();
+  const { t: translate } = useTranslation('common');
+ 
+  // Initialize logging from config
+  React.useEffect(() => {
+    const config = configService.getConfig();
+    dispatch(initializeLogging({
+      enabled: config.logging.enabled,
+      level: config.logging.level,
+    }));
+  }, [dispatch]);
+
+  // Keyboard shortcut: Ctrl+Shift+L to toggle logging
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+Shift+L
+      if (event.ctrlKey && event.shiftKey && event.key === 'L') {
+        event.preventDefault();
+        console.log('[App] Ctrl+Shift+L pressed - toggling logging. Current state:', loggingEnabled);
+        dispatch(toggleLogging());
+        
+        // Show notification with correct new state
+        const newState = !loggingEnabled;
+        console.log('[App] New logging state will be:', newState);
+        if (Office?.context?.mailbox?.item?.notificationMessages) {
+          Office.context.mailbox.item.notificationMessages.replaceAsync(
+            "LoggingToggleNotification",
+            {
+              type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
+              message: newState ? translate('logging.enabled') : translate('logging.disabled'),
+              icon: "Icon.80x80",
+              persistent: false,
+            }
+          );
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dispatch, loggingEnabled]);
+ 
+  // Initialize WebRTC connection manager once at app level
+  React.useEffect(() => {
+    logger.info('App', 'App mounted - initializing WebRTC connection manager...');
+    const manager = getWebRTCConnectionManager();
+    manager.initialize().catch(error => {
+      logger.error('App', 'Failed to initialize WebRTC connection', error);
+    });
+    
+    let isDisconnected = false;
+    
+    // Handle window/tab close - disconnect gracefully
+    const handleUnload = () => {
+      if (!isDisconnected) {
+        logger.info('App', 'Window closing - disconnecting WebRTC...');
+        isDisconnected = true;
+        manager.disconnect();
+      }
+    };
+
+    window.addEventListener('unload', handleUnload);
+    
+    // Cleanup when add-in closes
+    return () => {
+      if (!isDisconnected) {
+        logger.info('App', 'App unmounting - disconnecting WebRTC...');
+        isDisconnected = true;
+        manager.disconnect();
+      }
+      window.removeEventListener('unload', handleUnload);
+    };
+  }, [logger]);
+
+  const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+  React.useEffect(() => {
+    const theme = configService.getConfig().theme;
+    const compact = theme.compact ? '.compact' : '';
+    const themePath = `${theme.name}${isDarkMode ? 'dark' : 'light'}${compact}.css`;
+    
+    import(
+        `devextreme/dist/css/dx.${isDarkMode ? 'dark' : 'light'}${compact}.css`
+    );
+  }, [isDarkMode]);
+
+
+  return (
+    <div className={styles.root}>
+      <div className={styles.envBanner}>
+        <span className={styles.envDot} />
+        {isLocalhost
+          ? `LOCAL — ${window.location.origin}`
+          : `AZURE — ${window.location.origin}`}
+      </div>
+      <div> 
+        <Tabs />
+      </div>
+    </div>
+  );
+};
+ 
+
+export default App;
+
+ 
