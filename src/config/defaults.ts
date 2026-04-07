@@ -67,10 +67,13 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
 
   webrtc: {
-    // TURN credentials must be moved to a backend /api/turn-credentials endpoint.
-    // These STUN entries are safe to keep client-side.
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
+      {
+        urls: "turn:4.232.250.132:3478",
+        username: process.env.TURN_USERNAME || "",
+        credential: process.env.TURN_CREDENTIAL || "",
+      },
     ],
   },
 

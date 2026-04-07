@@ -26,6 +26,8 @@ jobs:
         env:
           SIP_WS_URI: ${{ secrets.SIP_WS_URI }}
           DEVEXTREME_LICENSE_KEY: ${{ secrets.DEVEXTREME_LICENSE_KEY }}
+          TURN_USERNAME: ${{ secrets.TURN_USERNAME }}
+          TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
