@@ -69,7 +69,8 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
     if (authError && !isReady)
       return { ...base, backgroundColor: '#dc3545', border: '1px solid #bd2130' };
     if (isReady)
-      return { ...base, backgroundColor: '#28a745', border: '1px solid #1e7e34' };
+      //return { ...base, backgroundColor: '#28a745', border: '1px solid #1e7e34' };
+    return { ...base, backgroundColor: '#9aa728', border: '1px solid #a8aeaa' };
     if (isFailedPermanently())
       return { ...base, backgroundColor: '#dc3545', border: '1px solid #bd2130' };
     if (isFailing())
