@@ -7,13 +7,14 @@
     "forceConsistentCasingInFileNames": true,
     "jsx": "react",
     "module": "ES2020",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "noImplicitReturns": true,
     "noUnusedParameters": true,
     "outDir": "dist",
+    "rootDir": "src",
     "removeComments": false,
     "sourceMap": true,
-    "target": "es5",
+    "target": "ES2017",
     "lib": [
       "es7",
       "dom"
@@ -22,22 +23,22 @@
     "typeRoots": [
       "node_modules/@types"
     ],
-    "baseUrl": ".",
+    "types": ["node", "office-js"],
     "paths": {
-      "@store": ["src/store/index"],
-      "@store/*": ["src/store/*"],
-      "@components/*": ["src/taskpane/components/*"],
-      "@utils/*": ["src/utils/*"],
-      "@hooks/*": ["src/hooks/*"],
-      "@src/*": ["src/*"],
-      "@infra/*": ["src/infrastructure/*"],
-      "@interfaces/*": ["src/types/*"],
-      "@services/*": ["src/services/*"],
-      "@taskpane/*": ["src/taskpane/*"],
-      "@config": ["src/config/index"],
-      "@config/*": ["src/config/*"],
-      "@slices/*": ["src/store/slices/*"],
-      "@i18n": ["src/i18n"]
+      "@store": ["./src/store/index"],
+      "@store/*": ["./src/store/*"],
+      "@components/*": ["./src/taskpane/components/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@src/*": ["./src/*"],
+      "@infra/*": ["./src/infrastructure/*"],
+      "@interfaces/*": ["./src/types/*"],
+      "@services/*": ["./src/services/*"],
+      "@taskpane/*": ["./src/taskpane/*"],
+      "@config": ["./src/config/index"],
+      "@config/*": ["./src/config/*"],
+      "@slices/*": ["./src/store/slices/*"],
+      "@i18n": ["./src/i18n"]
     }
   },
   "exclude": [
