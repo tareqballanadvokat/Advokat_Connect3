@@ -50,26 +50,14 @@ export interface SipServerConfig {
   host: string;
   /** SIP server port */
   port: number;
-  /** From display name (caller) */
-  fromDisplayName: string;
+  /** From display name (caller) — set at runtime after user identity is resolved */
+  fromDisplayName?: string;
   /** To display name (callee) */
   toDisplayName: string;
   /** Maximum connection retries */
   maxRetries: number;
   /** Connection timeout in milliseconds */
   connectionTimeout: number;
-}
-
-/**
- * API Backend Server Configuration
- */
-export interface ApiServerConfig {
-  /** Base URL for API endpoints (e.g., https://api.example.com) */
-  baseUrl: string;
-  /** API timeout in milliseconds */
-  timeout: number;
-  /** Enable/disable request logging */
-  enableLogging: boolean;
 }
 
 /**
@@ -100,8 +88,6 @@ export interface AppConfig {
   environment: Environment;
   /** SIP/WebRTC signaling configuration */
   sip: SipServerConfig;
-  /** API backend configuration */
-  api: ApiServerConfig;
   /** WebRTC peer connection configuration */
   webrtc: WebRTCConfig;
   /** Logging configuration */

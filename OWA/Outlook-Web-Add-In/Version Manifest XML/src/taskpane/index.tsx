@@ -64,7 +64,6 @@ Office.onReady(async () => {
   logger.info('AppInit', `Loading from: ${window.location.origin}`);
   logger.info('AppInit', `Environment: ${config.environment}`);
   logger.info('AppInit', `SIP server: ${config.sip.wsUri}`);
-  logger.info('AppInit', `API: ${config.api.baseUrl}`);
   
   try {
     await checkAndClearCacheIfNeeded(logger);
