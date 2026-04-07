@@ -2,35 +2,59 @@
 
 ## How deployment works
 
-> **Important:** The build runs **locally**. The compiled `dist/` folder is committed and pushed to the repository. Azure Static Web Apps simply uploads this pre-built output — it does **not** run `npm run build`. This means Azure App Settings have **no effect** on `SIP_WS_URI` or `DEVEXTREME_LICENSE_KEY`. Both must be present in your local `.env` at the time you build.
+The build runs in **GitHub Actions CI**. On every push to `main`, the workflow:
+1. Installs dependencies (`npm ci`)
+2. Builds the app (`npm run build`) with secrets injected as environment variables
+3. Uploads the compiled `dist/` to Azure Static Web Apps
+
+Azure does **not** run webpack itself — `skip_app_build: true` tells the SWA action to upload `dist/` directly.  
+This means **Azure App Settings have no effect** on any of the variables below. They must be set as **GitHub Secrets**.
 
 ---
 
 ## Environment variables
 
-All variables are consumed by webpack `DefinePlugin` **at local build time** and baked into the JS bundle:
+All variables are consumed by webpack `DefinePlugin` at build time and baked into the JS bundle.
 
-| Variable | Used by | Description |
+| Variable | Description | Example |
 |---|---|---|
-| `SIP_WS_URI` | `defaults.ts` | WebSocket URI of the SIP signaling server. `host`, `port`, and `sipUri` are derived from this automatically. e.g. `wss://your-server.com:443` |
-| `DEVEXTREME_LICENSE_KEY` | `taskpane/index.tsx` | DevExtreme UI component license key (base64 string from the DevExtreme portal). |
-| `AZURE_TENANT_ID` | Azure tooling only | Not used at runtime. Required by the Azure CLI / pipeline for authentication. |
+| `SIP_WS_URI` | WebSocket URI of the SIP signaling server. `host`, `port`, and `sipUri` are derived automatically. | `wss://4.232.250.132:443` |
+| `DEVEXTREME_LICENSE_KEY` | DevExtreme UI component license key (base64 string from the DevExtreme portal). | *(base64 string)* |
+| `TURN_USERNAME` | Username for TURN server authentication. | `turnuser` |
+| `TURN_CREDENTIAL` | Password/credential for TURN server authentication. | `turnpassword` |
+| `AZURE_TENANT_ID` | Azure tooling only — not used at runtime by the add-in. | `xxxxxxxx-...` |
+
+The TURN server URLs (`turn:108.143.154.176:3478` and `turns:108.143.154.176:5349`) are hardcoded in `defaults.ts` — only the credentials are secrets.
 
 The caller identity (`fromDisplayName`) is **not** configured here — it is set at runtime after the user's identity is resolved (see `runtimeConfig.ts`).
 
 ---
 
-## Running locally (development or building for deployment)
+## GitHub Secrets (required for CI deployment)
 
-1. **Copy `.env.example` to `.env`** in the project root (`.env` is git-ignored; `.env.example` is committed and safe to read):
+In the GitHub repository go to **Settings → Secrets and variables → Actions** and add:
+
+| Secret name | Value |
+|---|---|
+| `AZURE_STATIC_WEB_APPS_API_TOKEN_GREEN_SEA_08A52E81E` | Deployment token from Azure Portal → Static Web App → Manage deployment token |
+| `SIP_WS_URI` | e.g. `wss://4.232.250.132:443` |
+| `DEVEXTREME_LICENSE_KEY` | License key from DevExtreme portal |
+| `TURN_USERNAME` | TURN server username |
+| `TURN_CREDENTIAL` | TURN server password |
+
+---
+
+## Running locally (development)
+
+1. **Copy `.env.example` to `.env`** in the project root (`.env` is git-ignored):
 
    ```
    AZURE_TENANT_ID=your-tenant-id
    DEVEXTREME_LICENSE_KEY=your-key-here
-   SIP_WS_URI=wss://your-signaling-server.com:443
+   SIP_WS_URI=wss://4.232.250.132:443
+   TURN_USERNAME=your-turn-username
+   TURN_CREDENTIAL=your-turn-password
    ```
-
-   > For a local signaling server use e.g. `wss://localhost:8009`.
 
 2. **Install dependencies:**
 
@@ -38,50 +62,55 @@ The caller identity (`fromDisplayName`) is **not** configured here — it is set
    npm install
    ```
 
-3. **Start the dev server** (development only):
+3. **Start the dev server:**
 
    ```bash
    npm start
    ```
 
-4. **Build for deployment:**
+4. **Build for production locally** (optional — CI does this automatically):
 
    ```bash
    npm run build
    ```
 
-   Webpack reads `.env` via `dotenv` and bakes `SIP_WS_URI` and `DEVEXTREME_LICENSE_KEY` into the bundle. The output goes to `dist/`.
-
-5. **Commit and push `dist/`** — the GitHub Actions workflow uploads it to Azure as-is.
-
-6. **Sideload the add-in** in Outlook using `manifest.xml`.  
-   Follow the [Microsoft sideloading guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/sideload-office-add-ins-for-testing).
-
 ---
 
-## Deploying to Azure Static Web Apps
+## How to push changes to deploy
 
-Because the build is local, Azure App Settings are **not** used for `SIP_WS_URI` or `DEVEXTREME_LICENSE_KEY`. The only secret Azure needs is the deployment token used by the GitHub Actions workflow.
+The personal test repository (`https://github.com/tareqballanadvokat/Advokat_Connect3`) uses a separate git history. Changes must be copied from the project folder and committed there.
 
-### GitHub Actions secret required
+A temp git repo lives at `%TEMP%\addin_clean_push`. Use this workflow to push any change:
 
-In the GitHub repository go to `Settings → Secrets and variables → Actions` and ensure the following secret exists:
+```powershell
+$src = "C:\AdvokatConnect\ADVOKAT_Connect\OWA\Outlook-Web-Add-In\Version Manifest XML"
+$tmp = "$env:TEMP\addin_clean_push"
 
-| Secret name | Value |
-|---|---|
-| `AZURE_STATIC_WEB_APPS_API_TOKEN_GREEN_SEA_08A52E81E` | *(deployment token from Azure Portal → Static Web App → Manage deployment token)* |
+# Copy the changed file(s) — add more Copy-Item lines as needed
+Copy-Item "$src\src\config\defaults.ts" "$tmp\src\config\defaults.ts" -Force
 
-The workflow (`.github/workflows/azure-static-web-apps.yml`) already references this token and uploads the pre-built `dist/` folder with `skip_app_build: true`.
+# Stage, commit and push
+cd $tmp
+git add .
+git commit -m "your commit message here"
+git push personal HEAD:main
+```
+
+**Notes:**
+- Every push to `main` triggers the GitHub Actions workflow automatically.
+- The workflow builds the app with the GitHub Secrets and deploys to Azure.
+- To push multiple changed files, add one `Copy-Item` line per file before `git add .`.
+- `.env` is never copied — it contains local secrets and must stay git-ignored.
 
 ---
 
 ## How values flow through the app
 
 ```
-Local .env  (present when developer runs npm run build)
+GitHub Secrets  (injected by CI during npm run build)
       │
       ▼
-webpack DefinePlugin  (build time — values baked into dist/ bundle)
+webpack DefinePlugin  (baked into dist/ bundle at build time)
       │
       ├─ process.env.SIP_WS_URI
       │         ▼
@@ -95,59 +124,21 @@ webpack DefinePlugin  (build time — values baked into dist/ bundle)
       │         ▼
       │   ConfigService singleton
       │         │
-      │         ├─ getSipConfig()  → SIP client: wsUri, host, port
+      │         ├─ getSipConfig()  → SIP client
       │         └─ runtimeConfig.setUserIdentifier(email)
-      │                  patches fromDisplayName + sipUri at runtime
+      │                  patches fromDisplayName + sipUri at runtime after auth
       │
-      └─ process.env.DEVEXTREME_LICENSE_KEY
+      ├─ process.env.DEVEXTREME_LICENSE_KEY
+      │         ▼
+      │   taskpane/index.tsx → config({ licenseKey })
+      │
+      └─ process.env.TURN_USERNAME / TURN_CREDENTIAL
                 ▼
-          taskpane/index.tsx → config({ licenseKey })
+          defaults.ts → DEFAULT_CONFIG.webrtc.iceServers
+                ▼
+          WebRTC PeerConnection ICE configuration
 ```
 
----
-
-## Notes
-
-- If `SIP_WS_URI` is missing from `.env` at build time, all derived SIP values will be empty strings and the app will log `SIP WebSocket URI is not configured` on startup.
-- The add-in communicates with the Advokat backend **peer-to-peer over a WebRTC DataChannel** — no backend URL is needed in the config.
-- TURN server credentials must **never** be stored in source code. When needed, implement a backend endpoint that returns short-lived credentials generated from the TURN shared secret.
-
-
-| Variable | Used by | Description | Example |
-|---|---|---|---|
-| `SIP_WS_URI` | `defaults.ts` | WebSocket URI of the SIP signaling server. `host`, `port`, and `sipUri` are derived from this automatically. | `wss://your-server.com:443` |
-| `DEVEXTREME_LICENSE_KEY` | `taskpane/index.tsx` | DevExtreme UI component license key. | *(base64 string from DevExtreme portal)* |
-| `AZURE_SUBSCRIPTION_ID` | Azure tooling / CI only | Not used at runtime by the add-in. Required for Azure CLI/pipeline deployments. | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `AZURE_TENANT_ID` | Azure tooling / CI only | Not used at runtime by the add-in. Required for Azure CLI/pipeline deployments. | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-
-The caller identity (`fromDisplayName`) is **not** configured here — it is set at runtime after the user's identity is resolved (see `runtimeConfig.ts`).
-
----
-
-## Running locally
-
-1. **Copy `.env.example` to `.env`** in the project root (`.env` is git-ignored; `.env.example` is committed and safe to read):
-
-   ```
-   AZURE_SUBSCRIPTION_ID=your-subscription-id
-   AZURE_TENANT_ID=your-tenant-id
-   DEVEXTREME_LICENSE_KEY=your-key-here
-   SIP_WS_URI=wss://your-signaling-server.com:443
-   ```
-
-   > For a local signaling server, use `wss://localhost:8009` (or the port you configured).
-
-2. **Install dependencies:**
-
-   ```bash
-   npm install
-   ```
-
-3. **Start the dev server:**
-
-   ```bash
-   npm start
-   ```
 
    Webpack reads `.env` via `dotenv` and injects `SIP_WS_URI` into the bundle through `DefinePlugin`.
 
