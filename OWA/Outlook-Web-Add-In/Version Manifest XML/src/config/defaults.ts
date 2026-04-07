@@ -207,7 +207,9 @@ export const TEST_CONFIG: AppConfig = {
   },
 
   webrtc: {
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+    ],
   },
 
   logging: {
