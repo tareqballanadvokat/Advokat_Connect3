@@ -118,7 +118,6 @@ export class TokenService {
    */
   async encryptAuthResponse(authResponse: IAuthResponse): Promise<IAuthResponse> {
     this.logger.debug('Encrypting auth response before storing', 'TokenService');
-    this.logger.debug('Access token to encrypt (first 30 / last 30 chars): ' + authResponse.access_token.substring(0, 30) + '...' + authResponse.access_token.substring(authResponse.access_token.length - 30), 'TokenService');
     
     const encryptedAccessToken = await this.encryptToken(authResponse.access_token);
     this.logger.debug('Encrypted access token (first 20 chars): ' + encryptedAccessToken.substring(0, 20) + '...', 'TokenService');

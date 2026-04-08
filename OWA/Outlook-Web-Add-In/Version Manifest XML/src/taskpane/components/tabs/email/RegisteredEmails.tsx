@@ -100,7 +100,7 @@ const RegisteredEmails: React.FC = () => {
       const blob = createBlobFromBase64(base64, mimeType);
       const url = URL.createObjectURL(blob);
       DownloadFile(url, fileName);
-    } catch (err) {
+    } catch (err: any) {
       const msg = err.message.includes('404')
         ? translate('documentNotFound')
         : translate('failedToOpenDocument');

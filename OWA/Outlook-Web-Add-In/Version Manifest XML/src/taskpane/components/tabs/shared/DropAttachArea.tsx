@@ -37,7 +37,7 @@ export default function DropAttachArea() {
           const reader = new FileReader();
           reader.onload = () => {
             const dataUrl = reader.result as string;
-            resolve(dataUrl.split(',')[1]);     // drop the data:… prefix
+            resolve(dataUrl.split(',')[1]);     // drop the data:ï¿½ prefix
           };
           reader.onerror = reject;
           reader.readAsDataURL(file);
@@ -45,7 +45,7 @@ export default function DropAttachArea() {
 
         // 2) Attach to current message (Compose mode)
         await new Promise<void>((resolve, reject) => {
-          Office.context.mailbox.item.addFileAttachmentFromBase64Async(
+          Office.context.mailbox.item?.addFileAttachmentFromBase64Async(
             base64,
             file.name,
             { isInline: false },

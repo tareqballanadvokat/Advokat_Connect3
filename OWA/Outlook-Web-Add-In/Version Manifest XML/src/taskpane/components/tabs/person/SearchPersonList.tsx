@@ -167,20 +167,20 @@ const SearchPersonList: React.FC<Props> = ({ onPersonSelect }) => {
               icon: 'favorites',
               hint: translate('hints.addToFavorites'),
               cssClass: 'star-button-gold',
-              visible: e => !isInFavorites(e.row.data.id) && !isAddingToFavorites(e.row.data.id),
-              onClick: (e) => handleAddToFavorites(e.row.data)
+              visible: e => !isInFavorites(e.row?.data.id) && !isAddingToFavorites(e.row?.data.id),
+              onClick: (e) => handleAddToFavorites(e.row?.data)
             },
             {
               icon: 'refresh',
               hint: translate('hints.addingToFavorites'),
               cssClass: 'loading-button',
-              visible: e => isAddingToFavorites(e.row.data.id),
+              visible: e => isAddingToFavorites(e.row?.data.id),
               disabled: true
             },
             {
               icon: 'check',
               hint: translate('hints.alreadyInFavorites'),
-              visible: e => isInFavorites(e.row.data.id),
+              visible: e => isInFavorites(e.row?.data.id),
               disabled: true
             }
           ]}

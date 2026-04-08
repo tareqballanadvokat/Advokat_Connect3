@@ -22,7 +22,7 @@ export interface WebRTCApiResponse {
   timestamp: number;                  // Unix timestamp
   totalChunks: number;                // Total number of chunks (0 if not chunked)
   currentChunk: number;               // Current chunk number (0 if not chunked)
-  statusCode?: number;                // HTTP status code
+  statusCode: number;                // HTTP status code
   errorCode?: number;                 // Alternative error code field (used in some error responses)
   headers?: Record<string, string>;   // HTTP headers
   body?: string;                      // HTTP body (optional)
