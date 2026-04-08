@@ -23,7 +23,7 @@
     "typeRoots": [
       "node_modules/@types"
     ],
-    "types": ["node"],
+    "types": ["node",  "office-js"],
     "paths": {
       "@store": ["./src/store/index"],
       "@store/*": ["./src/store/*"],
