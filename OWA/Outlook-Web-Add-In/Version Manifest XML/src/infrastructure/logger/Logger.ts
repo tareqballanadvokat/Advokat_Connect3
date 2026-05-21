@@ -92,16 +92,16 @@ export class Logger {
 
     switch (entry.level) {
       case LogLevel.DEBUG:
-        console.log(`[DBG] ${message}`, entry.data !== undefined ? entry.data : "");
+        console.log(`[DEBUG] ${message}`, entry.data ?? "");
         break;
       case LogLevel.INFO:
-        console.info(`[INF] ${message}`, entry.data !== undefined ? entry.data : "");
+        console.warn(`[INFO] ${message}`, entry.data ?? "");
         break;
       case LogLevel.WARN:
-        console.warn(`[WRN] ${message}`, entry.data !== undefined ? entry.data : "");
+        console.warn(`[WARN] ${message}`, entry.data ?? "");
         break;
       case LogLevel.ERROR:
-        console.error(`[ERR] ${message}`, entry.data !== undefined ? entry.data : "");
+        console.error(`[ERROR] ${message}`, entry.data ?? "");
         if (entry.stack && this.config.includeStack) {
           console.error(entry.stack);
         }

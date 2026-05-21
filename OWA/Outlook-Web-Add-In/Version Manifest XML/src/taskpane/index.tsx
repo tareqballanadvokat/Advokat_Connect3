@@ -54,24 +54,22 @@ const checkAndClearCacheIfNeeded = async (logger: ReturnType<typeof getLogger>) 
 const rootElement: HTMLElement | null = document.getElementById("container");
 const root = rootElement ? createRoot(rootElement) : undefined;
 
+// Early beacon — visible in Outlook DevTools even before Office.onReady fires
+console.warn('[AppInit] Script loaded - waiting for Office.onReady');
+
 /* Render application after Office initializes */
 Office.onReady(async () => {
   // Initialize logger with config
   const config = configService.getConfig();
   const logger = initializeLogger(config.logging);
 
-  // Raw beacon — visible in any DevTools context without frame selection
-  // For Outlook Web: open DevTools (F12) > Console > change frame dropdown from "top" to the add-in iframe
-  console.warn(`[ADVOKAT] Add-in ready | origin=${window.location.origin} | env=${config.environment} | logging=${config.logging.enabled} | level=${config.logging.level}`);
-
-  // Expose logger and config on window for live console debugging
+  // Expose logger to window for manual inspection in Outlook DevTools console
   (window as any).__logger = logger;
-  (window as any).__advokatConfig = config;
 
   // Startup origin log — confirms whether loading from Azure or localhost
-  logger.info(`Loading from: ${window.location.origin}`, 'AppInit');
-  logger.info(`Environment: ${config.environment}`, 'AppInit');
-  logger.info(`SIP server: ${config.sip.wsUri}`, 'AppInit');
+  logger.info('AppInit', `Loading from: ${window.location.origin}`);
+  logger.info('AppInit', `Environment: ${config.environment}`);
+  logger.info('AppInit', `SIP server: ${config.sip.wsUri}`);
   
   try {
     await checkAndClearCacheIfNeeded(logger);
@@ -103,12 +101,12 @@ Office.onReady(async () => {
     </Provider>
   );
 
-  // Expose cache statistics to window for console debugging
+  // Expose cache statistics and logger state to window for console debugging
   (window as any).__cacheStats = () => {
     cacheService.logStatistics();
     return cacheService.getStatistics();
   };
-  logger.info('Tip: window.__logger / window.__advokatConfig / window.__cacheStats() available in console', 'App');
+  logger.info('App', 'Tip: Use window.__cacheStats() in console to view cache statistics');
 });
 
 if ((module as any).hot) {
