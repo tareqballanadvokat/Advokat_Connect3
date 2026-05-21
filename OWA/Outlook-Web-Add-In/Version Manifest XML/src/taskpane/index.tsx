@@ -60,10 +60,18 @@ Office.onReady(async () => {
   const config = configService.getConfig();
   const logger = initializeLogger(config.logging);
 
+  // Raw beacon — visible in any DevTools context without frame selection
+  // For Outlook Web: open DevTools (F12) > Console > change frame dropdown from "top" to the add-in iframe
+  console.warn(`[ADVOKAT] Add-in ready | origin=${window.location.origin} | env=${config.environment} | logging=${config.logging.enabled} | level=${config.logging.level}`);
+
+  // Expose logger and config on window for live console debugging
+  (window as any).__logger = logger;
+  (window as any).__advokatConfig = config;
+
   // Startup origin log — confirms whether loading from Azure or localhost
-  logger.info('AppInit', `Loading from: ${window.location.origin}`);
-  logger.info('AppInit', `Environment: ${config.environment}`);
-  logger.info('AppInit', `SIP server: ${config.sip.wsUri}`);
+  logger.info(`Loading from: ${window.location.origin}`, 'AppInit');
+  logger.info(`Environment: ${config.environment}`, 'AppInit');
+  logger.info(`SIP server: ${config.sip.wsUri}`, 'AppInit');
   
   try {
     await checkAndClearCacheIfNeeded(logger);
@@ -100,7 +108,7 @@ Office.onReady(async () => {
     cacheService.logStatistics();
     return cacheService.getStatistics();
   };
-  logger.info('App', 'Tip: Use window.__cacheStats() in console to view cache statistics');
+  logger.info('Tip: window.__logger / window.__advokatConfig / window.__cacheStats() available in console', 'App');
 });
 
 if ((module as any).hot) {
