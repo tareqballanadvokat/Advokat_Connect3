@@ -25,7 +25,7 @@ export class Logger {
       Logger.instance = new Logger(config);
     } else if (!Logger.instance) {
       Logger.instance = new Logger({
-        enabled: false,
+        enabled: true,
         level: LogLevel.DEBUG,
         includeTimestamp: true,
         includeStack: true,
