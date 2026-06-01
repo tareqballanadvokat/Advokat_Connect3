@@ -265,7 +265,7 @@ export function createPendingRequest(
       sentAt: Date.now(),
     };
 
-    pendingRequest.chunks.set(chunkNumber, chunkInfo);
+    pendingRequest.chunks?.set(chunkNumber, chunkInfo);
   }
 
   return pendingRequest;

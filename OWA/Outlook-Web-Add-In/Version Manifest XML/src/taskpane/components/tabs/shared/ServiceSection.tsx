@@ -32,9 +32,9 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
     if (selectedAktId) {
       logger.debug('Loading global services list for Akt ' + selectedAktId, 'ServiceSection');
       dispatch(loadServicesAsync({
-        Kürzel: null,
+        Kürzel: undefined,
          OnlyQuickListe: false,
-        Count: null
+        Count: undefined
       }));
     } else {
       dispatch(clearServices());

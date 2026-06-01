@@ -118,9 +118,6 @@ export class WebRTCApiService implements DataChannelObserver {
 
     const formData = formParams.join("&");
 
-    this.logger.debug("Created URL-encoded form data", "WebRTCApiService");
-    this.logger.debug(`Form data content: ${formData}`, "WebRTCApiService");
-
     return formData;
   }
 
