@@ -60,7 +60,10 @@ export const DEFAULT_CONFIG: AppConfig = {
     sipUri: _sipDerived.sipUri,
     host: _sipDerived.host,
     port: _sipDerived.port,
-    // fromDisplayName is undefined until set via runtimeConfig.setUserIdentifier()
+    // TODO: Replace hardcoded "macc" with the actual user identity at runtime.
+    // Call setUserIdentifier(email) from runtimeConfig.ts before initializing the SIP client,
+    // e.g. using Office.context.mailbox.userProfile.emailAddress in taskpane/index.tsx.
+    fromDisplayName: "macc",
     toDisplayName: SIP_TO_DISPLAY_NAME,
     maxRetries: SIP_MAX_RETRIES,
     connectionTimeout: SIP_CONNECTION_TIMEOUT_MS,
