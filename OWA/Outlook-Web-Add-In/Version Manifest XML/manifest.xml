@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0" xsi:type="MailApp">
-  <Id>d094843d-3f06-4690-9572-30a06d6eaa36</Id>
+  <Id>34d7bfcf-cabc-4a16-a380-f12a6103efbe</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>Advokat</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Add-In"/>
   <Description DefaultValue="A template to get started."/>
-  <IconUrl DefaultValue="https://localhost:3000/assets/advokat.png"/>
-  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/advokat.png"/>
-  <SupportUrl DefaultValue="https://www.contoso.com/help"/>
+  <IconUrl DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/advokat.png"/>
+  <HighResolutionIconUrl DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/advokat.png"/>
+  <SupportUrl DefaultValue="https://advokat.at/services/support/"/>
   <AppDomains>
-    <AppDomain>https://www.contoso.com</AppDomain>
+    <AppDomain>https://green-sea-08a52e81e.2.azurestaticapps.net</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Mailbox"/>
@@ -23,7 +23,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://localhost:3000/taskpane.html"/>
+        <SourceLocation DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/taskpane.html"/>
         <RequestedHeight>250</RequestedHeight>
       </DesktopSettings>
     </Form>
@@ -96,16 +96,16 @@
       </Hosts>
       <Resources>
         <bt:Images>
-          <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3000/assets/a_3.png"/>
-          <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3000/assets/a_3.png"/>
-          <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3000/assets/a_3.png"/>
+          <bt:Image id="Icon.16x16" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/a_3.png"/>
+          <bt:Image id="Icon.32x32" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/a_3.png"/>
+          <bt:Image id="Icon.80x80" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/a_3.png"/>
         </bt:Images>
         <bt:Urls>
-          <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/commands.html"/>
-          <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/taskpane.html"/>
+          <bt:Url id="Commands.Url" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/commands.html"/>
+          <bt:Url id="Taskpane.Url" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/taskpane.html"/>
         </bt:Urls>
         <bt:ShortStrings>
-          <bt:String id="GroupLabel" DefaultValue="Contoso Add-in"/>
+          <bt:String id="GroupLabel" DefaultValue="Advokat Add-in"/>
           <bt:String id="TaskpaneButton.Label" DefaultValue="Advokat Add-In"/>
         </bt:ShortStrings>
         <bt:LongStrings>
