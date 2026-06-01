@@ -224,15 +224,6 @@ export class WebRTCConnectionManager implements SipClientObserver {
         this._connectionResolve = resolve;
         this._connectionReject = reject;
       });
-
-      // Automatically authenticate after connection is established
-      await this.performAuthentication();
-
-      // Start idle monitoring only after successful connection
-      this.startIdleMonitoring();
-
-      // Clear any existing reconnect timer
-      this.clearReconnectTimer();
     } catch (error) {
       // Cleanup: unsubscribe if we subscribed but connection failed
       if (this.sipClient?.isSubscribed(this)) {
@@ -258,6 +249,17 @@ export class WebRTCConnectionManager implements SipClientObserver {
       this.handleConnectionError(error);
       throw error;
     }
+
+    // Authentication and post-connection setup run OUTSIDE the try-catch above.
+    // A failed auth request (e.g. HTTP 400) is an application-level error, not a
+    // connection failure. It must NOT trigger connection teardown or a reconnect.
+    await this.performAuthentication();
+
+    // Start idle monitoring only after successful connection + authentication
+    this.startIdleMonitoring();
+
+    // Clear any existing reconnect timer
+    this.clearReconnectTimer();
   }
 
   /**
@@ -489,11 +491,11 @@ export class WebRTCConnectionManager implements SipClientObserver {
       const errorMessage = error instanceof Error ? error.message : "Authentication failed";
       store.dispatch(authenticationFailure(errorMessage));
 
-      this.updateConnectionState({
-        lastError: errorMessage,
-      });
-
-      throw error;
+      // Authentication errors (e.g. wrong credentials → HTTP 400/401) are tracked in
+      // authSlice and surfaced to the user via the WebRTCConnectionStatus banner.
+      // We deliberately do NOT rethrow here: the WebRTC connection is still alive and
+      // healthy, so there is nothing to reconnect. Rethrowing would propagate to
+      // initialize()'s catch block and could schedule a pointless reconnect attempt.
     }
   }
 
