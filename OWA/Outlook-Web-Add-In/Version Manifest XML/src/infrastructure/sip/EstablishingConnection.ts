@@ -369,11 +369,13 @@ export class EstablishingConnection {
   private createAck5ForNotify4(data: string): string {
     const toLineMatch = data.match(EstablishingConnection.REGEX_TO_LINE);
     const toLine = toLineMatch ? toLineMatch[0] : "";
-    const fromLineOrigin = toLine.replace(/^To:/i, "From:");
+    // Strip the "To: " prefix — MessageFactory.createAckMessage adds "From: " itself
+    const fromLineOrigin = toLine.replace(/^To:\s*/i, "");
 
     const fromLineMatch = data.match(EstablishingConnection.REGEX_FROM_LINE);
     const fromLine = fromLineMatch ? fromLineMatch[0] : "";
-    const toLineReplaced = fromLine.replace(/^From:/i, "To:");
+    // Strip the "From: " prefix — MessageFactory.createAckMessage adds "To: " itself
+    const toLineReplaced = fromLine.replace(/^From:\s*/i, "");
 
     const ack5 = MessageFactory.createAckMessage({
       sipUri: this.sipUri,
