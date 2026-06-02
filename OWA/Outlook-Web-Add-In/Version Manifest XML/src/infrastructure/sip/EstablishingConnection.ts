@@ -119,7 +119,7 @@ export class EstablishingConnection {
   public callId = "";
   public isConnectionEstablished = false;
   private branch = "";
-  private fromDisplayName: string;
+  private fromDisplayName: string | undefined;
   private toDisplayName: string;
 
   private connectionState: ConnectionState = ConnectionState.WAITING_NOTIFY_4;
