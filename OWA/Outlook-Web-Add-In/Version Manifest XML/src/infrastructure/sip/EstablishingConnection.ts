@@ -385,7 +385,7 @@ export class EstablishingConnection {
       fromLine: fromLineOrigin,
     });
 
-    logger.debug("Created ACK5 for NOTIFY4", "EstablishingConnection");
+    logger.info(`Sending ACK5 for NOTIFY4:\n${ack5}`, "EstablishingConnection");
     // Transition to WAITING_NOTIFY_6 when ACK5 is sent
     this.transitionTo(ConnectionState.WAITING_NOTIFY_6, "ACK5 sent - waiting for NOTIFY6");
     return ack5;
