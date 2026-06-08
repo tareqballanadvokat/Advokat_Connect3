@@ -220,8 +220,19 @@ export class WebRTCDataChannelService {
       );
       this.setupChannelHandlers(channel, "answer");
 
-      // Notify observers of initial state
-      this.notifyStateChanged(channel.readyState, "answer");
+      // Notify observers of initial state — but NOT for "open":
+      // When ondatachannel fires for a channel already in readyState="open", firing
+      // notifyStateChanged("open") here is synchronous and causes Peer2PeerConnection
+      // to reach COMPLETE and trigger auth BEFORE the DOM onopen event fires.
+      // Auth sent in that brief window (readyState="open" but before DOM onopen) risks
+      // the server response arriving before the SCTP stream is confirmed ready, causing
+      // the first auth to time out (30s) and requiring a retry.
+      // Solution: let the DOM onopen event (attached above in setupChannelHandlers) fire
+      // the "open" notification — browsers reliably queue and fire it even for already-open
+      // channels. This ensures COMPLETE and auth only happen after the DOM confirms readiness.
+      if (channel.readyState !== "open") {
+        this.notifyStateChanged(channel.readyState, "answer");
+      }
     } else {
       this.logger.info("Answer channel cleared", "WebRTCDataChannelService");
       this.notifyStateChanged("closed", "answer");

@@ -444,9 +444,11 @@ export class WebRTCConnectionManager implements SipClientObserver {
     try {
       store.dispatch(startAuthentication());
 
-      // Verify offer channel is open for sending (should already be open from waitForFullConnection)
-      if (!WebRTCDataChannelService.getInstance().isOfferChannelOpen) {
-        throw new Error("Offer channel not open - authentication cannot proceed");
+      // Verify both channels are open before attempting authentication.
+      // The offer channel is used for sending; the answer channel must be open and confirmed
+      // via its DOM onopen event before the server's response can be reliably received.
+      if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+        throw new Error("Both channels must be ready before authentication can proceed");
       }
 
       this.logger.info(
