@@ -29,6 +29,8 @@ module.exports = async (env, options) => {
     },
     output: {
       clean: true,
+      filename: dev ? '[name].js' : '[name].[contenthash:8].js',
+      chunkFilename: dev ? '[id].js' : '[id].[contenthash:8].js',
     },
     resolve: {
       extensions: [".ts", ".tsx", ".html", ".js"],
@@ -149,6 +151,9 @@ module.exports = async (env, options) => {
       }),
       new webpack.DefinePlugin({
         "process.env.DEVEXTREME_LICENSE_KEY": JSON.stringify(process.env.DEVEXTREME_LICENSE_KEY || ""),
+        "process.env.SIP_WS_URI": JSON.stringify(process.env.SIP_WS_URI || ""),
+        "process.env.TURN_USERNAME": JSON.stringify(process.env.TURN_USERNAME || ""),
+        "process.env.TURN_CREDENTIAL": JSON.stringify(process.env.TURN_CREDENTIAL || ""),
       }),
     ],
     devServer: {

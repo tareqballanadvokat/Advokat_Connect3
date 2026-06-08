@@ -38,8 +38,10 @@
     "devextreme": "24.2.7",
     "devextreme-react": "24.2.7",
     "es6-promise": "^4.2.8",
+    "i18next": "^25.8.14",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-i18next": "^16.5.4",
     "react-redux": "^9.2.0",
     "regenerator-runtime": "^0.14.1",
     "uuid": "^11.1.0"

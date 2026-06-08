@@ -5,7 +5,7 @@
  */
 
 import { Environment, AppConfig } from "./types";
-import { DEFAULT_CONFIG, PRODUCTION_CONFIG, STAGING_CONFIG, TEST_CONFIG } from "./defaults";
+import { DEFAULT_CONFIG, TEST_CONFIG } from "./defaults";
 
 /**
  * Detect current environment based on various indicators
@@ -60,28 +60,13 @@ export function detectEnvironment(): Environment {
 export function getEnvironmentConfig(): AppConfig {
   const env = detectEnvironment();
 
-  switch (env) {
-    case Environment.PRODUCTION:
-      return {
-        ...DEFAULT_CONFIG,
-        ...PRODUCTION_CONFIG,
-        environment: Environment.PRODUCTION,
-      } as AppConfig;
-
-    case Environment.STAGING:
-      return {
-        ...DEFAULT_CONFIG,
-        ...STAGING_CONFIG,
-        environment: Environment.STAGING,
-      } as AppConfig;
-
-    case Environment.TEST:
-      return TEST_CONFIG;
-
-    case Environment.DEVELOPMENT:
-    default:
-      return DEFAULT_CONFIG;
+  if (env === Environment.TEST) {
+    return TEST_CONFIG;
   }
+
+  // For all non-test environments, use DEFAULT_CONFIG (which already reads from
+  // env vars) and stamp the detected environment.
+  return { ...DEFAULT_CONFIG, environment: env };
 }
 
 /**
