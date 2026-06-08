@@ -11,7 +11,7 @@ import { getLogger, initializeLogger, LogLevel } from "./index";
 // import { getConfig } from '@/config';
 
 // ============================================
-// INITIALIZATION (do this once in your app)
+// INITIALIZATION
 // ============================================
 
 // Initialize logger with config at app startup

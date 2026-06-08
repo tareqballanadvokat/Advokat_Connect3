@@ -119,7 +119,7 @@ export class EstablishingConnection {
   public callId = "";
   public isConnectionEstablished = false;
   private branch = "";
-  private fromDisplayName: string;
+  private fromDisplayName: string | undefined;
   private toDisplayName: string;
 
   private connectionState: ConnectionState = ConnectionState.WAITING_NOTIFY_4;
@@ -369,11 +369,13 @@ export class EstablishingConnection {
   private createAck5ForNotify4(data: string): string {
     const toLineMatch = data.match(EstablishingConnection.REGEX_TO_LINE);
     const toLine = toLineMatch ? toLineMatch[0] : "";
-    const fromLineOrigin = toLine.replace(/^To:/i, "From:");
+    // Strip the "To: " prefix — MessageFactory.createAckMessage adds "From: " itself
+    const fromLineOrigin = toLine.replace(/^To:\s*/i, "");
 
     const fromLineMatch = data.match(EstablishingConnection.REGEX_FROM_LINE);
     const fromLine = fromLineMatch ? fromLineMatch[0] : "";
-    const toLineReplaced = fromLine.replace(/^From:/i, "To:");
+    // Strip the "From: " prefix — MessageFactory.createAckMessage adds "To: " itself
+    const toLineReplaced = fromLine.replace(/^From:\s*/i, "");
 
     const ack5 = MessageFactory.createAckMessage({
       sipUri: this.sipUri,
@@ -385,7 +387,7 @@ export class EstablishingConnection {
       fromLine: fromLineOrigin,
     });
 
-    logger.debug("Created ACK5 for NOTIFY4", "EstablishingConnection");
+    logger.info(`Sending ACK5 for NOTIFY4:\n${ack5}`, "EstablishingConnection");
     // Transition to WAITING_NOTIFY_6 when ACK5 is sent
     this.transitionTo(ConnectionState.WAITING_NOTIFY_6, "ACK5 sent - waiting for NOTIFY6");
     return ack5;

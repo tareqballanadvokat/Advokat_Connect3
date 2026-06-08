@@ -1,45 +1,87 @@
 /**
  * Default Configuration Values
- * Fallback values when no environment-specific config is provided
+ *
+ * The SIP server address is injected at build time via webpack DefinePlugin
+ * from the environment variable:
+ *   - SIP_WS_URI : WebSocket URI of the SIP signaling server
+ *
+ * Set this in Azure Static Web Apps → Configuration → Application settings,
+ * or in a local .env file for development.
+ *
+ * fromDisplayName is NOT set here; it is patched at runtime after the user
+ * identity is resolved (see runtimeConfig.ts).
  */
 
 import { AppConfig, Environment, LogLevel } from "./types";
 
+// Shared SIP connection constants — same for all environments
+const SIP_MAX_RETRIES = 2;
+const SIP_CONNECTION_TIMEOUT_MS = 30000;
+const SIP_TO_DISPLAY_NAME = "macs";
+
 /**
- * Default configuration for development environment
+ * Derive SIP host, port, and sipUri from a WebSocket URI.
+ *
+ * e.g. "wss://4.232.250.132:443"
+ *   → host: "4.232.250.132", port: 443, sipUri: "sip:user@4.232.250.132:443"
+ *
+ * fromDisplayName is intentionally left out here; it is set at runtime.
+ */
+export function parseSipWsUri(wsUri: string): { host: string; port: number; sipUri: string } {
+  try {
+    // URL expects a proper scheme; replace wss/ws with https/http for parsing
+    const normalized = wsUri.replace(/^wss?:\/\//, (m) => (m === "wss://" ? "https://" : "http://"));
+    const url = new URL(normalized);
+    const host = url.hostname;
+    const port = url.port ? parseInt(url.port, 10) : url.protocol === "https:" ? 443 : 80;
+    const sipUri = `sip:user@${host}:${port}`;
+    return { host, port, sipUri };
+  } catch {
+    return { host: "", port: 0, sipUri: "" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Resolved SIP values from the SIP_WS_URI environment variable
+// ---------------------------------------------------------------------------
+const _sipWsUri: string = process.env.SIP_WS_URI || "";
+const _sipDerived = parseSipWsUri(_sipWsUri);
+
+/**
+ * Single application configuration.
+ * Environment is detected at runtime by environment.ts (hostname / NODE_ENV).
+ * Server addresses come from environment variables, not from hardcoded values.
  */
 export const DEFAULT_CONFIG: AppConfig = {
-  environment: Environment.DEVELOPMENT,
+  environment: Environment.DEVELOPMENT, // overridden by getEnvironmentConfig()
 
   sip: {
-    wsUri: "wss://localhost:8009",
-    sipUri: "sip:macc@127.0.0.1:8009",
-    host: "127.0.0.1",
-    port: 8009,
+    wsUri: _sipWsUri,
+    sipUri: _sipDerived.sipUri,
+    host: _sipDerived.host,
+    port: _sipDerived.port,
+    // TODO: Replace hardcoded "macc" with the actual user identity at runtime.
+    // Call setUserIdentifier(email) from runtimeConfig.ts before initializing the SIP client,
+    // e.g. using Office.context.mailbox.userProfile.emailAddress in taskpane/index.tsx.
     fromDisplayName: "macc",
-    toDisplayName: "macs",
-    maxRetries: 3,
-    connectionTimeout: 30000, // 30 seconds
-  },
-
-  api: {
-    baseUrl: "https://localhost:7231",
-    timeout: 30000, // 30 seconds
-    enableLogging: true,
+    toDisplayName: SIP_TO_DISPLAY_NAME,
+    maxRetries: SIP_MAX_RETRIES,
+    connectionTimeout: SIP_CONNECTION_TIMEOUT_MS,
   },
 
   webrtc: {
     iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { 
+      { urls: "stun:stun.l.google.com:19302" },
+
+      {
         urls: 'turn:108.143.154.176:3478',
-        username: 'advokatuser',
-        credential: '123456Advokat' // Change credentials
+        username: process.env.TURN_USERNAME || "",
+        credential: process.env.TURN_CREDENTIAL || "",
       },
       {
-        urls: "turns:108.143.154.176:5349",
-        username: "advokatuser",
-        credential: "123456Advokat", // Change credentials
+        urls: 'turns:108.143.154.176:5349',
+        username: process.env.TURN_USERNAME || "",
+        credential: process.env.TURN_CREDENTIAL || "",
       },
     ],
   },
@@ -58,137 +100,20 @@ export const DEFAULT_CONFIG: AppConfig = {
 };
 
 /**
- * Production configuration
- * We can set these via environment variables or modify this file
- */
-export const PRODUCTION_CONFIG: Partial<AppConfig> = {
-  environment: Environment.PRODUCTION,
-
-  sip: {
-    // Update with production signaling server
-    wsUri: "wss://signaling.production.com:8009",
-    sipUri: "sip:user@signaling.production.com:8009",
-    host: "signaling.production.com",
-    port: 8009,
-    fromDisplayName: "user",
-    toDisplayName: "server",
-    maxRetries: 5,
-    connectionTimeout: 30000,
-  },
-
-  api: {
-    // Update with production API server
-    baseUrl: "https://api.production.com",
-    timeout: 30000,
-    enableLogging: false, // Disable verbose logging in production
-  },
-
-  webrtc: {
-    iceServers: [
-      // Update with Azure TURN server IP after deployment
-      { urls: "stun:108.143.154.176:3478" },
-      {
-        urls: "turn:108.143.154.176:3478",
-        username: "advokatuser",
-        credential: "123456Advokat", // Change credentials
-      },
-      {
-        urls: "turns:108.143.154.176:5349",
-        username: "advokatuser",
-        credential: "123456Advokat", // Change credentials
-      },
-    ],
-  },
-
-  logging: {
-    enabled: false, // Disabled in production by default
-    level: LogLevel.ERROR, // Only critical errors in production
-    includeTimestamp: true,
-    includeStack: true,
-  },
-
-  theme: {
-    name: "devextreme/dist/css/dx.",
-    compact: false,
-  },
-};
-
-/**
- * Staging configuration
- */
-export const STAGING_CONFIG: Partial<AppConfig> = {
-  environment: Environment.STAGING,
-
-  sip: {
-    // Update with staging signaling server
-    wsUri: "wss://signaling.staging.com:8009",
-    sipUri: "sip:user@signaling.staging.com:8009",
-    host: "signaling.staging.com",
-    port: 8009,
-    fromDisplayName: "staging-user",
-    toDisplayName: "staging-server",
-    maxRetries: 3,
-    connectionTimeout: 30000,
-  },
-
-  api: {
-    // Update with staging API server
-    baseUrl: "https://api.staging.com",
-    timeout: 30000,
-    enableLogging: true,
-  },
-
-  webrtc: {
-    iceServers: [
-      { urls: "stun:108.143.154.176:3478" },
-      {
-        urls: "turn:108.143.154.176:3478",
-        username: "advokatuser",
-        credential: "123456Advokat", // Change credentials
-      },
-      {
-        urls: "turns:108.143.154.176:5349",
-        username: "advokatuser",
-        credential: "123456Advokat", // Change credentials
-      },
-    ],
-  },
-
-  logging: {
-    enabled: true,
-    level: LogLevel.INFO, // Staging uses INFO level
-    includeTimestamp: true,
-    includeStack: true,
-  },
-
-  theme: {
-    name: "devextreme/dist/css/dx.",
-    compact: false,
-  },
-};
-
-/**
- * Test configuration for unit/integration tests
- * Uses the same values as development (original hard-coded values)
+ * Test configuration for unit/integration tests.
+ * Uses fixed stub values so tests are not dependent on env vars.
  */
 export const TEST_CONFIG: AppConfig = {
   environment: Environment.TEST,
 
   sip: {
-    wsUri: "wss://localhost:8009",
-    sipUri: "sip:macc@127.0.0.1:8009",
-    host: "127.0.0.1",
-    port: 8009,
-    fromDisplayName: "macc",
-    toDisplayName: "macs",
-    maxRetries: 3,
-    connectionTimeout: 30000,
-  },
-
-  api: {
-    baseUrl: "https://localhost:7231",
-    timeout: 30000,
-    enableLogging: false,
+    wsUri: "wss://test.local:443",
+    sipUri: "sip:user@test.local:443",
+    host: "test.local",
+    port: 443,
+    toDisplayName: SIP_TO_DISPLAY_NAME,
+    maxRetries: SIP_MAX_RETRIES,
+    connectionTimeout: SIP_CONNECTION_TIMEOUT_MS,
   },
 
   webrtc: {
@@ -196,7 +121,7 @@ export const TEST_CONFIG: AppConfig = {
   },
 
   logging: {
-    enabled: false, // Disabled in tests to avoid console noise
+    enabled: false,
     level: LogLevel.ERROR,
     includeTimestamp: false,
     includeStack: false,

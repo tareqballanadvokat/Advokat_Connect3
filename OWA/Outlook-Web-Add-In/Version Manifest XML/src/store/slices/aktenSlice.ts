@@ -589,7 +589,7 @@ const aktenSlice = createSlice({
         state.loadingEmailDocumentsForAktId = null;
         state.emailDocuments = action.payload;
         state.emailDocumentsLoadedForAktId = action.meta.arg.aktId;
-        state.emailDocumentsLoadedForEmailId = action.meta.arg.outlookEmailId;
+        state.emailDocumentsLoadedForEmailId = action.meta.arg.outlookEmailId ?? null;
       })
       .addCase(getEmailDocumentsAsync.rejected, (state, action) => {
         state.emailDocumentsLoading = false;

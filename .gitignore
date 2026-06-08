@@ -55,6 +55,8 @@ bld/
 # but not .github (needed for GitHub Actions deployment workflows)
 !.github
 !.github/**
+# but not .env.example (safe template committed for developer onboarding)
+!**/.env.example
 
 # MSTest test Results
 [Tt]est[Rr]esult*/

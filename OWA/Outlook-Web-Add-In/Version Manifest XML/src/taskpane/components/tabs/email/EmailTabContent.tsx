@@ -68,8 +68,8 @@ const EmailTabContent: React.FC = () => {
   // useEffect removed
 
   // Helper function to get folder name from attachment item
-  const getFolderName = (item: TransferAttachmentItem): string => {
-    return item.folderName || 'Default';
+  const getFolderName = (item: TransferAttachmentItem): string | null => {
+    return item.folderName || null;
   };
 
   const setCaseHandler = async (selectedCase: AktLookUpResponse) => {
@@ -105,15 +105,6 @@ const EmailTabContent: React.FC = () => {
     logger.debug(`Starting transfer for case ${selectedCaseName} (ID: ${selectedCaseId}) with message ID: ${messageId}`, 'EmailTabContent');
     if (!messageId) {
       notify(translate('emailMessageIdNotAvailable'), 'warning', 3000);
-      return;
-    }
-
-    // Validate that all checked items have a folder assigned (exclude already-transferred/disabled items)
-    const checkedItems = attachmentSelected.filter(i => i.checked && !i.disabled);
-    const itemsWithoutFolder = checkedItems.filter(i => i.option === -1);
-    
-    if (itemsWithoutFolder.length > 0) {
-      notify(translate('selectFolderForAllItems'), 'error', 4000);
       return;
     }
 
@@ -188,20 +179,20 @@ const EmailTabContent: React.FC = () => {
         
         // Detect the correct document type (sent vs received email)
         const isCompose = IsComposeMode();
-        const emailDokumentArt = await getDokumentArt(true, isCompose, email.from?.emailAddress);
+        const emailDokumentArt = await getDokumentArt(true, isCompose, email?.from?.emailAddress);
         
         // Create DokumentPostData for email
         const emailDokument: DokumentPostData = {
           aktId: selectedCaseId,
-          betreff: email.subject || translate('noSubject'),
-          mailAdresse: email.from?.emailAddress || undefined,
-          empfangenAm: email.dateTimeCreated ? new Date(email.dateTimeCreated) : new Date(),
+          betreff: email?.subject || translate('noSubject'),
+          mailAdresse: email?.from?.emailAddress || undefined,
+          empfangenAm: email?.dateTimeCreated ? new Date(email.dateTimeCreated) : new Date(),
           memo: `Email transferred from Outlook: ${messageId}`,
           inhalt: emailContent,
           dokumentArt: emailDokumentArt, // Properly detected: sent vs received
           outlookEmailId: messageId,
           anzahlMailAnhänge: attachmentSelected.filter(i => i.type === 'A').length,
-          dateiName: `${email.subject || translate('noEmailName')}.eml`,
+          dateiName: `${email?.subject || translate('noEmailName')}.eml`,
           ordnerName: getFolderName(firstE)
         };
         
@@ -239,7 +230,7 @@ const EmailTabContent: React.FC = () => {
           try {
             // Get attachment content
             const contentBase64 = await new Promise<string>((resolve, reject) => {
-              Office.context.mailbox.item.getAttachmentContentAsync(attachment.id, ar => {
+              Office.context.mailbox.item?.getAttachmentContentAsync(attachment.id, ar => {
                 if (ar.status === Office.AsyncResultStatus.Succeeded) {
                   resolve(ar.value.content);
                 } else {
@@ -252,8 +243,8 @@ const EmailTabContent: React.FC = () => {
             const attachmentDokument: DokumentPostData = {
               aktId: selectedCaseId,
               betreff: attachment.name,
-              mailAdresse: email.from?.emailAddress || undefined,
-              empfangenAm: email.dateTimeCreated ? new Date(email.dateTimeCreated) : new Date(),
+              mailAdresse: email?.from?.emailAddress || undefined,
+              empfangenAm: email?.dateTimeCreated ? new Date(email?.dateTimeCreated) : new Date(),
               memo: `Attachment from email: ${messageId}`,
               inhalt: contentBase64, // Store the base64 content
               dokumentArt: DokumentArt.Keine, // Normal attachment

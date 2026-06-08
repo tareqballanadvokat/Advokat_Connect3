@@ -12,9 +12,32 @@ interface AppProps {
   title: string;
 }
 
+const isLocalhost = typeof window !== "undefined" && window.location.hostname === "localhost";
+
 const useStyles = makeStyles({
   root: {
     minHeight: "100vh",
+  },
+  envBanner: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "3px 8px",
+    fontSize: "11px",
+    fontWeight: "600",
+    letterSpacing: "0.3px",
+    backgroundColor: isLocalhost ? "#fff3cd" : "#d4edda",
+    color: isLocalhost ? "#856404" : "#155724",
+    borderBottom: isLocalhost ? "1px solid #ffc107" : "1px solid #28a745",
+  },
+  envDot: {
+    width: "7px",
+    height: "7px",
+    borderRadius: "50%",
+    display: "inline-block",
+    backgroundColor: isLocalhost ? "#ffc107" : "#28a745",
+    flexShrink: 0,
   },
 });
 
@@ -111,6 +134,12 @@ const App: React.FC<AppProps> = () => {
 
   return (
     <div className={styles.root}>
+      <div className={styles.envBanner}>
+        <span className={styles.envDot} />
+        {isLocalhost
+          ? `LOCAL — ${window.location.origin}`
+          : `AZURE — ${window.location.origin}`}
+      </div>
       <div> 
         <Tabs />
       </div>

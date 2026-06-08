@@ -22,7 +22,7 @@ export interface DokumentPostData {
   outlookEmailId?: string; // Changed from outlookId to match server expectation
   anzahlMailAnhänge: number;
   dateiName?: string;
-  ordnerName?: string;
+  ordnerName?: string | null;
   
   // Chunk parameters for large documents
   numberOfParts?: number;    // Total number of chunks

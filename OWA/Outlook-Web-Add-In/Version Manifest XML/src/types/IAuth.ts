@@ -13,7 +13,7 @@ export interface IAuthResponse {
   access_token: string;
   token_type?: string; // This might not be in the response
   expires_in: number; // in seconds
-  refresh_token: string;
+  refresh_token: string | null;
   refresh_token_lifetime: number; // in seconds
   scope?: string;
 }
