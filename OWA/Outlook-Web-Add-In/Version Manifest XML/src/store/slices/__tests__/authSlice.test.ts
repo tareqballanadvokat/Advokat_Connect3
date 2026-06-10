@@ -48,6 +48,8 @@ describe("authSlice", () => {
     isAuthenticated: false,
     isAuthenticating: false,
     error: null,
+    officeToken: null,
+    oid: null,
   };
 
   describe("Reducer", () => {

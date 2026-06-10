@@ -36,4 +36,6 @@ export interface IAuthState {
   isAuthenticated: boolean;
   isAuthenticating: boolean;
   error: string | null;
+  officeToken: string | null; // Microsoft Office SSO token — in memory only, never persisted
+  oid: string | null;         // Microsoft user object ID extracted from officeToken
 }

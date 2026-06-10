@@ -26,6 +26,8 @@ const initialState: IAuthState = {
   isAuthenticated: false,
   isAuthenticating: false,
   error: null,
+  officeToken: null,
+  oid: null,
 };
 
 // Async thunk for logout to properly clear cache
@@ -120,6 +122,16 @@ const authSlice = createSlice({
       state.error = null;
     },
 
+    setOfficeToken: (state, action: PayloadAction<{ officeToken: string; oid: string | null }>) => {
+      state.officeToken = action.payload.officeToken;
+      state.oid = action.payload.oid;
+    },
+
+    clearOfficeToken: (state) => {
+      state.officeToken = null;
+      state.oid = null;
+    },
+
     // Check if token is expired and clear it if so
     validateToken: (state) => {
       if (state.token && state.expiresAt && Date.now() >= state.expiresAt) {
@@ -155,6 +167,8 @@ export const {
   logout,
   clearError,
   validateToken,
+  setOfficeToken,
+  clearOfficeToken,
 } = authSlice.actions;
 
 // Selectors
@@ -165,6 +179,9 @@ export const selectRefreshToken = (state: { auth: IAuthState }) => state.auth.re
 export const selectAuthCredentials = (state: { auth: IAuthState }) => state.auth.credentials;
 export const selectIsAuthenticating = (state: { auth: IAuthState }) => state.auth.isAuthenticating;
 export const selectAuthError = (state: { auth: IAuthState }) => state.auth.error;
+
+export const selectOfficeToken = (state: { auth: IAuthState }) => state.auth.officeToken;
+export const selectOid = (state: { auth: IAuthState }) => state.auth.oid;
 
 // Helper selector to check if token is valid (not expired)
 export const selectIsTokenValid = (state: { auth: IAuthState }) => {

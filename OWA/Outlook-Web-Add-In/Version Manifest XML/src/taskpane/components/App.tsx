@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Tabs from './Tab';
 import { configService } from '@config';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
+import { officeAuthService } from '@services/OfficeAuthService';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { toggleLogging, initializeLogging } from '@slices/loggingSlice';
 import { getLogger } from '@infra/logger';
@@ -48,6 +49,13 @@ const App: React.FC<AppProps> = () => {
   const logger = getLogger();
   const { t: translate } = useTranslation('common');
  
+  // Fetch Office SSO token on startup — extracts oid for ADVOKAT authentication
+  React.useEffect(() => {
+    officeAuthService.getOfficeToken().catch((error: unknown) => {
+      logger.error('App', 'Failed to obtain Office token', error);
+    });
+  }, []);
+
   // Initialize logging from config
   React.useEffect(() => {
     const config = configService.getConfig();

@@ -1,6 +1,35 @@
 # Authentication Flow — Implementation Guide
 
-> Written: March 12, 2026 — Updated: March 16, 2026
+> Written: March 12, 2026 — Updated: June 8, 2026
+
+---
+
+## Implementation Status (June 8, 2026)
+
+| # | Component | Who | Status |
+|---|-----------|-----|--------|
+| — | WebRTC connection infrastructure (`SipClient`, `WebRTCConnectionManager`, `WebRTCDataChannelService`) | Add-in | ✅ Done |
+| — | Post-connection auth via WebRTC data channel (username/password, temporary) | Add-in | ✅ Done (to be replaced) |
+| — | Token encryption (AES-GCM), refresh, expiry (`TokenService`) | Add-in | ✅ Done |
+| — | Redux auth state (`authSlice`) | Add-in | ✅ Done |
+| — | Idle monitoring (auto-disconnect) | Add-in | ✅ Done |
+| — | `<WebApplicationInfo>` in `manifest.xml` | Add-in | ✅ Done — Client ID `34d7bfcf-cabc-4a16-a380-f12a6103efbe` |
+| 1 | `OfficeRuntime.auth.getAccessToken()` — `OfficeAuthService` | Add-in | ❌ Not started |
+| 1 | `oid` / `officeToken` fields in `IAuthState` + `authSlice` reducers | Add-in | ❌ Not started |
+| 1 | Azure App Registration — Application ID URI + `access_as_user` scope + Office pre-auth | Admin | ❓ Needs confirmation from admin |
+| 2 | Signaling Server: `oid` lookup endpoint (`GET /addin/serverId`) | Signaling Server | ❌ Not started |
+| 2 | Signaling Server: `addin_oid_serverid` table | Signaling Server | ❌ Not started |
+| 3 | OTP generation + RAM storage | ADVOKAT Server | ❌ Not started |
+| 4 | OTP input dialog (UI) | Add-in | ❌ Not started |
+| 5 | WebRTC REGISTER message including OTP / `advokatServerId` | Add-in | ❌ Not started |
+| 7 | Send `{ otp, officeToken }` through WebRTC data channel | Add-in | ❌ Not started |
+| 7 | JWKS validation + `oid → SB` persistence + `oid ↔ serverId` registration | ADVOKAT Server | ❌ Not started |
+| 8 | Hold `advokatToken` in Redux memory only (replace current password-based flow) | Add-in | ❌ Not started |
+
+**Immediate next steps:**
+1. Confirm with admin that Application ID URI and `access_as_user` scope are set correctly in Azure
+2. Implement `OfficeAuthService` + extend `IAuthState` with `officeToken` / `oid`
+3. Call `getAccessToken()` from `App.tsx` on startup
 
 ---
 
@@ -262,25 +291,33 @@ The add-in holds `advokatToken` in memory only for this session. Session active.
 
 ## Appendix A — Entra ID Registration (One-Time Setup)
 
-Required before `getAccessToken()` works. Done once by ADVOKAT.
+Required before `getAccessToken()` works. Done once by the Azure admin.
 
-1. Go to [portal.azure.com](https://portal.azure.com) → Entra ID → App registrations → New registration
-2. Name: `ADVOKAT Connect`
-3. Account types: **Multitenant + personal Microsoft accounts**
-   *(covers both M365 Business and personal Office licenses)*
-4. Note the **Application (client) ID**
-5. Go to **Expose an API** → set Application ID URI:
-   `api://advokat-connect.azurestaticapps.net/<client-id>`
-6. Add scope: `access_as_user`
-7. Add trusted Office client applications (IDs from [Microsoft docs](https://learn.microsoft.com/en-us/office/dev/add-ins/develop/register-sso-add-in-aad-v2#add-a-client-application))
-8. Add `<WebApplicationInfo>` to `manifest.xml`:
+**Known values (confirmed June 8, 2026):**
+- Application (client) ID: `34d7bfcf-cabc-4a16-a380-f12a6103efbe`
+- Tenant ID: `7bcbfb56-7264-4bc6-b679-3b98e704e7db`
+- Add-in hosted at: `https://green-sea-08a52e81e.2.azurestaticapps.net`
+- Application ID URI (required): `api://green-sea-08a52e81e.2.azurestaticapps.net/34d7bfcf-cabc-4a16-a380-f12a6103efbe`
+
+**Checklist:**
+
+| Step | Description | Status |
+|------|-------------|--------|
+| 1 | App Registration exists in Azure Entra ID | ✅ Client ID + Tenant ID received from admin |
+| 2 | Application ID URI set to `api://green-sea-08a52e81e.2.azurestaticapps.net/34d7bfcf-cabc-4a16-a380-f12a6103efbe` | ❓ Needs admin confirmation |
+| 3 | Scope `access_as_user` exposed under "Expose an API" | ❓ Needs admin confirmation |
+| 4 | Office client apps pre-authorized (Outlook GUID: `d3590ed6-52b3-4102-aeff-aad2292ab01c`, OWA GUID: `bc59ab01-8403-45c6-8796-ac3ef710b3e3`) | ❓ Needs admin confirmation |
+| 5 | `<WebApplicationInfo>` added to `manifest.xml` | ✅ Done (June 8, 2026) |
+
+**Current `manifest.xml` block:**
 ```xml
 <WebApplicationInfo>
-  <Id>YOUR-CLIENT-ID</Id>
-  <Resource>api://advokat-connect.azurestaticapps.net/YOUR-CLIENT-ID</Resource>
+  <Id>34d7bfcf-cabc-4a16-a380-f12a6103efbe</Id>
+  <Resource>api://green-sea-08a52e81e.2.azurestaticapps.net/34d7bfcf-cabc-4a16-a380-f12a6103efbe</Resource>
   <Scopes>
     <Scope>openid</Scope>
     <Scope>profile</Scope>
+    <Scope>offline_access</Scope>
   </Scopes>
 </WebApplicationInfo>
 ```
