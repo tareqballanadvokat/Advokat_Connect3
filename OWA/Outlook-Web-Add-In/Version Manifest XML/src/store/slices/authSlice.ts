@@ -28,6 +28,7 @@ const initialState: IAuthState = {
   error: null,
   officeToken: null,
   oid: null,
+  advokatToken: null,
 };
 
 // Async thunk for logout to properly clear cache
@@ -116,6 +117,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.isAuthenticating = false;
       state.error = null;
+      state.advokatToken = null;
     },
 
     clearError: (state) => {
@@ -130,6 +132,14 @@ const authSlice = createSlice({
     clearOfficeToken: (state) => {
       state.officeToken = null;
       state.oid = null;
+    },
+
+    setAdvokatToken: (state, action: PayloadAction<string>) => {
+      state.advokatToken = action.payload;
+    },
+
+    clearAdvokatToken: (state) => {
+      state.advokatToken = null;
     },
 
     // Check if token is expired and clear it if so
@@ -169,6 +179,8 @@ export const {
   validateToken,
   setOfficeToken,
   clearOfficeToken,
+  setAdvokatToken,
+  clearAdvokatToken,
 } = authSlice.actions;
 
 // Selectors
@@ -182,6 +194,7 @@ export const selectAuthError = (state: { auth: IAuthState }) => state.auth.error
 
 export const selectOfficeToken = (state: { auth: IAuthState }) => state.auth.officeToken;
 export const selectOid = (state: { auth: IAuthState }) => state.auth.oid;
+export const selectAdvokatToken = (state: { auth: IAuthState }) => state.auth.advokatToken;
 
 // Helper selector to check if token is valid (not expired)
 export const selectIsTokenValid = (state: { auth: IAuthState }) => {

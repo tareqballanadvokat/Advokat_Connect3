@@ -2,10 +2,13 @@
 import { makeStyles } from "@fluentui/react-components";
 import { useTranslation } from 'react-i18next';
 import Tabs from './Tab';
+import PairingDialog from './tabs/shared/PairingDialog';
 import { configService } from '@config';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { officeAuthService } from '@services/OfficeAuthService';
+import { pairingApiService } from '@services/PairingApiService';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectPairingStatus } from '@slices/pairingSlice';
 import { toggleLogging, initializeLogging } from '@slices/loggingSlice';
 import { getLogger } from '@infra/logger';
 
@@ -46,15 +49,46 @@ const App: React.FC<AppProps> = () => {
   const styles = useStyles();
   const dispatch = useAppDispatch();
   const loggingEnabled = useAppSelector((state) => state.logging.enabled);
+  const pairingStatus = useAppSelector(selectPairingStatus);
   const logger = getLogger();
   const { t: translate } = useTranslation('common');
  
-  // Fetch Office SSO token on startup — extracts oid for ADVOKAT authentication
+  // Step 1: Fetch Office SSO token → Step 2: Check pairing status
   React.useEffect(() => {
-    officeAuthService.getOfficeToken().catch((error: unknown) => {
-      logger.error('App', 'Failed to obtain Office token', error);
-    });
-  }, []);
+    (async () => {
+      // Pre-flight: check if OfficeRuntime SSO is available in this environment
+      const officeRuntimeAvailable = typeof OfficeRuntime !== 'undefined' && !!OfficeRuntime?.auth?.getAccessToken;
+      const officeJsReady = typeof Office !== 'undefined' && !!Office?.context;
+      logger.info('App', `Office environment check — OfficeRuntime.auth available: ${officeRuntimeAvailable}, Office.context ready: ${officeJsReady}`);
+
+      if (!officeRuntimeAvailable) {
+        logger.warn('App', 'OfficeRuntime.auth.getAccessToken is not available in this environment (running outside Outlook or on an unsupported host). Skipping SSO.');
+        return;
+      }
+
+      logger.info('App', 'Calling officeAuthService.getOfficeToken()...');
+      const officeToken = await officeAuthService.getOfficeToken();
+
+      if (!officeToken) {
+        // OfficeAuthService already logged the specific error code — repeat the key facts here for correlation
+        logger.warn('App', 'getOfficeToken() returned null. Check the OfficeAuthService error log above for the exact error code (13001–13012). Skipping pairing check.');
+        return;
+      }
+
+      logger.info('App', 'Office token obtained successfully. Proceeding to pairing check...');
+
+      try {
+        const result = await pairingApiService.checkServerId(officeToken);
+        if (result) {
+          logger.info('App', `Pairing check complete — advokatServerId: ${result.advokatServerId}`);
+        } else {
+          logger.info('App', 'Pairing check complete — user is not yet paired (first-time setup).');
+        }
+      } catch (error: unknown) {
+        logger.error('App', 'Pairing API check failed', error);
+      }
+    })();
+  }, [logger]);
 
   // Initialize logging from config
   React.useEffect(() => {
@@ -148,6 +182,7 @@ const App: React.FC<AppProps> = () => {
           ? `LOCAL — ${window.location.origin}`
           : `AZURE — ${window.location.origin}`}
       </div>
+      {pairingStatus === 'unpaired' && <PairingDialog />}
       <div> 
         <Tabs />
       </div>

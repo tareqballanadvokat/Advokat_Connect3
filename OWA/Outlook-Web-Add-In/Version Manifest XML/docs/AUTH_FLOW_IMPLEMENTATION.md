@@ -1,10 +1,10 @@
 # Authentication Flow — Implementation Guide
 
-> Written: March 12, 2026 — Updated: June 8, 2026
+> Written: March 12, 2026 — Updated: June 17, 2026
 
 ---
 
-## Implementation Status (June 8, 2026)
+## Implementation Status (June 17, 2026)
 
 | # | Component | Who | Status |
 |---|-----------|-----|--------|
@@ -14,22 +14,27 @@
 | — | Redux auth state (`authSlice`) | Add-in | ✅ Done |
 | — | Idle monitoring (auto-disconnect) | Add-in | ✅ Done |
 | — | `<WebApplicationInfo>` in `manifest.xml` | Add-in | ✅ Done — Client ID `34d7bfcf-cabc-4a16-a380-f12a6103efbe` |
-| 1 | `OfficeRuntime.auth.getAccessToken()` — `OfficeAuthService` | Add-in | ❌ Not started |
-| 1 | `oid` / `officeToken` fields in `IAuthState` + `authSlice` reducers | Add-in | ❌ Not started |
+| 1 | `OfficeRuntime.auth.getAccessToken()` — `OfficeAuthService` | Add-in | ✅ Done |
+| 1 | `oid` / `officeToken` fields in `IAuthState` + `authSlice` reducers | Add-in | ✅ Done |
+| 1 | `advokatToken` field in `IAuthState` + `authSlice` (session memory only) | Add-in | ✅ Done |
 | 1 | Azure App Registration — Application ID URI + `access_as_user` scope + Office pre-auth | Admin | ❓ Needs confirmation from admin |
-| 2 | Signaling Server: `oid` lookup endpoint (`GET /addin/serverId`) | Signaling Server | ❌ Not started |
-| 2 | Signaling Server: `addin_oid_serverid` table | Signaling Server | ❌ Not started |
+| 2 | **Pairing API** — deployed at `https://advokat-addin-pairing.azurewebsites.net` | Pairing API | ✅ Done |
+| 2 | **`PairingApiService`** — `GET /addin/server-id` to check oid ↔ advokatServerId mapping | Add-in | ✅ Done |
+| 2 | **`pairingSlice`** — Redux state: `unknown / checking / paired / unpaired / error` | Add-in | ✅ Done |
+| 2 | Pairing check wired into `App.tsx` startup (token → check → dispatch) | Add-in | ✅ Done |
 | 3 | OTP generation + RAM storage | ADVOKAT Server | ❌ Not started |
-| 4 | OTP input dialog (UI) | Add-in | ❌ Not started |
+| 4 | OTP input dialog — `PairingDialog.tsx` stub (UI ready, submit stubbed) | Add-in | ✅ Stub done — waiting for server |
 | 5 | WebRTC REGISTER message including OTP / `advokatServerId` | Add-in | ❌ Not started |
-| 7 | Send `{ otp, officeToken }` through WebRTC data channel | Add-in | ❌ Not started |
+| 6 | `sendRegisterOtpMessage(otp, officeToken)` in `webRTCApiService` | Add-in | ✅ Done |
+| 6 | `sendAuthMessage(officeToken)` in `webRTCApiService` (returning users) | Add-in | ✅ Done |
 | 7 | JWKS validation + `oid → SB` persistence + `oid ↔ serverId` registration | ADVOKAT Server | ❌ Not started |
-| 8 | Hold `advokatToken` in Redux memory only (replace current password-based flow) | Add-in | ❌ Not started |
+| 7 | Enable `PairingDialog` submit + dispatch `setAdvokatToken` on success | Add-in | ⏳ Blocked on server |
+| 8 | Replace password-based `performAuthentication` with `sendAuthMessage` flow | Add-in | ⏳ Blocked on server |
 
-**Immediate next steps:**
-1. Confirm with admin that Application ID URI and `access_as_user` scope are set correctly in Azure
-2. Implement `OfficeAuthService` + extend `IAuthState` with `officeToken` / `oid`
-3. Call `getAccessToken()` from `App.tsx` on startup
+**Unblocked remaining Add-in work (once ADVOKAT Server OTP handler is ready):**
+1. Enable `PairingDialog` submit: call `webRTCApiService.sendRegisterOtpMessage(otp, officeToken)`, dispatch `setAdvokatToken`, re-run pairing check
+2. Replace `performAuthentication()` in `WebRTCConnectionManager`: check `pairingStatus === 'paired'` → call `webRTCApiService.sendAuthMessage(officeToken)` → dispatch `setAdvokatToken`
+3. Confirm with admin that Azure App Registration has the correct Application ID URI and `access_as_user` scope
 
 ---
 
@@ -59,9 +64,9 @@ The add-in calls Office's built-in identity API. Office returns a JWT token sign
 **Implementation (Add-in side — TypeScript):**
 ```typescript
 const officeToken = await OfficeRuntime.auth.getAccessToken({
-  allowSignInPrompt: true,   // show sign-in if user is not signed into Office
-  allowConsentPrompt: true,  // show consent dialog on first use
-  forMSGraphAccess: false
+allowSignInPrompt: true,   // show sign-in if user is not signed into Office
+allowConsentPrompt: true,  // show consent dialog on first use
+forMSGraphAccess: false
 });
 // officeToken is a string like "eyJ0eXAiOiJKV1Qi..."
 ```
@@ -69,9 +74,9 @@ const officeToken = await OfficeRuntime.auth.getAccessToken({
 **What `officeToken` contains (decoded):**
 ```json
 {
-  "oid": "a7f3c291-4b2e-4d8a-9c12-0e1f2a3b4c5d",  // permanent user ID — never changes
-  "preferred_username": "jsmith@lawfirm.com",
-  "exp": 1741600000                                  // expires in ~1 hour, auto-renewed
+"oid": "a7f3c291-4b2e-4d8a-9c12-0e1f2a3b4c5d",  // permanent user ID — never changes
+"preferred_username": "jsmith@lawfirm.com",
+"exp": 1741600000                                  // expires in ~1 hour, auto-renewed
 }
 ```
 
@@ -88,15 +93,15 @@ If not found → first-time setup. If found → skip to Part 2.
 **Implementation (Add-in side):**
 ```typescript
 const res = await fetch('https://live.advokat.at/addin/serverId', {
-  headers: { Authorization: `Bearer ${officeToken}` }
+headers: { Authorization: `Bearer ${officeToken}` }
 });
 
 if (res.status === 404) {
-  // First time — show OTP registration dialog
-  showRegistrationDialog();
+// First time — show OTP registration dialog
+showRegistrationDialog();
 } else {
-  const { advokatServerId } = await res.json();
-  // Already registered — proceed to WebRTC connection (Part 2)
+const { advokatServerId } = await res.json();
+// Already registered — proceed to WebRTC connection (Part 2)
 }
 ```
 
@@ -115,12 +120,12 @@ The logged-in SB opens a pairing window in the ADVOKAT desktop client. The serve
 **Implementation (ADVOKAT Server side):**
 ```
 OTP properties:
-  - Random alphanumeric string, e.g. "X7K2-M9P4"  (short enough to type)
-  - Linked to: current logged-in SB
-  - Stored in RAM only — no database table needed
-  - Valid for: duration the window is open + 10 minutes
-  - Single-use: removed from memory immediately after first use
-  - Contains (optionally embedded): the ADVOKAT Server ID
+- Random alphanumeric string, e.g. "X7K2-M9P4"  (short enough to type)
+- Linked to: current logged-in SB
+- Stored in RAM only — no database table needed
+- Valid for: duration the window is open + 10 minutes
+- Single-use: removed from memory immediately after first use
+- Contains (optionally embedded): the ADVOKAT Server ID
 ```
 
 The OTP is displayed in the ADVOKAT Client window. The user copies it.
@@ -154,10 +159,10 @@ const peerConnection = new RTCPeerConnection({ iceServers });
 5b. Send REGISTER to Signaling Server:
 ```typescript
 signalingSocket.send(JSON.stringify({
-  type: 'REGISTER',
-  officeToken,
-  advokatServerId: extractServerIdFromOtp(otp),  // or user manually entered
-  otp                                             // forwarded to ADVOKAT Server
+type: 'REGISTER',
+officeToken,
+advokatServerId: extractServerIdFromOtp(otp),  // or user manually entered
+otp                                             // forwarded to ADVOKAT Server
 }));
 ```
 
@@ -188,9 +193,9 @@ Through the established WebRTC data channel, the add-in sends the OTP and the Of
 **Implementation (Add-in side):**
 ```typescript
 dataChannel.send(JSON.stringify({
-  type: 'REGISTER_OTP',
-  otp: userEnteredOtp,
-  officeToken
+type: 'REGISTER_OTP',
+otp: userEnteredOtp,
+officeToken
 }));
 ```
 
@@ -236,13 +241,13 @@ The `oid` inside the token is always the same permanent value.
 
 ```typescript
 const res = await fetch('https://live.advokat.at/addin/serverId', {
-  headers: { Authorization: `Bearer ${officeToken}` }
+headers: { Authorization: `Bearer ${officeToken}` }
 });
 
 if (res.status === 404) {
-  // No mapping found (new device or first time) — fall back to OTP registration
-  showRegistrationDialog();
-  return;
+// No mapping found (new device or first time) — fall back to OTP registration
+showRegistrationDialog();
+return;
 }
 
 const { advokatServerId } = await res.json();
@@ -264,8 +269,8 @@ Same as Part 1 Step 5, except:
 
 ```typescript
 dataChannel.send(JSON.stringify({
-  type: 'AUTH',
-  officeToken
+type: 'AUTH',
+officeToken
 }));
 ```
 
@@ -282,10 +287,10 @@ The add-in holds `advokatToken` in memory only for this session. Session active.
 ## Open Questions
 
 1. **`advokatServerId` embedded in OTP** 
-   The add-in needs the `advokatServerId` to send the REGISTER message to the Signaling Server (Step 5), before the WebRTC tunnel to the ADVOKAT Server exists. The cleanest solution is to encode it directly in the OTP string. To be confirmed with the ADVOKAT Server team.
+The add-in needs the `advokatServerId` to send the REGISTER message to the Signaling Server (Step 5), before the WebRTC tunnel to the ADVOKAT Server exists. The cleanest solution is to encode it directly in the OTP string. To be confirmed with the ADVOKAT Server team.
 
 2. **`oid_mapping` table structure** 
-   The team leader confirmed a general-purpose credentials table for SB-linked external tokens already planned. Structure (display text, type, secret/oid, creation date, login log with client IPs and timestamps) to be defined with SH.
+The team leader confirmed a general-purpose credentials table for SB-linked external tokens already planned. Structure (display text, type, secret/oid, creation date, login log with client IPs and timestamps) to be defined with SH.
 
 ---
 
@@ -312,13 +317,13 @@ Required before `getAccessToken()` works. Done once by the Azure admin.
 **Current `manifest.xml` block:**
 ```xml
 <WebApplicationInfo>
-  <Id>34d7bfcf-cabc-4a16-a380-f12a6103efbe</Id>
-  <Resource>api://green-sea-08a52e81e.2.azurestaticapps.net/34d7bfcf-cabc-4a16-a380-f12a6103efbe</Resource>
-  <Scopes>
-    <Scope>openid</Scope>
-    <Scope>profile</Scope>
-    <Scope>offline_access</Scope>
-  </Scopes>
+<Id>34d7bfcf-cabc-4a16-a380-f12a6103efbe</Id>
+<Resource>api://green-sea-08a52e81e.2.azurestaticapps.net/34d7bfcf-cabc-4a16-a380-f12a6103efbe</Resource>
+<Scopes>
+<Scope>openid</Scope>
+<Scope>profile</Scope>
+<Scope>offline_access</Scope>
+</Scopes>
 </WebApplicationInfo>
 ```
 
@@ -341,22 +346,22 @@ Any server can fetch these keys and verify that a token was genuinely signed by 
 2. Fetch the matching public key from the JWKS URL (cache it — keys rarely change)
 3. Verify the token's RS256 signature using that key
 4. Check claims:
-   - `aud` = your Application ID URI
-   - `exp` > current time (not expired)
-   - `appid` = your Add-in Client ID
+- `aud` = your Application ID URI
+- `exp` > current time (not expired)
+- `appid` = your Add-in Client ID
 
 **.NET implementation:**
 ```csharp
 var configManager = new ConfigurationManager<OpenIdConnectConfiguration>(
-    "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
-    new OpenIdConnectConfigurationRetriever());
+"https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
+new OpenIdConnectConfigurationRetriever());
 
 var config = await configManager.GetConfigurationAsync();
 
 var handler = new JwtSecurityTokenHandler();
 var principal = handler.ValidateToken(officeToken, new TokenValidationParameters {
-    ValidAudience   = "api://advokat-connect.azurestaticapps.net/<client-id>",
-    IssuerSigningKeys = config.SigningKeys
+ValidAudience   = "api://advokat-connect.azurestaticapps.net/<client-id>",
+IssuerSigningKeys = config.SigningKeys
 }, out _);
 
 var oid = principal.FindFirst("oid")?.Value;

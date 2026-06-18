@@ -67,9 +67,20 @@ export class OfficeAuthService {
       return token;
     } catch (error) {
       const code = (error as any)?.code;
+      const message = (error as any)?.message ?? String(error);
+      const name = (error as any)?.name ?? 'unknown';
+      // Use console.error directly — logger may not be enabled yet at startup
+      // when this catch block runs (logging is initialized via Redux after first render).
+      console.error(
+        `❌ [OfficeAuthService] getAccessToken() failed.\n` +
+        `  error code : ${code ?? 'none'}\n` +
+        `  name       : ${name}\n` +
+        `  message    : ${message}\n` +
+        `  raw error  :`, error
+      );
       this.logger.error(
         'OfficeAuthService',
-        `getAccessToken() failed (error code: ${code ?? 'unknown'})`,
+        `getAccessToken() failed (error code: ${code ?? 'unknown'}, message: ${message})`,
         error
       );
       store.dispatch(clearOfficeToken());
