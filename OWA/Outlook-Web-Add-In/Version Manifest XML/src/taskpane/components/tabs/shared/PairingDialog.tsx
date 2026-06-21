@@ -2,28 +2,23 @@
 import React, { useState } from 'react';
 import { useAppSelector } from '@store/hooks';
 import { selectPairingStatus } from '@slices/pairingSlice';
+import { selectOfficeToken } from '@slices/authSlice';
+import { pairingApiService } from '@services/PairingApiService';
 import { useTranslation } from 'react-i18next';
 
 /**
  * PairingDialog
  *
  * Shown when pairingStatus === 'unpaired' (first-time setup).
- * Instructs the user to open the ADVOKAT Desktop Client, generate an OTP,
- * and paste it here.
- *
- * ⚠️  STUB — OTP submission is disabled until the ADVOKAT Server implements
- *     the REGISTER_OTP handler. The input and button are rendered but the
- *     submit action is a no-op placeholder.
- *
- * When ready:
- *   1. Import `webRTCApiService` and `pairingApiService`
- *   2. Call `webRTCApiService.sendRegisterOtpMessage(otp, officeToken)` on submit
- *   3. Dispatch `setAdvokatToken(result.advokatToken)` to Redux
- *   4. Re-run `pairingApiService.checkServerId(officeToken)` to confirm pairing
+ * User enters the OTP from the ADVOKAT Desktop Client.
+ * On submit: POST /addin/pair → { advokatServerId } → pairingSlice updated → dialog disappears.
  */
 const PairingDialog: React.FC = () => {
   const [otp, setOtp] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const pairingStatus = useAppSelector(selectPairingStatus);
+  const officeToken = useAppSelector(selectOfficeToken);
   const { t: translate } = useTranslation('common');
 
   if (pairingStatus !== 'unpaired') {
@@ -67,30 +62,47 @@ const PairingDialog: React.FC = () => {
   const buttonStyle: React.CSSProperties = {
     width: '100%',
     padding: '8px',
-    backgroundColor: '#0078d4',
+    backgroundColor: isSubmitting || !otp.trim() ? '#c8c6c4' : '#0078d4',
     color: '#ffffff',
     border: 'none',
     borderRadius: '2px',
     fontSize: '13px',
     fontWeight: 600,
-    cursor: 'not-allowed',
-    opacity: 0.6,
+    cursor: isSubmitting || !otp.trim() ? 'not-allowed' : 'pointer',
   };
 
-  const stubBannerStyle: React.CSSProperties = {
+  const errorStyle: React.CSSProperties = {
     marginTop: '8px',
     padding: '6px 8px',
-    backgroundColor: '#fff4ce',
-    border: '1px solid #f7d560',
+    backgroundColor: '#fde7e9',
+    border: '1px solid #d13438',
     borderRadius: '2px',
     fontSize: '11px',
-    color: '#7d5c00',
+    color: '#a4262c',
   };
 
-  // TODO: Replace with real submit handler once ADVOKAT Server supports REGISTER_OTP
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Placeholder — ADVOKAT Server REGISTER_OTP handler not yet implemented
+    const trimmedOtp = otp.trim();
+    if (!trimmedOtp || isSubmitting) return;
+
+    if (!officeToken) {
+      setSubmitError('Office SSO token is not available. Please reload the add-in and try again.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await pairingApiService.pair(trimmedOtp, officeToken);
+      // pairingApiService dispatches setPaired → pairingStatus becomes 'paired' → this component unmounts
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Pairing failed. Please check the code and try again.';
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -108,24 +120,26 @@ const PairingDialog: React.FC = () => {
         <input
           type="text"
           style={inputStyle}
-          placeholder="X7K2-M9P4"
+          placeholder="ABCD123456"
           value={otp}
-          onChange={(e) => setOtp(e.target.value.toUpperCase())}
-          maxLength={16}
+          onChange={(e) => { setOtp(e.target.value.toUpperCase()); setSubmitError(null); }}
+          maxLength={32}
           autoComplete="off"
           spellCheck={false}
+          disabled={isSubmitting}
           aria-label={translate('pairing.otpLabel', 'One-time pairing code')}
         />
-        <button type="submit" style={buttonStyle} disabled>
-          {translate('pairing.submitButton', 'Pair with ADVOKAT')}
+        <button type="submit" style={buttonStyle} disabled={isSubmitting || !otp.trim()}>
+          {isSubmitting
+            ? translate('pairing.submitting', 'Pairing…')
+            : translate('pairing.submitButton', 'Pair with ADVOKAT')}
         </button>
       </form>
-      <div style={stubBannerStyle}>
-        ⏳ {translate(
-          'pairing.stubNotice',
-          'Waiting for ADVOKAT Server OTP handler — submission will be enabled once available.'
-        )}
-      </div>
+      {submitError && (
+        <div style={errorStyle}>
+          ❌ {submitError}
+        </div>
+      )}
     </div>
   );
 };

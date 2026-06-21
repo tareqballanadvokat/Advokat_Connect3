@@ -24,6 +24,70 @@ export class PairingApiService {
   private logger = getLogger();
 
   /**
+   * First-time OTP pairing.
+   * Calls POST /addin/pair with the user-entered OTP.
+   * The Pairing API validates the OTP, links oid → advokatServerId, and returns the server ID.
+   * The add-in then uses advokatServerId to establish the WebRTC connection.
+   *
+   * @param otp          Short-lived code from ADVOKAT Desktop Client
+   * @param officeToken  Microsoft-signed JWT from OfficeRuntime.auth.getAccessToken()
+   * @returns { advokatServerId } on success
+   * @throws  on network error, invalid OTP (400), or unexpected status
+   */
+  async pair(otp: string, officeToken: string): Promise<PairingServerInfo> {
+    this.logger.info('PairingApiService', 'Submitting OTP pairing request...');
+    store.dispatch(setPairingChecking());
+
+    let response: Response;
+    try {
+      response = await fetch(`${PAIRING_API_BASE}/addin/pair`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${officeToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ otp }),
+      });
+    } catch (networkError) {
+      const message = networkError instanceof Error ? networkError.message : 'Network error';
+      this.logger.error('PairingApiService', `Network error during pairing: ${message}`, networkError);
+      store.dispatch(setPairingError(message));
+      throw networkError;
+    }
+
+    if (!response.ok) {
+      let detail = '';
+      try { detail = await response.text(); } catch { /* ignore */ }
+      const message = `Pairing failed: HTTP ${response.status}${detail ? ` — ${detail}` : ''}`;
+      this.logger.error('PairingApiService', message);
+      store.dispatch(setPairingError(message));
+      throw new Error(message);
+    }
+
+    let data: PairingServerInfo;
+    try {
+      data = await response.json() as PairingServerInfo;
+    } catch (parseError) {
+      const message = 'Pairing API returned 200 but body is not valid JSON';
+      this.logger.error('PairingApiService', message, parseError);
+      store.dispatch(setPairingError(message));
+      throw new Error(message);
+    }
+
+    if (!data.advokatServerId) {
+      const message = 'Pairing API returned 200 but advokatServerId is missing from response';
+      this.logger.error('PairingApiService', message);
+      store.dispatch(setPairingError(message));
+      throw new Error(message);
+    }
+
+    this.logger.info('PairingApiService', `Pairing successful. advokatServerId: ${data.advokatServerId}`);
+    store.dispatch(setPaired(data.advokatServerId));
+    return data;
+  }
+
+  /**
    * Check whether the current Office user has already been paired with an ADVOKAT Server.
    *
    * @param officeToken  Microsoft-signed JWT from OfficeRuntime.auth.getAccessToken()

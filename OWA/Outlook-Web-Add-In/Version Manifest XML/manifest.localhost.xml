@@ -5,7 +5,7 @@
 <!--   Replace ALL occurrences of <LOCAL_APP_ID> below with the new app's client ID GUID   -->
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0" xsi:type="MailApp">
   <!-- Use the LOCAL App Registration client ID here, NOT the production one -->
-  <Id><LOCAL_APP_ID></Id>
+  <Id>03310f88-5e4a-4a06-ad27-584c485d3fb9</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>Advokat</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
@@ -99,9 +99,9 @@
       </Hosts>
       <WebApplicationInfo>
         <!-- LOCAL App Registration client ID -->
-        <Id><LOCAL_APP_ID></Id>
+        <Id>03310f88-5e4a-4a06-ad27-584c485d3fb9</Id>
         <!-- Must match the Application ID URI set in Azure for this local registration -->
-        <Resource>api://localhost:3000/<LOCAL_APP_ID></Resource>
+        <Resource>api://localhost:3000/03310f88-5e4a-4a06-ad27-584c485d3fb9</Resource>
         <Scopes>
           <Scope>openid</Scope>
           <Scope>profile</Scope>
