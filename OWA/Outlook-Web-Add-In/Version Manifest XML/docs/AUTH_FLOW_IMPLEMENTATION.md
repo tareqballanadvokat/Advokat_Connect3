@@ -1,10 +1,10 @@
 # Authentication Flow — Implementation Guide
 
-> Written: March 12, 2026 — Updated: June 21, 2026
+> Written: March 12, 2026 — Updated: June 23, 2026
 
 ---
 
-## Implementation Status (June 21, 2026)
+## Implementation Status (June 23, 2026)
 
 | # | Component | Who | Status |
 |---|-----------|-----|--------|
@@ -26,7 +26,7 @@
 | 2 | Pairing check wired into `App.tsx` startup (token → check → dispatch) | Add-in | ✅ Done |
 | 3 | OTP generation + display window | ADVOKAT Desktop Client | ✅ Done |
 | 4 | `PairingDialog.tsx` — OTP input UI, live submit, error display | Add-in | ✅ Done |
-| 5 | WebRTC connection uses `advokatServerId` from `pairingSlice` for routing | Add-in | ⏳ Next |
+| 5 | WebRTC connection uses `advokatServerId` from `pairingSlice` for routing | Add-in | ✅ Done |
 | 6 | `sendAuthMessage(officeToken)` in `webRTCApiService` (returning users, post-connect auth) | Add-in | ✅ Done |
 | 7 | Replace password-based `performAuthentication` with `sendAuthMessage` flow | Add-in | ⏳ Pending |
 
@@ -35,9 +35,14 @@
 - Pairing API returns `advokatServerId` → Add-in uses it to route the WebRTC connection
 - `sendRegisterOtpMessage()` (WebRTC data channel) was removed — incorrect assumption
 
+**`advokatServerId` routing implementation (June 23, 2026):**
+- `advokatServerId` is **not** sent as a separate field — it is sent the same way the SIP `"To"` field already was: as `sipConfig.toDisplayName`, which `MessageFactory.createRegisterMessage()` writes into the REGISTER message's `To:` header (`To: "${toDisplayName}" <${buildSipUri(toDisplayName)}>`).
+- `setAdvokatServerId(serverId)` (new, in `src/config/runtimeConfig.ts`) patches `toDisplayName` at runtime, mirroring the existing `setUserIdentifier()` pattern used for `fromDisplayName`.
+- In `App.tsx`, a `useEffect` watches `selectAdvokatServerId` (Redux, `pairingSlice`). As soon as it resolves — whether immediately for returning users (`checkServerId()`) or after the OTP dialog for first-time users (`pair()`) — it calls `setAdvokatServerId()` and only then `WebRTCConnectionManager.initialize()`. This guarantees the REGISTER message's `To:` header always carries the correct ADVOKAT Server ID instead of the static `"macs"` default.
+- No changes were needed in `Registration.ts`, `MessageFactory.ts`, or `SipClient.ts` — they already read `toDisplayName` generically from `sipConfig`.
+
 **Next steps:**
-1. Wire `advokatServerId` from `pairingSlice` into `WebRTCConnectionManager` / `SipClient` for routing
-2. Replace `performAuthentication()` with `sendAuthMessage(officeToken)` for the post-connect auth step
+1. Replace `performAuthentication()` with `sendAuthMessage(officeToken)` for the post-connect auth step
 
 ---
 
@@ -287,8 +292,7 @@ The add-in holds `advokatToken` in memory only for this session. Session active.
 
 ## Open Questions
 
-1. **`advokatServerId` embedded in OTP** 
-The add-in needs the `advokatServerId` to send the REGISTER message to the Signaling Server (Step 5), before the WebRTC tunnel to the ADVOKAT Server exists. The cleanest solution is to encode it directly in the OTP string. To be confirmed with the ADVOKAT Server team.
+1. ~~**`advokatServerId` embedded in OTP**~~ — **Resolved (June 23, 2026).** Not embedded in the OTP. The Pairing API resolves `advokatServerId` (via `checkServerId()` or `pair()`) before the WebRTC connection is started; `App.tsx` patches it into `sipConfig.toDisplayName` via `setAdvokatServerId()`, so it reaches the Signaling Server in the REGISTER message's `To:` header — see "`advokatServerId` routing implementation" above.
 
 2. **`oid_mapping` table structure** 
 The team leader confirmed a general-purpose credentials table for SB-linked external tokens already planned. Structure (display text, type, secret/oid, creation date, login log with client IPs and timestamps) to be defined with SH.

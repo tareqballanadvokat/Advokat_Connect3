@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next';
 import Tabs from './Tab';
 import PairingDialog from './tabs/shared/PairingDialog';
 import { configService } from '@config';
+import { setAdvokatServerId } from '@config/runtimeConfig';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { officeAuthService } from '@services/OfficeAuthService';
 import { pairingApiService } from '@services/PairingApiService';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
-import { selectPairingStatus } from '@slices/pairingSlice';
+import { selectPairingStatus, selectAdvokatServerId } from '@slices/pairingSlice';
 import { toggleLogging, initializeLogging } from '@slices/loggingSlice';
 import { getLogger } from '@infra/logger';
 
@@ -50,6 +51,7 @@ const App: React.FC<AppProps> = () => {
   const dispatch = useAppDispatch();
   const loggingEnabled = useAppSelector((state) => state.logging.enabled);
   const pairingStatus = useAppSelector(selectPairingStatus);
+  const advokatServerId = useAppSelector(selectAdvokatServerId);
   const logger = getLogger();
   const { t: translate } = useTranslation('common');
  
@@ -129,14 +131,24 @@ const App: React.FC<AppProps> = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [dispatch, loggingEnabled]);
  
-  // Initialize WebRTC connection manager once at app level
+  // Initialize WebRTC connection manager once the ADVOKAT Server is known.
+  // advokatServerId comes from pairingSlice (set by either checkServerId() for
+  // returning users or pair() after the OTP dialog for first-time users) and is
+  // patched into sipConfig.toDisplayName so it is sent in the REGISTER "To:" header.
   React.useEffect(() => {
-    logger.info('App', 'App mounted - initializing WebRTC connection manager...');
+    if (!advokatServerId) {
+      logger.info('App', 'Waiting for advokatServerId before initializing WebRTC connection manager...');
+      return undefined;
+    }
+
+    logger.info('App', `advokatServerId resolved (${advokatServerId}) - initializing WebRTC connection manager...`);
+    setAdvokatServerId(advokatServerId);
+
     const manager = getWebRTCConnectionManager();
     manager.initialize().catch(error => {
       logger.error('App', 'Failed to initialize WebRTC connection', error);
     });
-    
+
     let isDisconnected = false;
     
     // Handle window/tab close - disconnect gracefully
@@ -159,7 +171,7 @@ const App: React.FC<AppProps> = () => {
       }
       window.removeEventListener('unload', handleUnload);
     };
-  }, [logger]);
+  }, [logger, advokatServerId]);
 
   const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
