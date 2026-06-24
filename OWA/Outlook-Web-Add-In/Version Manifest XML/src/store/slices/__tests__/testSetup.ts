@@ -61,21 +61,12 @@ export function createTestStore(preloadedState?: any) {
  */
 export function createMockAuthState(overrides = {}) {
   return {
-    credentials: {
-      grant_type: "password" as const,
-      client_id: "TestClientId",
-      client_secret: "TestClientId",
-      username: "testuser",
-      password: "testpass",
-    },
-    token: "mock-access-token",
-    tokenType: "Bearer",
-    expiresAt: Date.now() + 3600000, // 1 hour from now
-    refreshToken: "mock-refresh-token",
-    refreshTokenExpiresAt: Date.now() + 7200000, // 2 hours from now
     isAuthenticated: true,
     isAuthenticating: false,
     error: null,
+    officeToken: null,
+    oid: null,
+    advokatToken: 'mock-advokat-token',
     ...overrides,
   };
 }
@@ -148,8 +139,7 @@ export function createMockWebRTCService() {
     removePersonFromFavorites: jest.fn(),
 
     // Auth methods
-    authenticate: jest.fn(),
-    refreshToken: jest.fn(),
+    sendAuthMessage: jest.fn(),
 
     // Connection status
     isReady: jest.fn(),
@@ -184,18 +174,7 @@ export function setupDefaultWebRTCMocks(mockService: ReturnType<typeof createMoc
   mockService.removePersonFromFavorites.mockResolvedValue({ statusCode: 200 });
 
   // Auth defaults
-  mockService.authenticate.mockResolvedValue({
-    access_token: "mock-token",
-    token_type: "Bearer",
-    expires_in: 3600,
-    refresh_token: "mock-refresh-token",
-  });
-  mockService.refreshToken.mockResolvedValue({
-    access_token: "mock-new-token",
-    token_type: "Bearer",
-    expires_in: 3600,
-    refresh_token: "mock-new-refresh-token",
-  });
+  mockService.sendAuthMessage.mockResolvedValue({ advokatToken: 'mock-advokat-token' });
 
   // Connection status
   mockService.isReady.mockReturnValue(true);

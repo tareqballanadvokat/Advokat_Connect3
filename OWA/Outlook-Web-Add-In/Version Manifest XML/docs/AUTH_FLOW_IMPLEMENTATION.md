@@ -28,7 +28,7 @@
 | 4 | `PairingDialog.tsx` — OTP input UI, live submit, error display | Add-in | ✅ Done |
 | 5 | WebRTC connection uses `advokatServerId` from `pairingSlice` for routing | Add-in | ✅ Done |
 | 6 | `sendAuthMessage(officeToken)` in `webRTCApiService` (returning users, post-connect auth) | Add-in | ✅ Done |
-| 7 | Replace password-based `performAuthentication` with `sendAuthMessage` flow | Add-in | ⏳ Pending |
+| 7 | Replace password-based `performAuthentication` with `sendAuthMessage` flow | Add-in | ✅ Done (June 24, 2026) |
 
 **Corrected pairing flow (confirmed June 21, 2026):**
 - OTP goes to **Pairing API** via `POST /addin/pair` (HTTP) — **not** through WebRTC

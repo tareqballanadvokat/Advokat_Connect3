@@ -142,6 +142,15 @@ const authSlice = createSlice({
       state.advokatToken = null;
     },
 
+    // Called when the ADVOKAT Server returns a fresh advokatToken via the WebRTC tunnel
+    // (both first-time OTP pairing and every subsequent session via sendAuthMessage)
+    advokatAuthenticationSuccess: (state, action: PayloadAction<string>) => {
+      state.advokatToken = action.payload;
+      state.isAuthenticated = true;
+      state.isAuthenticating = false;
+      state.error = null;
+    },
+
     // Check if token is expired and clear it if so
     validateToken: (state) => {
       if (state.token && state.expiresAt && Date.now() >= state.expiresAt) {
@@ -174,6 +183,7 @@ export const {
   startAuthentication,
   authenticationSuccess,
   authenticationFailure,
+  advokatAuthenticationSuccess,
   logout,
   clearError,
   validateToken,

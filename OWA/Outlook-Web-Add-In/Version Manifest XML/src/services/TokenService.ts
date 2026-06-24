@@ -1,8 +1,9 @@
-/* eslint-disable no-undef */
+﻿/* eslint-disable no-undef */
 import { store } from "@store";
 import {
   selectAuthToken,
   selectRefreshToken,
+  selectAdvokatToken,
   authenticationSuccess,
   startAuthentication,
 } from "@slices/authSlice";
@@ -380,39 +381,19 @@ export class TokenService {
    * @returns Promise<string | null> - Returns fresh decrypted token or null if refresh failed
    */
   async ensureValidToken(): Promise<string | null> {
-    this.logger.debug('ensureValidToken called - retrieving current token', 'TokenService');
-    const currentToken = await this.getCurrentToken();
+    this.logger.debug('ensureValidToken called - retrieving advokatToken', 'TokenService');
 
-    // No token at all - user needs to authenticate
-    if (!currentToken) {
-      this.logger.warn("No token available", "TokenService");
+    // advokatToken is obtained via sendAuthMessage(officeToken) after every WebRTC connection.
+    // It is session memory only — no expiry to manage here; the ADVOKAT Server manages the session.
+    const advokatToken = selectAdvokatToken(store.getState());
+
+    if (!advokatToken) {
+      this.logger.warn("No advokatToken available — authentication required", "TokenService");
       return null;
     }
 
-    this.logger.debug('Token retrieved, checking expiration', 'TokenService');
-    // Token is still valid
-    if (!this.isTokenExpired(currentToken)) {
-      this.logger.debug('Token is valid, returning it', 'TokenService');
-      return currentToken;
-    }
-
-    this.logger.warn('Token is expired', 'TokenService');
-    // If refresh is already in progress, wait for it
-    if (this.isRefreshInProgress()) {
-      this.logger.info("Token expired, refresh already in progress, waiting...", "TokenService");
-      await this.refreshToken(); // This will join the existing refresh
-      return await this.getCurrentToken();
-    }
-
-    // Token is expired, try to refresh
-    this.logger.info("Token expired, attempting refresh...", "TokenService");
-    const refreshSuccess = await this.refreshToken();
-
-    if (refreshSuccess) {
-      return await this.getCurrentToken();
-    }
-
-    return null;
+    this.logger.debug('advokatToken present, returning it', 'TokenService');
+    return advokatToken;
   }
 
   /**

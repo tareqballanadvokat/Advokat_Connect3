@@ -32,16 +32,15 @@ import {
   initializeSipClient,
 } from "@infra/sip/SipClient";
 import { webRTCApiService } from "./webRTCApiService";
-import { tokenService } from "./TokenService";
 import { IdleActivityMonitor } from "./IdleActivityMonitor";
 import { WebRTCDataChannelService } from "./WebRTCDataChannelService";
 import { store } from "@store";
 import { getLogger } from "@infra/logger";
 import {
   startAuthentication,
-  authenticationSuccess,
   authenticationFailure,
-  selectAuthCredentials,
+  advokatAuthenticationSuccess,
+  selectOfficeToken,
 } from "@slices/authSlice";
 import {
   updateConnectionState as updateReduxConnectionState,
@@ -453,40 +452,23 @@ export class WebRTCConnectionManager implements SipClientObserver {
 
       this.logger.info(
         "ConnectionManager",
-        "Offer channel is open, proceeding with authentication"
+        "Channels ready, proceeding with Office token authentication"
       );
 
-      // Get credentials from Redux store
-      const credentials = selectAuthCredentials(store.getState());
+      // Get the Office SSO token — set by OfficeAuthService at startup
+      const officeToken = selectOfficeToken(store.getState());
+      if (!officeToken) {
+        throw new Error("No Office token available — cannot authenticate with ADVOKAT Server");
+      }
 
-      this.logger.debug("ConnectionManager", "Attempting authentication with credentials", {
-        grant_type: credentials.grant_type,
-        client_id: credentials.client_id,
-        username: credentials.username,
-        hasPassword: !!credentials.password,
-      });
+      // Send AUTH message through the WebRTC tunnel.
+      // ADVOKAT Server validates the Office token via JWKS, looks up oid → SB, returns advokatToken.
+      const { advokatToken } = await webRTCApiService.sendAuthMessage(officeToken);
 
-      // Prepare authentication request
-      const authRequest = {
-        grant_type: credentials.grant_type,
-        client_id: credentials.client_id,
-        client_secret: credentials.client_secret,
-        username: credentials.username,
-        password: credentials.password,
-      };
+      // Store advokatToken in Redux (session memory only — never persisted)
+      store.dispatch(advokatAuthenticationSuccess(advokatToken));
 
-      // Send authentication request via WebRTC
-      const authResponse = await webRTCApiService.authenticate(authRequest);
-
-      // Encrypt tokens before storing in Redux
-      const encryptedAuthResponse = await tokenService.encryptAuthResponse(authResponse);
-
-      // Update Redux store with encrypted authentication tokens
-      store.dispatch(authenticationSuccess(encryptedAuthResponse));
-
-      // Authentication state is managed by authSlice
-
-      this.logger.info("ConnectionManager", "Authentication successful (tokens encrypted)");
+      this.logger.info("ConnectionManager", "Authentication successful (advokatToken received)");
     } catch (error) {
       this.logger.error("ConnectionManager", "Authentication failed", error);
 

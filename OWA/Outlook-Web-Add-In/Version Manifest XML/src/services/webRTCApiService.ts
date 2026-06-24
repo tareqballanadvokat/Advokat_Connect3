@@ -17,12 +17,11 @@ import {
   DokumenteQuery,
 } from "@interfaces/IDocument";
 import { PersonenQuery } from "@interfaces/IPerson";
-import { IAuthRequest, IAuthResponse, IAdvokatAuthResponse } from "@interfaces/IAuth";
+import { IAdvokatAuthResponse } from "@interfaces/IAuth";
 import { SipClientInstance } from "@infra/sip/SipClient";
 import { tokenService } from "./TokenService";
 import { WebRTCDataChannelService, DataChannelObserver } from "./WebRTCDataChannelService";
 import { getLogger } from "@infra/logger";
-import { store } from "@store";
 import {
   createProtocolRequest,
   chunkRequest,
@@ -103,25 +102,6 @@ export class WebRTCApiService implements DataChannelObserver {
   }
 
   /**
-   * Create form data string from authentication request
-   * @param authRequest - Authentication request data
-   * @returns Form data string in URL-encoded format
-   */
-  private createAuthenticationFormData(authRequest: IAuthRequest): string {
-    const formParams = [
-      `client_id=${encodeURIComponent(authRequest.client_id)}`,
-      `client_secret=${encodeURIComponent(authRequest.client_secret || "")}`,
-      `grant_type=${encodeURIComponent(authRequest.grant_type)}`,
-      `username=${encodeURIComponent(authRequest.username || "")}`,
-      `password=${encodeURIComponent(authRequest.password || "")}`,
-    ];
-
-    const formData = formParams.join("&");
-
-    return formData;
-  }
-
-  /**
    * Create headers for WebRTC requests with automatic authorization
    * @param baseHeaders - Base headers to include
    * @param messageType - Message type to determine if authorization is needed
@@ -142,11 +122,6 @@ export class WebRTCApiService implements DataChannelObserver {
     
     // Add Authorization header for all non-authentication requests
     if (!messageType.includes("auth.") && token) {
-      // Log token validation details in development
-      if (process.env.NODE_ENV === "development") {
-        tokenService.logTokenValidation(token, messageType);
-      }
-
       requestHeaders["Authorization"] = `Bearer ${token}`;
       this.logger.debug(
         "Added Authorization header to request: " + messageType,
@@ -632,34 +607,16 @@ export class WebRTCApiService implements DataChannelObserver {
       );
       this.logger.error("Error response body", "WebRTCApiService", decodedBody);
 
-      // Handle authentication/authorization errors
-      // Silently refresh the token once, patch the Authorization header, then
-      // hand off to the shared retryRequest() mechanism so the retry budget is shared.
+      // Handle authentication/authorization errors.
+      // advokatToken has no refresh cycle — just queue the shared retry directly.
       if (actualStatusCode === 401) {
         if (!pendingRequest.messageType.includes("auth.") && !pendingRequest.authRetryAttempted) {
           this.logger.info(
-            `Auth error ${actualStatusCode} for ${pendingRequest.messageType} – refreshing token and queuing retry`,
+            `Auth error 401 for ${pendingRequest.messageType} – queuing retry`,
             "WebRTCApiService"
           );
           pendingRequest.authRetryAttempted = true;
-
-          tokenService.handleTokenExpiredOrRevoked()
-            .then((newToken) => {
-              if (newToken && pendingRequest.originalRequest) {
-                pendingRequest.originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
-              } else {
-                this.logger.warn(
-                  `Token refresh yielded no token for ${pendingRequest.messageType}, retrying with existing credentials`,
-                  "WebRTCApiService"
-                );
-              }
-              this.retryRequest(pendingRequest);
-            })
-            .catch(() => {
-              // Even if refresh throws, still attempt the shared retry; it will
-              // exhaust the budget and fail cleanly if the server keeps rejecting.
-              this.retryRequest(pendingRequest);
-            });
+          this.retryRequest(pendingRequest);
           return;
         }
 
@@ -808,16 +765,7 @@ export class WebRTCApiService implements DataChannelObserver {
     if (!messageType.includes("auth.")) {
       validToken = await tokenService.ensureValidToken();
       if (!validToken) {
-        // Token absent or expired — attempt a silent refresh before giving up
-        this.logger.info(
-          `No token available for ${messageType}, attempting silent refresh`,
-          "WebRTCApiService"
-        );
-        validToken = await tokenService.handleTokenExpiredOrRevoked().catch(() => null);
-        if (!validToken) {
-          throw new Error("No valid token available. Please authenticate.");
-        }
-        this.logger.info(`Silent refresh succeeded for ${messageType}`, "WebRTCApiService");
+        throw new Error("No advokatToken available. Please reconnect.");
       }
       // Token will be passed to createRequestHeaders
     }
@@ -1093,14 +1041,6 @@ export class WebRTCApiService implements DataChannelObserver {
    * @param dokumentData - Data for the new document
    */
   async saveDokument(dokumentData: DokumentPostData) {
-    // Inject sachbearbeiterKürzel and vonSachbearbeiterKürzel from logged-in user if not provided
-    const kürzel = store.getState().auth.credentials.username || undefined;
-    const enriched: DokumentPostData = {
-      ...dokumentData,
-      sachbearbeiterKürzel: dokumentData.sachbearbeiterKürzel ?? kürzel,
-      vonSachbearbeiterKürzel: dokumentData.vonSachbearbeiterKürzel ?? kürzel,
-    };
-    console.log("Enriched dokument data with user kürzel:", enriched);
     return this.sendRequest(
       "dokument.saveDokument",
       "POST",
@@ -1109,7 +1049,7 @@ export class WebRTCApiService implements DataChannelObserver {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      enriched
+      dokumentData
     );
   }
 
@@ -1294,69 +1234,6 @@ export class WebRTCApiService implements DataChannelObserver {
     }
 
     throw new Error('AUTH response contained no body');
-  }
-
-  /**
-   * Authenticate with API through WebRTC
-   * This should be the first call made to establish authentication with the remote API
-   * @param authRequest - Authentication request containing credentials
-   * @returns Promise with authentication response containing token and expiration
-   */
-  async authenticate(authRequest: IAuthRequest): Promise<IAuthResponse> {
-    this.logger.info("Starting authentication via WebRTC...", "WebRTCApiService");
-    this.logger.debug("Authentication request", "WebRTCApiService", authRequest);
-
-    // Create form data for authentication
-    const formData = this.createAuthenticationFormData(authRequest);
-
-    const response = await this.sendRequest(
-      "auth.authenticate",
-      "POST",
-      "connect/token",
-      {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      formData
-    );
-
-    this.logger.info("Authentication response received", "WebRTCApiService");
-
-    // Parse the response body to get authentication details
-    if (response.body && typeof response.body === "string") {
-      try {
-        const authData = JSON.parse(response.body) as IAuthResponse;
-        this.logger.info("Authentication successful - token received", "WebRTCApiService");
-        return authData;
-      } catch (error) {
-        this.logger.error("Failed to parse authentication response:", "WebRTCApiService", error);
-        throw new Error("Invalid authentication response format");
-      }
-    } else if (response.body && typeof response.body === "object") {
-      // Response body is already an object
-      this.logger.info("Authentication successful - token received", "WebRTCApiService");
-      return response.body as IAuthResponse;
-    } else {
-      this.logger.error("Authentication failed - no token in response", "WebRTCApiService");
-      throw new Error("Authentication failed - no token received");
-    }
-  }
-
-  /**
-   * Refresh authentication token
-   * @param refreshToken - Refresh token from previous authentication
-   * @returns Promise with new authentication response
-   */
-  async refreshToken(refreshToken: string): Promise<IAuthResponse> {
-    this.logger.info("Refreshing authentication token via WebRTC...", "WebRTCApiService");
-
-    const refreshRequest: IAuthRequest = {
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: "TestClientId",
-    };
-
-    return this.authenticate(refreshRequest);
   }
 
   /**
