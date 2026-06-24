@@ -1,14 +1,5 @@
 ﻿// src/taskpane/components/interfaces/IAuth.tsx
 
-export interface IAuthRequest {
-  grant_type: 'password' | 'client_credentials' | 'windows_auth' | 'refresh_token';
-  client_id: string;
-  client_secret?: string;
-  username?: string;
-  password?: string;
-  refresh_token?: string;
-}
-
 export interface IAuthResponse {
   access_token: string;
   token_type?: string; // This might not be in the response
