@@ -94,15 +94,6 @@
           </DesktopFormFactor>
         </Host>
       </Hosts>
-      <WebApplicationInfo>
-        <Id>34d7bfcf-cabc-4a16-a380-f12a6103efbe</Id>
-        <Resource>api://green-sea-08a52e81e.2.azurestaticapps.net/34d7bfcf-cabc-4a16-a380-f12a6103efbe</Resource>
-        <Scopes>
-          <Scope>openid</Scope>
-          <Scope>profile</Scope>
-          <Scope>offline_access</Scope>
-        </Scopes>
-      </WebApplicationInfo>
       <Resources>
         <bt:Images>
           <bt:Image id="Icon.16x16" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/a_3.png"/>
@@ -121,6 +112,15 @@
           <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens a pane with 4 tabs"/>
         </bt:LongStrings>
       </Resources>
+      <WebApplicationInfo>
+        <Id>34d7bfcf-cabc-4a16-a380-f12a6103efbe</Id>
+        <Resource>api://green-sea-08a52e81e.2.azurestaticapps.net/34d7bfcf-cabc-4a16-a380-f12a6103efbe</Resource>
+        <Scopes>
+          <Scope>openid</Scope>
+          <Scope>profile</Scope>
+          <Scope>offline_access</Scope>
+        </Scopes>
+      </WebApplicationInfo>
     </VersionOverrides>
   </VersionOverrides>
 </OfficeApp>
