@@ -97,17 +97,6 @@
           </DesktopFormFactor>
         </Host>
       </Hosts>
-      <WebApplicationInfo>
-        <!-- LOCAL App Registration client ID -->
-        <Id>03310f88-5e4a-4a06-ad27-584c485d3fb9</Id>
-        <!-- Must match the Application ID URI set in Azure for this local registration -->
-        <Resource>api://localhost:3000/03310f88-5e4a-4a06-ad27-584c485d3fb9</Resource>
-        <Scopes>
-          <Scope>openid</Scope>
-          <Scope>profile</Scope>
-          <Scope>offline_access</Scope>
-        </Scopes>
-      </WebApplicationInfo>
       <Resources>
         <bt:Images>
           <bt:Image id="Icon.16x16" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/a_3.png"/>
@@ -126,6 +115,17 @@
           <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Local development build"/>
         </bt:LongStrings>
       </Resources>
+      <WebApplicationInfo>
+        <!-- LOCAL App Registration client ID -->
+        <Id>03310f88-5e4a-4a06-ad27-584c485d3fb9</Id>
+        <!-- Must match the Application ID URI set in Azure for this local registration -->
+        <Resource>api://localhost:3000/03310f88-5e4a-4a06-ad27-584c485d3fb9</Resource>
+        <Scopes>
+          <Scope>openid</Scope>
+          <Scope>profile</Scope>
+          <Scope>offline_access</Scope>
+        </Scopes>
+      </WebApplicationInfo>
     </VersionOverrides>
   </VersionOverrides>
 </OfficeApp>
