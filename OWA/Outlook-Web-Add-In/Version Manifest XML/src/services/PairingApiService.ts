@@ -1,8 +1,11 @@
 import { getLogger } from '@infra/logger';
 import { store } from '@store';
 import { setPaired, setUnpaired, setPairingChecking, setPairingError } from '@slices/pairingSlice';
+import { isDevelopment } from '@config';
 
-const PAIRING_API_BASE = 'https://advokat-addin-pairing.azurewebsites.net';
+const PAIRING_API_BASE = isDevelopment()
+  ? 'https://localhost:51906'
+  : 'https://advokat-addin-pairing.azurewebsites.net';
 
 export interface PairingServerInfo {
   advokatServerId: string;
