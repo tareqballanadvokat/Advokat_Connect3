@@ -50,6 +50,7 @@ describe("authSlice", () => {
     error: null,
     officeToken: null,
     oid: null,
+    email: null,
     advokatToken: null,
   };
 

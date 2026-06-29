@@ -278,6 +278,11 @@ export class MessageFactory {
       timeoutBody;
 
     logger.debug("REGISTER message created with timeout configuration", "MessageFactory");
+    logger.debug(
+      `REGISTER headers - To (server id): "${params.toDisplayName}", From (kuerzel): "${params.fromDisplayName}"`,
+      "MessageFactory"
+    );
+    logger.debug(`REGISTER message - ${registerMessage}`, "MessageFactory");
     return registerMessage;
   }
 }

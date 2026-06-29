@@ -34,6 +34,19 @@ export class OfficeAuthService {
   }
 
   /**
+   * Extracts the Microsoft preferred_username (email) from an Office JWT token.
+   */
+  extractEmail(token: string): string | null {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.preferred_username ?? null;
+    } catch (error) {
+      this.logger.error('OfficeAuthService', 'Failed to extract email from Office token', error);
+      return null;
+    }
+  }
+
+  /**
    * Calls OfficeRuntime.auth.getAccessToken() to obtain a Microsoft-signed SSO token.
    * On success: stores officeToken + oid in Redux (in memory only).
    * On failure: logs the error code and clears any stale token from Redux.
@@ -60,10 +73,11 @@ export class OfficeAuthService {
       });
 
       const oid = this.extractOid(token);
+      const email = this.extractEmail(token);
 
-      store.dispatch(setOfficeToken({ officeToken: token, oid }));
+      store.dispatch(setOfficeToken({ officeToken: token, oid, email }));
 
-      this.logger.info('OfficeAuthService', `Office token obtained. oid: ${oid}`);
+      this.logger.info('OfficeAuthService', `Office token obtained. oid: ${oid}, email: ${email}`);
       return token;
     } catch (error) {
       const code = (error as any)?.code;

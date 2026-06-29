@@ -29,6 +29,7 @@ export interface IAuthState {
   error: string | null;
   officeToken: string | null; // Microsoft Office SSO token — in memory only, never persisted
   oid: string | null;         // Microsoft user object ID extracted from officeToken
+  email: string | null;       // Microsoft preferred_username (email) extracted from officeToken
   advokatToken: string | null; // Token issued by ADVOKAT Server after pairing/auth — session memory only, never persisted
 }
 

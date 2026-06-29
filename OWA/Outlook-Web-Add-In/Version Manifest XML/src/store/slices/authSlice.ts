@@ -28,6 +28,7 @@ const initialState: IAuthState = {
   error: null,
   officeToken: null,
   oid: null,
+  email: null,
   advokatToken: null,
 };
 
@@ -124,14 +125,19 @@ const authSlice = createSlice({
       state.error = null;
     },
 
-    setOfficeToken: (state, action: PayloadAction<{ officeToken: string; oid: string | null }>) => {
+    setOfficeToken: (
+      state,
+      action: PayloadAction<{ officeToken: string; oid: string | null; email: string | null }>
+    ) => {
       state.officeToken = action.payload.officeToken;
       state.oid = action.payload.oid;
+      state.email = action.payload.email;
     },
 
     clearOfficeToken: (state) => {
       state.officeToken = null;
       state.oid = null;
+      state.email = null;
     },
 
     setAdvokatToken: (state, action: PayloadAction<string>) => {
@@ -204,6 +210,7 @@ export const selectAuthError = (state: { auth: IAuthState }) => state.auth.error
 
 export const selectOfficeToken = (state: { auth: IAuthState }) => state.auth.officeToken;
 export const selectOid = (state: { auth: IAuthState }) => state.auth.oid;
+export const selectEmail = (state: { auth: IAuthState }) => state.auth.email;
 export const selectAdvokatToken = (state: { auth: IAuthState }) => state.auth.advokatToken;
 
 // Helper selector to check if token is valid (not expired)

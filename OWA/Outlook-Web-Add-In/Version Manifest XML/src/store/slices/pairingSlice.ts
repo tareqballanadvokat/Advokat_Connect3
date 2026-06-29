@@ -15,12 +15,14 @@ export type PairingStatus = 'unknown' | 'checking' | 'paired' | 'unpaired' | 'er
 export interface PairingState {
   status: PairingStatus;
   advokatServerId: string | null;
+  kuerzel: string | null;
   error: string | null;
 }
 
 const initialState: PairingState = {
   status: 'unknown',
   advokatServerId: null,
+  kuerzel: null,
   error: null,
 };
 
@@ -33,15 +35,17 @@ const pairingSlice = createSlice({
       state.error = null;
     },
 
-    setPaired: (state, action: PayloadAction<string>) => {
+    setPaired: (state, action: PayloadAction<{ advokatServerId: string; kuerzel: string }>) => {
       state.status = 'paired';
-      state.advokatServerId = action.payload;
+      state.advokatServerId = action.payload.advokatServerId;
+      state.kuerzel = action.payload.kuerzel;
       state.error = null;
     },
 
     setUnpaired: (state) => {
       state.status = 'unpaired';
       state.advokatServerId = null;
+      state.kuerzel = null;
       state.error = null;
     },
 
@@ -66,5 +70,6 @@ export const {
 export const selectPairing = (state: { pairing: PairingState }) => state.pairing;
 export const selectPairingStatus = (state: { pairing: PairingState }) => state.pairing.status;
 export const selectAdvokatServerId = (state: { pairing: PairingState }) => state.pairing.advokatServerId;
+export const selectKuerzel = (state: { pairing: PairingState }) => state.pairing.kuerzel;
 
 export default pairingSlice.reducer;

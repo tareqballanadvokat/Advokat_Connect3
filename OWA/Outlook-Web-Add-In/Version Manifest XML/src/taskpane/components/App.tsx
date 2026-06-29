@@ -4,12 +4,13 @@ import { useTranslation } from 'react-i18next';
 import Tabs from './Tab';
 import PairingDialog from './tabs/shared/PairingDialog';
 import { configService } from '@config';
-import { setAdvokatServerId } from '@config/runtimeConfig';
+import { setAdvokatServerId, setUserIdentifier } from '@config/runtimeConfig';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { officeAuthService } from '@services/OfficeAuthService';
 import { pairingApiService } from '@services/PairingApiService';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
-import { selectPairingStatus, selectAdvokatServerId } from '@slices/pairingSlice';
+import { selectPairingStatus, selectAdvokatServerId, selectKuerzel } from '@slices/pairingSlice';
+import { selectEmail } from '@slices/authSlice';
 import { toggleLogging, initializeLogging } from '@slices/loggingSlice';
 import { getLogger } from '@infra/logger';
 
@@ -44,6 +45,15 @@ const useStyles = makeStyles({
     backgroundColor: isLocalhost ? "#ffc107" : "#28a745",
     flexShrink: 0,
   },
+  userBanner: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "2px 8px",
+    fontSize: "11px",
+    color: "#666",
+    borderBottom: "1px solid #e0e0e0",
+  },
 });
 
 const App: React.FC<AppProps> = () => {
@@ -52,6 +62,8 @@ const App: React.FC<AppProps> = () => {
   const loggingEnabled = useAppSelector((state) => state.logging.enabled);
   const pairingStatus = useAppSelector(selectPairingStatus);
   const advokatServerId = useAppSelector(selectAdvokatServerId);
+  const kuerzel = useAppSelector(selectKuerzel);
+  const email = useAppSelector(selectEmail);
   const logger = getLogger();
   const { t: translate } = useTranslation('common');
  
@@ -141,8 +153,13 @@ const App: React.FC<AppProps> = () => {
       return undefined;
     }
 
-    logger.info('App', `advokatServerId resolved (${advokatServerId}) - initializing WebRTC connection manager...`);
+    logger.info('App', `advokatServerId resolved (${advokatServerId}), kuerzel (${kuerzel}) - initializing WebRTC connection manager...`);
     setAdvokatServerId(advokatServerId);
+    if (kuerzel) {
+      setUserIdentifier(kuerzel);
+    } else {
+      logger.warn('App', 'kuerzel not available - REGISTER From header will use the default fromDisplayName');
+    }
 
     const manager = getWebRTCConnectionManager();
     manager.initialize().catch(error => {
@@ -171,7 +188,7 @@ const App: React.FC<AppProps> = () => {
       }
       window.removeEventListener('unload', handleUnload);
     };
-  }, [logger, advokatServerId]);
+  }, [logger, advokatServerId, kuerzel]);
 
   const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
@@ -194,6 +211,9 @@ const App: React.FC<AppProps> = () => {
           ? `LOCAL — ${window.location.origin}`
           : `AZURE — ${window.location.origin}`}
       </div>
+      {kuerzel && email && (
+        <div className={styles.userBanner}>{kuerzel} — {email}</div>
+      )}
       {pairingStatus === 'unpaired' && <PairingDialog />}
       <div> 
         <Tabs />

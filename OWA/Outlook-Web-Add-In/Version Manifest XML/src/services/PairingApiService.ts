@@ -9,6 +9,7 @@ const PAIRING_API_BASE = isDevelopment()
 
 export interface PairingServerInfo {
   advokatServerId: string;
+  kuerzel: string;
 }
 
 /**
@@ -85,8 +86,8 @@ export class PairingApiService {
       throw new Error(message);
     }
 
-    this.logger.info('PairingApiService', `Pairing successful. advokatServerId: ${data.advokatServerId}`);
-    store.dispatch(setPaired(data.advokatServerId));
+    this.logger.info('PairingApiService', `Pairing successful. advokatServerId: ${data.advokatServerId}, kuerzel: ${data.kuerzel}`);
+    store.dispatch(setPaired({ advokatServerId: data.advokatServerId, kuerzel: data.kuerzel }));
     return data;
   }
 
@@ -147,8 +148,8 @@ export class PairingApiService {
       throw new Error(message);
     }
 
-    this.logger.info('PairingApiService', `Paired. advokatServerId: ${data.advokatServerId}`);
-    store.dispatch(setPaired(data.advokatServerId));
+    this.logger.info('PairingApiService', `Paired. advokatServerId: ${data.advokatServerId}, kuerzel: ${data.kuerzel}`);
+    store.dispatch(setPaired({ advokatServerId: data.advokatServerId, kuerzel: data.kuerzel }));
     return data;
   }
 }
