@@ -217,7 +217,7 @@ export class MessageFactory {
 
     const contentType = params.contentType || "application/sdp";
     const expires = params.expires || 300;
-    const fromDisplay = params.fromDisplayName || "macc";
+    const fromDisplay = params.fromDisplayName || configService.getSipConfig().fromDisplayName;
     const contentLength = helper.contentLength(params.body);
 
     const serviceMessage =

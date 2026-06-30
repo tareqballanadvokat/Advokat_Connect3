@@ -17,7 +17,8 @@ import { AppConfig, Environment, LogLevel } from "./types";
 // Shared SIP connection constants — same for all environments
 const SIP_MAX_RETRIES = 2;
 const SIP_CONNECTION_TIMEOUT_MS = 30000;
-const SIP_TO_DISPLAY_NAME = "macs";
+// Placeholder until setAdvokatServerId(serverId) patches it at runtime (see runtimeConfig.ts)
+const SIP_TO_DISPLAY_NAME_PLACEHOLDER = "pending-server-id";
 
 /**
  * Derive SIP host, port, and sipUri from a WebSocket URI.
@@ -60,11 +61,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     sipUri: _sipDerived.sipUri,
     host: _sipDerived.host,
     port: _sipDerived.port,
-    // TODO: Replace hardcoded "macc" with the actual user identity at runtime.
-    // Call setUserIdentifier(email) from runtimeConfig.ts before initializing the SIP client,
-    // e.g. using Office.context.mailbox.userProfile.emailAddress in taskpane/index.tsx.
-    fromDisplayName: "macc",
-    toDisplayName: SIP_TO_DISPLAY_NAME,
+    // fromDisplayName is intentionally left out — set at runtime via setUserIdentifier(kuerzel)
+    toDisplayName: SIP_TO_DISPLAY_NAME_PLACEHOLDER,
     maxRetries: SIP_MAX_RETRIES,
     connectionTimeout: SIP_CONNECTION_TIMEOUT_MS,
   },
@@ -111,7 +109,7 @@ export const TEST_CONFIG: AppConfig = {
     sipUri: "sip:user@test.local:443",
     host: "test.local",
     port: 443,
-    toDisplayName: SIP_TO_DISPLAY_NAME,
+    toDisplayName: SIP_TO_DISPLAY_NAME_PLACEHOLDER,
     maxRetries: SIP_MAX_RETRIES,
     connectionTimeout: SIP_CONNECTION_TIMEOUT_MS,
   },

@@ -745,7 +745,6 @@ export class Peer2PeerConnection {
       toLine: toLine,
       body: offerSDP,
       contentType: "application/sdp",
-      fromDisplayName: "macc",
     });
   }
 
