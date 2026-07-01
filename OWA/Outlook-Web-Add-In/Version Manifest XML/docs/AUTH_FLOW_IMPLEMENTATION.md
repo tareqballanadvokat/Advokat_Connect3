@@ -1,10 +1,10 @@
 # Authentication Flow — Implementation Guide
 
-> Written: March 12, 2026 — Updated: June 23, 2026
+> Written: March 12, 2026 — Updated: July 1, 2026
 
 ---
 
-## Implementation Status (June 23, 2026)
+## Implementation Status (July 1, 2026)
 
 | # | Component | Who | Status |
 |---|-----------|-----|--------|
@@ -27,8 +27,8 @@
 | 3 | OTP generation + display window | ADVOKAT Desktop Client | ✅ Done |
 | 4 | `PairingDialog.tsx` — OTP input UI, live submit, error display | Add-in | ✅ Done |
 | 5 | WebRTC connection uses `advokatServerId` from `pairingSlice` for routing | Add-in | ✅ Done |
-| 6 | `sendAuthMessage(officeToken)` in `webRTCApiService` (returning users, post-connect auth) | Add-in | ✅ Done |
-| 7 | Replace password-based `performAuthentication` with `sendAuthMessage` flow | Add-in | ✅ Done (June 24, 2026) |
+| 6 | `POST /addin/office-token/token` token exchange in `PairingApiService.exchangeOfficeToken()` | Add-in | ✅ Done (July 1, 2026) |
+| 7 | `performAuthentication()` switched to HTTP office-token exchange flow | Add-in | ✅ Done (July 1, 2026) |
 
 **Corrected pairing flow (confirmed June 21, 2026):**
 - OTP goes to **Pairing API** via `POST /addin/pair` (HTTP) — **not** through WebRTC
@@ -42,7 +42,7 @@
 - No changes were needed in `Registration.ts`, `MessageFactory.ts`, or `SipClient.ts` — they already read `toDisplayName` generically from `sipConfig`.
 
 **Next steps:**
-1. Replace `performAuthentication()` with `sendAuthMessage(officeToken)` for the post-connect auth step
+1. Add proactive refresh call before expiry using the existing refresh-token endpoint (currently handled reactively by reconnect/re-auth)
 
 ---
 
@@ -271,22 +271,24 @@ Same as Part 1 Step 5, except:
 
 ---
 
-### Step 4 — Add-in authenticates with ADVOKAT Server via tunnel
+### Step 4 — Add-in exchanges Office token for ADVOKAT JWT (HTTP)
 
 ```typescript
-dataChannel.send(JSON.stringify({
-type: 'AUTH',
-officeToken
-}));
+const res = await fetch('https://advokat-addin-pairing.azurewebsites.net/addin/office-token/token', {
+	method: 'POST',
+	headers: { Authorization: `Bearer ${officeToken}` }
+});
+
+const { access_token, refresh_token, expires_in, refresh_token_lifetime } = await res.json();
 ```
 
-ADVOKAT Server:
+ADVOKAT Server plugin:
 1. Validates Office token via JWKS
 2. Extracts `oid`
-3. Looks up `oid → SB`
-4. Returns fresh `{ advokatToken }` through the tunnel
+3. Resolves `oid → kuerzel` via Pairing API user mapping
+4. Issues full ADVOKAT JWT payload (same shape as password-grant)
 
-The add-in holds `advokatToken` in memory only for this session. Session active. User sees no login prompt at any point.
+The add-in stores the returned tokens in Redux memory only for this session. Session active. User sees no login prompt at any point.
 
 ---
 

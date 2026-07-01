@@ -39,7 +39,7 @@ import { getLogger } from "@infra/logger";
 import {
   startAuthentication,
   authenticationFailure,
-  advokatAuthenticationSuccess,
+  authenticationSuccess,
   selectOfficeToken,
 } from "@slices/authSlice";
 import {
@@ -54,6 +54,7 @@ import {
   selectIsReady,
 } from "@slices/connectionSlice";
 import { SelectedCandidateType } from "@infra/sip/Peer2PeerConnection";
+import { pairingApiService } from "./PairingApiService";
 
 export type { ConnectionState };
 
@@ -81,7 +82,7 @@ export class WebRTCConnectionManager implements SipClientObserver {
   private logger = getLogger();
 
   // Timers
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: number | null = null;
 
   // Pending waitForFullConnection promise callbacks (state-change driven, no polling timer)
   private _connectionResolve: (() => void) | null = null;
@@ -362,7 +363,7 @@ export class WebRTCConnectionManager implements SipClientObserver {
       reconnectAttempts: attemptNumber,
     });
 
-    this.reconnectTimer = setTimeout(async () => {
+    this.reconnectTimer = window.setTimeout(async () => {
       if (!this.isReconnecting) {
         this.logger.info("ConnectionManager", "Reconnect cancelled during delay");
         return;
@@ -461,14 +462,14 @@ export class WebRTCConnectionManager implements SipClientObserver {
         throw new Error("No Office token available — cannot authenticate with ADVOKAT Server");
       }
 
-      // Send AUTH message through the WebRTC tunnel.
-      // ADVOKAT Server validates the Office token via JWKS, looks up oid → SB, returns advokatToken.
-      const { advokatToken } = await webRTCApiService.sendAuthMessage(officeToken);
+      // Exchange Office token through the server-side pairing plugin endpoint.
+      // Returns the same payload as the standard JWT endpoint (access + refresh + expiry).
+      const authResponse = await pairingApiService.exchangeOfficeToken(officeToken);
 
-      // Store advokatToken in Redux (session memory only — never persisted)
-      store.dispatch(advokatAuthenticationSuccess(advokatToken));
+      // Store full token payload in Redux for request authorization + refresh support.
+      store.dispatch(authenticationSuccess(authResponse));
 
-      this.logger.info("ConnectionManager", "Authentication successful (advokatToken received)");
+      this.logger.info("ConnectionManager", "Authentication successful (ADVOKAT JWT received)");
     } catch (error) {
       this.logger.error("ConnectionManager", "Authentication failed", error);
 

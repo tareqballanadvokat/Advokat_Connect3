@@ -608,7 +608,6 @@ export class WebRTCApiService implements DataChannelObserver {
       this.logger.error("Error response body", "WebRTCApiService", decodedBody);
 
       // Handle authentication/authorization errors.
-      // advokatToken has no refresh cycle — just queue the shared retry directly.
       if (actualStatusCode === 401) {
         if (!pendingRequest.messageType.includes("auth.") && !pendingRequest.authRetryAttempted) {
           this.logger.info(
@@ -765,7 +764,7 @@ export class WebRTCApiService implements DataChannelObserver {
     if (!messageType.includes("auth.")) {
       validToken = await tokenService.ensureValidToken();
       if (!validToken) {
-        throw new Error("No advokatToken available. Please reconnect.");
+        throw new Error("No auth token available. Please reconnect.");
       }
       // Token will be passed to createRequestHeaders
     }
