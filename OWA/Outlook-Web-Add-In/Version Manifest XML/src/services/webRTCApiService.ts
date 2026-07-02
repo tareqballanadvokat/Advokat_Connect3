@@ -1085,12 +1085,12 @@ export class WebRTCApiService implements DataChannelObserver {
   async GetDocuments(query: DokumenteQuery) {
     const queryParams = new URLSearchParams();
 
-    if (query.aktId) queryParams.append("AktId", query.aktId.toString());
+    if (query.aktId != null) queryParams.append("AktId", query.aktId.toString());
     if (query.outlookEmailId) queryParams.append("OutlookEmailId", query.outlookEmailId);
     if (query.dokumentArten && query.dokumentArten.length > 0) {
       query.dokumentArten.forEach((art) => queryParams.append("DokumentArten", DokumentArt[art]));
     }
-    if (query.Count) queryParams.append("Count", query.Count.toString());
+    if (query.Count != null) queryParams.append("Count", query.Count.toString());
     if (query.erstelltVon) queryParams.append("ErstelltVon", query.erstelltVon);
 
     let url = `api/v2.0/dokumente?${queryParams.toString()}`;
