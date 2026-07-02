@@ -70,16 +70,10 @@ export const DEFAULT_CONFIG: AppConfig = {
   webrtc: {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
-
       {
-        urls: 'turn:108.143.154.176:3478',
-        username: process.env.TURN_USERNAME || "",
-        credential: process.env.TURN_CREDENTIAL || "",
-      },
-      {
-        urls: 'turns:108.143.154.176:5349',
-        username: process.env.TURN_USERNAME || "",
-        credential: process.env.TURN_CREDENTIAL || "",
+        urls: 'turn:free.expressturn.com:3478',
+        username: '000000002098277533',
+        credential: 'B+O9UBQOdx9qrbJO5NswZi99TB8=',
       },
     ],
   },

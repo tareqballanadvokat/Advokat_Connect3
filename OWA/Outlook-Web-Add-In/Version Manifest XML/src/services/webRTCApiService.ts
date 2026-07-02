@@ -17,7 +17,7 @@ import {
   DokumenteQuery,
 } from "@interfaces/IDocument";
 import { PersonenQuery } from "@interfaces/IPerson";
-import { IAdvokatAuthResponse } from "@interfaces/IAuth";
+import { IAuthResponse } from "@interfaces/IAuth";
 import { SipClientInstance } from "@infra/sip/SipClient";
 import { tokenService } from "./TokenService";
 import { WebRTCDataChannelService, DataChannelObserver } from "./WebRTCDataChannelService";
@@ -1205,34 +1205,42 @@ export class WebRTCApiService implements DataChannelObserver {
   }
 
   /**
-   * Silent re-authentication for returning users (Part 2 of the auth flow).
-   * Sends { type: 'AUTH', officeToken } through the WebRTC data channel.
-   * The ADVOKAT Server validates the Office token via JWKS, looks up the oid → SB mapping,
-   * and returns a fresh advokatToken for this session.
+   * Exchange Office SSO token for full ADVOKAT JWT payload through the WebRTC channel.
    *
-   * @param officeToken  Microsoft-signed JWT from OfficeRuntime.auth.getAccessToken()
-   * @returns advokatToken for use during this session (held in Redux memory only)
+   * Calls plugin endpoint:
+   *   POST /addin/office-token/token
+   *   Authorization: Bearer <officeToken>
+   *
+   * @param officeToken Microsoft-signed JWT from OfficeRuntime.auth.getAccessToken()
+   * @returns Full auth payload ({ access_token, refresh_token, expires_in, ... })
    */
-  async sendAuthMessage(officeToken: string): Promise<IAdvokatAuthResponse> {
-    this.logger.info('Sending AUTH message through WebRTC data channel...', 'WebRTCApiService');
+  async sendAuthMessage(officeToken: string): Promise<IAuthResponse> {
+    this.logger.info('Sending office-token exchange request through WebRTC data channel...', 'WebRTCApiService');
 
     const response = await this.sendRequest(
-      'auth.officeToken',
+      'auth.officeToken.exchange',
       'POST',
-      'addin/auth',
-      { 'Content-Type': 'application/json', Accept: 'application/json' },
-      JSON.stringify({ type: 'AUTH', officeToken }),
+      'addin/office-token/token',
+      {
+        Authorization: `Bearer ${officeToken}`,
+        Accept: 'application/json',
+      },
     );
 
     if (response.body) {
       const parsed = typeof response.body === 'string'
-        ? JSON.parse(response.body) as IAdvokatAuthResponse
-        : response.body as IAdvokatAuthResponse;
-      this.logger.info('AUTH successful — advokatToken received', 'WebRTCApiService');
+        ? JSON.parse(response.body) as IAuthResponse
+        : response.body as IAuthResponse;
+
+      if (!parsed.access_token || !parsed.expires_in) {
+        throw new Error('Office-token exchange response missing required token fields');
+      }
+
+      this.logger.info('Office-token exchange successful — ADVOKAT JWT received', 'WebRTCApiService');
       return parsed;
     }
 
-    throw new Error('AUTH response contained no body');
+    throw new Error('Office-token exchange response contained no body');
   }
 
   /**

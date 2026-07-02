@@ -4,7 +4,6 @@ import {
   selectOfficeToken,
   authenticationSuccess,
 } from "@slices/authSlice";
-import { pairingApiService } from "./PairingApiService";
 import { getLogger } from "@infra/logger";
 
 /** Refresh proactively when less than this many ms remain on the token. */
@@ -57,6 +56,9 @@ export class TokenService {
 
     try {
       this.logger.info("Refreshing ADVOKAT JWT via office-token exchange…", "TokenService");
+      // Lazy-load to avoid a static circular import chain:
+      // TokenService -> PairingApiService -> webRTCApiService -> TokenService
+      const { pairingApiService } = await import("./PairingApiService");
       const authResponse = await pairingApiService.exchangeOfficeToken(officeToken);
       store.dispatch(authenticationSuccess(authResponse));
       this.logger.info("ADVOKAT JWT refreshed successfully", "TokenService");

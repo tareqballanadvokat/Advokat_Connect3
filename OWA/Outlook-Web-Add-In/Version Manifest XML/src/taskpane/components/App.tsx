@@ -49,10 +49,19 @@ const useStyles = makeStyles({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "2px 8px",
-    fontSize: "11px",
-    color: "#666",
-    borderBottom: "1px solid #e0e0e0",
+    gap: "6px",
+    padding: "6px 10px",
+    fontSize: "12px",
+    fontWeight: 600,
+    letterSpacing: "0.2px",
+    borderBottom: "1px solid",
+  },
+  userDot: {
+    width: "7px",
+    height: "7px",
+    borderRadius: "50%",
+    display: "inline-block",
+    flexShrink: 0,
   },
 });
 
@@ -212,7 +221,20 @@ const App: React.FC<AppProps> = () => {
           : `AZURE — ${window.location.origin}`}
       </div>
       {kuerzel && email && (
-        <div className={styles.userBanner}>{kuerzel} — {email}</div>
+        <div
+          className={styles.userBanner}
+          style={{
+            backgroundColor: isDarkMode ? "#111827" : "#f8fafc",
+            color: isDarkMode ? "#e5e7eb" : "#111827",
+            borderBottomColor: isDarkMode ? "#374151" : "#d1d5db",
+          }}
+        >
+          <span
+            className={styles.userDot}
+            style={{ backgroundColor: isDarkMode ? "#22c55e" : "#16a34a" }}
+          />
+          {kuerzel} — {email}
+        </div>
       )}
       {pairingStatus === 'unpaired' && <PairingDialog />}
       <div> 

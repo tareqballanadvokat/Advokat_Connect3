@@ -3,6 +3,7 @@ import { store } from '@store';
 import { setPaired, setUnpaired, setPairingChecking, setPairingError } from '@slices/pairingSlice';
 import { isDevelopment } from '@config';
 import { IAuthResponse } from '@interfaces/IAuth';
+import { webRTCApiService } from './webRTCApiService';
 
 const PAIRING_API_BASE = isDevelopment()
   ? 'https://localhost:51906'
@@ -39,52 +40,8 @@ export class PairingApiService {
    * ({ access_token, refresh_token, expires_in, refresh_token_lifetime }).
    */
   async exchangeOfficeToken(officeToken: string): Promise<IAuthResponse> {
-    this.logger.info('PairingApiService', 'Exchanging Office token for ADVOKAT JWT...');
-
-    let response: Response;
-    try {
-      response = await fetch(`${PAIRING_API_BASE}/addin/office-token/token`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${officeToken}`,
-          Accept: 'application/json',
-        },
-      });
-    } catch (networkError) {
-      const message = networkError instanceof Error ? networkError.message : 'Network error';
-      this.logger.error('PairingApiService', `Network error exchanging Office token: ${message}`, networkError);
-      throw networkError;
-    }
-
-    if (response.status === 401) {
-      const message = 'Office token exchange rejected (401): user is not paired to this server or Sachbearbeiter is inactive.';
-      this.logger.error('PairingApiService', message);
-      throw new Error(message);
-    }
-
-    if (!response.ok) {
-      let detail = '';
-      try { detail = await response.text(); } catch { /* ignore */ }
-      const message = `Office token exchange failed: HTTP ${response.status}${detail ? ` — ${detail}` : ''}`;
-      this.logger.error('PairingApiService', message);
-      throw new Error(message);
-    }
-
-    let data: IAuthResponse;
-    try {
-      data = await response.json() as IAuthResponse;
-    } catch (parseError) {
-      const message = 'Office token exchange returned 200 but body is not valid JSON';
-      this.logger.error('PairingApiService', message, parseError);
-      throw new Error(message);
-    }
-
-    if (!data.access_token || !data.expires_in) {
-      const message = 'Office token exchange response is missing required token fields';
-      this.logger.error('PairingApiService', message);
-      throw new Error(message);
-    }
-
+    this.logger.info('PairingApiService', 'Exchanging Office token for ADVOKAT JWT via WebRTC channel...');
+    const data = await webRTCApiService.sendAuthMessage(officeToken);
     this.logger.info('PairingApiService', 'Office token exchange successful. ADVOKAT JWT received.');
     return data;
   }
