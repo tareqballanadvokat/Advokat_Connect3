@@ -10,7 +10,6 @@ import { officeAuthService } from '@services/OfficeAuthService';
 import { pairingApiService } from '@services/PairingApiService';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { selectPairingStatus, selectAdvokatServerId, selectKuerzel } from '@slices/pairingSlice';
-import { selectEmail } from '@slices/authSlice';
 import { toggleLogging, initializeLogging } from '@slices/loggingSlice';
 import { getLogger } from '@infra/logger';
 
@@ -45,24 +44,6 @@ const useStyles = makeStyles({
     backgroundColor: isLocalhost ? "#ffc107" : "#28a745",
     flexShrink: 0,
   },
-  userBanner: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "6px",
-    padding: "6px 10px",
-    fontSize: "12px",
-    fontWeight: 600,
-    letterSpacing: "0.2px",
-    borderBottom: "1px solid",
-  },
-  userDot: {
-    width: "7px",
-    height: "7px",
-    borderRadius: "50%",
-    display: "inline-block",
-    flexShrink: 0,
-  },
 });
 
 const App: React.FC<AppProps> = () => {
@@ -72,7 +53,6 @@ const App: React.FC<AppProps> = () => {
   const pairingStatus = useAppSelector(selectPairingStatus);
   const advokatServerId = useAppSelector(selectAdvokatServerId);
   const kuerzel = useAppSelector(selectKuerzel);
-  const email = useAppSelector(selectEmail);
   const logger = getLogger();
   const { t: translate } = useTranslation('common');
  
@@ -220,22 +200,6 @@ const App: React.FC<AppProps> = () => {
           ? `LOCAL — ${window.location.origin}`
           : `AZURE — ${window.location.origin}`}
       </div>
-      {kuerzel && email && (
-        <div
-          className={styles.userBanner}
-          style={{
-            backgroundColor: isDarkMode ? "#111827" : "#f8fafc",
-            color: isDarkMode ? "#e5e7eb" : "#111827",
-            borderBottomColor: isDarkMode ? "#374151" : "#d1d5db",
-          }}
-        >
-          <span
-            className={styles.userDot}
-            style={{ backgroundColor: isDarkMode ? "#22c55e" : "#16a34a" }}
-          />
-          {kuerzel} — {email}
-        </div>
-      )}
       {pairingStatus === 'unpaired' && <PairingDialog />}
       <div> 
         <Tabs />
