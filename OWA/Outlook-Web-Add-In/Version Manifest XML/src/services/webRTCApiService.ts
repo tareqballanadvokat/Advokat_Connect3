@@ -1017,11 +1017,11 @@ export class WebRTCApiService implements DataChannelObserver {
     if (query.outlookEmailId != null) queryParams.append("OutlookEmailId", query.outlookEmailId);
     if (query.count != null) queryParams.append("Count", query.count.toString());
     if (query.maxId != null) queryParams.append("MaxId", query.maxId.toString());
-    if (query.erstelltAb != null) queryParams.append("ErstelltAb", query.erstelltAb instanceof Date ? query.erstelltAb.toISOString() : query.erstelltAb);
-    if (query.erstelltBis != null) queryParams.append("ErstelltBis", query.erstelltBis instanceof Date ? query.erstelltBis.toISOString() : query.erstelltBis);
+    if (query.erstelltAb != null) queryParams.append("ErstelltAb", query.erstelltAb instanceof Date ? this.toLocalISOString(query.erstelltAb) : query.erstelltAb);
+    if (query.erstelltBis != null) queryParams.append("ErstelltBis", query.erstelltBis instanceof Date ? this.toLocalISOString(query.erstelltBis) : query.erstelltBis);
     if (query.erstelltVon != null) queryParams.append("ErstelltVon", query.erstelltVon);
-    if (query.bearbeitetAb != null) queryParams.append("BearbeitetAb", query.bearbeitetAb instanceof Date ? query.bearbeitetAb.toISOString() : query.bearbeitetAb);
-    if (query.bearbeitetBis != null) queryParams.append("BearbeitetBis", query.bearbeitetBis instanceof Date ? query.bearbeitetBis.toISOString() : query.bearbeitetBis);
+    if (query.bearbeitetAb != null) queryParams.append("BearbeitetAb", query.bearbeitetAb instanceof Date ? this.toLocalISOString(query.bearbeitetAb) : query.bearbeitetAb);
+    if (query.bearbeitetBis != null) queryParams.append("BearbeitetBis", query.bearbeitetBis instanceof Date ? this.toLocalISOString(query.bearbeitetBis) : query.bearbeitetBis);
     if (query.bearbeitetVon != null) queryParams.append("BearbeitetVon", query.bearbeitetVon);
 
     return this.sendRequest(

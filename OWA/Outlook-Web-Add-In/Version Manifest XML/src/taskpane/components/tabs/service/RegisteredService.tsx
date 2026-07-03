@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { selectAuthCredentials } from '@slices/authSlice';
 import { selectIsReady } from '@slices/connectionSlice';
 import { setRegisteredServicesLoading } from '@slices/serviceSlice';
 import { LeistungResponse } from '@interfaces/IService';
@@ -21,7 +20,6 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
   const [error, setError] = useState<string | null>(null);
   const { t: translate } = useTranslation('service');
 
-  const credentials = useAppSelector(selectAuthCredentials);
   const isReady = useAppSelector(selectIsReady);
   const { selectedAkt } = useAppSelector(state => state.akten);
   const loading = useAppSelector(state => state.service.registeredServicesLoading);
@@ -60,7 +58,6 @@ const RegisteredService: React.FC<RegisteredServiceProps> = ({ refreshTrigger })
         const response = await webRTCApiService.getLeistungenByAkt({
           aktId: selectedAkt.id,
           erstelltAb,
-          erstelltVon: credentials?.username,
         });
 
         if (response.statusCode === 200 || response.statusCode === 404) {
