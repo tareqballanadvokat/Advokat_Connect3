@@ -73,6 +73,7 @@ const RegisteredEmails: React.FC = () => {
         } else if (response.statusCode === 404) {
           setError(translate('noRegisteredEmails'));
         } else if (response.statusCode === 403) {
+          console.error('RegisteredEmails 403 response body:', response.body);
           setError(translate('failedToLoadEmails'));
         } else {
           setError(translate('failedToLoadEmails'));

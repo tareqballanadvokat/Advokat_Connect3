@@ -211,7 +211,7 @@ const EmailTabContent: React.FC = () => {
           dokumentArt: emailDokument.dokumentArt,
           mailAdresse: emailDokument.mailAdresse,
           datum: emailDokument.empfangenAm ?? now,
-          bearbeitungsInfoErstelltAm: now,
+          erstelltAm: now,
           anzahlMailAnhänge: emailDokument.anzahlMailAnhänge,
           outlookEmailId: emailDokument.outlookEmailId,
         };
