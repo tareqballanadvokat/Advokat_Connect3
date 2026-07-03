@@ -54,6 +54,7 @@ export interface DokumentResponse {
   outlookEmailId?: string; // Outlook email message ID for tracking saved items
   // Fields from /with-content endpoint
   inhalt?: string; // Base64 encoded file content
+  dateiName?: string; // File name as returned by some API versions
   contentType?: string; // MIME type of the file
   fileName?: string; // Original filename
   fileSize?: number; // File size in bytes
