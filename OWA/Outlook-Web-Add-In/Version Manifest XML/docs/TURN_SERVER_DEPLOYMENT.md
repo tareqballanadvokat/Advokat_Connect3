@@ -215,14 +215,14 @@ az network nsg rule create --resource-group rg-turnserver --nsg-name turnserver-
 }
 
 # Relay ports
-az network nsg rule create --resource-group rg-turnserver --nsg-name turnserver-vmNSG --name Allow-Relay-Ports --priority 1104 --direction Inbound --access Allow --protocol Udp --destination-port-ranges 49152-65535
+az network nsg rule create --resource-group rg-turnserver --nsg-name turnserver-vmNSG --name Allow-Relay-Ports --priority 1104 --direction Inbound --access Allow --protocol Udp --destination-port-ranges 10000-10100
 
 //RESULT
 {
   "access": "Allow",
   "destinationAddressPrefix": "*",
   "destinationAddressPrefixes": [],
-  "destinationPortRange": "49152-65535",
+  "destinationPortRange": "10000-10100",
   "destinationPortRanges": [],
   "direction": "Inbound",
   "etag": "W/\"80eea898-dfe9-4f85-9234-082f169cb763\"",
@@ -287,7 +287,6 @@ COPY turnserver.conf /etc/coturn/turnserver.conf
 
 EXPOSE 3478/tcp 3478/udp
 EXPOSE 5349/tcp 5349/udp
-EXPOSE 49152-65535/udp
 
 CMD ["turnserver", "-c", "/etc/coturn/turnserver.conf", "--log-file=stdout"]
 EOF
@@ -302,9 +301,9 @@ external-ip=108.143.154.176
 listening-port=3478
 tls-listening-port=5349
 
-# Relay port range (for media/data channels)
-min-port=49152
-max-port=65535
+# Relay port range
+min-port=10000
+max-port=10100
 
 # Authentication (long-term credentials)
 lt-cred-mech
