@@ -28,35 +28,38 @@ namespace TestAPI.Controllers
         [HttpPost]
         public IActionResult Post()
         {
-            int sizeInMB = 3;
-
-            Random rng = new Random();
+            return this.Ok("You have reached the test api. Congratulations, you are the best!");
 
 
-            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-            var stringChars = new char[8];
+            //int sizeInMB = 3;
 
-            for (int i = 0; i < stringChars.Length; i++)
-            {
-                stringChars[i] = chars[rng.Next(chars.Length)];
-            }
+            //Random rng = new Random();
 
-            //FileStream fs = new FileStream(new(stringChars), FileMode.Create, FileAccess.ReadWrite, FileShare.None);
-            FileStream fs = new FileStream("test", FileMode.Create, FileAccess.ReadWrite, FileShare.None);
 
-            fs.SetLength(sizeInMB * 1024 * 1024);
+            //var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            //var stringChars = new char[8];
+
+            //for (int i = 0; i < stringChars.Length; i++)
+            //{
+            //    stringChars[i] = chars[rng.Next(chars.Length)];
+            //}
+
+            ////FileStream fs = new FileStream(new(stringChars), FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+            //FileStream fs = new FileStream("test", FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+
+            //fs.SetLength(sizeInMB * 1024 * 1024);
+            ////return this.File(fs, "text/json");
+
+            //byte[]? data = new byte[sizeInMB * 1024 * 1024];
+
+            //rng.NextBytes(data);
+            //fs.Write(data);
+            //fs.Seek(0, SeekOrigin.Begin);
+
+            ////data = null;
+            ////GC.Collect();
+
             //return this.File(fs, "text/json");
-
-            byte[]? data = new byte[sizeInMB * 1024 * 1024];
-
-            rng.NextBytes(data);
-            fs.Write(data);
-            fs.Seek(0, SeekOrigin.Begin);
-
-            //data = null;
-            //GC.Collect();
-
-            return this.File(fs, "text/json");
         }
     }
 }

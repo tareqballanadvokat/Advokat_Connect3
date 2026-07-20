@@ -1,73 +1,42 @@
-// src/taskpane/components/tabs/email/EmailSend.tsx
+﻿// src/taskpane/components/tabs/email/EmailSend.tsx
 import React from 'react';
-import { EmailSendProps } from '../../interfaces/IEmail';
+import { EmailSendProps } from '@interfaces/IEmail';
 import Button from 'devextreme-react/button';
-
-// Inject CSS for orange loading button
-const orangeButtonStyles = `
-  .transfer-button-loading .dx-button-content {
-    background-color: #ff8c00 !important;
-    color: #fff !important;
-    border-color: #ff8c00 !important;
-  }
-  .transfer-button-loading:not(.dx-state-disabled) {
-    background-color: #ff8c00 !important;
-    border-color: #ff8c00 !important;
-  }
-`;
-
-// Add styles to document head if not already added
-if (!document.getElementById('transfer-button-styles')) {
-  const styleSheet = document.createElement('style');
-  styleSheet.type = 'text/css';
-  styleSheet.id = 'transfer-button-styles';
-  styleSheet.innerText = orangeButtonStyles;
-  document.head.appendChild(styleSheet);
-}
+import { useTranslation } from 'react-i18next';
+import './EmailSend.css';
+import '../shared/shared.css';
 
 const EmailSend: React.FC<EmailSendProps> = ({ 
     caseId,
-    onCaseChange,
     onTransfer,
-    caseIdDisable,
     transferBtnDisable,
     transferLoading = false
-}) => (
+}) => {
+  const { t: translate } = useTranslation('common');
+  return (
   <div>  
-    <h3>Case</h3>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 24px' }}>
+    <h3>{translate('caseLabel')}</h3>
+    <div className="email-send-row">
 
     <input
       type="text"
-      placeholder="Case ID"
+      placeholder={translate('caseIdPlaceholder')}
       value={caseId}
-      width={80}
-      disabled={caseIdDisable}
-      onChange={e => onCaseChange(e.target.value)}
-      style={{ 
-        width:150,
-        padding: '8px 12px',
-        fontSize: 14,
-        border: '1px solid #ccc',
-        borderRadius: 4
-      }}
+      readOnly
+      className="email-send-case-input"
     />
     <Button
-        text={transferLoading ? "Sending..." : "Transfer"}
+        text={transferLoading ? translate('buttons.sending') : translate('buttons.transfer')}
         type={transferLoading ? "default" : "success"}
-        width={transferLoading ? 100 : 80}
+        width={transferLoading ? 100 : 110}
         disabled={transferBtnDisable || transferLoading}
-        className={transferLoading ? "transfer-button-loading" : ""}
-        style={{
-          fontSize: 14,
-          border: '1px solid #ccc',
-          borderRadius: 4
-        }}
+        className={`email-send-transfer-btn${transferLoading ? ' transfer-button-loading' : ''}`}
         stylingMode="contained" onClick={() => {
         onTransfer();
       }}
     />
   </div></div>
-);
+  );
+};
 
 export default EmailSend;

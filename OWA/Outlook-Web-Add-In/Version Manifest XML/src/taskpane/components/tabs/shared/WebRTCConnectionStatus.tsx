@@ -1,112 +1,91 @@
-// src/taskpane/components/tabs/shared/WebRTCConnectionStatus.tsx
-import React from 'react';
-import { useWebRTCConnectionManager } from '@hooks/useWebRTCConnectionManager';
+﻿// src/taskpane/components/tabs/shared/WebRTCConnectionStatus.tsx
+import React, { useEffect } from 'react';
+import { useAppSelector } from '@store/hooks';
+import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting } from '@slices/connectionSlice';
+import { selectAuthError, selectEmail } from '@slices/authSlice';
+import { selectKuerzel } from '@slices/pairingSlice';
+import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
+
+const logger = getLogger();
 
 interface WebRTCConnectionStatusProps {
   className?: string;
   style?: React.CSSProperties;
-  showHealthIndicator?: boolean;
-  showReconnectButton?: boolean;
 }
 
-const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ 
-  className, 
-  style,
-  showHealthIndicator = false,
-  showReconnectButton = false
-}) => {
-  const { 
-    connectionState, 
-    connectionHealth, 
-    reconnect,
-    isReady 
-  } = useWebRTCConnectionManager();
+const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ className, style }) => {
+  const connectionState = useAppSelector(selectConnectionState);
+  const isReady = useAppSelector(selectIsReady);
+  const isConnected = useAppSelector(selectIsConnected);
+  const isConnecting = useAppSelector(selectIsConnecting);
+  const authError = useAppSelector(selectAuthError);
+  const kuerzel = useAppSelector(selectKuerzel);
+  const email = useAppSelector(selectEmail);
+  const { t: translate } = useTranslation('common');
 
-  // Function to get connection status styling
-  const getConnectionStatusStyle = (): React.CSSProperties => {
-    const baseStyle: React.CSSProperties = {
+  useEffect(() => {
+    const suffix = connectionState.reconnectAttempts > 0
+      ? ` (${connectionState.reconnectAttempts}/${getWebRTCConnectionManager().getConfig().maxReconnectAttempts})`
+      : '';
+    logger.debug(`Connection status: ${connectionState.connectionStatus}${suffix}`, 'WebRTCConnectionStatus');
+  }, [connectionState.connectionStatus, connectionState.reconnectAttempts]);
+
+  const isFailedPermanently = (): boolean => {
+    const s = connectionState.connectionStatus;
+    return s.includes('Max reconnection attempts') || s.includes('Reconnection failed after');
+  };
+
+  const isFailing = (): boolean =>
+    !!(connectionState.lastError ||
+      connectionState.connectionStatus.includes('Failed') ||
+      connectionState.connectionStatus.includes('Error') ||
+      connectionState.connectionStatus.includes('failed'));
+
+  const getFriendlyMessage = (): string => {
+    if (connectionState.idleDisconnectedAt || (!isConnecting && !isConnected && !isReady && !isFailing()))
+      return translate('webrtc.disconnected');
+    if (authError && !isReady) return translate('webrtc.authenticationFailed');
+    if (isReady) return translate('webrtc.connected');
+    if (isFailedPermanently()) return translate('webrtc.connectionFailedPermanently');
+    if (isFailing()) {
+      const max = getWebRTCConnectionManager().getConfig().maxReconnectAttempts;
+      const attempt = connectionState.reconnectAttempts;
+      return translate('webrtc.connectionFailedReconnecting', { attempt, max });
+    }
+    return translate('webrtc.connecting');
+  };
+
+  const getStatusStyle = (): React.CSSProperties => {
+    const base: React.CSSProperties = {
       padding: '8px',
       marginBottom: '10px',
       borderRadius: '4px',
       fontSize: '12px',
       fontWeight: 'bold',
       color: 'white',
-      ...style // Allow custom style overrides
+      ...style,
     };
-
-    // Connected and healthy state - green background
-    if (connectionState.isConnected && connectionHealth.isHealthy && isReady()) {
-      return {
-        ...baseStyle,
-        backgroundColor: '#28a745', // Green
-        border: '1px solid #1e7e34'
-      };
-    }
-
-    // Connected but unhealthy state - yellow background
-    if (connectionState.isConnected && !connectionHealth.isHealthy) {
-      return {
-        ...baseStyle,
-        backgroundColor: '#ffc107', // Yellow
-        border: '1px solid #e0a800'
-      };
-    }
-
-    // Error/Failed state - red background
-    if (connectionState.lastError || connectionState.connectionStatus.includes('Failed') || 
-        connectionState.connectionStatus.includes('Error')) {
-      return {
-        ...baseStyle,
-        backgroundColor: '#dc3545', // Red
-        border: '1px solid #bd2130'
-      };
-    }
-
-    // Connecting/Processing state - orange background
-    return {
-      ...baseStyle,
-      backgroundColor: '#fd7e14', // Orange
-      border: '1px solid #e8590c'
-    };
+    if (connectionState.idleDisconnectedAt || (!isConnecting && !isConnected && !isReady && !isFailing()))
+      return { ...base, backgroundColor: '#6c757d', border: '1px solid #5a6268' };
+    if (authError && !isReady)
+      return { ...base, backgroundColor: '#dc3545', border: '1px solid #bd2130' };
+    if (isReady)
+      return { ...base, backgroundColor: '#28a745', border: '1px solid #1e7e34' };
+    if (isFailedPermanently())
+      return { ...base, backgroundColor: '#dc3545', border: '1px solid #bd2130' };
+    if (isFailing())
+      return { ...base, backgroundColor: '#fd7e14', border: '1px solid #e8590c' };
+    return { ...base, backgroundColor: '#fd7e14', border: '1px solid #e8590c' };
   };
 
   return (
-    <div className={className} style={getConnectionStatusStyle()}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <strong>WebRTC:</strong> {connectionState.connectionStatus}
-          {isReady() && <span style={{ color: 'white' }}> ✓</span>}
-          {connectionState.reconnectAttempts > 0 && (
-            <span style={{ marginLeft: '5px', fontSize: '11px' }}>
-              (Retry {connectionState.reconnectAttempts}/5)
-            </span>
-          )}
-        </div>
-        
-        {showReconnectButton && !connectionState.isConnecting && (
-          <button
-            onClick={() => reconnect(true)}
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              color: 'white',
-              padding: '2px 6px',
-              borderRadius: '3px',
-              fontSize: '10px',
-              cursor: 'pointer'
-            }}
-            title="Force reconnect"
-          >
-            🔄
-          </button>
-        )}
-      </div>
-      
-      {showHealthIndicator && (
-        <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.9 }}>
-          Health: {connectionHealth.isHealthy ? '💚' : '💔'} 
-          {connectionHealth.latency > 0 && ` | ${connectionHealth.latency}ms`}
-          {connectionHealth.consecutiveFailures > 0 && ` | ${connectionHealth.consecutiveFailures} failures`}
+    <div className={className} style={getStatusStyle()}>
+      {getFriendlyMessage()}
+      {isReady && kuerzel && email && (
+        <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, opacity: 0.95 }}>
+          {kuerzel} — {email}
         </div>
       )}
     </div>

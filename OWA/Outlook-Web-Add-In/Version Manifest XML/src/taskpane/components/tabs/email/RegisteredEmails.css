@@ -1,0 +1,14 @@
+/* RegisteredEmails.css */
+
+.registered-emails-container {
+  margin-top: 24px;
+}
+
+.registered-emails-title {
+  align-items: baseline;
+  gap: 8px;
+}
+
+.registered-emails-error {
+  color: red;
+}

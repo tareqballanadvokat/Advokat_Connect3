@@ -1,0 +1,14 @@
+/* RegisteredService.css */
+
+.registered-service-container {
+  margin-top: 24px;
+}
+
+.registered-service-title {
+  align-items: baseline;
+  gap: 8px;
+}
+
+.registered-service-error {
+  color: red;
+}

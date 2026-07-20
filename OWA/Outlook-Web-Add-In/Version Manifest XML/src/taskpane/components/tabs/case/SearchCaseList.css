@@ -1,65 +1,33 @@
 /* SearchCaseList specific styles */
 
-/* Gold star button styling */
-.star-button-gold {
-  color: #ffd700 !important; /* Gold color */
+/* Heading */
+.search-case-title {
+  width: 220px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
-.star-button-gold:hover {
-  color: #ffed4e !important; /* Lighter gold on hover */
-  background-color: rgba(255, 215, 0, 0.1) !important; /* Light gold background on hover */
+/* Search row */
+.search-case-panel {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
-/* Make sure the star icon is visible and properly sized */
-.star-button-gold .dx-icon {
-  color: #ffd700 !important;
-  font-size: 16px !important;
+/* Error message */
+.search-case-error {
+  color: red;
+  margin-bottom: 16px;
+  padding: 8px;
+  background-color: #fee;
 }
 
-.star-button-gold:hover .dx-icon {
-  color: #ffed4e !important;
+/* Loading indicator */
+.search-case-loading {
+  text-align: center;
+  padding: 16px;
 }
 
-/* Ensure button container is visible */
-.dx-datagrid-rowsview .dx-command-column .dx-link {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-width: 24px !important;
-  min-height: 24px !important;
-}
+/* Check mark and datagrid link rules are now in shared/shared.css */
 
-/* Check mark styling for already favorited items */
-.dx-icon-check {
-  color: #28a745 !important; /* Green check mark */
-}
-
-/* Loading button styling with spinning animation */
-.loading-button .dx-icon,
-.dx-button.loading-button .dx-icon,
-.dx-datagrid .loading-button .dx-icon {
-  animation: spin 1s linear infinite !important;
-}
-
-/* Disabled star button styling */
-.star-button-gold:disabled,
-.star-button-gold.dx-state-disabled {
-  color: #ccc !important; /* Gray out the star when disabled */
-  cursor: not-allowed !important;
-  opacity: 0.5 !important;
-}
-
-.star-button-gold:disabled .dx-icon,
-.star-button-gold.dx-state-disabled .dx-icon {
-  color: #ccc !important; /* Gray out the star icon when disabled */
-}
-
-/* Spinning animation for loading icons */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}

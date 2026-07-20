@@ -1,0 +1,28 @@
+{
+  "tabs": {
+    "email": "E-Mail",
+    "service": "Service",
+    "case": "Case",
+    "person": "Person",
+    "cache": "Cache"
+  },
+  "buttons": {
+    "search": "Search",
+    "searching": "Searching...",
+    "transfer": "Transfer",
+    "sending": "Sending..."
+  },
+  "loading": "Loading...",
+  "loadingTab": "Loading tab…",
+  "caseLabel": "Case",
+  "caseIdPlaceholder": "Case ID",
+  "connectingWait": "Still connecting, please wait...",
+  "enterSearchTerm": "Please enter a search term",
+  "selectCaseFirst": "Please select a case first",
+  "cacheNotAvailable": "Cache Statistics not available",
+  "noResultsFound": "No results found, try a different search term",
+  "logging": {
+    "enabled": "Logging enabled",
+    "disabled": "Logging disabled"
+  }
+}

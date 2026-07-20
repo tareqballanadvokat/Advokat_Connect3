@@ -118,7 +118,7 @@ namespace SignalingServerTests.SIPRegistration
 
             // before timeout
             Assert.Single(sipRegistry.AddedToRegistry);
-            Assert.Empty(sipRegistry.Unregistered);
+            Assert.Empty(sipRegistry.UnregisteredRegistrations);
         }
 
         [Fact]
@@ -149,12 +149,12 @@ namespace SignalingServerTests.SIPRegistration
             await Task.Delay(10);
 
             // before timeout
-            Assert.Empty(sipRegistry.Unregistered);
+            Assert.Empty(sipRegistry.UnregisteredRegistrations);
 
             await Task.Delay(150);
 
             // after bye
-            Assert.Single(sipRegistry.Unregistered);
+            Assert.Single(sipRegistry.UnregisteredRegistrations);
         }
 
 
@@ -199,7 +199,7 @@ namespace SignalingServerTests.SIPRegistration
 
             Assert.Single(sipRegistry.AddedToRegistry);
             Assert.Empty(sipRegistry.Confirmed);
-            Assert.Single(sipRegistry.Unregistered);
+            Assert.Single(sipRegistry.UnregisteredRegistrations);
         }
 
         private MockSIPRequest GetMockSIPRequest(SIPMethodsEnum method, SIPEndPoint sipEndPoint)

@@ -1,0 +1,29 @@
+{
+  "navigationFallback": {
+    "rewrite": "/taskpane.html"
+  },
+  "routes": [
+    {
+      "route": "/",
+      "rewrite": "/taskpane.html"
+    },
+    {
+      "route": "/*.html",
+      "headers": {
+        "Cache-Control": "no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/*.js",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/*.css",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    }
+  ]
+}

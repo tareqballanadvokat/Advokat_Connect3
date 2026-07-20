@@ -1,0 +1,11 @@
+{
+  "navigationFallback": {
+    "rewrite": "/taskpane.html"
+  },
+  "routes": [
+    {
+      "route": "/",
+      "rewrite": "/taskpane.html"
+    }
+  ]
+}

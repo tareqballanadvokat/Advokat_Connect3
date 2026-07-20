@@ -1,0 +1,31 @@
+{
+  "searchCases": "Search Cases",
+  "searchCasePlaceholder": "Search by Akt Kürzel (ABC)...",
+  "searchCasesFailed": "Search cases failed",
+  "registeredEmails": "Registered E-Mails (last 7 days)",
+  "noRegisteredEmails": "No registered e-mails found.",
+  "failedToLoadEmails": "Failed to load registered e-mails.",
+  "errorFetchingEmails": "Error fetching registered e-mails.",
+  "selectCaseToViewEmails": "Select a case to view registered e-mails",
+  "noEmailsFound": "No e-mails found",
+  "opening": "Opening {{name}}...",
+  "emptyContent": "Empty content",
+  "failedToOpenDocument": "Failed to open email.",
+  "documentNotFound": "Document not found. It may have been deleted.",
+  "transferEmailAndAttachments": "Transfer e-mail and attachments",
+  "emailMessageIdNotAvailable": "Email message ID not available",
+  "selectFolderForAllItems": "Please select a folder for all items before transferring",
+  "provideBothSbAndTime": "Please provide both SB and time, or leave both empty",
+  "serviceSavedSuccessfully": "Service saved successfully",
+  "emailSavedSuccessfully": "Email saved successfully",
+  "failedToTransfer": "Failed to transfer to ADVOKAT",
+  "failedToSaveAttachment": "Failed to save attachment '{{name}}'",
+  "attachmentsProcessed": "{{count}} attachments processed",
+  "documentsTransferred": "{{count}} document(s) transferred successfully to case {{caseName}}",
+  "columns": {
+    "type": "Type",
+    "subject": "Subject",
+    "sent": "Sent",
+    "received": "Received"
+  }
+}

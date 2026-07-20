@@ -1,0 +1,23 @@
+{
+  "searchPersons": "Search Persons",
+  "searchPersonPlaceholder": "Search...",
+  "searchPersonsFailed": "Search failed",
+  "searchingPersons": "Searching persons...",
+  "unknownPerson": "Unknown Person",
+  "addedToFavorites": "Added \"{{name}}\" to favorites",
+  "removedFromFavorites": "Removed \"{{name}}\" from favorites",
+  "failedToAddToFavorites": "Failed to add person to favorites",
+  "failedToRemoveFromFavorites": "Failed to remove person from favorites",
+  "noResultsFound": "No results found, try a different search term",
+  "columns": {
+    "personId": "Person ID",
+    "kuerzel": "Kürzl",
+    "name": "Name",
+    "city": "City"
+  },
+  "hints": {
+    "addToFavorites": "Add to favorites",
+    "addingToFavorites": "Adding to favorites...",
+    "alreadyInFavorites": "Already in favorites"
+  }
+}

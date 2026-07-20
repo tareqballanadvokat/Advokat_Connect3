@@ -1,25 +1,26 @@
-// src/taskpane/components/tabs/service/ServiceTabContent.tsx
 import React, { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import ServiceSection from '../shared/ServiceSection';
-import SearchCaseList from '../shared/SearchCaseList';
-import { setSelectedAkt } from '@store/slices/aktenSlice';
-import { saveLeistungAsync } from '@store/slices/serviceSlice';
-import { getInternetMessageIdAsync } from '@hooks/useOfficeItem';
-import { LeistungPostData } from '@components/interfaces/IService';
-import { AktLookUpResponse } from '@components/interfaces/IAkten';
+import ServiceSection from '@components/tabs/shared/ServiceSection';
+import SearchCaseList from '@components/tabs/shared/SearchCaseList';
+import { setSelectedAkt } from '@slices/aktenSlice';
+import { saveLeistungAsync, resetLoadCounter } from '@slices/serviceSlice';
+import { getInternetMessageIdAsync, IsComposeMode } from '@hooks/useOfficeItem';
+import { LeistungPostData } from '@interfaces/IService';
+import { AktLookUpResponse } from '@interfaces/IAkten';
 import notify from 'devextreme/ui/notify';
 import RegisteredService from './RegisteredService';
 import ServiceSend from './ServiceSend';
-import WebRTCConnectionStatus from '../shared/WebRTCConnectionStatus';
+import WebRTCConnectionStatus from '@components/tabs/shared/WebRTCConnectionStatus';
+import { getLogger } from '@infra/logger';
+import { useTranslation } from 'react-i18next';
+
+const logger = getLogger();
 
 const ServiceTabContent: React.FC = () => {
   const dispatch = useAppDispatch();
-  
-  // Local state for transfer loading
   const [transferLoading, setTransferLoading] = useState(false);
+  const { t: translate } = useTranslation(['service', 'common']);
   
-  // Get the relevant state from Redux
   const { selectedServiceId, time, text, sb, services } = useAppSelector(state => state.service);
   const { selectedAkt, cases } = useAppSelector(state => state.akten);
   
@@ -32,22 +33,41 @@ const ServiceTabContent: React.FC = () => {
 
   // Handler for case selection
   const setCaseHandler = (selectedCase: AktLookUpResponse) => {
+    const isNewAkt = selectedAkt?.id !== selectedCase.id;
+    
     // Dispatch the entire selected case object to aktenSlice
     dispatch(setSelectedAkt(selectedCase));
+    
+    if (isNewAkt) {
+      // Different Akt: Reset counter to start fresh (cache first)
+      dispatch(resetLoadCounter());
+    } else {
+      // Same Akt clicked again: Trigger refresh to force API call
+      setRefreshFlag(f => f + 1);
+    }
   };
   
-  // Handler for case name change
-  const handleCaseChange = (value: string) => {
-    // Update the selected Akt name (aKurz) in the current selectedAkt
-    if (selectedAkt) {
-      dispatch(setSelectedAkt({ ...selectedAkt, aKurz: value }));
-    }
+  // Helper function to convert HH:MM to minutes
+  const convertTimeToMinutes = (timeStr: string): number | null => {
+    if (!timeStr || !timeStr.includes(':')) return null;
+    const [hours, minutes] = timeStr.split(':').map(s => parseInt(s) || 0);
+    return hours * 60 + minutes;
   };
   
   // Handler for sending service
   const sendServiceHandler = async () => {
     if (selectedCaseId === -1) {
-      notify('Please select a case first', 'warning', 3000);
+      notify(translate('common:selectCaseFirst'), 'warning', 3000);
+      return;
+    }
+    
+    // Validate that either SB or time is provided (or both are empty)
+    const hasSb = sb && sb.trim() !== '';
+    const hasTime = time && time.trim() !== '';
+    
+    // If one is provided, both must be provided
+    if ((hasSb && !hasTime) || (!hasSb && hasTime)) {
+      notify(translate('provideBothSbAndTime'), 'error', 4000);
       return;
     }
     
@@ -59,7 +79,33 @@ const ServiceTabContent: React.FC = () => {
       const selectedService = services.find(service => service.id === selectedServiceId);
       const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
       
-      // Create payload using LeistungPostData interface matching C# model
+      // Get Outlook email ID (only in read mode)
+      const isCompose = IsComposeMode();
+      let outlookEmailId: string | null = null;
+      
+      if (!isCompose) {
+        try {
+          const email = Office.context.mailbox.item;
+          outlookEmailId = await getInternetMessageIdAsync(email);
+          logger.debug('Saving Leistung with email ID: ' + outlookEmailId, 'ServiceTabContent');
+        } catch (error) {
+          logger.warn('Could not get email ID, saving without it', 'ServiceTabContent', error);
+        }
+      } else {
+        logger.debug('Compose mode - saving Leistung without email ID', 'ServiceTabContent');
+      }
+      
+      const timeInMinutes = convertTimeToMinutes(time);
+
+      const sachbearbeiter = [];
+      if (sb && sb.trim() !== '' && timeInMinutes !== null) {
+        sachbearbeiter.push({
+          sb: sb.trim(),
+          zeitVerrechenbarInMinuten: timeInMinutes,
+          zeitNichtVerrechenbarInMinuten: 0
+        });
+      }
+      
       const payload: LeistungPostData = {
         aktId: selectedCaseId !== -1 ? selectedCaseId : null,
         aKurz: selectedCaseName || null,
@@ -67,25 +113,27 @@ const ServiceTabContent: React.FC = () => {
         datum: new Date().toISOString(), // Current date in ISO format
         honorartext: text || null,
         memo: null,
-        sbZeitVerrechenbarInMinuten: time ? parseInt(time) : null,
-        sbZeitNichtVerrechenbarInMinuten: 0
+        outlookEmailId: outlookEmailId,
+        sachbearbeiter: sachbearbeiter.length > 0 ? sachbearbeiter : undefined
       };
       
       // Send to API via WebRTC using Redux thunk
       await dispatch(saveLeistungAsync(payload)).unwrap();
-      notify('Service saved successfully', 'success', 3000);
+      notify(translate('serviceSavedSuccessfully'), 'success', 3000);
       // Trigger refresh
       setRefreshFlag(f => f + 1);
       
     } catch (error) {
-      console.error('Failed to save service:', error);
-      notify('Failed to save service', 'error', 5000);
+      logger.error('Failed to save service:', 'ServiceTabContent', error);
+      notify(translate('failedToSaveService'), 'error', 5000);
     } finally {
       // Reset loading state
       setTransferLoading(false);
     }
   };
   
+  const isCompose = IsComposeMode();
+
   return (
     <div>
       {/* WebRTC Connection Status */}
@@ -94,18 +142,18 @@ const ServiceTabContent: React.FC = () => {
       {/* Case Search */}
       <SearchCaseList onCaseSelect={setCaseHandler} />
       
-      {/* Service Send Button */}
-      <ServiceSend
-        caseId={selectedCaseName}
-        onCaseChange={handleCaseChange}
-        onTransfer={sendServiceHandler}
-        caseIdDisable={!selectedAkt}
-        transferBtnDisable={!selectedAkt}
-        transferLoading={transferLoading}
-      />
+      {/* Service Send Button - hidden in compose mode */}
+      {!isCompose && (
+        <ServiceSend
+          caseId={selectedCaseName}
+          onTransfer={sendServiceHandler}
+          transferBtnDisable={!selectedAkt || selectedServiceId === 0}
+          transferLoading={transferLoading}
+        />
+      )}
       
-  {/* Service Section */}
-  <ServiceSection />
+      {/* Service Section - hidden in compose mode */}
+      {!isCompose && <ServiceSection />}
       
       {/* Registered Services */}
       <RegisteredService refreshTrigger={refreshFlag} />

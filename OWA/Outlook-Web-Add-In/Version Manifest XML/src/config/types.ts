@@ -1,0 +1,100 @@
+/**
+ * Configuration Types
+ * Type definitions for all configuration objects
+ */
+
+/**
+ * Environment types for the application
+ */
+export enum Environment {
+  DEVELOPMENT = "development",
+  STAGING = "staging",
+  PRODUCTION = "production",
+  TEST = "test",
+}
+
+/**
+ * Log Levels
+ */
+export enum LogLevel {
+  DEBUG = "debug",
+  INFO = "info",
+  WARN = "warn",
+  ERROR = "error",
+  NONE = "none",
+}
+
+/**
+ * Logging Configuration
+ */
+export interface LoggingConfig {
+  /** Enable/disable logging */
+  enabled: boolean;
+  /** Minimum log level to output */
+  level: LogLevel;
+  /** Include timestamps in log output */
+  includeTimestamp: boolean;
+  /** Include stack traces for errors */
+  includeStack: boolean;
+}
+
+/**
+ * SIP/WebRTC Signaling Server Configuration
+ */
+export interface SipServerConfig {
+  /** WebSocket URI for SIP signaling (e.g., wss://example.com:8009) */
+  wsUri: string;
+  /** SIP URI for the user (e.g., sip:user@host:port) */
+  sipUri: string;
+  /** SIP server host/IP */
+  host: string;
+  /** SIP server port */
+  port: number;
+  /** From display name (caller) — set at runtime after user identity is resolved */
+  fromDisplayName?: string;
+  /** To display name (callee) */
+  toDisplayName: string;
+  /** Maximum connection retries */
+  maxRetries: number;
+  /** Connection timeout in milliseconds */
+  connectionTimeout: number;
+}
+
+/**
+ * ICE Server Configuration (STUN/TURN servers)
+ */
+export interface IceServerConfig {
+  /** STUN/TURN server URLs (e.g., stun:example.com:3478 or turn:example.com:3478) */
+  urls: string | string[];
+  /** Username for TURN authentication (optional, required for TURN) */
+  username?: string;
+  /** Credential/password for TURN authentication (optional, required for TURN) */
+  credential?: string;
+}
+
+/**
+ * WebRTC Configuration
+ */
+export interface WebRTCConfig {
+  /** Array of ICE servers (STUN/TURN) for peer connection */
+  iceServers: IceServerConfig[];
+}
+
+/**
+ * Complete Application Configuration
+ */
+export interface AppConfig {
+  /** Current environment */
+  environment: Environment;
+  /** SIP/WebRTC signaling configuration */
+  sip: SipServerConfig;
+  /** WebRTC peer connection configuration */
+  webrtc: WebRTCConfig;
+  /** Logging configuration */
+  logging: LoggingConfig;
+  /** DevExtreme theme configuration */
+  theme: {
+    name: string;
+    compact: boolean;
+  };
+}

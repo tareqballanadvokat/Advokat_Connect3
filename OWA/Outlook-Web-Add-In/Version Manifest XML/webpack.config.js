@@ -1,4 +1,5 @@
 /* eslint-disable no-undef */
+require("dotenv").config();
 
 const path = require('path');
 const devCerts = require("office-addin-dev-certs");
@@ -6,7 +7,7 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const webpack = require("webpack");
 const urlDev = "https://localhost:3000/";
-const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+const urlProd = "https://green-sea-08a52e81e.2.azurestaticapps.net/"; 
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
@@ -16,7 +17,7 @@ async function getHttpsOptions() {
 module.exports = async (env, options) => {
   const dev = options.mode === "development";
   const config = {
-    devtool: "source-map",
+    devtool: dev ? "source-map" : false,
     entry: {
       polyfill: ["core-js/stable", "regenerator-runtime/runtime"],
       react: ["react", "react-dom"],
@@ -28,15 +29,24 @@ module.exports = async (env, options) => {
     },
     output: {
       clean: true,
+      filename: dev ? '[name].js' : '[name].[contenthash:8].js',
+      chunkFilename: dev ? '[id].js' : '[id].[contenthash:8].js',
     },
     resolve: {
       extensions: [".ts", ".tsx", ".html", ".js"],
       alias: {
         '@store': path.resolve(__dirname, './src/store'),
         '@components': path.resolve(__dirname, './src/taskpane/components'),
-        '@utils': path.resolve(__dirname, './src/taskpane/utils'),
-        '@hooks': path.resolve(__dirname, './src/taskpane/hooks'),
-        '@src': path.resolve(__dirname, './src')
+        '@utils': path.resolve(__dirname, './src/utils'),
+        '@hooks': path.resolve(__dirname, './src/hooks'),
+        '@src': path.resolve(__dirname, './src'),
+        '@infra': path.resolve(__dirname, './src/infrastructure'),
+        '@interfaces': path.resolve(__dirname, './src/types'),
+        '@services': path.resolve(__dirname, './src/services'),
+        '@taskpane': path.resolve(__dirname, './src/taskpane'),
+        '@config': path.resolve(__dirname, './src/config'),
+        '@slices': path.resolve(__dirname, './src/store/slices'),
+        '@i18n': path.resolve(__dirname, './src/i18n')
       }
     },
     module: {
@@ -121,6 +131,14 @@ module.exports = async (env, options) => {
               }
             },
           },
+          {
+            from: "staticwebapp.config.json",
+            to: "[name][ext]",
+          },
+          {
+            from: "index.html",
+            to: "[name][ext]",
+          },
         ],
       }),
       new HtmlWebpackPlugin({
@@ -130,6 +148,12 @@ module.exports = async (env, options) => {
       }),
       new webpack.ProvidePlugin({
         Promise: ["es6-promise", "Promise"],
+      }),
+      new webpack.DefinePlugin({
+        "process.env.DEVEXTREME_LICENSE_KEY": JSON.stringify(process.env.DEVEXTREME_LICENSE_KEY || ""),
+        "process.env.SIP_WS_URI": JSON.stringify(process.env.SIP_WS_URI || ""),
+        "process.env.TURN_USERNAME": JSON.stringify(process.env.TURN_USERNAME || ""),
+        "process.env.TURN_CREDENTIAL": JSON.stringify(process.env.TURN_CREDENTIAL || ""),
       }),
     ],
     devServer: {

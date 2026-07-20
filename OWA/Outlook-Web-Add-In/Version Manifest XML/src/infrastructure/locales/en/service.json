@@ -1,0 +1,18 @@
+{
+  "registeredServices": "Registered Services (last 7 days)",
+  "noRegisteredServices": "No registered services found.",
+  "failedToLoadServices": "Failed to load registered services.",
+  "errorFetchingServices": "Error fetching registered services.",
+  "selectCaseToViewServices": "Select a case to view registered services",
+  "noServicesFound": "No services found",
+  "serviceSavedSuccessfully": "Service saved successfully",
+  "failedToSaveService": "Failed to save service",
+  "provideBothSbAndTime": "Please provide both SB and time, or leave both empty",
+  "columns": {
+    "kuerzel": "Kürzel",
+    "date": "Date",
+    "text": "Text",
+    "time": "Time",
+    "sb": "SB"
+  }
+}
