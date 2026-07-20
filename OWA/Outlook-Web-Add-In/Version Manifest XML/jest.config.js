@@ -9,7 +9,9 @@ module.exports = {
   testPathIgnorePatterns: [
     '/node_modules/',
     'testFactories.ts',
-    'testHelpers.ts'
+    'testHelpers.ts',
+    'mockFactories.ts',
+    'testSetup.ts',
   ],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {

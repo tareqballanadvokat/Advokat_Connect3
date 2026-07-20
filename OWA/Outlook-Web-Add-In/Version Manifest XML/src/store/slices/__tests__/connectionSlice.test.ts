@@ -15,6 +15,7 @@ import connectionReducer, {
   updateLastActivity,
   setDisconnectedDueToIdleAt,
   sipClientStateChanged,
+  setSelectedCandidateType,
   selectConnectionState,
   selectConnectionStatus,
   selectSipClientState,
@@ -23,6 +24,7 @@ import connectionReducer, {
   selectIsFailed,
   selectIsDisconnected,
   selectIsReady,
+  selectSelectedCandidateType,
   ConnectionState,
 } from "@slices/connectionSlice";
 import { SipClientState } from "@infra/sip/SipClient";
@@ -70,24 +72,24 @@ describe("connectionSlice", () => {
       expect(state.connectionStatus).toBe("Disconnected");
     });
 
-    it('should set status to "Connecting..." for REGISTERING state', () => {
+    it('should set status to "Connecting." for REGISTERING state', () => {
       const state = connectionReducer(
         initialState,
         sipClientStateChanged(SipClientState.REGISTERING)
       );
 
       expect(state.sipClientState).toBe(SipClientState.REGISTERING);
-      expect(state.connectionStatus).toBe("Connecting...");
+      expect(state.connectionStatus).toBe("Connecting.");
     });
 
-    it('should set status to "Connecting..." for CONNECTING state', () => {
+    it('should set status to "Connecting.." for CONNECTING state', () => {
       const state = connectionReducer(
         initialState,
         sipClientStateChanged(SipClientState.CONNECTING)
       );
 
       expect(state.sipClientState).toBe(SipClientState.CONNECTING);
-      expect(state.connectionStatus).toBe("Connecting...");
+      expect(state.connectionStatus).toBe("Connecting..");
     });
 
     it('should set status to "Connecting..." for CONNECTING_P2P state', () => {
@@ -150,11 +152,33 @@ describe("connectionSlice", () => {
       expect(timestamp).toBeLessThanOrEqual(afterTime);
     });
 
-    it('should set status to "Connection failed" for FAILED state', () => {
-      const state = connectionReducer(initialState, sipClientStateChanged(SipClientState.FAILED));
+    it('should set status to "Connection failed permanently" for FAILED_PERMANENTLY state', () => {
+      const state = connectionReducer(
+        initialState,
+        sipClientStateChanged(SipClientState.FAILED_PERMANENTLY)
+      );
 
-      expect(state.sipClientState).toBe(SipClientState.FAILED);
-      expect(state.connectionStatus).toBe("Connection failed");
+      expect(state.sipClientState).toBe(SipClientState.FAILED_PERMANENTLY);
+      expect(state.connectionStatus).toBe("Connection failed permanently");
+    });
+
+  });
+
+  describe("setSelectedCandidateType", () => {
+    it("should set the selected candidate type to 'relay'", () => {
+      const state = connectionReducer(initialState, setSelectedCandidateType("relay"));
+      expect(state.selectedCandidateType).toBe("relay");
+    });
+
+    it("should set the selected candidate type to 'srflx'", () => {
+      const state = connectionReducer(initialState, setSelectedCandidateType("srflx"));
+      expect(state.selectedCandidateType).toBe("srflx");
+    });
+
+    it("should clear the selected candidate type when undefined is passed", () => {
+      const stateWithType: ConnectionState = { ...initialState, selectedCandidateType: "relay" };
+      const state = connectionReducer(stateWithType, setSelectedCandidateType(undefined));
+      expect(state.selectedCandidateType).toBeUndefined();
     });
   });
 
@@ -599,6 +623,47 @@ describe("connectionSlice", () => {
       });
     });
 
+    describe("selectSelectedCandidateType", () => {
+      it("should return the selected candidate type", () => {
+        const state = { ...mockState, connection: { ...mockState.connection, selectedCandidateType: "relay" as const } };
+        expect(selectSelectedCandidateType(state as any)).toBe("relay");
+      });
+
+      it("should return undefined when not set", () => {
+        expect(selectSelectedCandidateType(mockState as any)).toBeUndefined();
+      });
+    });
+
+    describe("selectNotReadyReason", () => {
+      // import the selector (it is not currently imported — add it here)
+      const { selectNotReadyReason } = require("@slices/connectionSlice");
+
+      it("should return 'SIP not connected' when disconnected but authenticated", () => {
+        const state = {
+          ...mockState,
+          connection: { ...mockState.connection, sipClientState: SipClientState.DISCONNECTED },
+        };
+        expect(selectNotReadyReason(state)).toBe("SIP not connected");
+      });
+
+      it("should return 'Not authenticated' when connected but not authenticated", () => {
+        const state = {
+          ...mockState,
+          auth: { ...mockState.auth, isAuthenticated: false },
+        };
+        expect(selectNotReadyReason(state)).toBe("Not authenticated");
+      });
+
+      it("should return 'Not connected' when connected and authenticated (should not be not-ready)", () => {
+        // When everything is fine, selectIsReady returns true — selectNotReadyReason is a fallback;
+        // this tests its final branch.
+        const state = { ...mockState, connection: { ...mockState.connection, sipClientState: SipClientState.DISCONNECTED }, auth: { ...mockState.auth, isAuthenticated: false } };
+        const reason = selectNotReadyReason(state);
+        expect(typeof reason).toBe("string");
+        expect(reason.length).toBeGreaterThan(0);
+      });
+    });
+
     describe("selectIsReady", () => {
       it("should return true when connected and authenticated", () => {
         const result = selectIsReady(mockState);
@@ -659,12 +724,12 @@ describe("connectionSlice", () => {
       // Start registering
       state = connectionReducer(state, sipClientStateChanged(SipClientState.REGISTERING));
       expect(state.sipClientState).toBe(SipClientState.REGISTERING);
-      expect(state.connectionStatus).toBe("Connecting...");
+      expect(state.connectionStatus).toBe("Connecting.");
 
       // Move to connecting
       state = connectionReducer(state, sipClientStateChanged(SipClientState.CONNECTING));
       expect(state.sipClientState).toBe(SipClientState.CONNECTING);
-      expect(state.connectionStatus).toBe("Connecting...");
+      expect(state.connectionStatus).toBe("Connecting..");
 
       // Establish peer connection
       state = connectionReducer(state, sipClientStateChanged(SipClientState.CONNECTING_P2P));

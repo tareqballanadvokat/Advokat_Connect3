@@ -13,6 +13,9 @@ import aktenReducer, {
   setSelectedAkt,
   setSearchTerm,
   clearPreviousSearchTerm,
+  setCaseTabExpandedKeys,
+  addCaseTabDocuments,
+  removeCaseTabAktDocuments,
   getFavoriteAktenAsync,
   getCaseDocumentsAsync,
   getEmailDocumentsAsync,
@@ -37,7 +40,7 @@ import { createMockAkt, createMockDocument, createMockFolderOption } from "./moc
 const mockWebRTCService = createMockWebRTCService();
 
 // Mock WebRTC connection manager
-jest.mock("../../../taskpane/services/WebRTCConnectionManager", () => ({
+jest.mock("../../../services/WebRTCConnectionManager", () => ({
   getWebRTCConnectionManager: jest.fn(() => ({
     getWebRTCApiService: jest.fn(() => mockWebRTCService),
   })),
@@ -254,6 +257,75 @@ describe("aktenSlice", () => {
 
         expect(actual.previousSearchTerm).toBeNull();
         expect(actual.searchCounter).toBe(0);
+      });
+    });
+
+    describe("setCaseTabExpandedKeys", () => {
+      it("should set the expanded keys array", () => {
+        const keys = ["akt-1", 2, "folder-3"];
+        const actual = aktenReducer(initialState, setCaseTabExpandedKeys(keys));
+        expect(actual.caseTabExpandedKeys).toEqual(keys);
+      });
+
+      it("should replace previous expanded keys", () => {
+        const stateWithKeys = { ...initialState, caseTabExpandedKeys: ["old-key"] };
+        const actual = aktenReducer(stateWithKeys, setCaseTabExpandedKeys(["new-key"]));
+        expect(actual.caseTabExpandedKeys).toEqual(["new-key"]);
+      });
+
+      it("should support an empty array (collapse all)", () => {
+        const stateWithKeys = { ...initialState, caseTabExpandedKeys: [1, 2, 3] };
+        const actual = aktenReducer(stateWithKeys, setCaseTabExpandedKeys([]));
+        expect(actual.caseTabExpandedKeys).toEqual([]);
+      });
+    });
+
+    describe("addCaseTabDocuments", () => {
+      it("should store documents keyed by aktId", () => {
+        const docs = [createMockDocument({ id: 10, aktId: 5 })];
+        const actual = aktenReducer(initialState, addCaseTabDocuments({ aktId: 5, documents: docs }));
+        expect(actual.caseTabDocumentsByAkt[5]).toEqual(docs);
+      });
+
+      it("should add documents for multiple aktIds independently", () => {
+        const docs1 = [createMockDocument({ id: 1, aktId: 1 })];
+        const docs2 = [createMockDocument({ id: 2, aktId: 2 })];
+        let state = aktenReducer(initialState, addCaseTabDocuments({ aktId: 1, documents: docs1 }));
+        state = aktenReducer(state, addCaseTabDocuments({ aktId: 2, documents: docs2 }));
+        expect(state.caseTabDocumentsByAkt[1]).toEqual(docs1);
+        expect(state.caseTabDocumentsByAkt[2]).toEqual(docs2);
+      });
+
+      it("should overwrite documents for the same aktId", () => {
+        const oldDocs = [createMockDocument({ id: 1, aktId: 5 })];
+        const newDocs = [createMockDocument({ id: 99, aktId: 5 }), createMockDocument({ id: 100, aktId: 5 })];
+        let state = aktenReducer(initialState, addCaseTabDocuments({ aktId: 5, documents: oldDocs }));
+        state = aktenReducer(state, addCaseTabDocuments({ aktId: 5, documents: newDocs }));
+        expect(state.caseTabDocumentsByAkt[5]).toEqual(newDocs);
+      });
+    });
+
+    describe("removeCaseTabAktDocuments", () => {
+      it("should remove documents for the given aktId", () => {
+        const docs = [createMockDocument({ id: 1, aktId: 7 })];
+        let state = aktenReducer(initialState, addCaseTabDocuments({ aktId: 7, documents: docs }));
+        state = aktenReducer(state, removeCaseTabAktDocuments(7));
+        expect(state.caseTabDocumentsByAkt[7]).toBeUndefined();
+      });
+
+      it("should not affect documents for other aktIds", () => {
+        const docs1 = [createMockDocument({ id: 1, aktId: 1 })];
+        const docs2 = [createMockDocument({ id: 2, aktId: 2 })];
+        let state = aktenReducer(initialState, addCaseTabDocuments({ aktId: 1, documents: docs1 }));
+        state = aktenReducer(state, addCaseTabDocuments({ aktId: 2, documents: docs2 }));
+        state = aktenReducer(state, removeCaseTabAktDocuments(1));
+        expect(state.caseTabDocumentsByAkt[1]).toBeUndefined();
+        expect(state.caseTabDocumentsByAkt[2]).toEqual(docs2);
+      });
+
+      it("should be a no-op for an aktId that has no documents", () => {
+        const state = aktenReducer(initialState, removeCaseTabAktDocuments(999));
+        expect(state.caseTabDocumentsByAkt).toEqual({});
       });
     });
   });
