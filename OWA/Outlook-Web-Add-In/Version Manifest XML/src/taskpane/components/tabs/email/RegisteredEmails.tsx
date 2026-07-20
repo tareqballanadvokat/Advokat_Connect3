@@ -2,10 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import DataGrid, { Column, Paging, Pager } from 'devextreme-react/data-grid';
 import notify from 'devextreme/ui/notify';
-import { DokumentArt, DokumentResponse } from '@interfaces/IDocument';
+import { DokumentArt, DokumentResponse, DokumenteQuery } from '@interfaces/IDocument';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
-import { selectAuthCredentials } from '@slices/authSlice';
 import { selectIsReady } from '@slices/connectionSlice';
 import { downloadDocumentAsync } from '@slices/aktenSlice';
 import { setRegisteredEmailsLoading } from '@slices/emailSlice';
@@ -23,7 +22,6 @@ const RegisteredEmails: React.FC = () => {
   const dispatch = useAppDispatch();
   const [emails, setEmails] = useState<DokumentResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const credentials = useAppSelector(selectAuthCredentials);
   const isReady = useAppSelector(selectIsReady);
   const saveCount = useAppSelector(state => state.email.saveCount);
   const registeredEmailsLoading = useAppSelector(state => state.email.registeredEmailsLoading);
@@ -44,12 +42,25 @@ const RegisteredEmails: React.FC = () => {
 
         const connectionManager = getWebRTCConnectionManager();
         const webRTCApiService = connectionManager.getWebRTCApiService();
-        const response = await webRTCApiService.GetDocuments({
+
+        // Keep initial query narrow, then gracefully broaden once on 403.
+        const baseQuery: DokumenteQuery = {
           aktId: selectedAkt.id,
           dokumentArten: [DokumentArt.MailEmpfangen, DokumentArt.MailGesendet],
           erstelltAb,
-          erstelltVon: credentials?.username,
-        });
+        };
+
+        let response = await webRTCApiService.GetDocuments(baseQuery);
+
+        // New server-side security/filtering may reject certain query combinations.
+        // Retry once with fewer filters so we can still list allowed documents.
+        if (response.statusCode === 403) {
+          response = await webRTCApiService.GetDocuments({
+            aktId: selectedAkt.id,
+            dokumentArten: [DokumentArt.MailEmpfangen, DokumentArt.MailGesendet],
+          });
+        }
+
         if (response.statusCode === 200) {
           const data = JSON.parse(response.body || '[]') as DokumentResponse[];
           // Sort descending by date (most recent first)
@@ -61,6 +72,9 @@ const RegisteredEmails: React.FC = () => {
           setEmails(data);
         } else if (response.statusCode === 404) {
           setError(translate('noRegisteredEmails'));
+        } else if (response.statusCode === 403) {
+          console.error('RegisteredEmails 403 response body:', response.body);
+          setError(translate('failedToLoadEmails'));
         } else {
           setError(translate('failedToLoadEmails'));
         }

@@ -38,6 +38,10 @@ export interface PersonResponse {
   name3?: string;
   adressdaten?: AdresseData;
   kontakte: PersonKontaktData[];
+  erstelltVon?: string;
+  erstelltAm?: string;
+  bearbeitetVon?: string;
+  bearbeitetAm?: string;
 }
 
 // Query interface for person search

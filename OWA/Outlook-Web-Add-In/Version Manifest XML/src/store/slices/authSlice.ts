@@ -26,6 +26,10 @@ const initialState: IAuthState = {
   isAuthenticated: false,
   isAuthenticating: false,
   error: null,
+  officeToken: null,
+  oid: null,
+  email: null,
+  advokatToken: null,
 };
 
 // Async thunk for logout to properly clear cache
@@ -114,9 +118,42 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.isAuthenticating = false;
       state.error = null;
+      state.advokatToken = null;
     },
 
     clearError: (state) => {
+      state.error = null;
+    },
+
+    setOfficeToken: (
+      state,
+      action: PayloadAction<{ officeToken: string; oid: string | null; email: string | null }>
+    ) => {
+      state.officeToken = action.payload.officeToken;
+      state.oid = action.payload.oid;
+      state.email = action.payload.email;
+    },
+
+    clearOfficeToken: (state) => {
+      state.officeToken = null;
+      state.oid = null;
+      state.email = null;
+    },
+
+    setAdvokatToken: (state, action: PayloadAction<string>) => {
+      state.advokatToken = action.payload;
+    },
+
+    clearAdvokatToken: (state) => {
+      state.advokatToken = null;
+    },
+
+    // Called when the ADVOKAT Server returns a fresh advokatToken via the WebRTC tunnel
+    // (both first-time OTP pairing and every subsequent session via sendAuthMessage)
+    advokatAuthenticationSuccess: (state, action: PayloadAction<string>) => {
+      state.advokatToken = action.payload;
+      state.isAuthenticated = true;
+      state.isAuthenticating = false;
       state.error = null;
     },
 
@@ -152,9 +189,14 @@ export const {
   startAuthentication,
   authenticationSuccess,
   authenticationFailure,
+  advokatAuthenticationSuccess,
   logout,
   clearError,
   validateToken,
+  setOfficeToken,
+  clearOfficeToken,
+  setAdvokatToken,
+  clearAdvokatToken,
 } = authSlice.actions;
 
 // Selectors
@@ -165,6 +207,11 @@ export const selectRefreshToken = (state: { auth: IAuthState }) => state.auth.re
 export const selectAuthCredentials = (state: { auth: IAuthState }) => state.auth.credentials;
 export const selectIsAuthenticating = (state: { auth: IAuthState }) => state.auth.isAuthenticating;
 export const selectAuthError = (state: { auth: IAuthState }) => state.auth.error;
+
+export const selectOfficeToken = (state: { auth: IAuthState }) => state.auth.officeToken;
+export const selectOid = (state: { auth: IAuthState }) => state.auth.oid;
+export const selectEmail = (state: { auth: IAuthState }) => state.auth.email;
+export const selectAdvokatToken = (state: { auth: IAuthState }) => state.auth.advokatToken;
 
 // Helper selector to check if token is valid (not expired)
 export const selectIsTokenValid = (state: { auth: IAuthState }) => {

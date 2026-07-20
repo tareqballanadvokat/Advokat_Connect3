@@ -217,7 +217,7 @@ export class MessageFactory {
 
     const contentType = params.contentType || "application/sdp";
     const expires = params.expires || 300;
-    const fromDisplay = params.fromDisplayName || "macc";
+    const fromDisplay = params.fromDisplayName || configService.getSipConfig().fromDisplayName;
     const contentLength = helper.contentLength(params.body);
 
     const serviceMessage =
@@ -278,6 +278,11 @@ export class MessageFactory {
       timeoutBody;
 
     logger.debug("REGISTER message created with timeout configuration", "MessageFactory");
+    logger.debug(
+      `REGISTER headers - To (server id): "${params.toDisplayName}", From (kuerzel): "${params.fromDisplayName}"`,
+      "MessageFactory"
+    );
+    logger.debug(`REGISTER message - ${registerMessage}`, "MessageFactory");
     return registerMessage;
   }
 }

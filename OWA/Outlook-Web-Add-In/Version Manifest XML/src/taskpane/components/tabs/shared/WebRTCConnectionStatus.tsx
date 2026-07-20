@@ -2,7 +2,8 @@
 import React, { useEffect } from 'react';
 import { useAppSelector } from '@store/hooks';
 import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting } from '@slices/connectionSlice';
-import { selectAuthError } from '@slices/authSlice';
+import { selectAuthError, selectEmail } from '@slices/authSlice';
+import { selectKuerzel } from '@slices/pairingSlice';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,8 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
   const isConnected = useAppSelector(selectIsConnected);
   const isConnecting = useAppSelector(selectIsConnecting);
   const authError = useAppSelector(selectAuthError);
+  const kuerzel = useAppSelector(selectKuerzel);
+  const email = useAppSelector(selectEmail);
   const { t: translate } = useTranslation('common');
 
   useEffect(() => {
@@ -80,6 +83,11 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
   return (
     <div className={className} style={getStatusStyle()}>
       {getFriendlyMessage()}
+      {isReady && kuerzel && email && (
+        <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, opacity: 0.95 }}>
+          {kuerzel} — {email}
+        </div>
+      )}
     </div>
   );
 };

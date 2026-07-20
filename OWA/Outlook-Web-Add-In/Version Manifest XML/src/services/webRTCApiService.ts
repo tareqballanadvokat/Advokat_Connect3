@@ -17,12 +17,11 @@ import {
   DokumenteQuery,
 } from "@interfaces/IDocument";
 import { PersonenQuery } from "@interfaces/IPerson";
-import { IAuthRequest, IAuthResponse } from "@interfaces/IAuth";
+import { IAuthResponse } from "@interfaces/IAuth";
 import { SipClientInstance } from "@infra/sip/SipClient";
 import { tokenService } from "./TokenService";
 import { WebRTCDataChannelService, DataChannelObserver } from "./WebRTCDataChannelService";
 import { getLogger } from "@infra/logger";
-import { store } from "@store";
 import {
   createProtocolRequest,
   chunkRequest,
@@ -103,25 +102,6 @@ export class WebRTCApiService implements DataChannelObserver {
   }
 
   /**
-   * Create form data string from authentication request
-   * @param authRequest - Authentication request data
-   * @returns Form data string in URL-encoded format
-   */
-  private createAuthenticationFormData(authRequest: IAuthRequest): string {
-    const formParams = [
-      `client_id=${encodeURIComponent(authRequest.client_id)}`,
-      `client_secret=${encodeURIComponent(authRequest.client_secret || "")}`,
-      `grant_type=${encodeURIComponent(authRequest.grant_type)}`,
-      `username=${encodeURIComponent(authRequest.username || "")}`,
-      `password=${encodeURIComponent(authRequest.password || "")}`,
-    ];
-
-    const formData = formParams.join("&");
-
-    return formData;
-  }
-
-  /**
    * Create headers for WebRTC requests with automatic authorization
    * @param baseHeaders - Base headers to include
    * @param messageType - Message type to determine if authorization is needed
@@ -142,11 +122,6 @@ export class WebRTCApiService implements DataChannelObserver {
     
     // Add Authorization header for all non-authentication requests
     if (!messageType.includes("auth.") && token) {
-      // Log token validation details in development
-      if (process.env.NODE_ENV === "development") {
-        tokenService.logTokenValidation(token, messageType);
-      }
-
       requestHeaders["Authorization"] = `Bearer ${token}`;
       this.logger.debug(
         "Added Authorization header to request: " + messageType,
@@ -632,34 +607,15 @@ export class WebRTCApiService implements DataChannelObserver {
       );
       this.logger.error("Error response body", "WebRTCApiService", decodedBody);
 
-      // Handle authentication/authorization errors
-      // Silently refresh the token once, patch the Authorization header, then
-      // hand off to the shared retryRequest() mechanism so the retry budget is shared.
+      // Handle authentication/authorization errors.
       if (actualStatusCode === 401) {
         if (!pendingRequest.messageType.includes("auth.") && !pendingRequest.authRetryAttempted) {
           this.logger.info(
-            `Auth error ${actualStatusCode} for ${pendingRequest.messageType} – refreshing token and queuing retry`,
+            `Auth error 401 for ${pendingRequest.messageType} – queuing retry`,
             "WebRTCApiService"
           );
           pendingRequest.authRetryAttempted = true;
-
-          tokenService.handleTokenExpiredOrRevoked()
-            .then((newToken) => {
-              if (newToken && pendingRequest.originalRequest) {
-                pendingRequest.originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
-              } else {
-                this.logger.warn(
-                  `Token refresh yielded no token for ${pendingRequest.messageType}, retrying with existing credentials`,
-                  "WebRTCApiService"
-                );
-              }
-              this.retryRequest(pendingRequest);
-            })
-            .catch(() => {
-              // Even if refresh throws, still attempt the shared retry; it will
-              // exhaust the budget and fail cleanly if the server keeps rejecting.
-              this.retryRequest(pendingRequest);
-            });
+          this.retryRequest(pendingRequest);
           return;
         }
 
@@ -808,16 +764,7 @@ export class WebRTCApiService implements DataChannelObserver {
     if (!messageType.includes("auth.")) {
       validToken = await tokenService.ensureValidToken();
       if (!validToken) {
-        // Token absent or expired — attempt a silent refresh before giving up
-        this.logger.info(
-          `No token available for ${messageType}, attempting silent refresh`,
-          "WebRTCApiService"
-        );
-        validToken = await tokenService.handleTokenExpiredOrRevoked().catch(() => null);
-        if (!validToken) {
-          throw new Error("No valid token available. Please authenticate.");
-        }
-        this.logger.info(`Silent refresh succeeded for ${messageType}`, "WebRTCApiService");
+        throw new Error("No auth token available. Please reconnect.");
       }
       // Token will be passed to createRequestHeaders
     }
@@ -1070,11 +1017,11 @@ export class WebRTCApiService implements DataChannelObserver {
     if (query.outlookEmailId != null) queryParams.append("OutlookEmailId", query.outlookEmailId);
     if (query.count != null) queryParams.append("Count", query.count.toString());
     if (query.maxId != null) queryParams.append("MaxId", query.maxId.toString());
-    if (query.erstelltAb != null) queryParams.append("ErstelltAb", query.erstelltAb instanceof Date ? query.erstelltAb.toISOString() : query.erstelltAb);
-    if (query.erstelltBis != null) queryParams.append("ErstelltBis", query.erstelltBis instanceof Date ? query.erstelltBis.toISOString() : query.erstelltBis);
+    if (query.erstelltAb != null) queryParams.append("ErstelltAb", query.erstelltAb instanceof Date ? this.toLocalISOString(query.erstelltAb) : query.erstelltAb);
+    if (query.erstelltBis != null) queryParams.append("ErstelltBis", query.erstelltBis instanceof Date ? this.toLocalISOString(query.erstelltBis) : query.erstelltBis);
     if (query.erstelltVon != null) queryParams.append("ErstelltVon", query.erstelltVon);
-    if (query.bearbeitetAb != null) queryParams.append("BearbeitetAb", query.bearbeitetAb instanceof Date ? query.bearbeitetAb.toISOString() : query.bearbeitetAb);
-    if (query.bearbeitetBis != null) queryParams.append("BearbeitetBis", query.bearbeitetBis instanceof Date ? query.bearbeitetBis.toISOString() : query.bearbeitetBis);
+    if (query.bearbeitetAb != null) queryParams.append("BearbeitetAb", query.bearbeitetAb instanceof Date ? this.toLocalISOString(query.bearbeitetAb) : query.bearbeitetAb);
+    if (query.bearbeitetBis != null) queryParams.append("BearbeitetBis", query.bearbeitetBis instanceof Date ? this.toLocalISOString(query.bearbeitetBis) : query.bearbeitetBis);
     if (query.bearbeitetVon != null) queryParams.append("BearbeitetVon", query.bearbeitetVon);
 
     return this.sendRequest(
@@ -1093,14 +1040,6 @@ export class WebRTCApiService implements DataChannelObserver {
    * @param dokumentData - Data for the new document
    */
   async saveDokument(dokumentData: DokumentPostData) {
-    // Inject sachbearbeiterKürzel and vonSachbearbeiterKürzel from logged-in user if not provided
-    const kürzel = store.getState().auth.credentials.username || undefined;
-    const enriched: DokumentPostData = {
-      ...dokumentData,
-      sachbearbeiterKürzel: dokumentData.sachbearbeiterKürzel ?? kürzel,
-      vonSachbearbeiterKürzel: dokumentData.vonSachbearbeiterKürzel ?? kürzel,
-    };
-    console.log("Enriched dokument data with user kürzel:", enriched);
     return this.sendRequest(
       "dokument.saveDokument",
       "POST",
@@ -1109,7 +1048,7 @@ export class WebRTCApiService implements DataChannelObserver {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      enriched
+      dokumentData
     );
   }
 
@@ -1146,12 +1085,12 @@ export class WebRTCApiService implements DataChannelObserver {
   async GetDocuments(query: DokumenteQuery) {
     const queryParams = new URLSearchParams();
 
-    if (query.aktId) queryParams.append("AktId", query.aktId.toString());
+    if (query.aktId != null) queryParams.append("AktId", query.aktId.toString());
     if (query.outlookEmailId) queryParams.append("OutlookEmailId", query.outlookEmailId);
     if (query.dokumentArten && query.dokumentArten.length > 0) {
       query.dokumentArten.forEach((art) => queryParams.append("DokumentArten", DokumentArt[art]));
     }
-    if (query.Count) queryParams.append("Count", query.Count.toString());
+    if (query.Count != null) queryParams.append("Count", query.Count.toString());
     if (query.erstelltVon) queryParams.append("ErstelltVon", query.erstelltVon);
 
     let url = `api/v2.0/dokumente?${queryParams.toString()}`;
@@ -1266,66 +1205,42 @@ export class WebRTCApiService implements DataChannelObserver {
   }
 
   /**
-   * Authenticate with API through WebRTC
-   * This should be the first call made to establish authentication with the remote API
-   * @param authRequest - Authentication request containing credentials
-   * @returns Promise with authentication response containing token and expiration
+   * Exchange Office SSO token for full ADVOKAT JWT payload through the WebRTC channel.
+   *
+   * Calls plugin endpoint:
+   *   POST /addin/office-token/token
+   *   Authorization: Bearer <officeToken>
+   *
+   * @param officeToken Microsoft-signed JWT from OfficeRuntime.auth.getAccessToken()
+   * @returns Full auth payload ({ access_token, refresh_token, expires_in, ... })
    */
-  async authenticate(authRequest: IAuthRequest): Promise<IAuthResponse> {
-    this.logger.info("Starting authentication via WebRTC...", "WebRTCApiService");
-    this.logger.debug("Authentication request", "WebRTCApiService", authRequest);
-
-    // Create form data for authentication
-    const formData = this.createAuthenticationFormData(authRequest);
+  async sendAuthMessage(officeToken: string): Promise<IAuthResponse> {
+    this.logger.info('Sending office-token exchange request through WebRTC data channel...', 'WebRTCApiService');
 
     const response = await this.sendRequest(
-      "auth.authenticate",
-      "POST",
-      "connect/token",
+      'auth.officeToken.exchange',
+      'POST',
+      'addin/office-token/token',
       {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
+        Authorization: `Bearer ${officeToken}`,
+        Accept: 'application/json',
       },
-      formData
     );
 
-    this.logger.info("Authentication response received", "WebRTCApiService");
+    if (response.body) {
+      const parsed = typeof response.body === 'string'
+        ? JSON.parse(response.body) as IAuthResponse
+        : response.body as IAuthResponse;
 
-    // Parse the response body to get authentication details
-    if (response.body && typeof response.body === "string") {
-      try {
-        const authData = JSON.parse(response.body) as IAuthResponse;
-        this.logger.info("Authentication successful - token received", "WebRTCApiService");
-        return authData;
-      } catch (error) {
-        this.logger.error("Failed to parse authentication response:", "WebRTCApiService", error);
-        throw new Error("Invalid authentication response format");
+      if (!parsed.access_token || !parsed.expires_in) {
+        throw new Error('Office-token exchange response missing required token fields');
       }
-    } else if (response.body && typeof response.body === "object") {
-      // Response body is already an object
-      this.logger.info("Authentication successful - token received", "WebRTCApiService");
-      return response.body as IAuthResponse;
-    } else {
-      this.logger.error("Authentication failed - no token in response", "WebRTCApiService");
-      throw new Error("Authentication failed - no token received");
+
+      this.logger.info('Office-token exchange successful — ADVOKAT JWT received', 'WebRTCApiService');
+      return parsed;
     }
-  }
 
-  /**
-   * Refresh authentication token
-   * @param refreshToken - Refresh token from previous authentication
-   * @returns Promise with new authentication response
-   */
-  async refreshToken(refreshToken: string): Promise<IAuthResponse> {
-    this.logger.info("Refreshing authentication token via WebRTC...", "WebRTCApiService");
-
-    const refreshRequest: IAuthRequest = {
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: "TestClientId",
-    };
-
-    return this.authenticate(refreshRequest);
+    throw new Error('Office-token exchange response contained no body');
   }
 
   /**

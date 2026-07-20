@@ -32,16 +32,15 @@ import {
   initializeSipClient,
 } from "@infra/sip/SipClient";
 import { webRTCApiService } from "./webRTCApiService";
-import { tokenService } from "./TokenService";
 import { IdleActivityMonitor } from "./IdleActivityMonitor";
 import { WebRTCDataChannelService } from "./WebRTCDataChannelService";
 import { store } from "@store";
 import { getLogger } from "@infra/logger";
 import {
   startAuthentication,
-  authenticationSuccess,
   authenticationFailure,
-  selectAuthCredentials,
+  authenticationSuccess,
+  selectOfficeToken,
 } from "@slices/authSlice";
 import {
   updateConnectionState as updateReduxConnectionState,
@@ -55,6 +54,7 @@ import {
   selectIsReady,
 } from "@slices/connectionSlice";
 import { SelectedCandidateType } from "@infra/sip/Peer2PeerConnection";
+import { pairingApiService } from "./PairingApiService";
 
 export type { ConnectionState };
 
@@ -82,7 +82,7 @@ export class WebRTCConnectionManager implements SipClientObserver {
   private logger = getLogger();
 
   // Timers
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: number | null = null;
 
   // Pending waitForFullConnection promise callbacks (state-change driven, no polling timer)
   private _connectionResolve: (() => void) | null = null;
@@ -363,7 +363,7 @@ export class WebRTCConnectionManager implements SipClientObserver {
       reconnectAttempts: attemptNumber,
     });
 
-    this.reconnectTimer = setTimeout(async () => {
+    this.reconnectTimer = window.setTimeout(async () => {
       if (!this.isReconnecting) {
         this.logger.info("ConnectionManager", "Reconnect cancelled during delay");
         return;
@@ -444,47 +444,32 @@ export class WebRTCConnectionManager implements SipClientObserver {
     try {
       store.dispatch(startAuthentication());
 
-      // Verify offer channel is open for sending (should already be open from waitForFullConnection)
-      if (!WebRTCDataChannelService.getInstance().isOfferChannelOpen) {
-        throw new Error("Offer channel not open - authentication cannot proceed");
+      // Verify both channels are open before attempting authentication.
+      // The offer channel is used for sending; the answer channel must be open and confirmed
+      // via its DOM onopen event before the server's response can be reliably received.
+      if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+        throw new Error("Both channels must be ready before authentication can proceed");
       }
 
       this.logger.info(
         "ConnectionManager",
-        "Offer channel is open, proceeding with authentication"
+        "Channels ready, proceeding with Office token authentication"
       );
 
-      // Get credentials from Redux store
-      const credentials = selectAuthCredentials(store.getState());
+      // Get the Office SSO token — set by OfficeAuthService at startup
+      const officeToken = selectOfficeToken(store.getState());
+      if (!officeToken) {
+        throw new Error("No Office token available — cannot authenticate with ADVOKAT Server");
+      }
 
-      this.logger.debug("ConnectionManager", "Attempting authentication with credentials", {
-        grant_type: credentials.grant_type,
-        client_id: credentials.client_id,
-        username: credentials.username,
-        hasPassword: !!credentials.password,
-      });
+      // Exchange Office token through the server-side pairing plugin endpoint.
+      // Returns the same payload as the standard JWT endpoint (access + refresh + expiry).
+      const authResponse = await pairingApiService.exchangeOfficeToken(officeToken);
 
-      // Prepare authentication request
-      const authRequest = {
-        grant_type: credentials.grant_type,
-        client_id: credentials.client_id,
-        client_secret: credentials.client_secret,
-        username: credentials.username,
-        password: credentials.password,
-      };
+      // Store full token payload in Redux for request authorization + refresh support.
+      store.dispatch(authenticationSuccess(authResponse));
 
-      // Send authentication request via WebRTC
-      const authResponse = await webRTCApiService.authenticate(authRequest);
-
-      // Encrypt tokens before storing in Redux
-      const encryptedAuthResponse = await tokenService.encryptAuthResponse(authResponse);
-
-      // Update Redux store with encrypted authentication tokens
-      store.dispatch(authenticationSuccess(encryptedAuthResponse));
-
-      // Authentication state is managed by authSlice
-
-      this.logger.info("ConnectionManager", "Authentication successful (tokens encrypted)");
+      this.logger.info("ConnectionManager", "Authentication successful (ADVOKAT JWT received)");
     } catch (error) {
       this.logger.error("ConnectionManager", "Authentication failed", error);
 

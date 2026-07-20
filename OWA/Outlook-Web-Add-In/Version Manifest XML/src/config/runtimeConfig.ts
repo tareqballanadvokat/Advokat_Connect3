@@ -29,3 +29,24 @@ export function setUserIdentifier(identifier: string): void {
   });
 }
 
+/**
+ * Set the destination ADVOKAT Server for SIP REGISTER.
+ * Call this once the Pairing API has resolved the advokatServerId for this user
+ * (see pairingSlice / PairingApiService), before the SIP client connects.
+ *
+ * It becomes the SIP toDisplayName, so it is sent in the REGISTER message's
+ * "To:" header — routing the registration to the correct ADVOKAT Server.
+ *
+ * @param serverId - The advokatServerId returned by the Pairing API.
+ *
+ * @example
+ *   setAdvokatServerId("server-123");
+ */
+export function setAdvokatServerId(serverId: string): void {
+  if (!serverId) return;
+
+  configService.patchSipConfig({
+    toDisplayName: serverId,
+  });
+}
+

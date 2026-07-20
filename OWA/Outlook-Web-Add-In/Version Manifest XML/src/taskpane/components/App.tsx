@@ -2,9 +2,14 @@
 import { makeStyles } from "@fluentui/react-components";
 import { useTranslation } from 'react-i18next';
 import Tabs from './Tab';
+import PairingDialog from './tabs/shared/PairingDialog';
 import { configService } from '@config';
+import { setAdvokatServerId, setUserIdentifier } from '@config/runtimeConfig';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
+import { officeAuthService } from '@services/OfficeAuthService';
+import { pairingApiService } from '@services/PairingApiService';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectPairingStatus, selectAdvokatServerId, selectKuerzel } from '@slices/pairingSlice';
 import { toggleLogging, initializeLogging } from '@slices/loggingSlice';
 import { getLogger } from '@infra/logger';
 
@@ -45,9 +50,49 @@ const App: React.FC<AppProps> = () => {
   const styles = useStyles();
   const dispatch = useAppDispatch();
   const loggingEnabled = useAppSelector((state) => state.logging.enabled);
+  const pairingStatus = useAppSelector(selectPairingStatus);
+  const advokatServerId = useAppSelector(selectAdvokatServerId);
+  const kuerzel = useAppSelector(selectKuerzel);
   const logger = getLogger();
   const { t: translate } = useTranslation('common');
  
+  // Step 1: Fetch Office SSO token → Step 2: Check pairing status
+  React.useEffect(() => {
+    (async () => {
+      // Pre-flight: check if OfficeRuntime SSO is available in this environment
+      const officeRuntimeAvailable = typeof OfficeRuntime !== 'undefined' && !!OfficeRuntime?.auth?.getAccessToken;
+      const officeJsReady = typeof Office !== 'undefined' && !!Office?.context;
+      logger.info('App', `Office environment check — OfficeRuntime.auth available: ${officeRuntimeAvailable}, Office.context ready: ${officeJsReady}`);
+
+      if (!officeRuntimeAvailable) {
+        logger.warn('App', 'OfficeRuntime.auth.getAccessToken is not available in this environment (running outside Outlook or on an unsupported host). Skipping SSO.');
+        return;
+      }
+
+      logger.info('App', 'Calling officeAuthService.getOfficeToken()...');
+      const officeToken = await officeAuthService.getOfficeToken();
+
+      if (!officeToken) {
+        // OfficeAuthService already logged the specific error code — repeat the key facts here for correlation
+        logger.warn('App', 'getOfficeToken() returned null. Check the OfficeAuthService error log above for the exact error code (13001–13012). Skipping pairing check.');
+        return;
+      }
+
+      logger.info('App', 'Office token obtained successfully. Proceeding to pairing check...');
+
+      try {
+        const result = await pairingApiService.checkServerId(officeToken);
+        if (result) {
+          logger.info('App', `Pairing check complete — advokatServerId: ${result.advokatServerId}`);
+        } else {
+          logger.info('App', 'Pairing check complete — user is not yet paired (first-time setup).');
+        }
+      } catch (error: unknown) {
+        logger.error('App', 'Pairing API check failed', error);
+      }
+    })();
+  }, [logger]);
+
   // Initialize logging from config
   React.useEffect(() => {
     const config = configService.getConfig();
@@ -87,14 +132,29 @@ const App: React.FC<AppProps> = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [dispatch, loggingEnabled]);
  
-  // Initialize WebRTC connection manager once at app level
+  // Initialize WebRTC connection manager once the ADVOKAT Server is known.
+  // advokatServerId comes from pairingSlice (set by either checkServerId() for
+  // returning users or pair() after the OTP dialog for first-time users) and is
+  // patched into sipConfig.toDisplayName so it is sent in the REGISTER "To:" header.
   React.useEffect(() => {
-    logger.info('App', 'App mounted - initializing WebRTC connection manager...');
+    if (!advokatServerId) {
+      logger.info('App', 'Waiting for advokatServerId before initializing WebRTC connection manager...');
+      return undefined;
+    }
+
+    logger.info('App', `advokatServerId resolved (${advokatServerId}), kuerzel (${kuerzel}) - initializing WebRTC connection manager...`);
+    setAdvokatServerId(advokatServerId);
+    if (kuerzel) {
+      setUserIdentifier(kuerzel);
+    } else {
+      logger.warn('App', 'kuerzel not available - REGISTER From header will use the default fromDisplayName');
+    }
+
     const manager = getWebRTCConnectionManager();
     manager.initialize().catch(error => {
       logger.error('App', 'Failed to initialize WebRTC connection', error);
     });
-    
+
     let isDisconnected = false;
     
     // Handle window/tab close - disconnect gracefully
@@ -117,7 +177,7 @@ const App: React.FC<AppProps> = () => {
       }
       window.removeEventListener('unload', handleUnload);
     };
-  }, [logger]);
+  }, [logger, advokatServerId, kuerzel]);
 
   const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
@@ -140,6 +200,7 @@ const App: React.FC<AppProps> = () => {
           ? `LOCAL — ${window.location.origin}`
           : `AZURE — ${window.location.origin}`}
       </div>
+      {pairingStatus === 'unpaired' && <PairingDialog />}
       <div> 
         <Tabs />
       </div>

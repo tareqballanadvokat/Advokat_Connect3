@@ -1,14 +1,5 @@
 ﻿// src/taskpane/components/interfaces/IAuth.tsx
 
-export interface IAuthRequest {
-  grant_type: 'password' | 'client_credentials' | 'windows_auth' | 'refresh_token';
-  client_id: string;
-  client_secret?: string;
-  username?: string;
-  password?: string;
-  refresh_token?: string;
-}
-
 export interface IAuthResponse {
   access_token: string;
   token_type?: string; // This might not be in the response
@@ -36,4 +27,16 @@ export interface IAuthState {
   isAuthenticated: boolean;
   isAuthenticating: boolean;
   error: string | null;
+  officeToken: string | null; // Microsoft Office SSO token — in memory only, never persisted
+  oid: string | null;         // Microsoft user object ID extracted from officeToken
+  email: string | null;       // Microsoft preferred_username (email) extracted from officeToken
+  advokatToken: string | null; // Token issued by ADVOKAT Server after pairing/auth — session memory only, never persisted
+}
+
+/**
+ * Response returned by the ADVOKAT Server through the WebRTC data channel
+ * for both the REGISTER_OTP (first-time pairing) and AUTH (returning user) flows.
+ */
+export interface IAdvokatAuthResponse {
+  advokatToken: string;
 }

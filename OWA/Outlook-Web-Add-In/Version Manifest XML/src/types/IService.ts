@@ -100,11 +100,12 @@ export interface LeistungResponse {
   offenerPostenId?: number | null;
   einzahler?: number | null;
   tag?: number | null;
+  prioritaet?: number | null;
   teilaktPfad?: string | null;
-  bearbeitungsInfoErstelltVon?: string | null;
-  bearbeitungsInfoErstelltAm?: string | null;
-  bearbeitungsInfoBearbeitetVon?: string | null;
-  bearbeitungsInfoBearbeitetAm?: string | null;
+  erstelltVon?: string | null;
+  erstelltAm?: string | null;
+  bearbeitetVon?: string | null;
+  bearbeitetAm?: string | null;
   outlookEmailId?: string | null;
   
   // From LeistungBase (inherited properties)

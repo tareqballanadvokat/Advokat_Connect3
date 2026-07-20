@@ -46,13 +46,15 @@ export interface DokumentResponse {
   sachbearbeiterKürzel?: string;
   vonSachbearbeiterKürzel?: string;
   dateipfad?: string;
-  bearbeitungsInfoErstelltVon?: string;
-  bearbeitungsInfoErstelltAm?: Date;
-  bearbeitungsInfoBearbeitetVon?: string;
-  bearbeitungsInfoBearbeitetAm?: Date;
+  erstelltVon?: string;
+  erstelltAm?: Date;
+  bearbeitetVon?: string;
+  bearbeitetAm?: Date;
+  prioritaet?: number;
   outlookEmailId?: string; // Outlook email message ID for tracking saved items
   // Fields from /with-content endpoint
   inhalt?: string; // Base64 encoded file content
+  dateiName?: string; // File name as returned by some API versions
   contentType?: string; // MIME type of the file
   fileName?: string; // Original filename
   fileSize?: number; // File size in bytes

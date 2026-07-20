@@ -14,6 +14,18 @@ import './TransferAndAttachment.css';
 
 const logger = getLogger();
 
+const normalizeMessageId = (value?: string | null): string =>
+  (value ?? '').trim().replace(/^<|>$/g, '').toLowerCase();
+
+const normalizeName = (value?: string | null): string =>
+  (value ?? '').trim().toLowerCase();
+
+const getFileNameFromPath = (path?: string): string => {
+  if (!path) return '';
+  const parts = path.replace(/\\/g, '/').split('/');
+  return parts[parts.length - 1] ?? '';
+};
+
 const TransferAndAttachment: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { t: translate } = useTranslation('email');
@@ -161,13 +173,23 @@ const TransferAndAttachment: React.FC = () => {
         logger.debug(`Saved documents: ${savedDocuments.length} found`, 'TransferAndAttachment');
         
         // Find saved email document by matching outlookEmailId
-        const savedEmailDoc = savedDocuments.find(doc => {
-          // Check if this document has an outlookEmailId that matches the current email
-          const hasMatchingId = doc.outlookEmailId && doc.outlookEmailId === messageId;
+        const normalizedMessageId = normalizeMessageId(messageId);
 
-          logger.debug(`Checking doc ${doc.id}: outlookEmailId=${doc.outlookEmailId}, matches=${hasMatchingId}`, 'TransferAndAttachment');
+        const savedEmailDoc = savedDocuments.find(doc => {
+          // Check if this is an email document tied to the same Outlook message ID.
+          const docMessageId = normalizeMessageId(doc.outlookEmailId);
+          const hasMatchingId = docMessageId !== '' && docMessageId === normalizedMessageId;
+          const isEmailDocument =
+            doc.dokumentArt === DokumentArt.MailEmpfangen ||
+            doc.dokumentArt === DokumentArt.MailGesendet ||
+            doc.dokumentArt === 'MailEmpfangen' ||
+            doc.dokumentArt === 'MailGesendet' ||
+            (doc.dokumentArt as any) === 1 ||
+            (doc.dokumentArt as any) === 2;
+
+          logger.debug(`Checking email doc ${doc.id}: outlookEmailId=${doc.outlookEmailId}, matches=${hasMatchingId}, isEmailDocument=${isEmailDocument}`, 'TransferAndAttachment');
           
-          return hasMatchingId;
+          return hasMatchingId && isEmailDocument;
         });
 
         const newEmailRow: TransferAttachmentItem = {
@@ -212,11 +234,23 @@ const TransferAndAttachment: React.FC = () => {
                                doc.dokumentArt === "Keine" || 
                                (doc.dokumentArt as any) === 0;
             // Must belong to the same email (via outlookEmailId)
-            const belongsToThisEmail = doc.outlookEmailId && doc.outlookEmailId === messageId;
+            const docMessageId = normalizeMessageId(doc.outlookEmailId);
+            const belongsToThisEmail = docMessageId !== '' && docMessageId === normalizedMessageId;
             // Must match the attachment name
-            const nameMatches = doc.dateipfad?.includes(att.name) || 
-                               doc.betreff?.includes(att.name) || 
-                               doc.fileName?.includes(att.name);
+            const attachmentName = normalizeName(att.name);
+            const docPathName = normalizeName(getFileNameFromPath(doc.dateipfad));
+            const docSubject = normalizeName(doc.betreff);
+            const docFileName = normalizeName(doc.fileName);
+            const docDateiName = normalizeName((doc as any).dateiName);
+            const nameMatches =
+              docPathName === attachmentName ||
+              docFileName === attachmentName ||
+              docDateiName === attachmentName ||
+              docSubject === attachmentName ||
+              docPathName.includes(attachmentName) ||
+              docFileName.includes(attachmentName) ||
+              docDateiName.includes(attachmentName) ||
+              docSubject.includes(attachmentName);
             
             logger.debug(`Checking attachment "${att.name}" against doc ${doc.id}: isAttachment=${isAttachment}, belongsToThisEmail=${belongsToThisEmail}, nameMatches=${nameMatches}`, 'TransferAndAttachment');
             
