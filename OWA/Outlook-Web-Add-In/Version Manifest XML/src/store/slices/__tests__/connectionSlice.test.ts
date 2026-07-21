@@ -165,18 +165,18 @@ describe("connectionSlice", () => {
   });
 
   describe("setSelectedCandidateType", () => {
-    it("should set the selected candidate type to 'relay'", () => {
-      const state = connectionReducer(initialState, setSelectedCandidateType("relay"));
-      expect(state.selectedCandidateType).toBe("relay");
+    it("should set the selected candidate type to 'turn'", () => {
+      const state = connectionReducer(initialState, setSelectedCandidateType("turn"));
+      expect(state.selectedCandidateType).toBe("turn");
     });
 
-    it("should set the selected candidate type to 'srflx'", () => {
-      const state = connectionReducer(initialState, setSelectedCandidateType("srflx"));
-      expect(state.selectedCandidateType).toBe("srflx");
+    it("should set the selected candidate type to 'stun'", () => {
+      const state = connectionReducer(initialState, setSelectedCandidateType("stun"));
+      expect(state.selectedCandidateType).toBe("stun");
     });
 
     it("should clear the selected candidate type when undefined is passed", () => {
-      const stateWithType: ConnectionState = { ...initialState, selectedCandidateType: "relay" };
+      const stateWithType: ConnectionState = { ...initialState, selectedCandidateType: "turn" };
       const state = connectionReducer(stateWithType, setSelectedCandidateType(undefined));
       expect(state.selectedCandidateType).toBeUndefined();
     });

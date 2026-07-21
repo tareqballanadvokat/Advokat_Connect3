@@ -11,7 +11,7 @@
 import * as React from "react";
 import { render, RenderOptions } from "@testing-library/react";
 import { Provider } from "react-redux";
-import { configureStore, PreloadedState } from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
 import emailReducer from "@slices/emailSlice";
 import serviceReducer from "@slices/serviceSlice";
 import aktenReducer from "@slices/aktenSlice";
@@ -38,7 +38,7 @@ const allReducers = {
 export type RenderStore = ReturnType<typeof configureStore<typeof allReducers>>;
 
 export interface RenderWithProvidersOptions extends Omit<RenderOptions, "wrapper"> {
-  preloadedState?: PreloadedState<any>;
+  preloadedState?: any;
 }
 
 export function renderWithProviders(

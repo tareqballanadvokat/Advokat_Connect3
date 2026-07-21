@@ -49,7 +49,7 @@ jest.mock("devextreme-react/tabs", () => {
   const React = require("react");
   return {
     __esModule: true,
-    default: ({ children, onItemClick }: { children?: React.ReactNode; onItemClick?: (e: { itemIndex: number }) => void }) =>
+    default: ({ children }: { children?: React.ReactNode }) =>
       React.createElement("div", { "data-testid": "dx-tabs" }, children),
     Item: ({ text }: { text?: string }) =>
       React.createElement("div", { role: "tab" }, text),

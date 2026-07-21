@@ -38,7 +38,7 @@ function renderUnpaired(overrides: Record<string, unknown> = {}) {
   return renderWithProviders(<PairingDialog />, {
     preloadedState: {
       pairing: { status: "unpaired", advokatServerId: null, kuerzel: null, error: null },
-      auth:    { officeToken: "mock-office-token", ...overrides.auth },
+      auth:    { officeToken: "mock-office-token", ...(overrides.auth as object | undefined) },
       ...overrides,
     },
   });
