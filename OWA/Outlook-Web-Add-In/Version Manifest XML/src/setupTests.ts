@@ -30,6 +30,13 @@ global.Office = {
   onReady: jest.fn(() => Promise.resolve()),
 } as any;
 
+// Mock OfficeRuntime (used by OfficeAuthService for SSO token acquisition)
+global.OfficeRuntime = {
+  auth: {
+    getAccessToken: jest.fn(),
+  },
+} as any;
+
 // Mock WebSocket
 global.WebSocket = jest.fn(() => ({
   send: jest.fn(),
