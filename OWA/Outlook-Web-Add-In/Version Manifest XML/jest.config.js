@@ -12,6 +12,7 @@ module.exports = {
     'testHelpers.ts',
     'mockFactories.ts',
     'testSetup.ts',
+    'testUtils.tsx',
   ],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {

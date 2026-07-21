@@ -10,7 +10,7 @@
 
 | Component | Status |
 |---|---|
-| `App.tsx` | ❌ not yet implemented |
+| `App.tsx` | ✅ 12 tests — render, PairingDialog visibility, SSO effect chain, logging init |
 | `Tab.tsx` | ❌ not yet implemented |
 | `Header.tsx` | ❌ not yet implemented |
 | `tabs/shared/PairingDialog` | ❌ not yet implemented |
@@ -27,7 +27,9 @@ All libraries are already installed. The following is a one-time setup.
 
 ### `renderWithProviders` helper
 
-Create `src/taskpane/components/__tests__/testUtils.tsx`:
+✅ Created at `src/taskpane/components/__tests__/testUtils.tsx`.
+Wraps any component in a Redux `Provider` seeded with a full test store (all 9 reducers).
+Also add `testUtils.tsx` to `testPathIgnorePatterns` in `jest.config.js` so Jest doesn't treat it as a test suite.
 
 ```tsx
 import React from 'react';
