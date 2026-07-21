@@ -8,7 +8,7 @@ Each section summarises a test type and links to its dedicated guide.
 | Guide | Scope | Status |
 |---|---|---|
 | [01_TESTING_GUIDE_SLICES.md](./01_TESTING_GUIDE_SLICES.md) | Unit tests — Redux slices | ✅ 476 tests passing |
-| [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ❌ Not started |
+| [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ⏳ In progress (39 tests) |
 | [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ❌ Not started |
 | [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ❌ Not started |
 | [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ❌ Not started |
@@ -58,7 +58,7 @@ Business logic classes in `src/services/` tested in isolation. All external
 dependencies (Redux store, Office API, WebRTC, network) are mocked.  
 Requires a one-time `OfficeRuntime` global mock and WebRTC global stubs in `setupTests.ts`.
 
-**Can start immediately: ✅ Yes**
+**Can start immediately: ✅ Yes** — all infrastructure is in place.
 
 → **[Full guide: 02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md)**
 

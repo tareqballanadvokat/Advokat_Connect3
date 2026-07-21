@@ -10,8 +10,8 @@
 
 | File | Status |
 |---|---|
-| `TokenService.ts` | ❌ not yet implemented |
-| `OfficeAuthService.ts` | ❌ not yet implemented |
+| `OfficeAuthService.ts` | ✅ 22 tests — `extractOid`, `extractEmail`, `getOfficeToken` success + failure paths |
+| `TokenService.ts` | ✅ 17 tests — cached token, refresh, expiry boundary, no Office token, API failure, concurrency |
 | `IdleActivityMonitor.ts` | ❌ not yet implemented |
 | `PairingApiService.ts` | ❌ not yet implemented |
 | `WebRTCDataChannelService.ts` | ❌ not yet implemented |
@@ -27,7 +27,7 @@ needed before writing service tests.
 ### 1. Global `OfficeRuntime` mock
 
 `OfficeAuthService` calls `OfficeRuntime.auth.getAccessToken()`.  
-Add this to `src/setupTests.ts`:
+✅ Already added to `src/setupTests.ts`:
 
 ```typescript
 global.OfficeRuntime = {
@@ -69,8 +69,8 @@ Call `jest.useFakeTimers()` inside `beforeEach` in those test files and
 
 ```
 src/services/__tests__/
-├── TokenService.test.ts
-├── OfficeAuthService.test.ts
+├── OfficeAuthService.test.ts   ← ✅ done
+├── TokenService.test.ts        ← ✅ done
 ├── IdleActivityMonitor.test.ts
 ├── PairingApiService.test.ts
 ├── WebRTCDataChannelService.test.ts
@@ -83,7 +83,11 @@ src/services/__tests__/
 
 ---
 
-### `OfficeAuthService` — Complexity: Low
+### `OfficeAuthService` — Complexity: Low ✅ Done
+
+**Test file:** `src/services/__tests__/OfficeAuthService.test.ts` (22 tests)
+
+**Key mocking pattern:** spy on `store.dispatch`, use global `OfficeRuntime.auth.getAccessToken` mock from `setupTests.ts`.
 
 **What to test:**
 
@@ -125,7 +129,11 @@ describe('OfficeAuthService', () => {
 
 ---
 
-### `TokenService` — Complexity: Medium
+### `TokenService` — Complexity: Medium ✅ Done
+
+**Test file:** `src/services/__tests__/TokenService.test.ts` (17 tests)
+
+**Key mocking pattern:** fully mock `@store` at module level (`jest.mock("@store", ...)`) so `mockGetState` and `mockDispatch` are plain jest.fn() — avoids spy-restoration race conditions between tests. Mock `@services/PairingApiService` to intercept the dynamic `await import()` in `_refresh()`.
 
 **What to test:**
 
