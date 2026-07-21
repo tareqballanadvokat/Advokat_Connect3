@@ -1,0 +1,108 @@
+﻿node.exe : ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under 
+`globals` is deprecated. Please do
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ts-jest[ts-jest...ated. Please do 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+transform: {
+    <transform_regex>: ['ts-jest', { /* ts-jest config goes here in Jest */ }],
+},
+See more at 
+https://kulshekhar.github.io/ts-jest/docs/getting-started/presets#advanced
+ts-jest[config] (WARN) 
+    The "ts-jest" config option "isolatedModules" is deprecated and will be 
+removed in v30.0.0. Please use "isolatedModules: true" in 
+C:/Entwicklung/ADVOKAT_Connect/OWA/Outlook-Web-Add-In/Version Manifest 
+XML/tsconfig.json instead, see 
+https://www.typescriptlang.org/tsconfig/#isolatedModules
+  
+PASS src/store/slices/__tests__/personSlice.test.ts
+PASS src/store/slices/__tests__/connectionSlice.test.ts
+  ÔùÅ Console
+
+    console.info
+      ƒîÉ i18next is made possible by our own product, Locize ÔÇö consider 
+powering your project with managed localization (AI, CDN, integrations): 
+https://locize.com ƒÆÖ
+
+      at I18n.init (node_modules/i18next/dist/cjs/i18next.js:1789:90)
+
+    console.error
+      No reducer provided for key "email"
+
+    [0m [90m 12 |[39m
+     [90m 13 |[39m [90m// Configure the Redux store[39m
+    [31m[1m>[22m[39m[90m 14 |[39m [36mexport[39m [36mconst[39m store 
+[33m=[39m configureStore({
+     [90m    |[39m                                    [31m[1m^[22m[39m
+     [90m 15 |[39m   reducer[33m:[39m {
+     [90m 16 |[39m     email[33m:[39m emailReducer[33m,[39m
+     [90m 17 |[39m     service[33m:[39m serviceReducer[33m,[39m[0m
+
+      at warning (node_modules/redux/src/utils/warning.ts:9:13)
+      at combineReducers (node_modules/redux/src/combineReducers.ts:81:9)
+      at configureStore 
+(node_modules/@reduxjs/toolkit/src/configureStore.ts:102:19)
+      at Object.<anonymous> (src/store/index.ts:14:36)
+      at Object.<anonymous> (src/services/TokenService.ts:1:2)
+      at Object.<anonymous> (src/services/webRTCApiService.ts:22:1)
+      at Object.<anonymous> (src/services/WebRTCConnectionManager.ts:34:1)
+      at Object.<anonymous> (src/store/slices/emailSlice.ts:7:1)
+      at Object.<anonymous> (src/store/slices/__tests__/testSetup.ts:31:1)
+      at Object.<anonymous> 
+(src/store/slices/__tests__/connectionSlice.test.ts:31:1)
+
+PASS src/store/slices/__tests__/aktenSlice.test.ts
+PASS src/store/slices/__tests__/serviceSlice.test.ts
+PASS src/store/slices/__tests__/emailSlice.test.ts
+PASS src/store/slices/__tests__/authSlice.test.ts
+PASS src/store/slices/__tests__/loggingSlice.test.ts
+  ÔùÅ Console
+
+    console.log
+      [loggingSlice] toggleLogging - new enabled state: true
+
+      at toggleLogging (src/store/slices/loggingSlice.ts:50:15)
+          at Array.reduce (<anonymous>)
+
+    console.log
+      [loggingSlice] toggleLogging - new enabled state: false
+
+      at toggleLogging (src/store/slices/loggingSlice.ts:50:15)
+          at Array.reduce (<anonymous>)
+
+    console.log
+      [loggingSlice] toggleLogging - new enabled state: true
+
+      at toggleLogging (src/store/slices/loggingSlice.ts:50:15)
+          at Array.reduce (<anonymous>)
+
+    console.log
+      [loggingSlice] toggleLogging - new enabled state: false
+
+      at toggleLogging (src/store/slices/loggingSlice.ts:50:15)
+          at Array.reduce (<anonymous>)
+
+    console.log
+      [loggingSlice] toggleLogging - new enabled state: true
+
+      at toggleLogging (src/store/slices/loggingSlice.ts:50:15)
+          at Array.reduce (<anonymous>)
+
+    console.log
+      [loggingSlice] toggleLogging - new enabled state: true
+
+      at toggleLogging (src/store/slices/loggingSlice.ts:50:15)
+          at Array.reduce (<anonymous>)
+
+PASS src/store/slices/__tests__/pairingSlice.test.ts
+PASS src/store/slices/__tests__/languageSlice.test.ts
+
+Test Suites: 9 passed, 9 total
+Tests:       476 passed, 476 total
+Snapshots:   0 total
+Time:        1.968 s
+Ran all test suites matching __tests__.
