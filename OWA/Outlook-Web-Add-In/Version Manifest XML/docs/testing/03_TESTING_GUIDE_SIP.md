@@ -10,9 +10,9 @@
 
 | File | Status | Complexity |
 |---|---|---|
-| `MessageFactory.ts` | ❌ not yet implemented | Low |
-| `Helper.ts` | ❌ not yet implemented | Low |
-| `TimeoutManager.ts` | ❌ not yet implemented | Low |
+| `MessageFactory.ts` | ✅ 21 tests — all four message types, header and body assertions | Low |
+| `Helper.ts` | ✅ 15 tests — string / ArrayBuffer / Blob paths, contentLength | Low |
+| `TimeoutManager.ts` | ✅ 36 tests — start, cancel, cancelAll, reset, queries, stats | Low |
 | `Registration.ts` | ❌ not yet implemented | Medium |
 | `EstablishingConnection.ts` | ❌ not yet implemented | Medium |
 | `Peer2PeerConnection.ts` | ❌ not yet implemented | High |
@@ -24,13 +24,16 @@
 
 Start with the low-complexity, dependency-free files first:
 
-1. `MessageFactory` — pure string generation, zero mocks needed
-2. `Helper` — pure parsing utilities, zero mocks needed
-3. `TimeoutManager` — only needs `jest.useFakeTimers()`
+1. `MessageFactory` — ✅ done (`src/infrastructure/sip/__tests__/MessageFactory.test.ts`)
+2. `Helper` — ✅ done (`src/infrastructure/sip/__tests__/Helper.test.ts`)
+3. `TimeoutManager` — ✅ done (`src/infrastructure/sip/__tests__/TimeoutManager.test.ts`)
 4. `Registration` — needs WebSocket mock
 5. `EstablishingConnection` — needs WebSocket mock
 6. `Peer2PeerConnection` — needs WebSocket + RTCPeerConnection mocks
 7. `SipClient` — orchestrates all phases, needs full mock set
+
+> **Note:** `TextEncoder` / `TextDecoder` polyfills and `Blob.text()` workaround
+> were added to `src/setupTests.ts` while writing Helper tests.
 
 ---
 
