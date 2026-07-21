@@ -11,9 +11,9 @@
 | Component | Status |
 |---|---|
 | `App.tsx` | ✅ 12 tests — render, PairingDialog visibility, SSO effect chain, logging init |
-| `Tab.tsx` | ❌ not yet implemented |
-| `Header.tsx` | ❌ not yet implemented |
-| `tabs/shared/PairingDialog` | ❌ not yet implemented |
+| `Tab.tsx` | ✅ 8 tests — language switcher, Tabs wrapper, ICE badge, keyboard shortcut |
+| `Header.tsx` | ✅ 7 tests — rendering (message, logo, buttons), language switching, active state |
+| `tabs/shared/PairingDialog` | ✅ 13 tests — visibility, OTP input, form submission (success, errors, SSO) |
 | `tabs/email/` | ❌ not yet implemented |
 | `tabs/case/` | ❌ not yet implemented |
 | `tabs/person/` | ❌ not yet implemented |
