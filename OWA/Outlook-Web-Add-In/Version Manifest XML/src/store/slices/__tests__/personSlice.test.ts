@@ -17,7 +17,7 @@ import { createMockPersonLookUp, createMockPersonResponse } from "./mockFactorie
 const mockWebRTCService = createMockWebRTCService();
 
 // Mock WebRTC connection manager
-jest.mock("../../../taskpane/services/WebRTCConnectionManager", () => ({
+jest.mock("../../../services/WebRTCConnectionManager", () => ({
   getWebRTCConnectionManager: jest.fn(() => ({
     getWebRTCApiService: jest.fn(() => mockWebRTCService),
   })),
@@ -442,6 +442,7 @@ describe("personSlice", () => {
       state = personReducer(state, {
         type: personLookUpAsync.fulfilled.type,
         payload: persons,
+        meta: { arg: "John" },
       });
       expect(state.loading).toBe(false);
       expect(state.persons).toEqual(persons);
@@ -515,6 +516,7 @@ describe("personSlice", () => {
       const action = {
         type: personLookUpAsync.fulfilled.type,
         payload: [],
+        meta: { arg: "" },
       };
       const actual = personReducer(initialState, action);
 
@@ -567,6 +569,7 @@ describe("personSlice", () => {
       const action = {
         type: personLookUpAsync.fulfilled.type,
         payload: largePersonList,
+        meta: { arg: "search" },
       };
       const actual = personReducer(initialState, action);
 
@@ -619,6 +622,7 @@ describe("personSlice", () => {
       const newState = personReducer(previousState, {
         type: personLookUpAsync.fulfilled.type,
         payload: newPersons,
+        meta: { arg: "search" },
       });
 
       expect(newState.persons).not.toBe(originalPersons);
@@ -678,12 +682,20 @@ describe("personSlice", () => {
   });
 
   describe("WebRTC Service Error Handling", () => {
+    // Minimal getState mock that satisfies personLookUpAsync internal access to
+    // state.person.previousSearchTerm, state.person.searchCounter, selectIsReady (cross-slice)
+    const makeGetState = () => jest.fn().mockReturnValue({
+      person: { previousSearchTerm: null, searchCounter: 0 },
+      auth: { credentials: { username: "testuser" }, isAuthenticated: true },
+      connection: { sipClientState: "CONNECTED" },
+    });
+
     describe("personLookUpAsync", () => {
       it("should handle network timeouts", async () => {
         mockWebRTCService.personLookUp.mockRejectedValue(new Error("Network timeout"));
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = makeGetState();
 
         const result = await personLookUpAsync("John")(dispatch, getState, undefined);
 
@@ -697,7 +709,7 @@ describe("personSlice", () => {
         mockWebRTCService.personLookUp.mockRejectedValue(new Error("Connection refused"));
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = makeGetState();
 
         const result = await personLookUpAsync("Jane")(dispatch, getState, undefined);
 
@@ -714,7 +726,7 @@ describe("personSlice", () => {
         });
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = makeGetState();
 
         const result = await personLookUpAsync("")(dispatch, getState, undefined);
 
@@ -731,7 +743,7 @@ describe("personSlice", () => {
         });
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = makeGetState();
 
         const result = await personLookUpAsync("Search")(dispatch, getState, undefined);
 
@@ -748,7 +760,7 @@ describe("personSlice", () => {
         });
 
         const dispatch = jest.fn();
-        const getState = jest.fn();
+        const getState = makeGetState();
 
         const result = await personLookUpAsync("Test")(dispatch, getState, undefined);
 

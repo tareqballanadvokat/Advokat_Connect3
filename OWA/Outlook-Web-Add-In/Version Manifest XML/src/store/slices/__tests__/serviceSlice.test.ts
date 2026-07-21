@@ -19,7 +19,7 @@ import { createMockService, createMockLeistungPostData } from "./mockFactories";
 const mockWebRTCService = createMockWebRTCService();
 
 // Mock WebRTC connection manager
-jest.mock("../../../taskpane/services/WebRTCConnectionManager", () => ({
+jest.mock("../../../services/WebRTCConnectionManager", () => ({
   getWebRTCConnectionManager: jest.fn(() => ({
     getWebRTCApiService: jest.fn(() => mockWebRTCService),
   })),

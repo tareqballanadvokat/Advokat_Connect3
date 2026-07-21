@@ -12,16 +12,27 @@ import authReducer, {
   startAuthentication,
   authenticationSuccess,
   authenticationFailure,
+  advokatAuthenticationSuccess,
   logout,
+  logoutAsync,
   clearError,
   validateToken,
+  setOfficeToken,
+  clearOfficeToken,
+  setAdvokatToken,
+  clearAdvokatToken,
   selectAuth,
   selectIsAuthenticated,
   selectAuthToken,
+  selectRefreshToken,
   selectAuthCredentials,
   selectIsAuthenticating,
   selectAuthError,
   selectIsTokenValid,
+  selectOfficeToken,
+  selectOid,
+  selectEmail,
+  selectAdvokatToken,
 } from "@slices/authSlice";
 import { IAuthState, IAuthResponse } from "@interfaces/IAuth";
 
@@ -302,6 +313,120 @@ describe("authSlice", () => {
       });
     });
 
+    describe("setOfficeToken", () => {
+      it("should store the office token, oid and email", () => {
+        const actual = authReducer(
+          initialState,
+          setOfficeToken({ officeToken: "office-jwt", oid: "oid-123", email: "user@example.com" })
+        );
+        expect(actual.officeToken).toBe("office-jwt");
+        expect(actual.oid).toBe("oid-123");
+        expect(actual.email).toBe("user@example.com");
+      });
+
+      it("should allow null oid and email", () => {
+        const actual = authReducer(
+          initialState,
+          setOfficeToken({ officeToken: "office-jwt", oid: null, email: null })
+        );
+        expect(actual.officeToken).toBe("office-jwt");
+        expect(actual.oid).toBeNull();
+        expect(actual.email).toBeNull();
+      });
+
+      it("should overwrite a previously stored office token", () => {
+        const prevState = {
+          ...initialState,
+          officeToken: "old-token",
+          oid: "old-oid",
+          email: "old@example.com",
+        };
+        const actual = authReducer(
+          prevState,
+          setOfficeToken({ officeToken: "new-token", oid: "new-oid", email: "new@example.com" })
+        );
+        expect(actual.officeToken).toBe("new-token");
+        expect(actual.oid).toBe("new-oid");
+        expect(actual.email).toBe("new@example.com");
+      });
+    });
+
+    describe("clearOfficeToken", () => {
+      it("should clear the office token, oid and email", () => {
+        const prevState = {
+          ...initialState,
+          officeToken: "office-jwt",
+          oid: "oid-123",
+          email: "user@example.com",
+        };
+        const actual = authReducer(prevState, clearOfficeToken());
+        expect(actual.officeToken).toBeNull();
+        expect(actual.oid).toBeNull();
+        expect(actual.email).toBeNull();
+      });
+
+      it("should not affect other auth state", () => {
+        const prevState = {
+          ...initialState,
+          token: "advokat-token",
+          isAuthenticated: true,
+          officeToken: "office-jwt",
+        };
+        const actual = authReducer(prevState, clearOfficeToken());
+        expect(actual.token).toBe("advokat-token");
+        expect(actual.isAuthenticated).toBe(true);
+      });
+    });
+
+    describe("setAdvokatToken", () => {
+      it("should store the advokat token", () => {
+        const actual = authReducer(initialState, setAdvokatToken("adv-token-xyz"));
+        expect(actual.advokatToken).toBe("adv-token-xyz");
+      });
+
+      it("should overwrite an existing advokat token", () => {
+        const prevState = { ...initialState, advokatToken: "old-token" };
+        const actual = authReducer(prevState, setAdvokatToken("new-token"));
+        expect(actual.advokatToken).toBe("new-token");
+      });
+    });
+
+    describe("clearAdvokatToken", () => {
+      it("should clear the advokat token", () => {
+        const prevState = { ...initialState, advokatToken: "adv-token-xyz" };
+        const actual = authReducer(prevState, clearAdvokatToken());
+        expect(actual.advokatToken).toBeNull();
+      });
+
+      it("should not affect other auth state", () => {
+        const prevState = {
+          ...initialState,
+          token: "main-token",
+          isAuthenticated: true,
+          advokatToken: "adv-token",
+        };
+        const actual = authReducer(prevState, clearAdvokatToken());
+        expect(actual.token).toBe("main-token");
+        expect(actual.isAuthenticated).toBe(true);
+      });
+    });
+
+    describe("advokatAuthenticationSuccess", () => {
+      it("should set advokatToken and mark as authenticated", () => {
+        const actual = authReducer(initialState, advokatAuthenticationSuccess("adv-token-abc"));
+        expect(actual.advokatToken).toBe("adv-token-abc");
+        expect(actual.isAuthenticated).toBe(true);
+        expect(actual.isAuthenticating).toBe(false);
+        expect(actual.error).toBeNull();
+      });
+
+      it("should clear any previous error", () => {
+        const stateWithError = { ...initialState, isAuthenticating: true, error: "auth failed" };
+        const actual = authReducer(stateWithError, advokatAuthenticationSuccess("new-token"));
+        expect(actual.error).toBeNull();
+      });
+    });
+
     describe("validateToken", () => {
       it("should clear expired token", () => {
         const expiredState: IAuthState = {
@@ -384,6 +509,44 @@ describe("authSlice", () => {
     it("selectAuthError should return error message", () => {
       expect(selectAuthError(mockRootState)).toBe("Test error");
       expect(selectAuthError({ auth: initialState })).toBeNull();
+    });
+
+    it("selectRefreshToken should return refresh token", () => {
+      const stateWithRefresh = { auth: { ...initialState, refreshToken: "rt-abc" } };
+      expect(selectRefreshToken(stateWithRefresh)).toBe("rt-abc");
+      expect(selectRefreshToken({ auth: initialState })).toBeNull();
+    });
+
+    describe("Office and Advokat token selectors", () => {
+      const stateWithTokens = {
+        auth: {
+          ...initialState,
+          officeToken: "office-jwt",
+          oid: "oid-456",
+          email: "user@tenant.com",
+          advokatToken: "adv-token-xyz",
+        },
+      };
+
+      it("selectOfficeToken should return the office token", () => {
+        expect(selectOfficeToken(stateWithTokens)).toBe("office-jwt");
+        expect(selectOfficeToken({ auth: initialState })).toBeNull();
+      });
+
+      it("selectOid should return the user oid", () => {
+        expect(selectOid(stateWithTokens)).toBe("oid-456");
+        expect(selectOid({ auth: initialState })).toBeNull();
+      });
+
+      it("selectEmail should return the user email", () => {
+        expect(selectEmail(stateWithTokens)).toBe("user@tenant.com");
+        expect(selectEmail({ auth: initialState })).toBeNull();
+      });
+
+      it("selectAdvokatToken should return the advokat token", () => {
+        expect(selectAdvokatToken(stateWithTokens)).toBe("adv-token-xyz");
+        expect(selectAdvokatToken({ auth: initialState })).toBeNull();
+      });
     });
 
     describe("selectIsTokenValid", () => {
