@@ -79,12 +79,12 @@ jest.mock("@services/WebRTCConnectionManager", () => ({
 }));
 
 // ─── Child component mocks ────────────────────────────────────────────────────
-jest.mock("../Tab", () => ({
+jest.mock("@components/Tab", () => ({
   __esModule: true,
   default: () => <div data-testid="tabs" />,
 }));
 
-jest.mock("../tabs/shared/PairingDialog", () => ({
+jest.mock("@components/tabs/shared/PairingDialog", () => ({
   __esModule: true,
   default: () => <div data-testid="pairing-dialog" />,
 }));
@@ -92,7 +92,7 @@ jest.mock("../tabs/shared/PairingDialog", () => ({
 // ─── Imports ─────────────────────────────────────────────────────────────────
 import * as React from "react";
 import { screen, waitFor } from "@testing-library/react";
-import App from "../App";
+import App from "@components/App";
 import { renderWithProviders } from "./testUtils";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -57,16 +57,16 @@ jest.mock("devextreme-react/tabs", () => {
 });
 
 // ─── Lazy-loaded tab content mocks ───────────────────────────────────────────
-jest.mock("../tabs/service/ServiceTabContent",  () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "service-tab" }); } }));
-jest.mock("../tabs/email/EmailTabContent",      () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "email-tab" }); } }));
-jest.mock("../tabs/person/PersonTabContent",    () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "person-tab" }); } }));
-jest.mock("../tabs/case/CaseTabContent",        () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "case-tab" }); } }));
-jest.mock("../tabs/shared/CacheStatsPanel",     () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "cache-tab" }); } }));
+jest.mock("@components/tabs/service/ServiceTabContent",  () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "service-tab" }); } }));
+jest.mock("@components/tabs/email/EmailTabContent",      () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "email-tab" }); } }));
+jest.mock("@components/tabs/person/PersonTabContent",    () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "person-tab" }); } }));
+jest.mock("@components/tabs/case/CaseTabContent",        () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "case-tab" }); } }));
+jest.mock("@components/tabs/shared/CacheStatsPanel",     () => ({ __esModule: true, default: () => { const R = require("react"); return R.createElement("div", { "data-testid": "cache-tab" }); } }));
 
 import * as React from "react";
 import { screen, fireEvent, act } from "@testing-library/react";
 import { renderWithProviders } from "./testUtils";
-import DevTabs from "../Tab";
+import DevTabs from "@components/Tab";
 
 describe("Tab (DevTabs)", () => {
   // ────────────────────────────────────────────────────────────────────────────

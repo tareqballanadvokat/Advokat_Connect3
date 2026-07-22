@@ -25,7 +25,7 @@ jest.mock("@fluentui/react-components", () => {
 import * as React from "react";
 import { screen, fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "./testUtils";
-import Header, { HeaderProps } from "../Header";
+import Header, { HeaderProps } from "@components/Header";
 
 const defaultProps: HeaderProps = {
   title: "ADVOKAT Add-in",

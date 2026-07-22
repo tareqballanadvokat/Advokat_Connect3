@@ -31,7 +31,7 @@ jest.mock("@services/PairingApiService", () => ({
 import * as React from "react";
 import { screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { renderWithProviders } from "./testUtils";
-import PairingDialog from "../tabs/shared/PairingDialog";
+import PairingDialog from "@components/tabs/shared/PairingDialog";
 
 /** Convenience: render with pairingStatus = 'unpaired' and an Office token */
 function renderUnpaired(overrides: Record<string, unknown> = {}) {
