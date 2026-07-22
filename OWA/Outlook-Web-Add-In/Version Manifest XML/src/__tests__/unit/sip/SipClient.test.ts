@@ -164,15 +164,15 @@ describe("initializeSipClient", () => {
     };
 
     // ── Configure constructors to capture events ───────────────────────────
-    (Registration as jest.Mock).mockImplementation((_tm: any, events: any) => {
+    (Registration as unknown as jest.Mock).mockImplementation((_tm: any, events: any) => {
       capturedRegEvents = events;
       return mockReg;
     });
-    (EstablishingConnection as jest.Mock).mockImplementation((_tm: any, events: any) => {
+    (EstablishingConnection as unknown as jest.Mock).mockImplementation((_tm: any, events: any) => {
       capturedConnEvents = events;
       return mockConn;
     });
-    (Peer2PeerConnection as jest.Mock).mockImplementation((events: any) => {
+    (Peer2PeerConnection as unknown as jest.Mock).mockImplementation((events: any) => {
       capturedP2PEvents = events;
       return mockP2P;
     });
