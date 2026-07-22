@@ -146,7 +146,7 @@ describe("Peer2PeerConnection", () => {
       iceGatheringState:      "new",
       iceConnectionState:     "new",
     };
-    (global.RTCPeerConnection as jest.Mock).mockImplementation(() => mockPc);
+    (global.RTCPeerConnection as unknown as jest.Mock).mockImplementation(() => mockPc);
 
     manager = new TimeoutManager();
     events  = makeEvents();
@@ -335,7 +335,7 @@ describe("Peer2PeerConnection", () => {
 
     it("fires onFailure when SDP block is missing", async () => {
       await setupOfferSent();
-      const noSdpAnswer = buildServiceAnswer().replace(/\{.*\}/s, "no-sdp-here");
+      const noSdpAnswer = buildServiceAnswer().replace(/\{[\s\S]*?\}/, "no-sdp-here");
       await p2p.parseIncomingAnswer(noSdpAnswer);
       expect(events.onFailure).toHaveBeenCalled();
       expect(p2p.getState()).toBe(SdpExchangeState.FAILED);
@@ -343,7 +343,7 @@ describe("Peer2PeerConnection", () => {
 
     it("fires onFailure when SDP JSON is malformed", async () => {
       await setupOfferSent();
-      const malformedAnswer = buildServiceAnswer().replace(/\{.*\}/s, '{"sdp": BROKEN}');
+      const malformedAnswer = buildServiceAnswer().replace(/\{[\s\S]*?\}/, '{"sdp": BROKEN}');
       await p2p.parseIncomingAnswer(malformedAnswer);
       expect(events.onFailure).toHaveBeenCalled();
     });
