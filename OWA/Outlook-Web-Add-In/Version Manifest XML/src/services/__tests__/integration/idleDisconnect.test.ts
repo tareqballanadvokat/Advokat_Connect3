@@ -157,7 +157,7 @@ describe("Integration — Idle Disconnect Flow", () => {
       await jest.advanceTimersByTimeAsync(300); // let disconnect() 100ms timer fire
 
       const state = selectConnectionState(_store.getState() as any);
-      expect(state.disconnectedDueToIdleAt).not.toBeNull();
+      expect(state.idleDisconnectedAt).not.toBeNull();
     });
 
     it("dispatches DISCONNECTED to the store when going idle", async () => {
