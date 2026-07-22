@@ -12,10 +12,10 @@
 |---|---|
 | `OfficeAuthService.ts` | ✅ 22 tests — `extractOid`, `extractEmail`, `getOfficeToken` success + failure paths |
 | `TokenService.ts` | ✅ 17 tests — cached token, refresh, expiry boundary, no Office token, API failure, concurrency |
-| `IdleActivityMonitor.ts` | ❌ not yet implemented |
+| `IdleActivityMonitor.ts` | ✅ 26 tests |
+| `WebRTCDataChannelService.ts` | ✅ 33 tests |
+| `WebRTCConnectionManager.ts` | ✅ 34 tests |
 | `PairingApiService.ts` | ❌ not yet implemented |
-| `WebRTCDataChannelService.ts` | ❌ not yet implemented |
-| `WebRTCConnectionManager.ts` | ❌ not yet implemented |
 
 ---
 
@@ -68,13 +68,13 @@ Call `jest.useFakeTimers()` inside `beforeEach` in those test files and
 ## Test File Locations
 
 ```
-src/services/__tests__/
-├── OfficeAuthService.test.ts   ← ✅ done
-├── TokenService.test.ts        ← ✅ done
-├── IdleActivityMonitor.test.ts
-├── PairingApiService.test.ts
-├── WebRTCDataChannelService.test.ts
-└── WebRTCConnectionManager.test.ts
+src/__tests__/unit/services/
+├── OfficeAuthService.test.ts        ← ✅ done
+├── TokenService.test.ts             ← ✅ done
+├── IdleActivityMonitor.test.ts      ← ✅ done
+├── WebRTCDataChannelService.test.ts ← ✅ done
+├── WebRTCConnectionManager.test.ts  ← ✅ done
+└── PairingApiService.test.ts        ← ❌ not yet implemented
 ```
 
 ---
@@ -85,7 +85,7 @@ src/services/__tests__/
 
 ### `OfficeAuthService` — Complexity: Low ✅ Done
 
-**Test file:** `src/services/__tests__/OfficeAuthService.test.ts` (22 tests)
+**Test file:** `src/__tests__/unit/services/OfficeAuthService.test.ts` (22 tests)
 
 **Key mocking pattern:** spy on `store.dispatch`, use global `OfficeRuntime.auth.getAccessToken` mock from `setupTests.ts`.
 
@@ -131,7 +131,7 @@ describe('OfficeAuthService', () => {
 
 ### `TokenService` — Complexity: Medium ✅ Done
 
-**Test file:** `src/services/__tests__/TokenService.test.ts` (17 tests)
+**Test file:** `src/__tests__/unit/services/TokenService.test.ts` (17 tests)
 
 **Key mocking pattern:** fully mock `@store` at module level (`jest.mock("@store", ...)`) so `mockGetState` and `mockDispatch` are plain jest.fn() — avoids spy-restoration race conditions between tests. Mock `@services/PairingApiService` to intercept the dynamic `await import()` in `_refresh()`.
 
@@ -163,7 +163,9 @@ Use `jest.useFakeTimers()` to control `Date.now()` for expiry boundary tests.
 
 ---
 
-### `IdleActivityMonitor` — Complexity: Medium
+### `IdleActivityMonitor` — Complexity: Medium ✅ Done
+
+**Test file:** `src/__tests__/unit/services/IdleActivityMonitor.test.ts` (26 tests)
 
 **What to test:**
 
@@ -209,7 +211,9 @@ from the existing `testSetup.ts`.
 
 ---
 
-### `WebRTCDataChannelService` — Complexity: Medium
+### `WebRTCDataChannelService` — Complexity: Medium ✅ Done
+
+**Test file:** `src/__tests__/unit/services/WebRTCDataChannelService.test.ts` (33 tests)
 
 **What to test:**
 
@@ -224,7 +228,9 @@ from the existing `testSetup.ts`.
 
 ---
 
-### `WebRTCConnectionManager` — Complexity: High
+### `WebRTCConnectionManager` — Complexity: High ✅ Done
+
+**Test file:** `src/__tests__/unit/services/WebRTCConnectionManager.test.ts` (34 tests)
 
 **What to test:**
 
@@ -253,10 +259,10 @@ jest.mock('@infra/sip/SipClient', () => ({
 
 ```bash
 # Run only service tests
-npm test -- --testPathPattern=src/services
+npm test -- --testPathPattern=src/__tests__/unit/services
 
 # Watch mode
-npm run test:watch -- --testPathPattern=src/services
+npm run test:watch -- --testPathPattern=src/__tests__/unit/services
 
 # With coverage
 npm run test:coverage -- --collectCoverageFrom='src/services/**'

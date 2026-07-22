@@ -27,7 +27,7 @@ All libraries are already installed. The following is a one-time setup.
 
 ### `renderWithProviders` helper
 
-✅ Created at `src/taskpane/components/__tests__/testUtils.tsx`.
+✅ Created at `src/__tests__/unit/components/testUtils.tsx`.
 Wraps any component in a Redux `Provider` seeded with a full test store (all 9 reducers).
 Also add `testUtils.tsx` to `testPathIgnorePatterns` in `jest.config.js` so Jest doesn't treat it as a test suite.
 
@@ -37,7 +37,7 @@ import { render, RenderOptions } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@i18n';
-import { createTestStore } from '@store/slices/__tests__/testSetup';
+import { createTestStore } from '../slices/testSetup';
 
 interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
   preloadedState?: any;
@@ -92,13 +92,13 @@ jest.mock('@services/PairingApiService', () => ({
 ## Test File Locations
 
 ```
-src/taskpane/components/__tests__/
+src/__tests__/unit/components/
 ├── testUtils.tsx               ← shared renderWithProviders helper
-├── App.test.tsx
-├── Header.test.tsx
-├── Tab.test.tsx
-└── tabs/
-    ├── PairingDialog.test.tsx
+├── App.test.tsx                ← ✅ done
+├── Header.test.tsx             ← ✅ done
+├── Tab.test.tsx                ← ✅ done
+├── PairingDialog.test.tsx      ← ✅ done
+└── tabs/                       ← ❌ not yet implemented
     ├── email/
     ├── case/
     ├── person/
@@ -281,7 +281,7 @@ expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ type: '...' 
 
 ```bash
 # Run all component tests
-npm test -- --testPathPattern=src/taskpane/components
+npm test -- --testPathPattern=src/__tests__/unit/components
 
 # Run one component
 npm test -- App.test

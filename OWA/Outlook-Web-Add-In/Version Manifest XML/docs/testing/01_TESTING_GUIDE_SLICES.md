@@ -24,33 +24,43 @@
 
 ```
 src/
-├── setupTests.ts                    # Global test configuration
-├── __mocks__/                       # Mock implementations
-│   ├── styleMock.js                # CSS/LESS/SCSS mock
-│   ├── fileMock.js                 # Image/font file mock
-│   └── devextremeMock.js           # DevExtreme components mock
+├── setupTests.ts                       # Global test configuration
+├── __mocks__/                          # Mock implementations
+│   ├── styleMock.js                   # CSS/LESS/SCSS mock
+│   ├── fileMock.js                    # Image/font file mock
+│   └── devextremeMock.js              # DevExtreme components mock
+├── __tests__/
+│   └── unit/
+│       └── slices/                     # Test files (all 9 slices)
+│           ├── authSlice.test.ts      # ✅ Auth (63 tests)
+│           ├── aktenSlice.test.ts     # ✅ Case/Documents (125 tests)
+│           ├── emailSlice.test.ts     # ✅ Email/Attachments (46 tests)
+│           ├── serviceSlice.test.ts   # ✅ Services (62 tests)
+│           ├── personSlice.test.ts    # ✅ Person search (63 tests)
+│           ├── connectionSlice.test.ts # ✅ SIP/WebRTC connection state (64 tests)
+│           ├── pairingSlice.test.ts   # ✅ Device pairing (23 tests)
+│           ├── loggingSlice.test.ts   # ✅ Logging (22 tests)
+│           ├── languageSlice.test.ts  # ✅ Language (8 tests)
+│           ├── testSetup.ts           # Shared test utilities (store factory, mocks, cleanup)
+│           └── mockFactories.ts       # Mock data factories
 └── store/
     └── slices/
-        ├── __tests__/              # Test files
-        │   ├── authSlice.test.ts   # ✅ Auth slice (316 tests)
-        │   ├── aktenSlice.test.ts  # ✅ Case/Documents (121 tests)
-        │   ├── emailSlice.test.ts  # ✅ Email/Attachments (50 tests)
-        │   ├── serviceSlice.test.ts # ✅ Services (87 tests)
-        │   ├── personSlice.test.ts # ✅ Person search (58 tests)
-        │   ├── testHelpers.ts      # Shared test utilities
-        │   └── testFactories.ts    # Mock data factories
         ├── authSlice.ts
         ├── emailSlice.ts
         ├── aktenSlice.ts
         ├── personSlice.ts
-        └── serviceSlice.ts
+        ├── serviceSlice.ts
+        ├── connectionSlice.ts
+        ├── pairingSlice.ts
+        ├── loggingSlice.ts
+        └── languageSlice.ts
 ```
 
 ---
 
 ## 📊 Test Files Summary
 
-### 1. authSlice.test.ts (316 tests) ✅
+### 1. authSlice.test.ts (63 tests) ✅
 **Purpose**: Authentication state management, credentials, token lifecycle
 
 **Key Features Tested:**
@@ -61,7 +71,7 @@ src/
 
 ---
 
-### 2. aktenSlice.test.ts (121 tests) ✅
+### 2. aktenSlice.test.ts (125 tests) ✅
 **Purpose**: Case (Akt) management, document caching, favorites
 
 **Test Coverage:**
@@ -81,7 +91,7 @@ src/
 
 ---
 
-### 3. emailSlice.test.ts (50 tests) ✅
+### 3. emailSlice.test.ts (46 tests) ✅
 **Purpose**: Email and attachment transfer to Advokat system
 
 **Test Coverage:**
@@ -98,7 +108,7 @@ src/
 
 ---
 
-### 4. serviceSlice.test.ts (87 tests) ✅
+### 4. serviceSlice.test.ts (62 tests) ✅
 **Purpose**: Legal service (Leistung) selection and time tracking
 
 **Test Coverage:**
@@ -115,7 +125,7 @@ src/
 
 ---
 
-### 5. personSlice.test.ts (58 tests) ✅
+### 5. personSlice.test.ts (63 tests) ✅
 **Purpose**: Person/contact search and favorites
 
 **Test Coverage:**
@@ -132,15 +142,45 @@ src/
 
 ---
 
+### 6. connectionSlice.test.ts (64 tests) ✅
+**Purpose**: SIP/WebRTC connection state — registration, call state, ICE candidate type
+
+**Key Features Tested:**
+- SIP client state transitions (registering, connected, failed, disconnected)
+- Reconnect scheduling
+- Idle state tracking
+
+---
+
+### 7. pairingSlice.test.ts (23 tests) ✅
+**Purpose**: Device pairing status and OTP flow
+
+**Key Features Tested:**
+- Pairing status transitions (unpaired → pairing → paired)
+- Pairing error handling
+
+---
+
+### 8. loggingSlice.test.ts (22 tests) ✅
+**Purpose**: In-app logging state
+
+---
+
+### 9. languageSlice.test.ts (8 tests) ✅
+**Purpose**: UI language selection
+
+---
+
 ## 🧪 Shared Test Infrastructure
 
-### testHelpers.ts
+### testSetup.ts
 **Purpose**: Reusable test utilities and mocks
 
 **Exports:**
 - `createTestStore()`: Configure Redux store for testing
 - `createMockAuthState()`: Generate mock auth state
 - `createMockWebRTCService()`: Mock WebRTC API service
+- `createWebRTCConnectionManagerMock()`: Mock WebRTC connection manager
 - `setupDefaultWebRTCMocks()`: Setup default successful API responses
 - `cleanupTests()`: Comprehensive test cleanup (mocks, timers, fetch)
 - `mockFetch()`, `mockFetchError()`: HTTP request mocking
@@ -148,13 +188,12 @@ src/
 
 ---
 
-### testFactories.ts
+### mockFactories.ts
 **Purpose**: Centralized mock data factories
 
 **Exports:**
 - `createMockAkt()`: Mock case/Akt data
 - `createMockDocument()`: Mock document data
-- `createMockCachedAktDocuments()`: Mock cached documents
 - `createMockFolderOption()`: Mock folder options
 - `createMockAttachment()`: Mock email attachments
 - `createMockDokumentPostData()`: Mock document POST data
@@ -162,22 +201,6 @@ src/
 - `createMockLeistungPostData()`: Mock service POST data
 - `createMockPersonLookUp()`: Mock person search result
 - `createMockPersonResponse()`: Mock person details
-
-**Benefits:**
-- Consistent test data across all test files
-- DRY principle - no duplicate mock creation
-- Easy customization with override parameters
-- Type-safe mock generation
-
----
-**Purpose**: Case (Akt) management, document caching, favorites
-
-**Test Coverage:**
-- Reducers: Clear cases, folders, favorites, search state
-- Async Thunks: aktLookUpAsync, getFavoriteAktenAsync, getCaseDocumentsAsync, getEmailDocumentsAsync
-- Document Caching: LRU cache (5 most recent), cache hits/misses
-- Selectors: Cached documents, email documents filtering
-- Branch Coverage: Error handling, API failures, edge cases (75.4% branches)
 
 **Benefits:**
 - Consistent test data across all test files
@@ -278,17 +301,14 @@ coverageThreshold: {
 - **emailSlice.ts**: 95%+ all metrics ✅
 - **serviceSlice.ts**: 95%+ all metrics ✅
 - **personSlice.ts**: 95%+ all metrics ✅
+- **connectionSlice.ts**: 90%+ all metrics ✅
+- **pairingSlice.ts**: 90%+ all metrics ✅
+- **loggingSlice.ts**: 90%+ all metrics ✅
+- **languageSlice.ts**: 90%+ all metrics ✅
 
 **Overall Test Stats:**
-- **Test Suites**: 5 passed
-- **Total Tests**: 632 passing
-- **Execution Time**: ~3-4 seconds
-
----
-
-**Overall Test Stats:**
-- **Test Suites**: 5 passed
-- **Total Tests**: 632 passing
+- **Test Suites**: 9 passed
+- **Total Tests**: 476 passing
 - **Execution Time**: ~3-4 seconds
 
 ---
@@ -387,65 +407,13 @@ it('should handle error without custom message', async () => {
 
 ---
 
-```
-
----
-
 ## 🛠️ Test Infrastructure Details
 
 ### Jest Configuration (jest.config.js)
 
-```javascript
-module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'jsdom',
-  
-  // Test file patterns
-  testMatch: [
-    '**/__tests__/**/*.+(ts|tsx|js)',
-    '**/?(*.)+(spec|test).+(ts|tsx|js)'
-  ],
-  
-  // Exclude helper files from being run as tests
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    'testFactories.ts',
-    'testHelpers.ts'
-  ],
-  
-  // Coverage collection
-  collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/*.test.{ts,tsx}',
-    '!src/**/*.spec.{ts,tsx}',
-    '!src/__tests__/**',
-    '!src/__mocks__/**',
-    '!src/commands/**',
-    '!src/**/testHelpers.ts',
-    '!src/**/testFactories.ts',
-  ],
-  
-  // Coverage thresholds (tests fail if below)
-  coverageThreshold: {
-    global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70
-    }
-  },
-  
-  // Module path aliases
-  moduleNameMapper: {
-    '^@store/(.*)$': '<rootDir>/src/store/$1',
-    '^@components/(.*)$': '<rootDir>/src/taskpane/components/$1',
-    '^@utils/(.*)$': '<rootDir>/src/taskpane/utils/$1',
-    '\\.(css|less|scss|sass)$': '<rootDir>/src/__mocks__/styleMock.js',
-    'devextreme': '<rootDir>/src/__mocks__/devextremeMock.js'
-  }
-};
-```
+See the project root `jest.config.js` for the current, authoritative configuration
+(path aliases, `testPathIgnorePatterns` for helper files, coverage thresholds, etc.).
+Test files live under `src/__tests__/{unit,integration}/`.
 
 ### Global Test Setup (setupTests.ts)
 
@@ -480,18 +448,14 @@ src/__mocks__/
 
 ---
 
-```
-
----
-
 ## 📝 Writing New Tests
 
 ### Step-by-Step Guide
 
 **1. Create Test File**
 ```bash
-# Create in __tests__ directory
-src/store/slices/__tests__/yourSlice.test.ts
+# Create in src/__tests__/unit/slices/
+src/__tests__/unit/slices/yourSlice.test.ts
 ```
 
 **2. Import Dependencies**
@@ -501,9 +465,9 @@ import sliceReducer, {
   action2,
   selector1,
   asyncThunk1,
-} from '../yourSlice';
-import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from '../testHelpers';
-import { createMockData } from './testFactories';
+} from '@slices/yourSlice';
+import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from './testSetup';
+import { createMockData } from './mockFactories';
 
 const mockWebRTCService = createMockWebRTCService();
 
@@ -716,34 +680,42 @@ Start-Process "coverage/lcov-report/index.html"
 
 ### Project-Specific
 - `WEBRTC_ERROR_HANDLING_TESTS.md` - WebRTC error testing guide
-- `testHelpers.ts` - Inline documentation for utilities
-- `testFactories.ts` - Factory function documentation
+- `testSetup.ts` - Inline documentation for utilities
+- `mockFactories.ts` - Factory function documentation
 
 ---
 
 ## ✨ Test Results Summary
 
 ```
-PASS  src/store/slices/__tests__/authSlice.test.ts
-PASS  src/store/slices/__tests__/aktenSlice.test.ts
-PASS  src/store/slices/__tests__/emailSlice.test.ts
-PASS  src/store/slices/__tests__/serviceSlice.test.ts
-PASS  src/store/slices/__tests__/personSlice.test.ts
+PASS  src/__tests__/unit/slices/authSlice.test.ts
+PASS  src/__tests__/unit/slices/aktenSlice.test.ts
+PASS  src/__tests__/unit/slices/emailSlice.test.ts
+PASS  src/__tests__/unit/slices/serviceSlice.test.ts
+PASS  src/__tests__/unit/slices/personSlice.test.ts
+PASS  src/__tests__/unit/slices/connectionSlice.test.ts
+PASS  src/__tests__/unit/slices/pairingSlice.test.ts
+PASS  src/__tests__/unit/slices/loggingSlice.test.ts
+PASS  src/__tests__/unit/slices/languageSlice.test.ts
 
-Test Suites: 5 passed, 5 total
-Tests:       632 passed, 632 total
+Test Suites: 9 passed, 9 total
+Tests:       476 passed, 476 total
 Snapshots:   0 total
 Time:        3-4s
 ```
 
 **Coverage Summary:**
-| Slice         | Statements | Branches | Functions | Lines |
-|--------------|-----------|----------|-----------|-------|
-| authSlice    | 100%      | 100%     | 100%      | 100%  |
-| aktenSlice   | 98.96%    | 75.4%    | 100%      | 98.83%|
-| emailSlice   | 95%+      | 90%+     | 100%      | 95%+  |
-| serviceSlice | 95%+      | 90%+     | 100%      | 95%+  |
-| personSlice  | 95%+      | 90%+     | 100%      | 95%+  |
+| Slice          | Statements | Branches | Functions | Lines |
+|----------------|-----------|----------|-----------|-------|
+| authSlice      | 100%      | 100%     | 100%      | 100%  |
+| aktenSlice     | 98.96%    | 75.4%    | 100%      | 98.83%|
+| emailSlice     | 95%+      | 90%+     | 100%      | 95%+  |
+| serviceSlice   | 95%+      | 90%+     | 100%      | 95%+  |
+| personSlice    | 95%+      | 90%+     | 100%      | 95%+  |
+| connectionSlice| 90%+      | 85%+     | 100%      | 90%+  |
+| pairingSlice   | 90%+      | 85%+     | 100%      | 90%+  |
+| loggingSlice   | 90%+      | 85%+     | 100%      | 90%+  |
+| languageSlice  | 90%+      | 85%+     | 100%      | 90%+  |
 
 **Status**: ✅ All Redux Slices Fully Tested
 
@@ -754,7 +726,7 @@ Time:        3-4s
 **Questions about tests?**
 1. Check this guide first
 2. Review existing test files as examples
-3. Check inline comments in `testHelpers.ts` and `testFactories.ts`
+3. Check inline comments in `testSetup.ts` and `mockFactories.ts`
 4. Review Jest/Testing Library documentation
 
 **Found a bug in tests?**
@@ -764,7 +736,7 @@ Time:        3-4s
 4. Run with `--verbose` flag for detailed output
 
 **Need to add new mocks?**
-1. Add to `testHelpers.ts` for reusable mocks
-2. Add to `testFactories.ts` for data factories
+1. Add to `testSetup.ts` for reusable mocks
+2. Add to `mockFactories.ts` for data factories
 3. Add to `setupTests.ts` for global mocks
 4. Document usage with JSDoc comments

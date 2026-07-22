@@ -10,27 +10,30 @@
 
 | File | Status | Complexity |
 |---|---|---|
-| `MessageFactory.ts` | ✅ 21 tests — all four message types, header and body assertions | Low |
+| `MessageFactory.ts` | ✅ 44 tests — all message types, header and body assertions | Low |
 | `Helper.ts` | ✅ 15 tests — string / ArrayBuffer / Blob paths, contentLength | Low |
-| `TimeoutManager.ts` | ✅ 36 tests — start, cancel, cancelAll, reset, queries, stats | Low |
-| `Registration.ts` | ❌ not yet implemented | Medium |
-| `EstablishingConnection.ts` | ❌ not yet implemented | Medium |
-| `Peer2PeerConnection.ts` | ❌ not yet implemented | High |
-| `SipClient.ts` | ❌ not yet implemented | High |
+| `TimeoutManager.ts` | ✅ 33 tests — start, cancel, cancelAll, reset, queries, stats | Low |
+| `Registration.ts` | ✅ 30 tests | Medium |
+| `EstablishingConnection.ts` | ✅ 31 tests | Medium |
+| `Peer2PeerConnection.ts` | ✅ 46 tests | High |
+| `SipClient.ts` | ✅ 38 tests | High |
+
+All 7 files are covered — 237 tests total.
 
 ---
 
-## Recommended Implementation Order
+## Implementation Order (completed)
 
-Start with the low-complexity, dependency-free files first:
+The low-complexity, dependency-free files were done first, then the WebSocket-
+and RTCPeerConnection-dependent files:
 
-1. `MessageFactory` — ✅ done (`src/infrastructure/sip/__tests__/MessageFactory.test.ts`)
-2. `Helper` — ✅ done (`src/infrastructure/sip/__tests__/Helper.test.ts`)
-3. `TimeoutManager` — ✅ done (`src/infrastructure/sip/__tests__/TimeoutManager.test.ts`)
-4. `Registration` — needs WebSocket mock
-5. `EstablishingConnection` — needs WebSocket mock
-6. `Peer2PeerConnection` — needs WebSocket + RTCPeerConnection mocks
-7. `SipClient` — orchestrates all phases, needs full mock set
+1. `MessageFactory` — ✅ done (`src/__tests__/unit/sip/MessageFactory.test.ts`)
+2. `Helper` — ✅ done (`src/__tests__/unit/sip/Helper.test.ts`)
+3. `TimeoutManager` — ✅ done (`src/__tests__/unit/sip/TimeoutManager.test.ts`)
+4. `Registration` — ✅ done (`src/__tests__/unit/sip/Registration.test.ts`)
+5. `EstablishingConnection` — ✅ done (`src/__tests__/unit/sip/EstablishingConnection.test.ts`)
+6. `Peer2PeerConnection` — ✅ done (`src/__tests__/unit/sip/Peer2PeerConnection.test.ts`)
+7. `SipClient` — ✅ done (`src/__tests__/unit/sip/SipClient.test.ts`)
 
 > **Note:** `TextEncoder` / `TextDecoder` polyfills and `Blob.text()` workaround
 > were added to `src/setupTests.ts` while writing Helper tests.
@@ -98,7 +101,7 @@ global.RTCPeerConnection = jest.fn().mockImplementation(() => ({
 ## Test File Locations
 
 ```
-src/infrastructure/sip/__tests__/
+src/__tests__/unit/sip/
 ├── MessageFactory.test.ts
 ├── Helper.test.ts
 ├── TimeoutManager.test.ts
@@ -194,7 +197,9 @@ it('should not fire if cancelled before delay', () => {
 
 ---
 
-### `Registration` — Complexity: Medium
+### `Registration` — Complexity: Medium ✅ Done
+
+**Test file:** `src/__tests__/unit/sip/Registration.test.ts` (30 tests)
 
 **State transitions to test:**
 
@@ -224,7 +229,9 @@ ws.simulateMessage('SIP/2.0 200 OK\r\n...');
 
 ---
 
-### `EstablishingConnection` — Complexity: Medium
+### `EstablishingConnection` — Complexity: Medium ✅ Done
+
+**Test file:** `src/__tests__/unit/sip/EstablishingConnection.test.ts` (31 tests)
 
 **State transitions to test:**
 
@@ -244,7 +251,9 @@ IDLE → WAITING_FOR_NOTIFY → ACKNOWLEDGED → CONNECTED
 
 ---
 
-### `Peer2PeerConnection` — Complexity: High
+### `Peer2PeerConnection` — Complexity: High ✅ Done
+
+**Test file:** `src/__tests__/unit/sip/Peer2PeerConnection.test.ts` (46 tests)
 
 **What to test:**
 
@@ -259,7 +268,9 @@ IDLE → WAITING_FOR_NOTIFY → ACKNOWLEDGED → CONNECTED
 
 ---
 
-### `SipClient` — Complexity: High
+### `SipClient` — Complexity: High ✅ Done
+
+**Test file:** `src/__tests__/unit/sip/SipClient.test.ts` (38 tests)
 
 Tests the full 3-phase orchestration:
 **Registration → EstablishingConnection → Peer2PeerConnection**
@@ -295,10 +306,10 @@ registrationInstance.callbacks.onSuccess(); // simulate success
 
 ```bash
 # Run only SIP tests
-npm test -- --testPathPattern=src/infrastructure/sip
+npm test -- --testPathPattern=src/__tests__/unit/sip
 
 # Watch mode
-npm run test:watch -- --testPathPattern=src/infrastructure/sip
+npm run test:watch -- --testPathPattern=src/__tests__/unit/sip
 
 # With coverage
 npm run test:coverage -- --collectCoverageFrom='src/infrastructure/sip/**'

@@ -27,12 +27,12 @@ Redux store and is subsequently used by `TokenService` when making API calls.
 
 ## Can Start Immediately?
 
-| Scenario | Ready now? | Blocker |
-|---|---|---|
-| Token refresh flow | ✅ Yes | None |
-| Pairing flow | ✅ Yes | None |
-| Idle disconnect | ⚠️ Partial | Needs `IdleActivityMonitor` unit work done first |
-| SIP + Redux sync | ⚠️ Partial | Needs WebSocket mock from [SIP guide](./03_TESTING_GUIDE_SIP.md) |
+| Scenario | Status |
+|---|---|
+| Token refresh flow | ✅ Done (9 tests) |
+| Pairing flow | ✅ Done (13 tests) |
+| Idle disconnect | ✅ Done (8 tests) |
+| SIP + Redux sync | ❌ Not yet implemented |
 
 ---
 
@@ -67,7 +67,7 @@ afterAll(() => server.close());
 
 ---
 
-### Scenario 1 — Token Refresh Flow
+### Scenario 1 — Token Refresh Flow ✅ Done
 
 **Units involved:** `OfficeAuthService` → `TokenService` → `authSlice`
 
@@ -78,7 +78,7 @@ afterAll(() => server.close());
 4. Dispatches `authenticationSuccess` to Redux
 5. Returns new token to the caller
 
-**Test file:** `src/services/__tests__/integration/tokenRefreshFlow.test.ts`
+**Test file:** `src/__tests__/integration/tokenRefreshFlow.test.ts`
 
 ```typescript
 it('should refresh token when near expiry and update Redux', async () => {
@@ -106,7 +106,7 @@ it('should refresh token when near expiry and update Redux', async () => {
 
 ---
 
-### Scenario 2 — Pairing Flow
+### Scenario 2 — Pairing Flow ✅ Done
 
 **Units involved:** `PairingApiService` → `pairingSlice` → `App` component
 
@@ -116,7 +116,7 @@ it('should refresh token when near expiry and update Redux', async () => {
 3. On success, `pairingSlice` is updated to `'paired'`
 4. `App` re-renders and shows the main tab navigation
 
-**Test file:** `src/services/__tests__/integration/pairingFlow.test.ts`
+**Test file:** `src/__tests__/integration/pairingFlow.test.ts`
 
 ```typescript
 it('should update pairing state and re-render App after successful pairing', async () => {
@@ -144,7 +144,7 @@ it('should update pairing state and re-render App after successful pairing', asy
 
 ---
 
-### Scenario 3 — Idle Disconnect
+### Scenario 3 — Idle Disconnect ✅ Done
 
 **Units involved:** `IdleActivityMonitor` → `WebRTCConnectionManager` → `connectionSlice`
 
@@ -155,8 +155,7 @@ it('should update pairing state and re-render App after successful pairing', asy
 4. `WebRTCConnectionManager` calls `disconnect()`
 5. Redux `connectionSlice` is updated with `isIdle: true` and disconnected state
 
-**Prerequisites:** `IdleActivityMonitor` unit tests done first (see
-[Services Guide](./02_TESTING_GUIDE_SERVICES.md)).
+**Test file:** `src/__tests__/integration/idleDisconnect.test.ts` (8 tests)
 
 ```typescript
 beforeEach(() => { jest.useFakeTimers(); });
@@ -213,21 +212,12 @@ it('should reach CONNECTED state after successful SIP handshake', async () => {
 ## Test File Structure
 
 ```
-src/
-└── __integration__/
-    ├── tokenRefreshFlow.test.ts
-    ├── pairingFlow.test.ts
-    ├── idleDisconnect.test.ts
-    └── sipReduxSync.test.ts
+src/__tests__/integration/
+├── tokenRefreshFlow.test.ts   ← ✅ done (9 tests)
+├── pairingFlow.test.ts        ← ✅ done (13 tests)
+├── idleDisconnect.test.ts     ← ✅ done (8 tests)
+└── sipReduxSync.test.ts       ← ❌ not yet implemented
 ```
-
-Or co-locate alongside the primary service being tested:
-```
-src/services/__tests__/integration/
-```
-
-Update `jest.config.js` `testMatch` to pick up the `__integration__` folder
-if you use the top-level location.
 
 ---
 
@@ -235,11 +225,11 @@ if you use the top-level location.
 
 ```bash
 # Run only integration tests
-npm test -- --testPathPattern=__integration__
+npm test -- --testPathPattern=src/__tests__/integration
 
 # Run alongside unit tests
 npm test
 
 # With verbose output (useful for multi-step flows)
-npm run test:verbose -- --testPathPattern=__integration__
+npm run test:verbose -- --testPathPattern=src/__tests__/integration
 ```
