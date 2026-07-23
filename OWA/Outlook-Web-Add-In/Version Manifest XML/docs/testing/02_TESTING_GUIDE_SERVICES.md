@@ -10,12 +10,12 @@
 
 | File | Status |
 |---|---|
-| `TokenService.ts` | ❌ not yet implemented |
-| `OfficeAuthService.ts` | ❌ not yet implemented |
-| `IdleActivityMonitor.ts` | ❌ not yet implemented |
-| `PairingApiService.ts` | ❌ not yet implemented |
-| `WebRTCDataChannelService.ts` | ❌ not yet implemented |
-| `WebRTCConnectionManager.ts` | ❌ not yet implemented |
+| `OfficeAuthService.ts` | ✅ 22 tests — `extractOid`, `extractEmail`, `getOfficeToken` success + failure paths |
+| `TokenService.ts` | ✅ 17 tests — cached token, refresh, expiry boundary, no Office token, API failure, concurrency |
+| `IdleActivityMonitor.ts` | ✅ 26 tests |
+| `WebRTCDataChannelService.ts` | ✅ 33 tests |
+| `WebRTCConnectionManager.ts` | ✅ 34 tests |
+| `PairingApiService.ts` | ✅ 14 tests — `exchangeOfficeToken` delegation, `pair` + `checkServerId` success/error/network/parse paths |
 
 ---
 
@@ -27,7 +27,7 @@ needed before writing service tests.
 ### 1. Global `OfficeRuntime` mock
 
 `OfficeAuthService` calls `OfficeRuntime.auth.getAccessToken()`.  
-Add this to `src/setupTests.ts`:
+✅ Already added to `src/setupTests.ts`:
 
 ```typescript
 global.OfficeRuntime = {
@@ -68,13 +68,13 @@ Call `jest.useFakeTimers()` inside `beforeEach` in those test files and
 ## Test File Locations
 
 ```
-src/services/__tests__/
-├── TokenService.test.ts
-├── OfficeAuthService.test.ts
-├── IdleActivityMonitor.test.ts
-├── PairingApiService.test.ts
-├── WebRTCDataChannelService.test.ts
-└── WebRTCConnectionManager.test.ts
+src/__tests__/unit/services/
+├── OfficeAuthService.test.ts        ← ✅ done
+├── TokenService.test.ts             ← ✅ done
+├── IdleActivityMonitor.test.ts      ← ✅ done
+├── WebRTCDataChannelService.test.ts ← ✅ done
+├── WebRTCConnectionManager.test.ts  ← ✅ done
+└── PairingApiService.test.ts        ← ✅ done
 ```
 
 ---
@@ -83,7 +83,11 @@ src/services/__tests__/
 
 ---
 
-### `OfficeAuthService` — Complexity: Low
+### `OfficeAuthService` — Complexity: Low ✅ Done
+
+**Test file:** `src/__tests__/unit/services/OfficeAuthService.test.ts` (22 tests)
+
+**Key mocking pattern:** spy on `store.dispatch`, use global `OfficeRuntime.auth.getAccessToken` mock from `setupTests.ts`.
 
 **What to test:**
 
@@ -125,7 +129,11 @@ describe('OfficeAuthService', () => {
 
 ---
 
-### `TokenService` — Complexity: Medium
+### `TokenService` — Complexity: Medium ✅ Done
+
+**Test file:** `src/__tests__/unit/services/TokenService.test.ts` (17 tests)
+
+**Key mocking pattern:** fully mock `@store` at module level (`jest.mock("@store", ...)`) so `mockGetState` and `mockDispatch` are plain jest.fn() — avoids spy-restoration race conditions between tests. Mock `@services/PairingApiService` to intercept the dynamic `await import()` in `_refresh()`.
 
 **What to test:**
 
@@ -155,7 +163,9 @@ Use `jest.useFakeTimers()` to control `Date.now()` for expiry boundary tests.
 
 ---
 
-### `IdleActivityMonitor` — Complexity: Medium
+### `IdleActivityMonitor` — Complexity: Medium ✅ Done
+
+**Test file:** `src/__tests__/unit/services/IdleActivityMonitor.test.ts` (26 tests)
 
 **What to test:**
 
@@ -186,22 +196,32 @@ it('should fire onIdle after timeout', () => {
 
 ---
 
-### `PairingApiService` — Complexity: Low
+### `PairingApiService` — Complexity: Low ✅ Done
+
+**Test file:** `src/__tests__/unit/services/PairingApiService.test.ts` (14 tests)
+
+**Key mocking pattern:** mock `@store` (dispatch spy) and `@services/webRTCApiService`
+(for `exchangeOfficeToken`'s dependency); stub `global.fetch` per test with
+`jest.fn()` for `pair()` / `checkServerId()`.
 
 **What to test:**
 
 | Scenario | Assertion |
 |---|---|
-| Successful pairing request | Returns expected response body |
-| HTTP 4xx response | Throws or returns error state |
-| Network failure | Error propagated correctly |
-
-Mock `fetch` via `jest.spyOn(global, 'fetch')` or use the `mockFetch` helper
-from the existing `testSetup.ts`.
+| `exchangeOfficeToken()` | Delegates to `webRTCApiService.sendAuthMessage`, returns its result |
+| `pair()` success | Dispatches `setPairingChecking` then `setPaired`, returns body |
+| `pair()` network error | Dispatches `setPairingError`, rethrows |
+| `pair()` non-ok response | Dispatches `setPairingError`, throws |
+| `pair()` invalid JSON / missing `advokatServerId` | Dispatches `setPairingError`, throws |
+| `checkServerId()` success | Dispatches `setPairingChecking` then `setPaired`, returns body |
+| `checkServerId()` 404 | Dispatches `setUnpaired`, returns `null` |
+| `checkServerId()` network error / non-ok / invalid JSON / missing field | Dispatches `setPairingError`, throws |
 
 ---
 
-### `WebRTCDataChannelService` — Complexity: Medium
+### `WebRTCDataChannelService` — Complexity: Medium ✅ Done
+
+**Test file:** `src/__tests__/unit/services/WebRTCDataChannelService.test.ts` (33 tests)
 
 **What to test:**
 
@@ -216,7 +236,9 @@ from the existing `testSetup.ts`.
 
 ---
 
-### `WebRTCConnectionManager` — Complexity: High
+### `WebRTCConnectionManager` — Complexity: High ✅ Done
+
+**Test file:** `src/__tests__/unit/services/WebRTCConnectionManager.test.ts` (34 tests)
 
 **What to test:**
 
@@ -245,10 +267,10 @@ jest.mock('@infra/sip/SipClient', () => ({
 
 ```bash
 # Run only service tests
-npm test -- --testPathPattern=src/services
+npm test -- --testPathPattern=src/__tests__/unit/services
 
 # Watch mode
-npm run test:watch -- --testPathPattern=src/services
+npm run test:watch -- --testPathPattern=src/__tests__/unit/services
 
 # With coverage
 npm run test:coverage -- --collectCoverageFrom='src/services/**'

@@ -2,6 +2,23 @@
 // Setup file for Jest tests
 import "@testing-library/jest-dom";
 
+// Polyfill TextEncoder / TextDecoder (needed by Helper and MessageFactory tests)
+import { TextEncoder, TextDecoder } from "util";
+global.TextEncoder = TextEncoder as any;
+global.TextDecoder = TextDecoder as any;
+
+// Polyfill Blob.text() — not present in older jsdom versions
+if (typeof Blob !== "undefined" && !Blob.prototype.text) {
+  Blob.prototype.text = function (): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new (global as any).FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsText(this);
+    });
+  };
+}
+
 // Mock Office.js global object
 global.Office = {
   context: {
@@ -28,6 +45,13 @@ global.Office = {
   },
   initialize: jest.fn(),
   onReady: jest.fn(() => Promise.resolve()),
+} as any;
+
+// Mock OfficeRuntime (used by OfficeAuthService for SSO token acquisition)
+global.OfficeRuntime = {
+  auth: {
+    getAccessToken: jest.fn(),
+  },
 } as any;
 
 // Mock WebSocket

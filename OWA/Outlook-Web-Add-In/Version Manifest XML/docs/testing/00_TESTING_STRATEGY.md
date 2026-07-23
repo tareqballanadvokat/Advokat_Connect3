@@ -7,12 +7,14 @@ Each section summarises a test type and links to its dedicated guide.
 
 | Guide | Scope | Status |
 |---|---|---|
-| [01_TESTING_GUIDE_SLICES.md](./01_TESTING_GUIDE_SLICES.md) | Unit tests — Redux slices | ✅ 476 tests passing |
-| [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ❌ Not started |
-| [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ❌ Not started |
-| [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ❌ Not started |
-| [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ❌ Not started |
+| [01_TESTING_GUIDE_SLICES.md](./01_TESTING_GUIDE_SLICES.md) | Unit tests — Redux slices | ✅ 476 tests passing (all 9 slices) |
+| [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ✅ 146 tests passing (all 6 services) |
+| [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ✅ 237 tests passing (all 7 files) |
+| [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ✅ 73 tests passing (App, Header, Tab, PairingDialog, all 4 tab panels) |
+| [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ✅ 32 tests passing (token, pairing, idle, SIP+Redux sync) |
 | [06_TESTING_GUIDE_E2E.md](./06_TESTING_GUIDE_E2E.md) | End-to-end tests (Playwright) | ❌ Not started |
+
+Total: **964 tests passing** across 34 suites (`npx jest`).
 
 ---
 
@@ -44,9 +46,10 @@ npm run test:watch        # watch mode
 ## 1. Unit Tests — Redux Slices
 
 Pure reducer logic, action creators, selectors, and async thunks tested in complete isolation.
-Six slices are fully covered (632 tests). Three slices are still missing: `pairingSlice`, `loggingSlice`, `languageSlice`.
+All 9 slices are fully covered (476 tests): `authSlice`, `aktenSlice`, `emailSlice`, `serviceSlice`,
+`personSlice`, `connectionSlice`, `pairingSlice`, `loggingSlice`, `languageSlice`.
 
-**Can start immediately: ✅ Yes** — all infrastructure is in place.
+**Status: ✅ Done**
 
 → **[Full guide: 01_TESTING_GUIDE_SLICES.md](./01_TESTING_GUIDE_SLICES.md)**
 
@@ -55,10 +58,12 @@ Six slices are fully covered (632 tests). Three slices are still missing: `pairi
 ## 2. Unit Tests — Services
 
 Business logic classes in `src/services/` tested in isolation. All external
-dependencies (Redux store, Office API, WebRTC, network) are mocked.  
-Requires a one-time `OfficeRuntime` global mock and WebRTC global stubs in `setupTests.ts`.
+dependencies (Redux store, Office API, WebRTC, network) are mocked.
+All 6 services are covered (146 tests): `OfficeAuthService`, `TokenService`,
+`IdleActivityMonitor`, `WebRTCDataChannelService`, `WebRTCConnectionManager`,
+`PairingApiService`.
 
-**Can start immediately: ✅ Yes**
+**Status: ✅ Done**
 
 → **[Full guide: 02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md)**
 
@@ -67,10 +72,10 @@ Requires a one-time `OfficeRuntime` global mock and WebRTC global stubs in `setu
 ## 3. Unit Tests — SIP Infrastructure
 
 The SIP protocol state-machine in `src/infrastructure/sip/` tested in isolation.
-Start with `MessageFactory`, `Helper`, `TimeoutManager` (no mocks needed).
-Higher-complexity files need a global `WebSocket` mock class.
+All 7 files are covered (237 tests): `MessageFactory`, `Helper`, `TimeoutManager`,
+`Registration`, `EstablishingConnection`, `Peer2PeerConnection`, `SipClient`.
 
-**Can start immediately: ✅ Yes** (low-complexity files) / ⚠️ Partial (SipClient, Peer2PeerConnection)
+**Status: ✅ Done**
 
 → **[Full guide: 03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md)**
 
@@ -79,10 +84,11 @@ Higher-complexity files need a global `WebSocket` mock class.
 ## 4. Component Tests (React Testing Library)
 
 React components in `src/taskpane/components/` rendered with a real Redux store and
-i18n provider. Requires a shared `renderWithProviders` helper (one-time setup).
-All tooling (`@testing-library/react`, `@testing-library/jest-dom`) is already installed.
+i18n provider, via the shared `renderWithProviders` helper.
+`App`, `Header`, `Tab`, `PairingDialog`, and all 4 tab panels (`tabs/email`,
+`tabs/case`, `tabs/person`, `tabs/service`) are covered (73 tests).
 
-**Can start immediately: ✅ Yes**
+**Status: ✅ Done**
 
 → **[Full guide: 04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md)**
 
@@ -91,10 +97,12 @@ All tooling (`@testing-library/react`, `@testing-library/jest-dom`) is already i
 ## 5. Integration Tests
 
 Multiple real units wired together — only the Office API, `fetch`, and `WebSocket`
-are mocked. Key scenarios: token refresh flow, pairing flow, idle disconnect, SIP + Redux sync.
-The token and pairing scenarios can start now; SIP integration needs WebSocket mock work first.
+are mocked. All 4 key scenarios are covered: token refresh flow, pairing flow,
+idle disconnect, and SIP + Redux sync (the last one drives the real SipClient/
+Registration/EstablishingConnection/Peer2PeerConnection chain through a full
+handshake via a hand-driven mock WebSocket/RTCPeerConnection).
 
-**Can start immediately: ⚠️ Partially**
+**Status: ✅ Done**
 
 → **[Full guide: 05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md)**
 
@@ -112,19 +120,11 @@ Significant infrastructure investment — start after unit and component coverag
 
 ---
 
-## Recommended Implementation Order
+## Remaining Work
+
+Slices, services, SIP infrastructure, components, and all 4 integration scenarios are
+fully covered. What's left:
 
 | Step | What | Guide | Effort |
 |---|---|---|---|
-| 1 | `pairingSlice` unit test | [Slices](./01_TESTING_GUIDE_SLICES.md) | Small |
-| 2 | `OfficeAuthService` unit test | [Services](./02_TESTING_GUIDE_SERVICES.md) | Small |
-| 3 | `TokenService` unit test | [Services](./02_TESTING_GUIDE_SERVICES.md) | Small–Medium |
-| 4 | `MessageFactory` + `Helper` + `TimeoutManager` | [SIP](./03_TESTING_GUIDE_SIP.md) | Small |
-| 5 | `renderWithProviders` helper + `App.tsx` component test | [Components](./04_TESTING_GUIDE_COMPONENTS.md) | Medium |
-| 6 | Remaining component tests (tabs) | [Components](./04_TESTING_GUIDE_COMPONENTS.md) | Medium per tab |
-| 7 | `IdleActivityMonitor` unit test | [Services](./02_TESTING_GUIDE_SERVICES.md) | Medium |
-| 8 | `WebRTCDataChannelService` unit test | [Services](./02_TESTING_GUIDE_SERVICES.md) | Medium |
-| 9 | `Registration` + `EstablishingConnection` unit tests | [SIP](./03_TESTING_GUIDE_SIP.md) | Medium |
-| 10 | `WebRTCConnectionManager` unit test | [Services](./02_TESTING_GUIDE_SERVICES.md) | High |
-| 11 | Integration tests (token, pairing, idle) | [Integration](./05_TESTING_GUIDE_INTEGRATION.md) | Medium |
-| 12 | E2E tests | [E2E](./06_TESTING_GUIDE_E2E.md) | High |
+| 1 | E2E tests | [E2E](./06_TESTING_GUIDE_E2E.md) | High |

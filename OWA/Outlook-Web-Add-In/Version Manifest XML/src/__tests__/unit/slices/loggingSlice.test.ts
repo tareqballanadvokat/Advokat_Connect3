@@ -36,12 +36,13 @@ import loggingReducer, {
   setLogLevel,
   ILoggingState,
 } from "@slices/loggingSlice";
+import { LogLevel } from "@config/types";
 
 describe("loggingSlice", () => {
   // The initial state is derived from the mocked configService above
   const initialState: ILoggingState = {
     enabled: false,
-    level: "warn",
+    level: LogLevel.WARN,
   };
 
   beforeEach(() => {
@@ -66,23 +67,23 @@ describe("loggingSlice", () => {
     it("should set enabled and level from payload", () => {
       const state = loggingReducer(
         initialState,
-        initializeLogging({ enabled: true, level: "debug" })
+        initializeLogging({ enabled: true, level: LogLevel.DEBUG })
       );
       expect(state.enabled).toBe(true);
       expect(state.level).toBe("debug");
     });
 
     it("should sync the logger instance with the new config", () => {
-      loggingReducer(initialState, initializeLogging({ enabled: true, level: "info" }));
+      loggingReducer(initialState, initializeLogging({ enabled: true, level: LogLevel.INFO }));
       expect(mockLogger.updateConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ enabled: true, level: "info" })
+        expect.objectContaining({ enabled: true, level: LogLevel.INFO })
       );
     });
 
     it("should initialize with logging disabled", () => {
       const state = loggingReducer(
         initialState,
-        initializeLogging({ enabled: false, level: "error" })
+        initializeLogging({ enabled: false, level: LogLevel.ERROR })
       );
       expect(state.enabled).toBe(false);
       expect(state.level).toBe("error");
@@ -95,27 +96,27 @@ describe("loggingSlice", () => {
 
   describe("toggleLogging", () => {
     it("should enable logging when currently disabled", () => {
-      const state = loggingReducer({ enabled: false, level: "warn" }, toggleLogging());
+      const state = loggingReducer({ enabled: false, level: LogLevel.WARN }, toggleLogging());
       expect(state.enabled).toBe(true);
     });
 
     it("should disable logging when currently enabled", () => {
-      const state = loggingReducer({ enabled: true, level: "warn" }, toggleLogging());
+      const state = loggingReducer({ enabled: true, level: LogLevel.WARN }, toggleLogging());
       expect(state.enabled).toBe(false);
     });
 
     it("should call logger.enable() when toggling on", () => {
-      loggingReducer({ enabled: false, level: "warn" }, toggleLogging());
+      loggingReducer({ enabled: false, level: LogLevel.WARN }, toggleLogging());
       expect(mockLogger.enable).toHaveBeenCalledTimes(1);
     });
 
     it("should call logger.disable() when toggling off", () => {
-      loggingReducer({ enabled: true, level: "warn" }, toggleLogging());
+      loggingReducer({ enabled: true, level: LogLevel.WARN }, toggleLogging());
       expect(mockLogger.disable).toHaveBeenCalledTimes(1);
     });
 
     it("should preserve the log level when toggling", () => {
-      const state = loggingReducer({ enabled: false, level: "debug" }, toggleLogging());
+      const state = loggingReducer({ enabled: false, level: LogLevel.DEBUG }, toggleLogging());
       expect(state.level).toBe("debug");
     });
   });
@@ -126,7 +127,7 @@ describe("loggingSlice", () => {
 
   describe("enableLogging", () => {
     it("should set enabled to true", () => {
-      const state = loggingReducer({ enabled: false, level: "warn" }, enableLogging());
+      const state = loggingReducer({ enabled: false, level: LogLevel.WARN }, enableLogging());
       expect(state.enabled).toBe(true);
     });
 
@@ -136,7 +137,7 @@ describe("loggingSlice", () => {
     });
 
     it("should be idempotent when logging is already enabled", () => {
-      const state = loggingReducer({ enabled: true, level: "warn" }, enableLogging());
+      const state = loggingReducer({ enabled: true, level: LogLevel.WARN }, enableLogging());
       expect(state.enabled).toBe(true);
     });
   });
@@ -147,17 +148,17 @@ describe("loggingSlice", () => {
 
   describe("disableLogging", () => {
     it("should set enabled to false", () => {
-      const state = loggingReducer({ enabled: true, level: "warn" }, disableLogging());
+      const state = loggingReducer({ enabled: true, level: LogLevel.WARN }, disableLogging());
       expect(state.enabled).toBe(false);
     });
 
     it("should call logger.disable()", () => {
-      loggingReducer({ enabled: true, level: "warn" }, disableLogging());
+      loggingReducer({ enabled: true, level: LogLevel.WARN }, disableLogging());
       expect(mockLogger.disable).toHaveBeenCalledTimes(1);
     });
 
     it("should be idempotent when logging is already disabled", () => {
-      const state = loggingReducer({ enabled: false, level: "warn" }, disableLogging());
+      const state = loggingReducer({ enabled: false, level: LogLevel.WARN }, disableLogging());
       expect(state.enabled).toBe(false);
     });
   });
@@ -168,32 +169,32 @@ describe("loggingSlice", () => {
 
   describe("setLogLevel", () => {
     it("should update the log level to debug", () => {
-      const state = loggingReducer(initialState, setLogLevel("debug"));
+      const state = loggingReducer(initialState, setLogLevel(LogLevel.DEBUG));
       expect(state.level).toBe("debug");
     });
 
     it("should update the log level to info", () => {
-      const state = loggingReducer(initialState, setLogLevel("info"));
+      const state = loggingReducer(initialState, setLogLevel(LogLevel.INFO));
       expect(state.level).toBe("info");
     });
 
     it("should update the log level to warn", () => {
-      const state = loggingReducer({ enabled: true, level: "debug" }, setLogLevel("warn"));
+      const state = loggingReducer({ enabled: true, level: LogLevel.DEBUG }, setLogLevel(LogLevel.WARN));
       expect(state.level).toBe("warn");
     });
 
     it("should update the log level to error", () => {
-      const state = loggingReducer(initialState, setLogLevel("error"));
+      const state = loggingReducer(initialState, setLogLevel(LogLevel.ERROR));
       expect(state.level).toBe("error");
     });
 
     it("should call logger.setLevel() with the new level", () => {
-      loggingReducer(initialState, setLogLevel("debug"));
+      loggingReducer(initialState, setLogLevel(LogLevel.DEBUG));
       expect(mockLogger.setLevel).toHaveBeenCalledWith("debug");
     });
 
     it("should preserve the enabled state when changing level", () => {
-      const state = loggingReducer({ enabled: true, level: "warn" }, setLogLevel("error"));
+      const state = loggingReducer({ enabled: true, level: LogLevel.WARN }, setLogLevel(LogLevel.ERROR));
       expect(state.enabled).toBe(true);
     });
   });
@@ -207,7 +208,7 @@ describe("loggingSlice", () => {
       let state = initialState; // disabled, warn
 
       // Initialize with debug level enabled
-      state = loggingReducer(state, initializeLogging({ enabled: true, level: "debug" }));
+      state = loggingReducer(state, initializeLogging({ enabled: true, level: LogLevel.DEBUG }));
       expect(state.enabled).toBe(true);
       expect(state.level).toBe("debug");
 
@@ -221,7 +222,7 @@ describe("loggingSlice", () => {
       expect(state.enabled).toBe(true);
 
       // Increase level
-      state = loggingReducer(state, setLogLevel("error"));
+      state = loggingReducer(state, setLogLevel(LogLevel.ERROR));
       expect(state.level).toBe("error");
       expect(state.enabled).toBe(true);
     });
