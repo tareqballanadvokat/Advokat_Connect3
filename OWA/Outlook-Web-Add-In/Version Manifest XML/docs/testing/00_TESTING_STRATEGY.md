@@ -8,13 +8,13 @@ Each section summarises a test type and links to its dedicated guide.
 | Guide | Scope | Status |
 |---|---|---|
 | [01_TESTING_GUIDE_SLICES.md](./01_TESTING_GUIDE_SLICES.md) | Unit tests — Redux slices | ✅ 476 tests passing (all 9 slices) |
-| [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ⚠️ 132 tests passing (5 of 6 services — `PairingApiService` still missing) |
+| [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ✅ 146 tests passing (all 6 services) |
 | [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ✅ 237 tests passing (all 7 files) |
 | [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ⚠️ 40 tests passing (App, Header, Tab, PairingDialog — tab panels not started) |
 | [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ✅ 32 tests passing (token, pairing, idle, SIP+Redux sync) |
 | [06_TESTING_GUIDE_E2E.md](./06_TESTING_GUIDE_E2E.md) | End-to-end tests (Playwright) | ❌ Not started |
 
-Total: **917 tests passing** across 29 suites (`npx jest`).
+Total: **931 tests passing** across 30 suites (`npx jest`).
 
 ---
 
@@ -59,11 +59,11 @@ All 9 slices are fully covered (476 tests): `authSlice`, `aktenSlice`, `emailSli
 
 Business logic classes in `src/services/` tested in isolation. All external
 dependencies (Redux store, Office API, WebRTC, network) are mocked.
-5 of 6 services are covered (132 tests): `OfficeAuthService`, `TokenService`,
-`IdleActivityMonitor`, `WebRTCDataChannelService`, `WebRTCConnectionManager`.
-`PairingApiService` still has no test file.
+All 6 services are covered (146 tests): `OfficeAuthService`, `TokenService`,
+`IdleActivityMonitor`, `WebRTCDataChannelService`, `WebRTCConnectionManager`,
+`PairingApiService`.
 
-**Status: ⚠️ Mostly done** — `PairingApiService` remaining.
+**Status: ✅ Done**
 
 → **[Full guide: 02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md)**
 
@@ -122,11 +122,10 @@ Significant infrastructure investment — start after unit and component coverag
 
 ## Remaining Work
 
-Slices, SIP infrastructure, and all 4 integration scenarios are fully covered.
+Slices, services, SIP infrastructure, and all 4 integration scenarios are fully covered.
 What's left:
 
 | Step | What | Guide | Effort |
 |---|---|---|---|
-| 1 | `PairingApiService` unit test | [Services](./02_TESTING_GUIDE_SERVICES.md) | Small |
-| 2 | Component tests for `tabs/email`, `tabs/case`, `tabs/person`, `tabs/service` | [Components](./04_TESTING_GUIDE_COMPONENTS.md) | Medium per tab |
-| 3 | E2E tests | [E2E](./06_TESTING_GUIDE_E2E.md) | High |
+| 1 | Component tests for `tabs/email`, `tabs/case`, `tabs/person`, `tabs/service` | [Components](./04_TESTING_GUIDE_COMPONENTS.md) | Medium per tab |
+| 2 | E2E tests | [E2E](./06_TESTING_GUIDE_E2E.md) | High |

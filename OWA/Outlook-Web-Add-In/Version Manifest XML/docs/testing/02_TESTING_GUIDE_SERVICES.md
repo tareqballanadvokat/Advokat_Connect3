@@ -15,7 +15,7 @@
 | `IdleActivityMonitor.ts` | ✅ 26 tests |
 | `WebRTCDataChannelService.ts` | ✅ 33 tests |
 | `WebRTCConnectionManager.ts` | ✅ 34 tests |
-| `PairingApiService.ts` | ❌ not yet implemented |
+| `PairingApiService.ts` | ✅ 14 tests — `exchangeOfficeToken` delegation, `pair` + `checkServerId` success/error/network/parse paths |
 
 ---
 
@@ -74,7 +74,7 @@ src/__tests__/unit/services/
 ├── IdleActivityMonitor.test.ts      ← ✅ done
 ├── WebRTCDataChannelService.test.ts ← ✅ done
 ├── WebRTCConnectionManager.test.ts  ← ✅ done
-└── PairingApiService.test.ts        ← ❌ not yet implemented
+└── PairingApiService.test.ts        ← ✅ done
 ```
 
 ---
@@ -196,18 +196,26 @@ it('should fire onIdle after timeout', () => {
 
 ---
 
-### `PairingApiService` — Complexity: Low
+### `PairingApiService` — Complexity: Low ✅ Done
+
+**Test file:** `src/__tests__/unit/services/PairingApiService.test.ts` (14 tests)
+
+**Key mocking pattern:** mock `@store` (dispatch spy) and `@services/webRTCApiService`
+(for `exchangeOfficeToken`'s dependency); stub `global.fetch` per test with
+`jest.fn()` for `pair()` / `checkServerId()`.
 
 **What to test:**
 
 | Scenario | Assertion |
 |---|---|
-| Successful pairing request | Returns expected response body |
-| HTTP 4xx response | Throws or returns error state |
-| Network failure | Error propagated correctly |
-
-Mock `fetch` via `jest.spyOn(global, 'fetch')` or use the `mockFetch` helper
-from the existing `testSetup.ts`.
+| `exchangeOfficeToken()` | Delegates to `webRTCApiService.sendAuthMessage`, returns its result |
+| `pair()` success | Dispatches `setPairingChecking` then `setPaired`, returns body |
+| `pair()` network error | Dispatches `setPairingError`, rethrows |
+| `pair()` non-ok response | Dispatches `setPairingError`, throws |
+| `pair()` invalid JSON / missing `advokatServerId` | Dispatches `setPairingError`, throws |
+| `checkServerId()` success | Dispatches `setPairingChecking` then `setPaired`, returns body |
+| `checkServerId()` 404 | Dispatches `setUnpaired`, returns `null` |
+| `checkServerId()` network error / non-ok / invalid JSON / missing field | Dispatches `setPairingError`, throws |
 
 ---
 
