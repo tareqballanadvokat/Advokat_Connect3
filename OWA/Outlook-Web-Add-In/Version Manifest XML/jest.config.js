@@ -42,6 +42,10 @@ module.exports = {
     '^@slices/(.*)$': '<rootDir>/src/store/slices/$1',
     '^@i18n$': '<rootDir>/src/i18n',
     // Mock DevExtreme components
+    // devextreme/ui/notify is mapped to its own file (see devextremeNotifyMock.js) so that
+    // per-test jest.mock() overrides for it don't collide with overrides for devextreme-react/*
+    // submodules, which all resolve to the shared devextremeMock.js below.
+    '^devextreme/ui/notify$': '<rootDir>/src/__mocks__/devextremeNotifyMock.js',
     '^devextreme-react/(.*)$': '<rootDir>/src/__mocks__/devextremeMock.js',
     '^devextreme/(.*)$': '<rootDir>/src/__mocks__/devextremeMock.js'
   },

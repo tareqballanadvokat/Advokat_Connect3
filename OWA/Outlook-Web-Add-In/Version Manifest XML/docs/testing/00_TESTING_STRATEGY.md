@@ -10,11 +10,11 @@ Each section summarises a test type and links to its dedicated guide.
 | [01_TESTING_GUIDE_SLICES.md](./01_TESTING_GUIDE_SLICES.md) | Unit tests — Redux slices | ✅ 476 tests passing (all 9 slices) |
 | [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ✅ 146 tests passing (all 6 services) |
 | [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ✅ 237 tests passing (all 7 files) |
-| [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ⚠️ 40 tests passing (App, Header, Tab, PairingDialog — tab panels not started) |
+| [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ✅ 73 tests passing (App, Header, Tab, PairingDialog, all 4 tab panels) |
 | [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ✅ 32 tests passing (token, pairing, idle, SIP+Redux sync) |
 | [06_TESTING_GUIDE_E2E.md](./06_TESTING_GUIDE_E2E.md) | End-to-end tests (Playwright) | ❌ Not started |
 
-Total: **931 tests passing** across 30 suites (`npx jest`).
+Total: **964 tests passing** across 34 suites (`npx jest`).
 
 ---
 
@@ -85,10 +85,10 @@ All 7 files are covered (237 tests): `MessageFactory`, `Helper`, `TimeoutManager
 
 React components in `src/taskpane/components/` rendered with a real Redux store and
 i18n provider, via the shared `renderWithProviders` helper.
-`App`, `Header`, `Tab`, and `PairingDialog` are covered (40 tests). The four tab
-panels (`tabs/email`, `tabs/case`, `tabs/person`, `tabs/service`) have no tests yet.
+`App`, `Header`, `Tab`, `PairingDialog`, and all 4 tab panels (`tabs/email`,
+`tabs/case`, `tabs/person`, `tabs/service`) are covered (73 tests).
 
-**Status: ⚠️ Partial** — tab panel tests remaining.
+**Status: ✅ Done**
 
 → **[Full guide: 04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md)**
 
@@ -122,10 +122,9 @@ Significant infrastructure investment — start after unit and component coverag
 
 ## Remaining Work
 
-Slices, services, SIP infrastructure, and all 4 integration scenarios are fully covered.
-What's left:
+Slices, services, SIP infrastructure, components, and all 4 integration scenarios are
+fully covered. What's left:
 
 | Step | What | Guide | Effort |
 |---|---|---|---|
-| 1 | Component tests for `tabs/email`, `tabs/case`, `tabs/person`, `tabs/service` | [Components](./04_TESTING_GUIDE_COMPONENTS.md) | Medium per tab |
-| 2 | E2E tests | [E2E](./06_TESTING_GUIDE_E2E.md) | High |
+| 1 | E2E tests | [E2E](./06_TESTING_GUIDE_E2E.md) | High |
