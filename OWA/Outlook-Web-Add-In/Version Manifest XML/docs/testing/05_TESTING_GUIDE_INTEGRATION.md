@@ -25,14 +25,16 @@ Redux store and is subsequently used by `TokenService` when making API calls.
 
 ---
 
-## Can Start Immediately?
+## Status
 
 | Scenario | Status |
 |---|---|
 | Token refresh flow | ✅ Done (9 tests) |
 | Pairing flow | ✅ Done (13 tests) |
 | Idle disconnect | ✅ Done (8 tests) |
-| SIP + Redux sync | ❌ Not yet implemented |
+| SIP + Redux sync | ✅ Done (2 tests) |
+
+All 4 scenarios are implemented — 32 integration tests total.
 
 ---
 
@@ -175,37 +177,42 @@ it('should disconnect and mark idle after timeout', () => {
 
 ---
 
-### Scenario 4 — SIP + Redux Sync
+### Scenario 4 — SIP + Redux Sync ✅ Done
 
-**Units involved:** `WebRTCConnectionManager` (real) + `SipClient` (mocked at WebSocket boundary) → `connectionSlice`
+**Units involved:** `WebRTCConnectionManager`, `SipClient`, `Registration`,
+`EstablishingConnection`, `Peer2PeerConnection` (all real) + `connectionSlice` +
+`authSlice` (real reducers, real `configureStore`)
 
 **Flow:**
-1. `WebRTCConnectionManager.connect()` is called
-2. `SipClient` initialises, mocked WebSocket responds with correct SIP messages
-3. All 3 phases complete successfully
-4. Redux `connectionSlice` reflects `CONNECTED` state
+1. `WebRTCConnectionManager.connect()` initialises the real `SipClient`
+2. The mocked `WebSocket` instance is driven manually through the real wire
+   protocol: REGISTER → 202 → NOTIFY4 → ACK5 → NOTIFY6 → SDP offer → SDP answer
+3. `RTCPeerConnection` is mocked per-test (ICE gathering, `createDataChannel`);
+   DataChannel "open" events are simulated the same way the `Peer2PeerConnection`
+   unit tests do, since jsdom has no real `RTCDataChannel` implementation
+4. All 3 phases complete through the real state machines (no phase is mocked)
+5. Redux `connectionSlice` reflects `CONNECTED`, and `authSlice` reflects a
+   successful post-connection authentication
 
-**Prerequisites:** WebSocket mock from [SIP guide](./03_TESTING_GUIDE_SIP.md) is in place.
+**Test file:** `src/__tests__/integration/sipReduxSync.test.ts` (2 tests — happy
+path to `CONNECTED`, and a permanent registration failure that never reaches
+`CONNECTED`)
 
-```typescript
-it('should reach CONNECTED state after successful SIP handshake', async () => {
-  const store = createTestStore();
-  const manager = new WebRTCConnectionManager();
-
-  // Trigger connect (uses real SipClient internals, mocked WebSocket)
-  manager.connect();
-
-  // Simulate WebSocket SIP handshake responses
-  ws.simulateMessage(REGISTER_200_OK);
-  ws.simulateMessage(NOTIFY4);
-  ws.simulateMessage(NOTIFY6);
-  ws.simulateMessage(SERVICE_ANSWER);
-
-  await waitFor(() => {
-    expect(store.getState().connection.sipClientState).toBe(SipClientState.CONNECTED);
-  });
-});
-```
+**Key techniques:**
+- `configService.getSipConfig()` / `getConfig()` mocked with static values (no
+  Registration/EstablishingConnection/Peer2PeerConnection module mocking — they
+  run for real)
+- SIP messages are hand-built strings matching the exact header format produced
+  by `MessageFactory`, extracting the real `Call-ID` from the client's own
+  REGISTER message so the synthetic 202 response passes `Registration`'s session
+  validation
+- `WebRTCDataChannelService` mocked at module level to capture the observer
+  `Peer2PeerConnection` subscribes with, so the test can fire
+  `onDataChannelStateChanged("open", "offer")` directly instead of needing a
+  real `RTCDataChannel`
+- `@store` mocked with a dynamic getter returning a real `configureStore` with
+  `connectionReducer` + `authReducer`, matching the pattern in
+  `idleDisconnect.test.ts`
 
 ---
 
@@ -216,7 +223,7 @@ src/__tests__/integration/
 ├── tokenRefreshFlow.test.ts   ← ✅ done (9 tests)
 ├── pairingFlow.test.ts        ← ✅ done (13 tests)
 ├── idleDisconnect.test.ts     ← ✅ done (8 tests)
-└── sipReduxSync.test.ts       ← ❌ not yet implemented
+└── sipReduxSync.test.ts       ← ✅ done (2 tests)
 ```
 
 ---

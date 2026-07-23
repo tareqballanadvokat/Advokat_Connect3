@@ -11,10 +11,10 @@ Each section summarises a test type and links to its dedicated guide.
 | [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ⚠️ 132 tests passing (5 of 6 services — `PairingApiService` still missing) |
 | [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ✅ 237 tests passing (all 7 files) |
 | [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ⚠️ 40 tests passing (App, Header, Tab, PairingDialog — tab panels not started) |
-| [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ⚠️ 30 tests passing (token, pairing, idle — SIP+Redux sync not started) |
+| [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ✅ 32 tests passing (token, pairing, idle, SIP+Redux sync) |
 | [06_TESTING_GUIDE_E2E.md](./06_TESTING_GUIDE_E2E.md) | End-to-end tests (Playwright) | ❌ Not started |
 
-Total: **915 tests passing** across 28 suites (`npx jest`).
+Total: **917 tests passing** across 29 suites (`npx jest`).
 
 ---
 
@@ -97,10 +97,12 @@ panels (`tabs/email`, `tabs/case`, `tabs/person`, `tabs/service`) have no tests 
 ## 5. Integration Tests
 
 Multiple real units wired together — only the Office API, `fetch`, and `WebSocket`
-are mocked. Key scenarios: token refresh flow, pairing flow, idle disconnect, SIP + Redux sync.
-The token and pairing scenarios can start now; SIP integration needs WebSocket mock work first.
+are mocked. All 4 key scenarios are covered: token refresh flow, pairing flow,
+idle disconnect, and SIP + Redux sync (the last one drives the real SipClient/
+Registration/EstablishingConnection/Peer2PeerConnection chain through a full
+handshake via a hand-driven mock WebSocket/RTCPeerConnection).
 
-**Can start immediately: ⚠️ Partially**
+**Status: ✅ Done**
 
 → **[Full guide: 05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md)**
 
@@ -120,12 +122,11 @@ Significant infrastructure investment — start after unit and component coverag
 
 ## Remaining Work
 
-Slices, SIP infrastructure, and the token/pairing/idle integration scenarios are
-fully covered. What's left:
+Slices, SIP infrastructure, and all 4 integration scenarios are fully covered.
+What's left:
 
 | Step | What | Guide | Effort |
 |---|---|---|---|
 | 1 | `PairingApiService` unit test | [Services](./02_TESTING_GUIDE_SERVICES.md) | Small |
 | 2 | Component tests for `tabs/email`, `tabs/case`, `tabs/person`, `tabs/service` | [Components](./04_TESTING_GUIDE_COMPONENTS.md) | Medium per tab |
-| 3 | SIP + Redux sync integration test (Scenario 4) | [Integration](./05_TESTING_GUIDE_INTEGRATION.md) | Medium |
-| 4 | E2E tests | [E2E](./06_TESTING_GUIDE_E2E.md) | High |
+| 3 | E2E tests | [E2E](./06_TESTING_GUIDE_E2E.md) | High |
