@@ -6,11 +6,11 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Add-In"/>
   <Description DefaultValue="A template to get started."/>
-  <IconUrl DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/advokat.png"/>
-  <HighResolutionIconUrl DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/advokat.png"/>
+  <IconUrl DefaultValue="https://addin.advokat.at/assets/advokat.png"/>
+  <HighResolutionIconUrl DefaultValue="https://addin.advokat.at/assets/advokat.png"/>
   <SupportUrl DefaultValue="https://advokat.at/services/support/"/>
   <AppDomains>
-    <AppDomain>https://green-sea-08a52e81e.2.azurestaticapps.net</AppDomain>
+    <AppDomain>https://addin.advokat.at</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Mailbox"/>
@@ -23,7 +23,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/taskpane.html"/>
+        <SourceLocation DefaultValue="https://addin.advokat.at/taskpane.html"/>
         <RequestedHeight>250</RequestedHeight>
       </DesktopSettings>
     </Form>
@@ -96,13 +96,13 @@
       </Hosts>
       <Resources>
         <bt:Images>
-          <bt:Image id="Icon.16x16" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/a_3.png"/>
-          <bt:Image id="Icon.32x32" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/a_3.png"/>
-          <bt:Image id="Icon.80x80" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/assets/a_3.png"/>
+          <bt:Image id="Icon.16x16" DefaultValue="https://addin.advokat.at/assets/a_3.png"/>
+          <bt:Image id="Icon.32x32" DefaultValue="https://addin.advokat.at/assets/a_3.png"/>
+          <bt:Image id="Icon.80x80" DefaultValue="https://addin.advokat.at/assets/a_3.png"/>
         </bt:Images>
         <bt:Urls>
-          <bt:Url id="Commands.Url" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/commands.html"/>
-          <bt:Url id="Taskpane.Url" DefaultValue="https://green-sea-08a52e81e.2.azurestaticapps.net/taskpane.html"/>
+          <bt:Url id="Commands.Url" DefaultValue="https://addin.advokat.at/commands.html"/>
+          <bt:Url id="Taskpane.Url" DefaultValue="https://addin.advokat.at/taskpane.html"/>
         </bt:Urls>
         <bt:ShortStrings>
           <bt:String id="GroupLabel" DefaultValue="Advokat Add-in"/>
@@ -114,7 +114,7 @@
       </Resources>
       <WebApplicationInfo>
         <Id>34d7bfcf-cabc-4a16-a380-f12a6103efbe</Id>
-        <Resource>api://green-sea-08a52e81e.2.azurestaticapps.net/34d7bfcf-cabc-4a16-a380-f12a6103efbe</Resource>
+        <Resource>api://addin.advokat.at/34d7bfcf-cabc-4a16-a380-f12a6103efbe</Resource>
         <Scopes>
           <Scope>openid</Scope>
           <Scope>profile</Scope>
