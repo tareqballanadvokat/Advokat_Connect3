@@ -5,12 +5,9 @@ import { isDevelopment } from '@config';
 import { IAuthResponse } from '@interfaces/IAuth';
 import { webRTCApiService } from './webRTCApiService';
 
-// TEMP: pointing prod at localhost to test pairing against a local server — revert to
-// 'https://advokat-addin-pairing.azurewebsites.net' before this reaches real users.
 const PAIRING_API_BASE = isDevelopment()
   ? 'https://localhost:51906'
-  : 'https://localhost:51906';
-  // : 'https://advokat-addin-pairing.azurewebsites.net';
+  : 'https://advokat-addin-pairing.azurewebsites.net';
 
 
 export interface PairingServerInfo {
