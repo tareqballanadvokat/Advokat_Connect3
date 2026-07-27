@@ -5,9 +5,11 @@ import { isDevelopment } from '@config';
 import { IAuthResponse } from '@interfaces/IAuth';
 import { webRTCApiService } from './webRTCApiService';
 
+// TEMP: pointing prod at localhost to test pairing against a local server — revert to
+// 'https://advokat-addin-pairing.azurewebsites.net' before this reaches real users.
 const PAIRING_API_BASE = isDevelopment()
   ? 'https://localhost:51906'
-  : 'https://advokat-addin-pairing.azurewebsites.net';
+  : 'https://localhost:51906';
 
 export interface PairingServerInfo {
   advokatServerId: string;
@@ -59,6 +61,7 @@ export class PairingApiService {
    */
   async pair(otp: string, officeToken: string): Promise<PairingServerInfo> {
     this.logger.info('PairingApiService', 'Submitting OTP pairing request...');
+    this.logger.info('PairingApiService', `Environment: ${isDevelopment() ? 'Development (localhost)' : 'Production (Azure)'}`);
     store.dispatch(setPairingChecking());
 
     let response: Response;
