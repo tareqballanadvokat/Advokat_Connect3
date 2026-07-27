@@ -10,6 +10,8 @@ import { webRTCApiService } from './webRTCApiService';
 const PAIRING_API_BASE = isDevelopment()
   ? 'https://localhost:51906'
   : 'https://localhost:51906';
+  // : 'https://advokat-addin-pairing.azurewebsites.net';
+
 
 export interface PairingServerInfo {
   advokatServerId: string;
