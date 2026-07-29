@@ -10,11 +10,9 @@ export interface IAuthResponse {
 }
 
 export interface IAuthCredentials {
-  grant_type: 'password' | 'client_credentials' | 'windows_auth' | 'refresh_token';
-  client_id: string;
-  client_secret: string;
-  username: string;
-  password: string;
+  // Populated from the Pairing API's `kuerzel` once OTP pairing resolves
+  // (see PairingApiService / pairingSlice) — the OTP is linked to a specific username.
+  username: string | null;
 }
 
 export interface IAuthState {

@@ -1,6 +1,7 @@
 import { getLogger } from '@infra/logger';
 import { store } from '@store';
 import { setPaired, setUnpaired, setPairingChecking, setPairingError } from '@slices/pairingSlice';
+import { setUsername } from '@slices/authSlice';
 import { isDevelopment } from '@config';
 import { IAuthResponse } from '@interfaces/IAuth';
 import { webRTCApiService } from './webRTCApiService';
@@ -109,6 +110,7 @@ export class PairingApiService {
 
     this.logger.info('PairingApiService', `Pairing successful. advokatServerId: ${data.advokatServerId}, kuerzel: ${data.kuerzel}`);
     store.dispatch(setPaired({ advokatServerId: data.advokatServerId, kuerzel: data.kuerzel }));
+    store.dispatch(setUsername(data.kuerzel));
     return data;
   }
 
@@ -171,6 +173,7 @@ export class PairingApiService {
 
     this.logger.info('PairingApiService', `Paired. advokatServerId: ${data.advokatServerId}, kuerzel: ${data.kuerzel}`);
     store.dispatch(setPaired({ advokatServerId: data.advokatServerId, kuerzel: data.kuerzel }));
+    store.dispatch(setUsername(data.kuerzel));
     return data;
   }
 }
