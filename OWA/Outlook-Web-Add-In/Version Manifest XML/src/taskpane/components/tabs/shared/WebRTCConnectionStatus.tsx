@@ -5,7 +5,6 @@ import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnec
 import { selectAuthError, selectEmail, clearError } from '@slices/authSlice';
 import { selectKuerzel } from '@slices/pairingSlice';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
-import { officeAuthService } from '@services/OfficeAuthService';
 import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
@@ -40,6 +39,11 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
     return s.includes('Max reconnection attempts') || s.includes('Reconnection failed after');
   };
 
+  // Covers both failure modes: the SIP/WebRTC transport giving up permanently,
+  // and the transport staying up but the ADVOKAT JWT exchange failing (authError
+  // set, isReady false). Neither recovers on its own — both need a manual retry.
+  const needsManualReconnect = (): boolean => isFailedPermanently() || (!!authError && !isReady);
+
   const isFailing = (): boolean =>
     !!(connectionState.lastError ||
       connectionState.connectionStatus.includes('Failed') ||
@@ -65,11 +69,9 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
     setIsReconnecting(true);
 
     try {
-      // Re-acquire a fresh Office SSO token — the token from app startup may itself
-      // have expired while the connection sat in a failed state.
-      await officeAuthService.getOfficeToken();
-
       // Clear stale failure state so the banner reflects the new attempt immediately.
+      // (performAuthentication() re-acquires a fresh Office SSO token itself on every
+      // connect() cycle, so no need to do it here too.)
       dispatch(updateConnectionState({ reconnectAttempts: 0, lastError: undefined }));
       dispatch(clearError());
 
@@ -116,7 +118,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
           {kuerzel} — {email}
         </div>
       )}
-      {isFailedPermanently() && (
+      {needsManualReconnect() && (
         <button
           onClick={handleReconnect}
           disabled={isReconnecting}
