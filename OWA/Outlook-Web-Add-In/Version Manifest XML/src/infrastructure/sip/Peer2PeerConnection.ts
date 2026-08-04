@@ -123,7 +123,7 @@ export class Peer2PeerConnection {
   private static readonly TIMEOUT_ICE_GATHERING = "ICE_GATHERING_TIMEOUT";
   private static readonly TIMEOUT_DATACHANNEL_OPEN = "DATACHANNEL_OPEN_TIMEOUT";
   private static readonly DEFAULT_RECEIVE_TIMEOUT = 20000; // 20 seconds (increased for slower networks)
-  private static readonly ICE_GATHERING_TIMEOUT = 5000; // 5 seconds (reduced, will send with partial candidates)
+  private static readonly ICE_GATHERING_TIMEOUT = 1000; // 1 second (reduced, will send with partial candidates)
   private static readonly DATACHANNEL_OPEN_TIMEOUT = 10000; // 5 seconds
 
   private static readonly REGEX_SERVICE_ANSWER = /^SERVICE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
