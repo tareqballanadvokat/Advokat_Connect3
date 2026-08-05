@@ -12,11 +12,8 @@ const logger = getLogger();
 
 const initialState: IAuthState = {
   credentials: {
-    grant_type: "password",
-    client_id: "TestClientId",
-    client_secret: "TestClientId",
-    username: "JCH",
-    password: "",
+    // Set via setUsername() once the Pairing API resolves kuerzel (see PairingApiService)
+    username: null,
   },
   token: null,
   tokenType: null,
@@ -52,21 +49,8 @@ const authSlice = createSlice({
       state.error = null;
     },
 
-    setPassword: (state, action: PayloadAction<string>) => {
-      state.credentials.password = action.payload;
-      state.error = null;
-    },
-
     setUsername: (state, action: PayloadAction<string>) => {
       state.credentials.username = action.payload;
-      state.error = null;
-    },
-
-    setGrantType: (
-      state,
-      action: PayloadAction<"password" | "client_credentials" | "windows_auth" | "refresh_token">
-    ) => {
-      state.credentials.grant_type = action.payload;
       state.error = null;
     },
 
@@ -89,7 +73,7 @@ const authSlice = createSlice({
       state.error = null;
 
       // Set cache namespace for user isolation
-      cacheService.setNamespace(state.credentials.username);
+      cacheService.setNamespace(state.credentials.username ?? undefined);
       logger.info("authSlice", `Cache namespace set to: ${state.credentials.username}`);
 
       logger.info(
@@ -183,9 +167,7 @@ const authSlice = createSlice({
 
 export const {
   setCredentials,
-  setPassword,
   setUsername,
-  setGrantType,
   startAuthentication,
   authenticationSuccess,
   authenticationFailure,
