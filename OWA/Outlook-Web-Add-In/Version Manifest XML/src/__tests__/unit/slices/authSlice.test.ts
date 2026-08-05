@@ -57,6 +57,7 @@ describe("authSlice", () => {
     oid: null,
     email: null,
     advokatToken: null,
+    officeAuthErrorKey: null,
   };
 
   describe("Reducer", () => {

@@ -1,8 +1,9 @@
 /* global OfficeRuntime */
 
 import { store } from '@store';
-import { setOfficeToken, clearOfficeToken } from '@slices/authSlice';
+import { setOfficeToken, clearOfficeToken, setOfficeAuthErrorKey } from '@slices/authSlice';
 import { getLogger } from '@infra/logger';
+import { resolveOfficeAuthErrorKey } from './officeAuthErrors';
 
 /**
  * OfficeAuthService
@@ -98,6 +99,7 @@ export class OfficeAuthService {
         error
       );
       store.dispatch(clearOfficeToken());
+      store.dispatch(setOfficeAuthErrorKey(resolveOfficeAuthErrorKey(code)));
       return null;
     }
   }
