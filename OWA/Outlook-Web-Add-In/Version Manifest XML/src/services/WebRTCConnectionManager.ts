@@ -40,8 +40,8 @@ import {
   startAuthentication,
   authenticationFailure,
   authenticationSuccess,
-  selectOfficeToken,
 } from "@slices/authSlice";
+import { officeAuthService } from "./OfficeAuthService";
 import {
   updateConnectionState as updateReduxConnectionState,
   selectConnectionState,
@@ -71,7 +71,7 @@ const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
   maxReconnectAttempts: 2,
   reconnectDelay: 3000,
   enableAutoReconnect: true,
-  idleTimeout: 5 * 60 * 1000, // 1 minute
+  idleTimeout: 5 * 60 * 1000, // 5 minutes
   enableIdleDisconnect: true,
   reconnectOnActivity: true,
 };
@@ -456,8 +456,10 @@ export class WebRTCConnectionManager implements SipClientObserver {
         "Channels ready, proceeding with Office token authentication"
       );
 
-      // Get the Office SSO token — set by OfficeAuthService at startup
-      const officeToken = selectOfficeToken(store.getState());
+      // Re-acquire a fresh Office SSO token rather than reusing whatever is in Redux —
+      // this runs on every connect() (initial, auto-reconnect, idle-reconnect, manual
+      // reconnect), and the token may have expired since it was last fetched.
+      const officeToken = await officeAuthService.getOfficeToken();
       if (!officeToken) {
         throw new Error("No Office token available — cannot authenticate with ADVOKAT Server");
       }
@@ -613,7 +615,7 @@ export class WebRTCConnectionManager implements SipClientObserver {
         });
       } else if (this.disconnectedDueToIdle) {
         // Update status AFTER disconnect completes
-        this.updateConnectionState({ connectionStatus: "Disconnected due to inactivity (1 min idle)" });
+        this.updateConnectionState({ connectionStatus: "Disconnected due to inactivity (5 min idle)" });
       }
     }).catch((error) => {
       this.isDisconnectingFromIdle = false;

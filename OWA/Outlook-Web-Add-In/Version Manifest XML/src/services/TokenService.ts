@@ -1,10 +1,7 @@
 ﻿import { store } from "@store";
-import {
-  selectAuthToken,
-  selectOfficeToken,
-  authenticationSuccess,
-} from "@slices/authSlice";
+import { selectAuthToken, authenticationSuccess } from "@slices/authSlice";
 import { getLogger } from "@infra/logger";
+import { officeAuthService } from "./OfficeAuthService";
 
 /** Refresh proactively when less than this many ms remain on the token. */
 const EXPIRY_BUFFER_MS = 2 * 60 * 1000; // 2 minutes
@@ -16,8 +13,9 @@ const EXPIRY_BUFFER_MS = 2 * 60 * 1000; // 2 minutes
  *
  * ensureValidToken() is the single method called by webRTCApiService.sendRequest()
  * before every authenticated API call. It proactively refreshes the ADVOKAT JWT
- * when it is within EXPIRY_BUFFER_MS of expiry by re-exchanging the Office SSO
- * token (which Office auto-renews) against POST /addin/office-token/token.
+ * when it is within EXPIRY_BUFFER_MS of expiry by requesting a fresh Office SSO
+ * token via OfficeRuntime.auth.getAccessToken() and exchanging it against
+ * POST /addin/office-token/token.
  *
  * Concurrent calls during a refresh share a single in-flight promise so only
  * one HTTP request is made.
@@ -47,10 +45,14 @@ export class TokenService {
   }
 
   private async _refresh(): Promise<string | null> {
-    const officeToken = selectOfficeToken(store.getState());
+    // Office SSO tokens are short-lived (~1h) and are not proactively renewed
+    // elsewhere, so re-acquire a fresh one here rather than reusing whatever
+    // is currently sitting in Redux from app startup.
+    this.logger.info("Requesting fresh Office SSO token before ADVOKAT JWT exchange…", "TokenService");
+    const officeToken = await officeAuthService.getOfficeToken();
 
     if (!officeToken) {
-      this.logger.warn("No Office token available — cannot refresh ADVOKAT JWT", "TokenService");
+      this.logger.warn("Failed to obtain a fresh Office token — cannot refresh ADVOKAT JWT", "TokenService");
       return null;
     }
 

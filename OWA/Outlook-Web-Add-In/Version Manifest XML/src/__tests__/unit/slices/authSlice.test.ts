@@ -6,9 +6,7 @@
 
 import authReducer, {
   setCredentials,
-  setPassword,
   setUsername,
-  setGrantType,
   startAuthentication,
   authenticationSuccess,
   authenticationFailure,
@@ -45,11 +43,7 @@ describe("authSlice", () => {
   // Initial state for tests
   const initialState: IAuthState = {
     credentials: {
-      grant_type: "password",
-      client_id: "TestClientId",
-      client_secret: "TestClientId",
-      username: "JCH",
-      password: "",
+      username: null,
     },
     token: null,
     tokenType: null,
@@ -72,34 +66,16 @@ describe("authSlice", () => {
 
     describe("setCredentials", () => {
       it("should update credentials with partial data", () => {
-        const newCredentials = { username: "NewUser", password: "NewPass123" };
+        const newCredentials = { username: "NewUser" };
         const actual = authReducer(initialState, setCredentials(newCredentials));
 
         expect(actual.credentials.username).toBe("NewUser");
-        expect(actual.credentials.password).toBe("NewPass123");
-        expect(actual.credentials.client_id).toBe("TestClientId"); // Unchanged
         expect(actual.error).toBeNull();
       });
 
       it("should clear error when setting credentials", () => {
         const stateWithError = { ...initialState, error: "Previous error" };
         const actual = authReducer(stateWithError, setCredentials({ username: "TestUser" }));
-
-        expect(actual.error).toBeNull();
-      });
-    });
-
-    describe("setPassword", () => {
-      it("should update password", () => {
-        const actual = authReducer(initialState, setPassword("SecurePassword123"));
-
-        expect(actual.credentials.password).toBe("SecurePassword123");
-        expect(actual.error).toBeNull();
-      });
-
-      it("should clear error when setting password", () => {
-        const stateWithError = { ...initialState, error: "Invalid password" };
-        const actual = authReducer(stateWithError, setPassword("NewPassword"));
 
         expect(actual.error).toBeNull();
       });
@@ -118,33 +94,6 @@ describe("authSlice", () => {
         const actual = authReducer(stateWithError, setUsername("ValidUser"));
 
         expect(actual.error).toBeNull();
-      });
-    });
-
-    describe("setGrantType", () => {
-      it("should update grant type to password", () => {
-        const actual = authReducer(initialState, setGrantType("password"));
-
-        expect(actual.credentials.grant_type).toBe("password");
-        expect(actual.error).toBeNull();
-      });
-
-      it("should update grant type to client_credentials", () => {
-        const actual = authReducer(initialState, setGrantType("client_credentials"));
-
-        expect(actual.credentials.grant_type).toBe("client_credentials");
-      });
-
-      it("should update grant type to windows_auth", () => {
-        const actual = authReducer(initialState, setGrantType("windows_auth"));
-
-        expect(actual.credentials.grant_type).toBe("windows_auth");
-      });
-
-      it("should update grant type to refresh_token", () => {
-        const actual = authReducer(initialState, setGrantType("refresh_token"));
-
-        expect(actual.credentials.grant_type).toBe("refresh_token");
       });
     });
 
@@ -252,10 +201,13 @@ describe("authSlice", () => {
       });
 
       it("should preserve credentials on failure", () => {
-        const actual = authReducer(initialState, authenticationFailure("Network error"));
+        const stateWithUsername = {
+          ...initialState,
+          credentials: { username: "JCH" },
+        };
+        const actual = authReducer(stateWithUsername, authenticationFailure("Network error"));
 
         expect(actual.credentials.username).toBe("JCH");
-        expect(actual.credentials.client_id).toBe("TestClientId");
       });
     });
 
@@ -597,11 +549,9 @@ describe("authSlice", () => {
       // Start with initial state
       let state = initialState;
 
-      // User enters credentials
+      // Pairing API resolves the username (kuerzel)
       state = authReducer(state, setUsername("testuser"));
-      state = authReducer(state, setPassword("password123"));
       expect(state.credentials.username).toBe("testuser");
-      expect(state.credentials.password).toBe("password123");
 
       // Start authentication
       state = authReducer(state, startAuthentication());
@@ -630,9 +580,8 @@ describe("authSlice", () => {
     it("should handle failed authentication flow", () => {
       let state = initialState;
 
-      // User enters credentials
+      // Pairing API resolves the username (kuerzel)
       state = authReducer(state, setUsername("testuser"));
-      state = authReducer(state, setPassword("wrongpassword"));
 
       // Start authentication
       state = authReducer(state, startAuthentication());
@@ -673,7 +622,7 @@ describe("authSlice", () => {
       const originalState = { ...initialState };
       const newState = authReducer(originalState, setUsername("NewUser"));
 
-      expect(originalState.credentials.username).toBe("JCH"); // Unchanged
+      expect(originalState.credentials.username).toBeNull(); // Unchanged
       expect(newState.credentials.username).toBe("NewUser");
     });
 
@@ -718,22 +667,6 @@ describe("authSlice", () => {
       expect(state.credentials.username).toBe("newuser");
     });
 
-    it("should clear error when setting password", () => {
-      const stateWithError = { ...initialState, error: "Previous error" };
-      const state = authReducer(stateWithError, setPassword("newpassword"));
-
-      expect(state.error).toBeNull();
-      expect(state.credentials.password).toBe("newpassword");
-    });
-
-    it("should clear error when setting grant type", () => {
-      const stateWithError = { ...initialState, error: "Previous error" };
-      const state = authReducer(stateWithError, setGrantType("client_credentials"));
-
-      expect(state.error).toBeNull();
-      expect(state.credentials.grant_type).toBe("client_credentials");
-    });
-
     it("should clear error when starting authentication", () => {
       const stateWithError = { ...initialState, error: "Previous error" };
       const state = authReducer(stateWithError, startAuthentication());
@@ -748,8 +681,6 @@ describe("authSlice", () => {
       const state = authReducer(stateWithError, setCredentials(partialUpdate));
 
       expect(state.credentials.username).toBe("NewUser");
-      expect(state.credentials.password).toBe(""); // Other fields unchanged
-      expect(state.credentials.client_id).toBe("TestClientId");
       expect(state.error).toBeNull();
     });
   });

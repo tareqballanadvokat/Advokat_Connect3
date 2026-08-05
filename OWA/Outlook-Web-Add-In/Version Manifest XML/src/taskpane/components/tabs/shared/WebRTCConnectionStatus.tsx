@@ -1,8 +1,8 @@
 ﻿// src/taskpane/components/tabs/shared/WebRTCConnectionStatus.tsx
-import React, { useEffect } from 'react';
-import { useAppSelector } from '@store/hooks';
-import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting } from '@slices/connectionSlice';
-import { selectAuthError, selectEmail } from '@slices/authSlice';
+import React, { useEffect, useState } from 'react';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
+import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting, updateConnectionState } from '@slices/connectionSlice';
+import { selectAuthError, selectEmail, clearError } from '@slices/authSlice';
 import { selectKuerzel } from '@slices/pairingSlice';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { getLogger } from '@infra/logger';
@@ -16,6 +16,7 @@ interface WebRTCConnectionStatusProps {
 }
 
 const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ className, style }) => {
+  const dispatch = useAppDispatch();
   const connectionState = useAppSelector(selectConnectionState);
   const isReady = useAppSelector(selectIsReady);
   const isConnected = useAppSelector(selectIsConnected);
@@ -23,6 +24,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
   const authError = useAppSelector(selectAuthError);
   const kuerzel = useAppSelector(selectKuerzel);
   const email = useAppSelector(selectEmail);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const { t: translate } = useTranslation('common');
 
   useEffect(() => {
@@ -36,6 +38,11 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
     const s = connectionState.connectionStatus;
     return s.includes('Max reconnection attempts') || s.includes('Reconnection failed after');
   };
+
+  // Covers both failure modes: the SIP/WebRTC transport giving up permanently,
+  // and the transport staying up but the ADVOKAT JWT exchange failing (authError
+  // set, isReady false). Neither recovers on its own — both need a manual retry.
+  const needsManualReconnect = (): boolean => isFailedPermanently() || (!!authError && !isReady);
 
   const isFailing = (): boolean =>
     !!(connectionState.lastError ||
@@ -55,6 +62,29 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
       return translate('webrtc.connectionFailedReconnecting', { attempt, max });
     }
     return translate('webrtc.connecting');
+  };
+
+  const handleReconnect = async (): Promise<void> => {
+    if (isReconnecting) return;
+    setIsReconnecting(true);
+
+    try {
+      // Clear stale failure state so the banner reflects the new attempt immediately.
+      // (performAuthentication() re-acquires a fresh Office SSO token itself on every
+      // connect() cycle, so no need to do it here too.)
+      dispatch(updateConnectionState({ reconnectAttempts: 0, lastError: undefined }));
+      dispatch(clearError());
+
+      // Bypass the automatic backoff/attempt-cap machinery in reconnect() — tear down
+      // and start a fresh connect() cycle right away.
+      const manager = getWebRTCConnectionManager();
+      await manager.disconnect();
+      await manager.initialize();
+    } catch (error) {
+      logger.error('Manual reconnect failed', 'WebRTCConnectionStatus', error);
+    } finally {
+      setIsReconnecting(false);
+    }
   };
 
   const getStatusStyle = (): React.CSSProperties => {
@@ -87,6 +117,28 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
         <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, opacity: 0.95 }}>
           {kuerzel} — {email}
         </div>
+      )}
+      {needsManualReconnect() && (
+        <button
+          onClick={handleReconnect}
+          disabled={isReconnecting}
+          style={{
+            marginTop: '6px',
+            padding: '4px 10px',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: '#dc3545',
+            backgroundColor: 'white',
+            border: 'none',
+            borderRadius: '2px',
+            cursor: isReconnecting ? 'not-allowed' : 'pointer',
+            opacity: isReconnecting ? 0.6 : 1,
+          }}
+        >
+          {isReconnecting
+            ? translate('webrtc.reconnecting', 'Reconnecting…')
+            : translate('webrtc.reconnectButton', 'Reconnect')}
+        </button>
       )}
     </div>
   );

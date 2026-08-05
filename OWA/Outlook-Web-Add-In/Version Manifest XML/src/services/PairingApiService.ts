@@ -1,6 +1,7 @@
 import { getLogger } from '@infra/logger';
 import { store } from '@store';
 import { setPaired, setUnpaired, setPairingChecking, setPairingError } from '@slices/pairingSlice';
+import { setUsername } from '@slices/authSlice';
 import { isDevelopment } from '@config';
 import { IAuthResponse } from '@interfaces/IAuth';
 import { webRTCApiService } from './webRTCApiService';
@@ -8,6 +9,7 @@ import { webRTCApiService } from './webRTCApiService';
 const PAIRING_API_BASE = isDevelopment()
   ? 'https://localhost:51906'
   : 'https://advokat-addin-pairing.azurewebsites.net';
+
 
 export interface PairingServerInfo {
   advokatServerId: string;
@@ -59,6 +61,7 @@ export class PairingApiService {
    */
   async pair(otp: string, officeToken: string): Promise<PairingServerInfo> {
     this.logger.info('PairingApiService', 'Submitting OTP pairing request...');
+    this.logger.info('PairingApiService', `Environment: ${isDevelopment() ? 'Development (localhost)' : 'Production (Azure)'}`);
     store.dispatch(setPairingChecking());
 
     let response: Response;
@@ -107,6 +110,7 @@ export class PairingApiService {
 
     this.logger.info('PairingApiService', `Pairing successful. advokatServerId: ${data.advokatServerId}, kuerzel: ${data.kuerzel}`);
     store.dispatch(setPaired({ advokatServerId: data.advokatServerId, kuerzel: data.kuerzel }));
+    store.dispatch(setUsername(data.kuerzel));
     return data;
   }
 
@@ -169,6 +173,7 @@ export class PairingApiService {
 
     this.logger.info('PairingApiService', `Paired. advokatServerId: ${data.advokatServerId}, kuerzel: ${data.kuerzel}`);
     store.dispatch(setPaired({ advokatServerId: data.advokatServerId, kuerzel: data.kuerzel }));
+    store.dispatch(setUsername(data.kuerzel));
     return data;
   }
 }

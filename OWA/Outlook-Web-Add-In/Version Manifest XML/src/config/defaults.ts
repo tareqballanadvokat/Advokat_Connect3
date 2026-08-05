@@ -20,6 +20,14 @@ const SIP_CONNECTION_TIMEOUT_MS = 30000;
 // Placeholder until setAdvokatServerId(serverId) patches it at runtime (see runtimeConfig.ts)
 const SIP_TO_DISPLAY_NAME_PLACEHOLDER = "pending-server-id";
 
+// Free public TURN server (expressturn.com) — kept as a fallback reference only.
+// Not used by DEFAULT_CONFIG; swap in if the Advokat TURN server (below) is unavailable.
+const FREE_TURN_SERVER_PLACEHOLDER = {
+  urls: "turn:free.expressturn.com:3478",
+  username: "000000002098277533",
+  credential: "B+O9UBQOdx9qrbJO5NswZi99TB8=",
+};
+
 /**
  * Derive SIP host, port, and sipUri from a WebSocket URI.
  *
@@ -69,11 +77,13 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   webrtc: {
     iceServers: [
+      // Google STUN for srflx candidates (fast, direct P2P when possible)
       { urls: "stun:stun.l.google.com:19302" },
+      // Advokat Azure TURN server for relay candidates (fallback when P2P fails)
       {
-        urls: 'turn:free.expressturn.com:3478',
-        username: '000000002098277533',
-        credential: 'B+O9UBQOdx9qrbJO5NswZi99TB8=',
+        urls: "turn:108.143.154.176:3478",
+        username: process.env.TURN_USERNAME || "advokatuser",
+        credential: process.env.TURN_CREDENTIAL || "",
       },
     ],
   },
