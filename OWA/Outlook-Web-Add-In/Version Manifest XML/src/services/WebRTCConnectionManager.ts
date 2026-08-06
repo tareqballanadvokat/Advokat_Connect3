@@ -96,6 +96,7 @@ export class WebRTCConnectionManager implements SipClientObserver {
   private isInitialized = false;
   private isReconnecting = false;
   private isDisconnectingFromIdle = false;
+  private isAuthenticating = false;
   private initializationPromise: Promise<void> | null = null;
 
   constructor(config: ConnectionManagerConfig = {}) {
@@ -120,6 +121,23 @@ export class WebRTCConnectionManager implements SipClientObserver {
         reconnectAttempts: 0,
         lastError: undefined,
       });
+
+      // Re-authenticate on EVERY CONNECTED transition, not just the first one of a
+      // connect() cycle. SipClient can recover from a dropped transport internally
+      // (e.g. after the add-in was idle) and re-fire CONNECTED without going through
+      // connect() again — if we only authenticated on the first CONNECTED, that internal
+      // recovery path would keep reusing whatever ADVOKAT JWT/Office token was acquired
+      // before the drop, which may since have expired.
+      if (!this.isAuthenticating) {
+        this.isAuthenticating = true;
+        this.performAuthentication()
+          .catch((error) => {
+            this.logger.error("ConnectionManager", "Unhandled error during authentication", error);
+          })
+          .finally(() => {
+            this.isAuthenticating = false;
+          });
+      }
     } else if (newState === SipClientState.FAILED_PERMANENTLY) {
       // Reject the pending promise BEFORE handlePermanentFailure() sets isReconnecting=true.
       // That flag will block handleConnectionError() from scheduling a duplicate reconnect
@@ -250,12 +268,13 @@ export class WebRTCConnectionManager implements SipClientObserver {
       throw error;
     }
 
-    // Authentication and post-connection setup run OUTSIDE the try-catch above.
-    // A failed auth request (e.g. HTTP 400) is an application-level error, not a
-    // connection failure. It must NOT trigger connection teardown or a reconnect.
-    await this.performAuthentication();
+    // Authentication is triggered from onSipClientStateChanged() on every CONNECTED
+    // transition (not just this one) — see there for why. It intentionally is not
+    // awaited here: a failed auth request (e.g. HTTP 400) is an application-level
+    // error, not a connection failure, and must NOT trigger connection teardown or
+    // a reconnect.
 
-    // Start idle monitoring only after successful connection + authentication
+    // Start idle monitoring once the connection itself is established
     this.startIdleMonitoring();
 
     // Clear any existing reconnect timer

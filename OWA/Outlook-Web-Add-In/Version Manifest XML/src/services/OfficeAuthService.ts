@@ -17,8 +17,24 @@ import { resolveOfficeAuthErrorKey } from './officeAuthErrors';
  * 3. Send { otp, officeToken } through the WebRTC tunnel during first-time pairing
  * 4. Send officeToken for silent re-authentication on every subsequent session
  */
+/** Reject an Office token that is already expired or expiring within this many ms. */
+const EXPIRY_BUFFER_MS = 60 * 1000; // 1 minute
+
 export class OfficeAuthService {
   private logger = getLogger();
+
+  /**
+   * Extracts the `exp` claim (as an epoch-ms timestamp) from an Office JWT token.
+   */
+  private extractExpiresAt(token: string): number | null {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+    } catch (error) {
+      this.logger.error('OfficeAuthService', 'Failed to decode Office token expiry', error);
+      return null;
+    }
+  }
 
   /**
    * Extracts the Microsoft user object ID (oid) from an Office JWT token.
@@ -67,11 +83,32 @@ export class OfficeAuthService {
     try {
       this.logger.info('OfficeAuthService', 'Requesting Office SSO token...');
 
-      const token = await OfficeRuntime.auth.getAccessToken({
+      const tokenOptions = {
         allowSignInPrompt: true,   // show sign-in UI if user is not signed into Office
         allowConsentPrompt: true,  // show consent dialog on first use
         forMSGraphAccess: false,   // we only need the oid — no MS Graph access required
-      });
+      };
+
+      let token = await OfficeRuntime.auth.getAccessToken(tokenOptions);
+      let expiresAt = this.extractExpiresAt(token);
+
+      // The host is expected to hand back a fresh token, but on some hosts/platforms
+      // (e.g. after the add-in was idle for a long time) it can return one that is
+      // already expired or about to expire. Retry once before giving up.
+      if (expiresAt !== null && expiresAt - Date.now() < EXPIRY_BUFFER_MS) {
+        this.logger.warn(
+          'OfficeAuthService',
+          `Office token expires too soon (expiresAt: ${new Date(expiresAt).toISOString()}) — requesting a fresh one`
+        );
+        token = await OfficeRuntime.auth.getAccessToken(tokenOptions);
+        expiresAt = this.extractExpiresAt(token);
+
+        if (expiresAt !== null && expiresAt - Date.now() < EXPIRY_BUFFER_MS) {
+          throw new Error(
+            `OfficeRuntime.auth.getAccessToken() returned an expired/near-expiry token twice in a row (expiresAt: ${new Date(expiresAt).toISOString()})`
+          );
+        }
+      }
 
       const oid = this.extractOid(token);
       const email = this.extractEmail(token);
