@@ -67,6 +67,9 @@ export interface ConnectionManagerConfig {
   reconnectOnActivity?: boolean; // Reconnect when user becomes active (default: true)
 }
 
+/** Re-authenticate on reconnect only if the current ADVOKAT JWT expires within this window. */
+const AUTH_EXPIRY_BUFFER_MS = 2 * 60 * 1000; // 2 minutes — matches TokenService's refresh buffer
+
 const DEFAULT_CONFIG: Required<ConnectionManagerConfig> = {
   maxReconnectAttempts: 2,
   reconnectDelay: 3000,
@@ -122,13 +125,31 @@ export class WebRTCConnectionManager implements SipClientObserver {
         lastError: undefined,
       });
 
-      // Re-authenticate on EVERY CONNECTED transition, not just the first one of a
-      // connect() cycle. SipClient can recover from a dropped transport internally
-      // (e.g. after the add-in was idle) and re-fire CONNECTED without going through
-      // connect() again — if we only authenticated on the first CONNECTED, that internal
-      // recovery path would keep reusing whatever ADVOKAT JWT/Office token was acquired
-      // before the drop, which may since have expired.
-      if (!this.isAuthenticating) {
+      // Re-authenticate on every CONNECTED transition where the current ADVOKAT JWT
+      // is missing or close to expiry — not just the first one of a connect() cycle.
+      // SipClient can recover from a dropped transport internally (e.g. after the
+      // add-in was idle, or a transient ICE/WebRTC retry while still registered) and
+      // re-fire CONNECTED without going through connect() again. If we only
+      // authenticated on the first CONNECTED, that internal recovery path would keep
+      // reusing a JWT acquired before the drop, which may since have expired.
+      //
+      // We deliberately DON'T re-exchange unconditionally on every CONNECTED: the
+      // office-token exchange endpoint is not meant to be called repeatedly against
+      // an already-valid session, and doing so on routine ICE reconnects (which can
+      // re-fire CONNECTED multiple times during a single live session) causes the
+      // server to reject the redundant exchange.
+      const authState = (store.getState() as any).auth;
+      const hasValidToken =
+        !!authState?.token &&
+        !!authState?.expiresAt &&
+        authState.expiresAt - Date.now() > AUTH_EXPIRY_BUFFER_MS;
+
+      if (hasValidToken) {
+        this.logger.info(
+          "ConnectionManager",
+          "Existing ADVOKAT JWT still valid — skipping re-authentication on reconnect"
+        );
+      } else if (!this.isAuthenticating) {
         this.isAuthenticating = true;
         this.performAuthentication()
           .catch((error) => {
