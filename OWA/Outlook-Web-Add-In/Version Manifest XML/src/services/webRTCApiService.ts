@@ -1029,7 +1029,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "service.saveLeistung",
       "POST",
-      "api/v1.1/Leistungen",
+      "api/v2.0/Leistungen",
       {
         "Content-Type": "application/json-patch+json",
         Accept: "text/plain",
