@@ -310,4 +310,31 @@ describe("Integration — Favorites (Case) Flow End-to-End", () => {
     // No refetch was triggered — the favorite is still in the list.
     expect(screen.getByTestId("row-1")).toBeInTheDocument();
   });
+
+  it("propagates a connection-level failure (channels not ready) as a Redux error and a UI notification, distinct from an HTTP-status error", async () => {
+    renderCaseTabContent();
+
+    await waitFor(() => expect(sentRequestsFor("akten.getFavoriteAkten")).toHaveLength(1));
+    resolveLatest("akten.getFavoriteAkten", favoriteAkten);
+    await waitFor(() => expect(screen.getByTestId("row-1")).toBeInTheDocument());
+
+    // Connection drops between the favorites list loading and the user clicking
+    // delete. CaseTabContent's handleDelete has no isReady guard (unlike the
+    // mount-fetch effect), so the real WebRTCApiService.sendRequest() is reached
+    // and throws synchronously — this never becomes a pending/sent request at all,
+    // exercising a genuinely different failure path than an HTTP error response.
+    mockDataChannelSvc.isReadyForCommunication = false;
+
+    fireEvent.click(screen.getAllByTitle("removeFromFavorites")[0]);
+
+    await waitFor(() =>
+      expect(mockNotify).toHaveBeenCalledWith(
+        expect.stringContaining("failedToRemoveFromFavorites"),
+        "error",
+        5000
+      )
+    );
+    expect(sentRequestsFor("akten.removeAktFromFavorite")).toHaveLength(0);
+    expect(screen.getByTestId("row-1")).toBeInTheDocument();
+  });
 });
