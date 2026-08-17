@@ -11,10 +11,10 @@ Each section summarises a test type and links to its dedicated guide.
 | [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ✅ 272 tests passing (all 8 files) |
 | [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ✅ 318 tests passing (all 7 files) |
 | [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ✅ 285 tests passing (22 files — App, Header, Tab, PairingDialog, all 4 tab panels, and all tab sub-components) |
-| [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ✅ 32 tests passing (token, pairing, idle, SIP+Redux sync) |
+| [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ✅ 44 tests passing (token refresh, pairing incl. real UI, idle, SIP+Redux sync incl. retry/reconnect, favorites end-to-end, token expiry) |
 | [06_TESTING_GUIDE_E2E.md](./06_TESTING_GUIDE_E2E.md) | End-to-end tests (Playwright) | ❌ Not started |
 
-Total: **1408 tests passing** across 50 suites (`npx jest`).
+Total: **1420 tests passing** across 53 suites (`npx jest`).
 
 ---
 
@@ -100,10 +100,18 @@ pieces) are covered (285 tests across 22 files).
 ## 5. Integration Tests
 
 Multiple real units wired together — only the Office API, `fetch`, and `WebSocket`
-are mocked. All 4 key scenarios are covered: token refresh flow, pairing flow,
-idle disconnect, and SIP + Redux sync (the last one drives the real SipClient/
-Registration/EstablishingConnection/Peer2PeerConnection chain through a full
-handshake via a hand-driven mock WebSocket/RTCPeerConnection).
+are mocked. 7 scenarios are covered across 44 tests: token refresh flow, pairing
+flow (service-level and through the real `PairingDialog` UI), idle disconnect,
+SIP + Redux sync (drives the real SipClient/Registration/EstablishingConnection/
+Peer2PeerConnection chain through a full handshake, a registration retry, and a
+full reconnect cycle via a hand-driven mock WebSocket/RTCPeerConnection),
+favorites (case) flow end-to-end (real component + thunk + `WebRTCApiService`
+message construction), and token expiry mid-session (real `WebRTCConnectionStatus`
++ `TokenService`).
+
+A 2026-08-17 re-audit found most of the original 4 files only wired 2 of the
+"2+ real units" they claimed and fixed the gaps — surfacing one real production
+bug along the way (see [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md)).
 
 **Status: ✅ Done**
 
