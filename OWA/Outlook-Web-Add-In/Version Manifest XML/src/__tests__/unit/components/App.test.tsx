@@ -224,4 +224,135 @@ describe("App", () => {
       });
     });
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Ctrl+Shift+L logging toggle shortcut
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("Ctrl+Shift+L logging toggle shortcut", () => {
+    function fireCtrlShiftL() {
+      const event = new KeyboardEvent("keydown", {
+        key: "L",
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(event);
+      return event;
+    }
+
+    it("toggles the logging.enabled flag in the store", async () => {
+      const { store } = renderWithProviders(<App title="Test" />, { preloadedState: pairedState });
+      await waitFor(() => expect(store.getState().logging.enabled).toBe(false));
+
+      fireCtrlShiftL();
+
+      expect(store.getState().logging.enabled).toBe(true);
+    });
+
+    it("toggles back off on a second press", async () => {
+      const { store } = renderWithProviders(<App title="Test" />, { preloadedState: pairedState });
+      await waitFor(() => expect(store.getState().logging.enabled).toBe(false));
+
+      fireCtrlShiftL();
+      fireCtrlShiftL();
+
+      expect(store.getState().logging.enabled).toBe(false);
+    });
+
+    it("prevents the default browser action", async () => {
+      renderWithProviders(<App title="Test" />, { preloadedState: pairedState });
+      const event = fireCtrlShiftL();
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it("does NOT toggle logging for Ctrl+L without Shift", async () => {
+      const { store } = renderWithProviders(<App title="Test" />, { preloadedState: pairedState });
+      await waitFor(() => expect(store.getState().logging.enabled).toBe(false));
+
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "L", ctrlKey: true, shiftKey: false, bubbles: true })
+      );
+
+      expect(store.getState().logging.enabled).toBe(false);
+    });
+
+    it("replaces the Office notification message with the new state", async () => {
+      const replaceAsync = jest.fn();
+      (global as any).Office = {
+        ...((global as any).Office ?? {}),
+        context: {
+          mailbox: { item: { notificationMessages: { replaceAsync } } },
+        },
+        MailboxEnums: { ItemNotificationMessageType: { InformationalMessage: "informationalMessage" } },
+      };
+
+      renderWithProviders(<App title="Test" />, { preloadedState: pairedState });
+      fireCtrlShiftL();
+
+      expect(replaceAsync).toHaveBeenCalledWith(
+        "LoggingToggleNotification",
+        expect.objectContaining({ message: "logging.enabled" })
+      );
+    });
+
+    it("removes the keydown listener on unmount", async () => {
+      const { store, unmount } = renderWithProviders(<App title="Test" />, { preloadedState: pairedState });
+      await waitFor(() => expect(store.getState().logging.enabled).toBe(false));
+
+      unmount();
+      fireCtrlShiftL();
+
+      // No store to assert against post-unmount, but this should not throw
+      expect(() => fireCtrlShiftL()).not.toThrow();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // WebRTC connection manager init/cleanup effect (driven by advokatServerId)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("WebRTC connection manager effect", () => {
+    it("does NOT initialize the connection manager while advokatServerId is unset", () => {
+      renderWithProviders(<App title="Test" />, { preloadedState: unpairedState });
+      expect(mockInitialize).not.toHaveBeenCalled();
+    });
+
+    it("initializes the connection manager once advokatServerId is known", async () => {
+      renderWithProviders(<App title="Test" />, { preloadedState: pairedState });
+      await waitFor(() => expect(mockInitialize).toHaveBeenCalledTimes(1));
+    });
+
+    it("disconnects the connection manager on unmount", async () => {
+      const { unmount } = renderWithProviders(<App title="Test" />, { preloadedState: pairedState });
+      await waitFor(() => expect(mockInitialize).toHaveBeenCalledTimes(1));
+
+      unmount();
+
+      expect(mockDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it("disconnects exactly once even if unload fires before unmount", async () => {
+      const { unmount } = renderWithProviders(<App title="Test" />, { preloadedState: pairedState });
+      await waitFor(() => expect(mockInitialize).toHaveBeenCalledTimes(1));
+
+      window.dispatchEvent(new Event("unload"));
+      unmount();
+
+      expect(mockDisconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it("re-initializes when advokatServerId changes after being unset", async () => {
+      const { store } = renderWithProviders(<App title="Test" />, { preloadedState: unpairedState });
+      expect(mockInitialize).not.toHaveBeenCalled();
+
+      store.dispatch({
+        type: "pairing/setPaired",
+        payload: { advokatServerId: "adv-99", kuerzel: "ABC" },
+      });
+
+      await waitFor(() => expect(mockInitialize).toHaveBeenCalledTimes(1));
+    });
+  });
 });
