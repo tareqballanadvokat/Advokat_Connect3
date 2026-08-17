@@ -10,11 +10,11 @@ Each section summarises a test type and links to its dedicated guide.
 | [01_TESTING_GUIDE_SLICES.md](./01_TESTING_GUIDE_SLICES.md) | Unit tests — Redux slices | ✅ 501 tests passing (all 9 slices) |
 | [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ✅ 272 tests passing (all 8 files) |
 | [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ✅ 318 tests passing (all 7 files) |
-| [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ✅ 73 tests passing (App, Header, Tab, PairingDialog, all 4 tab panels) |
+| [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ✅ 285 tests passing (22 files — App, Header, Tab, PairingDialog, all 4 tab panels, and all tab sub-components) |
 | [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ✅ 32 tests passing (token, pairing, idle, SIP+Redux sync) |
 | [06_TESTING_GUIDE_E2E.md](./06_TESTING_GUIDE_E2E.md) | End-to-end tests (Playwright) | ❌ Not started |
 
-Total: **1196 tests passing** across 36 suites (`npx jest`).
+Total: **1408 tests passing** across 50 suites (`npx jest`).
 
 ---
 
@@ -85,8 +85,11 @@ All 7 files are covered (237 tests): `MessageFactory`, `Helper`, `TimeoutManager
 
 React components in `src/taskpane/components/` rendered with a real Redux store and
 i18n provider, via the shared `renderWithProviders` helper.
-`App`, `Header`, `Tab`, `PairingDialog`, and all 4 tab panels (`tabs/email`,
-`tabs/case`, `tabs/person`, `tabs/service`) are covered (73 tests).
+`App`, `Header`, `Tab`, `PairingDialog`, all 4 tab panels (`tabs/email`,
+`tabs/case`, `tabs/person`, `tabs/service`), and every tab sub-component
+(search/registered lists, transfer & attachment UI, service section, cache
+stats panel, drag-and-drop attach area, and the trivial presentational
+pieces) are covered (285 tests across 22 files).
 
 **Status: ✅ Done**
 

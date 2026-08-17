@@ -10,14 +10,28 @@
 
 | Component | Status |
 |---|---|
-| `App.tsx` | ✅ 12 tests — render, PairingDialog visibility, SSO effect chain, logging init |
-| `Tab.tsx` | ✅ 8 tests — language switcher, Tabs wrapper, ICE badge, keyboard shortcut |
+| `App.tsx` | ✅ tests — render, PairingDialog visibility, SSO effect chain, logging init, WebRTC connect/cleanup |
+| `Tab.tsx` | ✅ tests — language switcher, Tabs wrapper, ICE badge, keyboard shortcut, `renderContent` switch, cache-tab toggle |
 | `Header.tsx` | ✅ 7 tests — rendering (message, logo, buttons), language switching, active state |
 | `tabs/shared/PairingDialog` | ✅ 13 tests — visibility, OTP input, form submission (success, errors, SSO) |
 | `tabs/email/EmailTabContent` | ✅ 9 tests — compose-mode visibility, case selection, sendEmailHandler validation/happy path |
-| `tabs/case/CaseTabContent` | ✅ 7 tests — favorites fetch on mount, row rendering, remove-from-favorites success/error |
+| `tabs/case/CaseTabContent` | ✅ tests — favorites fetch on mount, row rendering, remove-from-favorites success/error, `onSelectionChanged`/`onExpandedRowKeysChange`/`handleOpen`/`handleAdd` |
 | `tabs/person/PersonTabContent` | ✅ 8 tests — favorites fetch, empty state, add/remove favorite success/error |
 | `tabs/service/ServiceTabContent` | ✅ 9 tests — compose-mode visibility, case selection, sendServiceHandler validation/success/error |
+| `tabs/case/SearchCaseList` | ✅ search + favorites picker (case tab) |
+| `tabs/shared/SearchCaseList` | ✅ cross-tab case picker (email/service tabs) |
+| `tabs/email/RegisteredEmails` | ✅ registered-emails list rendering, download/open handling |
+| `tabs/service/RegisteredService` | ✅ registered-service list rendering |
+| `tabs/email/TransferAndAttachment` | ✅ document type selection, attach/transfer flows |
+| `tabs/service/ServiceSection` | ✅ service dropdown load/select, thunk-driven state |
+| `tabs/person/CustomItem` | ✅ presentational accordion item |
+| `tabs/person/CustomTitle` | ✅ 6 tests — name display, delete click, disabled-while-deleting, spinner, propagation |
+| `tabs/person/SearchPersonList` | ✅ search + add-to-favorites |
+| `tabs/shared/WebRTCConnectionStatus` | ✅ connection-state → friendly message branches |
+| `tabs/shared/CacheStatsPanel` | ✅ subscription lifecycle, controls, derived value calculations |
+| `tabs/shared/DropAttachArea` | ✅ drag state, file read + attach (single/multiple/failure) |
+| `tabs/email/EmailSend` | ✅ 5 tests — case id display, transfer click/disabled/loading |
+| `tabs/service/ServiceSend` | ✅ 5 tests — case id display, transfer click/disabled/loading |
 
 ---
 
@@ -99,11 +113,28 @@ src/__tests__/unit/components/
 ├── Tab.test.tsx                ← ✅ done
 ├── PairingDialog.test.tsx      ← ✅ done
 └── tabs/
-    ├── EmailTabContent.test.tsx    ← ✅ done
-    ├── CaseTabContent.test.tsx     ← ✅ done
-    ├── PersonTabContent.test.tsx   ← ✅ done
-    └── ServiceTabContent.test.tsx  ← ✅ done
+    ├── EmailTabContent.test.tsx        ← ✅ done
+    ├── CaseTabContent.test.tsx         ← ✅ done
+    ├── PersonTabContent.test.tsx       ← ✅ done
+    ├── ServiceTabContent.test.tsx      ← ✅ done
+    ├── SearchCaseList.test.tsx         ← ✅ done (case tab)
+    ├── SharedSearchCaseList.test.tsx   ← ✅ done (cross-tab picker)
+    ├── RegisteredEmails.test.tsx       ← ✅ done
+    ├── RegisteredService.test.tsx      ← ✅ done
+    ├── TransferAndAttachment.test.tsx  ← ✅ done
+    ├── ServiceSection.test.tsx         ← ✅ done
+    ├── CustomItem.test.tsx             ← ✅ done
+    ├── CustomTitle.test.tsx            ← ✅ done
+    ├── SearchPersonList.test.tsx       ← ✅ done
+    ├── WebRTCConnectionStatus.test.tsx ← ✅ done
+    ├── CacheStatsPanel.test.tsx        ← ✅ done
+    ├── DropAttachArea.test.tsx         ← ✅ done
+    ├── EmailSend.test.tsx              ← ✅ done
+    └── ServiceSend.test.tsx            ← ✅ done
 ```
+
+285 tests across 22 files — every component under `src/taskpane/components/`
+now has coverage.
 
 ### DevExtreme mocking pattern used for the tab content tests
 
