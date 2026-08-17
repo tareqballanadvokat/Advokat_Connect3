@@ -17,6 +17,7 @@ import authReducer, {
   validateToken,
   setOfficeToken,
   clearOfficeToken,
+  setOfficeAuthErrorKey,
   setAdvokatToken,
   clearAdvokatToken,
   selectAuth,
@@ -31,13 +32,26 @@ import authReducer, {
   selectOid,
   selectEmail,
   selectAdvokatToken,
+  selectOfficeAuthErrorKey,
 } from "@slices/authSlice";
 import { IAuthState, IAuthResponse } from "@interfaces/IAuth";
+
+const mockClearNamespace = jest.fn();
+jest.mock("@infra/cache", () => ({
+  cacheService: {
+    clearNamespace: (...args: unknown[]) => mockClearNamespace(...args),
+    setNamespace: jest.fn(),
+  },
+}));
 
 describe("authSlice", () => {
   // Clean up after each test
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  beforeEach(() => {
+    mockClearNamespace.mockReset().mockResolvedValue(0);
   });
 
   // Initial state for tests
@@ -331,6 +345,32 @@ describe("authSlice", () => {
       });
     });
 
+    describe("setOfficeAuthErrorKey", () => {
+      it("should store the error key", () => {
+        const actual = authReducer(initialState, setOfficeAuthErrorKey("errors.office.consentRequired"));
+        expect(actual.officeAuthErrorKey).toBe("errors.office.consentRequired");
+      });
+
+      it("should overwrite a previously stored error key", () => {
+        const prevState = { ...initialState, officeAuthErrorKey: "errors.office.old" };
+        const actual = authReducer(prevState, setOfficeAuthErrorKey("errors.office.new"));
+        expect(actual.officeAuthErrorKey).toBe("errors.office.new");
+      });
+
+      it("should allow clearing the error key with null", () => {
+        const prevState = { ...initialState, officeAuthErrorKey: "errors.office.old" };
+        const actual = authReducer(prevState, setOfficeAuthErrorKey(null));
+        expect(actual.officeAuthErrorKey).toBeNull();
+      });
+
+      it("should not affect other auth state", () => {
+        const prevState = { ...initialState, token: "advokat-token", isAuthenticated: true };
+        const actual = authReducer(prevState, setOfficeAuthErrorKey("errors.office.denied"));
+        expect(actual.token).toBe("advokat-token");
+        expect(actual.isAuthenticated).toBe(true);
+      });
+    });
+
     describe("setAdvokatToken", () => {
       it("should store the advokat token", () => {
         const actual = authReducer(initialState, setAdvokatToken("adv-token-xyz"));
@@ -422,6 +462,70 @@ describe("authSlice", () => {
         expect(actual).toEqual(initialState);
       });
     });
+
+    describe("logoutAsync extraReducers", () => {
+      it("should not throw and leave state untouched on fulfilled", () => {
+        const prevState = { ...initialState, isAuthenticated: true, token: "some-token" };
+        const actual = authReducer(prevState, { type: logoutAsync.fulfilled.type });
+
+        // logoutAsync only logs; the actual `logout()` action resets state separately
+        expect(actual).toEqual(prevState);
+      });
+
+      it("should not throw and leave state untouched on rejected", () => {
+        const prevState = { ...initialState, isAuthenticated: true, token: "some-token" };
+        const actual = authReducer(prevState, {
+          type: logoutAsync.rejected.type,
+          error: { message: "Cache clear failed" },
+        });
+
+        expect(actual).toEqual(prevState);
+      });
+    });
+
+    describe("logoutAsync thunk", () => {
+      it("should clear the cache namespace for the current username", async () => {
+        mockClearNamespace.mockResolvedValue(3);
+
+        const dispatch = jest.fn();
+        const getState = jest.fn(() => ({
+          auth: { ...initialState, credentials: { username: "testuser" } },
+        }));
+
+        const result = await logoutAsync()(dispatch, getState, undefined);
+
+        expect(mockClearNamespace).toHaveBeenCalledWith("testuser");
+        expect(result.type).toBe("auth/logout/fulfilled");
+      });
+
+      it("should skip cache clearing when there is no username", async () => {
+        const dispatch = jest.fn();
+        const getState = jest.fn(() => ({
+          auth: { ...initialState, credentials: { username: null } },
+        }));
+
+        const result = await logoutAsync()(dispatch, getState, undefined);
+
+        expect(mockClearNamespace).not.toHaveBeenCalled();
+        expect(result.type).toBe("auth/logout/fulfilled");
+      });
+
+      it("should reject when cache clearing fails", async () => {
+        mockClearNamespace.mockRejectedValue(new Error("Storage unavailable"));
+
+        const dispatch = jest.fn();
+        const getState = jest.fn(() => ({
+          auth: { ...initialState, credentials: { username: "testuser" } },
+        }));
+
+        const result = await logoutAsync()(dispatch, getState, undefined);
+
+        expect(result.type).toBe("auth/logout/rejected");
+        if (logoutAsync.rejected.match(result)) {
+          expect(result.error.message).toBe("Storage unavailable");
+        }
+      });
+    });
   });
 
   describe("Selectors", () => {
@@ -499,6 +603,14 @@ describe("authSlice", () => {
       it("selectAdvokatToken should return the advokat token", () => {
         expect(selectAdvokatToken(stateWithTokens)).toBe("adv-token-xyz");
         expect(selectAdvokatToken({ auth: initialState })).toBeNull();
+      });
+
+      it("selectOfficeAuthErrorKey should return the office auth error key", () => {
+        const stateWithErrorKey = {
+          auth: { ...initialState, officeAuthErrorKey: "errors.office.consentRequired" },
+        };
+        expect(selectOfficeAuthErrorKey(stateWithErrorKey)).toBe("errors.office.consentRequired");
+        expect(selectOfficeAuthErrorKey({ auth: initialState })).toBeNull();
       });
     });
 

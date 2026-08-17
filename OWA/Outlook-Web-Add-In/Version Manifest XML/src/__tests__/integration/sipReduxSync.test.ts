@@ -83,6 +83,13 @@ jest.mock("@services/PairingApiService", () => ({
   },
 }));
 
+// ─── OfficeAuthService mock — performAuthentication() re-acquires a fresh
+// Office SSO token via this service before exchanging it for the ADVOKAT JWT.
+const mockGetOfficeToken = jest.fn(() => Promise.resolve("office-jwt"));
+jest.mock("@services/OfficeAuthService", () => ({
+  officeAuthService: { getOfficeToken: (...args: any[]) => mockGetOfficeToken(...args) },
+}));
+
 // ─── Store mock — dynamic getter so each test injects a fresh store ───────────
 let _store: ReturnType<typeof buildStore>;
 jest.mock("@store", () => ({
@@ -103,6 +110,18 @@ function buildStore() {
     reducer: { connection: connectionReducer, auth: authReducer },
     middleware: (gd) => gd({ serializableCheck: false }),
   });
+}
+
+/**
+ * performAuthentication() is fired-and-forgotten from onSipClientStateChanged
+ * (not awaited by connect()), so tests need to flush its microtask chain
+ * (getOfficeToken → exchangeOfficeToken → dispatch) after connectPromise resolves.
+ * Uses only microtasks (not setImmediate/setTimeout) so it works under fake timers.
+ */
+async function flushPromises(times = 6): Promise<void> {
+  for (let i = 0; i < times; i++) {
+    await Promise.resolve();
+  }
 }
 
 // ─── SIP message builders (real wire format expected by Registration /
@@ -184,7 +203,8 @@ describe("Integration — SIP + Redux Sync (real SipClient orchestration)", () =
     jest.clearAllMocks();
     _store = buildStore();
 
-    // Seed the Office token so performAuthentication() can proceed once CONNECTED.
+    // Seed an Office token in the store (unrelated to auth: performAuthentication()
+    // re-acquires its own via the mocked officeAuthService.getOfficeToken() above).
     _store.dispatch(setOfficeToken({ officeToken: "office-jwt", oid: "oid-1", email: "user@test.com" }));
 
     (global.WebSocket as any).OPEN       = 1;
@@ -288,6 +308,11 @@ describe("Integration — SIP + Redux Sync (real SipClient orchestration)", () =
 
     const finalState = selectConnectionState(_store.getState() as any);
     expect(finalState.sipClientState).toBe(SipClientState.CONNECTED);
+
+    // performAuthentication() runs fire-and-forgotten off the CONNECTED handler —
+    // flush its microtask chain (getOfficeToken → exchangeOfficeToken → dispatch)
+    // before asserting on the resulting auth state.
+    await flushPromises();
 
     // Post-connection authentication ran against the real authSlice reducer.
     expect(selectAuthToken(_store.getState() as any)).toBe("jwt");
