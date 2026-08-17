@@ -35,6 +35,20 @@ const enCommon = {
     dragFilesHere: 'Drag & drop files here to attach them',
   },
   unknownError: 'Unknown error',
+  officeAuth: {
+    errors: {
+      13001: 'You are not signed into Outlook with a Microsoft account. Please sign in and try again.',
+      13002: 'Sign-in was cancelled, or you need to approve this add-in\'s permissions. Please try again and accept the consent prompt.',
+      13003: 'This account type is not supported. Please sign into Outlook with your organizational (work or school) Microsoft account, not a personal account.',
+      13004: 'The add-in is not configured correctly. Please contact support.',
+      13005: 'Your session has expired. Please sign in again.',
+      13006: 'A temporary error occurred while signing in. Please try again.',
+      13007: 'Outlook could not retrieve a sign-in token on your behalf. Please try again, and contact support if this continues.',
+      13008: 'A sign-in attempt is already in progress. Please wait a moment and try again.',
+      13012: 'Your Outlook version or platform does not support single sign-on. Please update Outlook or contact support.',
+      unknown: 'Sign-in failed for an unknown reason. Please try again, and contact support if this continues.',
+    },
+  },
 };
 
 const enEmail = {
@@ -144,6 +158,20 @@ const deCommon = {
     dragFilesHere: 'Dateien hier ablegen zum Anhängen',
   },
   unknownError: 'Unbekannter Fehler',
+  officeAuth: {
+    errors: {
+      13001: 'Sie sind nicht mit einem Microsoft-Konto in Outlook angemeldet. Bitte melden Sie sich an und versuchen Sie es erneut.',
+      13002: 'Die Anmeldung wurde abgebrochen, oder Sie müssen die Berechtigungen dieses Add-Ins bestätigen. Bitte versuchen Sie es erneut und akzeptieren Sie die Zustimmungsabfrage.',
+      13003: 'Dieser Kontotyp wird nicht unterstützt. Bitte melden Sie sich in Outlook mit Ihrem organisatorischen (geschäftlichen/schulischen) Microsoft-Konto an, nicht mit einem privaten Konto.',
+      13004: 'Das Add-In ist nicht korrekt konfiguriert. Bitte kontaktieren Sie den Support.',
+      13005: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
+      13006: 'Bei der Anmeldung ist ein vorübergehender Fehler aufgetreten. Bitte versuchen Sie es erneut.',
+      13007: 'Outlook konnte kein Anmelde-Token für Sie abrufen. Bitte versuchen Sie es erneut und kontaktieren Sie den Support, falls das Problem weiterhin besteht.',
+      13008: 'Es läuft bereits ein Anmeldeversuch. Bitte warten Sie einen Moment und versuchen Sie es erneut.',
+      13012: 'Ihre Outlook-Version oder -Plattform unterstützt kein Single Sign-On. Bitte aktualisieren Sie Outlook oder kontaktieren Sie den Support.',
+      unknown: 'Die Anmeldung ist aus unbekanntem Grund fehlgeschlagen. Bitte versuchen Sie es erneut und kontaktieren Sie den Support, falls das Problem weiterhin besteht.',
+    },
+  },
 };
 
 const deEmail = {
