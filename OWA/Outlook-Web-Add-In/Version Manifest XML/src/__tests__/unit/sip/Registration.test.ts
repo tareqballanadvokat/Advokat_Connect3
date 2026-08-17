@@ -98,6 +98,55 @@ function buildByeMessage(callId: string, clientTag: string): string {
   ].join("\r\n");
 }
 
+function buildNotify(callId: string, clientTag: string): string {
+  return [
+    `NOTIFY sip:client@sip.test:5061;transport=wss SIP/2.0`,
+    "Via: SIP/2.0/WSS sip.test;branch=z9hG4bKserver",
+    `From: "Server" <sip:server@sip.test;transport=wss>;tag=srv-tag`,
+    `To: "Client" <sip:client@sip.test;transport=wss>;tag=${clientTag}`,
+    `Call-ID: ${callId}`,
+    "CSeq: 4 NOTIFY",
+    "",
+    "",
+  ].join("\r\n");
+}
+
+function buildUnrecognizedMessage(callId: string, clientTag: string): string {
+  return [
+    `INFO sip:client@sip.test:5061;transport=wss SIP/2.0`,
+    "Via: SIP/2.0/WSS sip.test;branch=z9hG4bKserver",
+    `From: "Server" <sip:server@sip.test;transport=wss>;tag=srv-tag`,
+    `To: "Client" <sip:client@sip.test;transport=wss>;tag=${clientTag}`,
+    `Call-ID: ${callId}`,
+    "CSeq: 9 INFO",
+    "",
+    "",
+  ].join("\r\n");
+}
+
+/** A 202 response with a custom raw body (or none), for parseServerTimeouts edge cases. */
+function build202WithBody(
+  callId: string,
+  clientTag: string,
+  body: string | null,
+  serverTag = "srv-tag-abc"
+): string {
+  const headers = [
+    "SIP/2.0 202 Accepted",
+    "Via: SIP/2.0/WSS sip.test;branch=z9hG4bKserver",
+    `From: "Server" <sip:server@sip.test;transport=wss>;tag=${serverTag}`,
+    `To: "Client" <sip:client@sip.test;transport=wss>;tag=${clientTag}`,
+    `Call-ID: ${callId}`,
+    "CSeq: 2 REGISTER",
+    "Content-Type: application/json",
+  ];
+  if (body === null) {
+    // No body at all — no double-CRLF separator
+    return headers.join("\r\n");
+  }
+  return [...headers, "", body].join("\r\n");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("Registration", () => {
@@ -354,6 +403,182 @@ describe("Registration", () => {
       expect(cfg).toHaveProperty("peerRegistration");
       expect(cfg).toHaveProperty("connection");
       expect(cfg).toHaveProperty("receive");
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // getRegistrationError()
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("getRegistrationError()", () => {
+    it("returns an empty string before any error has occurred", () => {
+      expect(reg.getRegistrationError()).toBe("");
+    });
+
+    it("returns the error code and reason after an error response", () => {
+      reg.getInitialRegistration();
+      reg.parseMessage(buildErrorResponse(500, "Server Error", reg.callId, reg.tag));
+      expect(reg.getRegistrationError()).toBe("500 Server Error");
+    });
+
+    it("returns a timeout message after RECEIVE_TIMEOUT expiry", () => {
+      reg.getInitialRegistration();
+      jest.advanceTimersByTime(60_000);
+      expect(reg.getRegistrationError()).toContain("RECEIVE_TIMEOUT");
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // terminate()
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("terminate()", () => {
+    it("returns a REGISTRATION BYE message", () => {
+      reg.getInitialRegistration();
+      const msg = reg.terminate();
+      expect(msg).toContain("BYE");
+      expect(msg).toContain("REGISTRATION");
+    });
+
+    it("transitions to TERMINATING state", () => {
+      reg.getInitialRegistration();
+      reg.terminate();
+      expect(reg.getRegistrationState()).toBe(RegistrationState.TERMINATING);
+    });
+
+    it("cancels any active RECEIVE_TIMEOUT", () => {
+      reg.getInitialRegistration();
+      expect(manager.isTimerActive("RECEIVE_TIMEOUT")).toBe(true);
+      reg.terminate();
+      expect(manager.isTimerActive("RECEIVE_TIMEOUT")).toBe(false);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Duplicate CSeq handling
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("Duplicate message handling", () => {
+    it("resends the ACK when a duplicate 202 (CSeq 2) arrives", () => {
+      reg.getInitialRegistration();
+      const first = reg.parseMessage(build202(reg.callId, reg.tag));
+      expect(first).toContain("ACK");
+
+      const duplicate = reg.parseMessage(build202(reg.callId, reg.tag));
+      expect(duplicate).toContain("ACK");
+    });
+
+    it("does not re-fire onSuccess for a duplicate 202", () => {
+      reg.getInitialRegistration();
+      reg.parseMessage(build202(reg.callId, reg.tag));
+      events.onSuccess.mockClear();
+
+      reg.parseMessage(build202(reg.callId, reg.tag));
+      expect(events.onSuccess).not.toHaveBeenCalled();
+    });
+
+    it("returns an empty string for a duplicate non-202 CSeq", () => {
+      reg.getInitialRegistration();
+      reg.parseMessage(build202(reg.callId, reg.tag)); // processes CSeq 2 (202) and pre-marks CSeq 3 (ACK)
+
+      // CSeq 3 is already in processedCSeqs (from handle202Accepted) — any further
+      // message with CSeq 3 that isn't itself a 202 hits the "ignoring duplicate" branch.
+      const duplicateAckCseq = [
+        "SIP/2.0 200 OK",
+        `From: "Server" <sip:server@sip.test;transport=wss>;tag=srv-tag-abc`,
+        `To: "Client" <sip:client@sip.test;transport=wss>;tag=${reg.tag}`,
+        `Call-ID: ${reg.callId}`,
+        "CSeq: 3 ACK",
+        "",
+        "",
+      ].join("\r\n");
+
+      const result = reg.parseMessage(duplicateAckCseq);
+      expect(result).toBe("");
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // NOTIFY received during Registration phase (out-of-phase message)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("NOTIFY received during Registration phase", () => {
+    it("returns an empty string and does not fire onFailure/onSuccess", () => {
+      reg.getInitialRegistration();
+      const result = reg.parseMessage(buildNotify(reg.callId, reg.tag));
+      expect(result).toBe("");
+      expect(events.onFailure).not.toHaveBeenCalled();
+      expect(events.onSuccess).not.toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Unrecognized message type
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("Unrecognized message type", () => {
+    it("returns an empty string without side effects", () => {
+      reg.getInitialRegistration();
+      const result = reg.parseMessage(buildUnrecognizedMessage(reg.callId, reg.tag));
+      expect(result).toBe("");
+      expect(events.onFailure).not.toHaveBeenCalled();
+      expect(events.onSuccess).not.toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // parseServerTimeouts() edge cases (exercised via the 202 response path)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("parseServerTimeouts() edge cases", () => {
+    it("falls back to default timeouts when the 202 response has no body", () => {
+      reg.getInitialRegistration();
+      const before = reg.getTimeoutConfiguration();
+      reg.parseMessage(build202WithBody(reg.callId, reg.tag, null));
+      expect(reg.getTimeoutConfiguration()).toEqual(before);
+      // Registration still completes successfully despite missing timeout config
+      expect(reg.isRegistered).toBe(true);
+    });
+
+    it("falls back to default timeouts when the body is malformed JSON", () => {
+      reg.getInitialRegistration();
+      const before = reg.getTimeoutConfiguration();
+      reg.parseMessage(build202WithBody(reg.callId, reg.tag, "{not valid json"));
+      expect(reg.getTimeoutConfiguration()).toEqual(before);
+      expect(reg.isRegistered).toBe(true);
+    });
+
+    it("only applies fields present in the server's config, keeping others at default", () => {
+      reg.getInitialRegistration();
+      const before = reg.getTimeoutConfiguration();
+      reg.parseMessage(
+        build202WithBody(reg.callId, reg.tag, JSON.stringify({ ConnectionTimeout: 45000 }))
+      );
+      const after = reg.getTimeoutConfiguration();
+      expect(after.connection).toBe(45000);
+      expect(after.peerRegistration).toBe(before.peerRegistration);
+      expect(after.receive).toBe(before.receive);
+    });
+
+    it("ignores non-numeric timeout fields and keeps the default", () => {
+      reg.getInitialRegistration();
+      const before = reg.getTimeoutConfiguration();
+      reg.parseMessage(
+        build202WithBody(
+          reg.callId,
+          reg.tag,
+          JSON.stringify({ ConnectionTimeout: "not-a-number" })
+        )
+      );
+      expect(reg.getTimeoutConfiguration().connection).toBe(before.connection);
+    });
+
+    it("enforces a 10000ms floor even when the server sends a smaller value", () => {
+      reg.getInitialRegistration();
+      reg.parseMessage(
+        build202WithBody(reg.callId, reg.tag, JSON.stringify({ ConnectionTimeout: 500 }))
+      );
+      expect(reg.getTimeoutConfiguration().connection).toBe(10000);
     });
   });
 });

@@ -9,12 +9,12 @@ Each section summarises a test type and links to its dedicated guide.
 |---|---|---|
 | [01_TESTING_GUIDE_SLICES.md](./01_TESTING_GUIDE_SLICES.md) | Unit tests — Redux slices | ✅ 501 tests passing (all 9 slices) |
 | [02_TESTING_GUIDE_SERVICES.md](./02_TESTING_GUIDE_SERVICES.md) | Unit tests — Services | ✅ 272 tests passing (all 8 files) |
-| [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ✅ 237 tests passing (all 7 files) |
+| [03_TESTING_GUIDE_SIP.md](./03_TESTING_GUIDE_SIP.md) | Unit tests — SIP infrastructure | ✅ 318 tests passing (all 7 files) |
 | [04_TESTING_GUIDE_COMPONENTS.md](./04_TESTING_GUIDE_COMPONENTS.md) | Component tests (React Testing Library) | ✅ 73 tests passing (App, Header, Tab, PairingDialog, all 4 tab panels) |
 | [05_TESTING_GUIDE_INTEGRATION.md](./05_TESTING_GUIDE_INTEGRATION.md) | Integration tests | ✅ 32 tests passing (token, pairing, idle, SIP+Redux sync) |
 | [06_TESTING_GUIDE_E2E.md](./06_TESTING_GUIDE_E2E.md) | End-to-end tests (Playwright) | ❌ Not started |
 
-Total: **1115 tests passing** across 36 suites (`npx jest`).
+Total: **1196 tests passing** across 36 suites (`npx jest`).
 
 ---
 

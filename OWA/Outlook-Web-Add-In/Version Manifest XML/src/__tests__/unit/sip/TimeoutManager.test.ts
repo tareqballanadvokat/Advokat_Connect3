@@ -8,13 +8,14 @@
  * Logger is mocked to keep test output clean.
  */
 
+const mockLogger = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
 jest.mock("@infra/logger", () => ({
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  })),
+  getLogger: jest.fn(() => mockLogger),
 }));
 
 import { TimeoutManager } from "@infra/sip/TimeoutManager";
@@ -25,6 +26,7 @@ describe("TimeoutManager", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     manager = new TimeoutManager();
+    Object.values(mockLogger).forEach((fn) => fn.mockClear());
   });
 
   afterEach(() => {
@@ -324,6 +326,55 @@ describe("TimeoutManager", () => {
       manager.startTimer("Q", 1000, jest.fn());
       manager.cancelTimer("P");
       expect(manager.getStats().active).toBe(1);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // logActiveTimers
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("logActiveTimers", () => {
+    it("should log 'No active timers' when there are none", () => {
+      manager.logActiveTimers();
+      expect(mockLogger.debug).toHaveBeenCalledWith("No active timers", "TimeoutManager");
+    });
+
+    it("should not iterate or log per-timer details when there are none", () => {
+      manager.logActiveTimers();
+      const perTimerLog = mockLogger.debug.mock.calls.find(([msg]) =>
+        typeof msg === "string" && msg.startsWith("  - ")
+      );
+      expect(perTimerLog).toBeUndefined();
+    });
+
+    it("should log details for each active timer", () => {
+      manager.startTimer("A", 5000, jest.fn());
+      manager.startTimer("B", 10000, jest.fn());
+      mockLogger.debug.mockClear();
+
+      manager.logActiveTimers();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith("Active timers (2):", "TimeoutManager");
+      const perTimerLogs = mockLogger.debug.mock.calls
+        .map(([msg]) => msg)
+        .filter((msg) => typeof msg === "string" && msg.startsWith("  - "));
+      expect(perTimerLogs).toHaveLength(2);
+      expect(perTimerLogs.some((m) => m.includes("A:"))).toBe(true);
+      expect(perTimerLogs.some((m) => m.includes("B:"))).toBe(true);
+    });
+
+    it("should reflect elapsed/remaining time after time has passed", () => {
+      manager.startTimer("A", 10000, jest.fn());
+      jest.advanceTimersByTime(4000);
+      mockLogger.debug.mockClear();
+
+      manager.logActiveTimers();
+
+      const line = mockLogger.debug.mock.calls
+        .map(([msg]) => msg)
+        .find((msg) => typeof msg === "string" && msg.startsWith("  - A:"));
+      expect(line).toContain("4000ms elapsed");
+      expect(line).toContain("6000ms remaining");
     });
   });
 });

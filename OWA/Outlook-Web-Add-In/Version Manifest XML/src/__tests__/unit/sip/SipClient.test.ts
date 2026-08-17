@@ -216,6 +216,51 @@ describe("initializeSipClient", () => {
     };
   }
 
+  /** Fire ws.onmessage with the given raw string data and flush the resulting async handler. */
+  async function receiveMessage(data: string): Promise<void> {
+    await mockSocket.onmessage?.({ data } as MessageEvent);
+  }
+
+  function buildMessage(lines: string[]): string {
+    return lines.join("\r\n") + "\r\n\r\n";
+  }
+
+  function buildRegistrationBye(overrides: { cseq?: number; callId?: string; tag?: string } = {}) {
+    return buildMessage([
+      "BYE sip:client@sip.test SIP/2.0",
+      `CSeq: ${overrides.cseq ?? 10} BYE`,
+      "Reason: REGISTRATION",
+      `Call-ID: ${overrides.callId ?? mockReg.callId}`,
+      `To: <sip:client@sip.test>;tag=${overrides.tag ?? mockReg.tag}`,
+    ]);
+  }
+
+  function buildConnectionBye(overrides: { cseq?: number; callId?: string; tag?: string } = {}) {
+    return buildMessage([
+      "BYE sip:client@sip.test SIP/2.0",
+      `CSeq: ${overrides.cseq ?? 10} BYE`,
+      "Reason: CONNECTION",
+      `Call-ID: ${overrides.callId ?? mockConn.callId}`,
+      `To: <sip:client@sip.test>;tag=${overrides.tag ?? mockConn.tag}`,
+    ]);
+  }
+
+  function buildServiceMessage(cseq: number) {
+    return buildMessage(["SERVICE sip:client@sip.test SIP/2.0", `CSeq: ${cseq} SERVICE`]);
+  }
+
+  function buildNotify4(callId = "notify-call-id") {
+    return buildMessage([
+      "NOTIFY sip:client@sip.test SIP/2.0",
+      `Call-ID: ${callId}`,
+      "From: <sip:server@sip.test>;tag=servertag",
+    ]);
+  }
+
+  function buildGenericMessage() {
+    return buildMessage(["200 OK SIP/2.0", "CSeq: 1 REGISTER"]);
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // Initial state
   // ──────────────────────────────────────────────────────────────────────────
@@ -539,6 +584,279 @@ describe("initializeSipClient", () => {
       instance.send("SHOULD NOT SEND");
       const allSentMessages = (mockSocket.send as jest.Mock).mock.calls.map(([m]) => m);
       expect(allSentMessages).not.toContain("SHOULD NOT SEND");
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // ws.onmessage() — message routing
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("ws.onmessage() — BYE routing", () => {
+    describe("REGISTRATION BYE", () => {
+      beforeEach(() => {
+        openSocket();
+        simulateRegistrationSuccess(); // state = CONNECTING, PEER_REGISTRATION_TIMEOUT started
+      });
+
+      it("routes a matching-session REGISTRATION BYE to Registration.parseMessage", async () => {
+        mockReg.parseMessage.mockReturnValue("REGISTRATION BYE response");
+        await receiveMessage(buildRegistrationBye());
+        expect(mockReg.parseMessage).toHaveBeenCalled();
+        expect(mockSocket.send).toHaveBeenCalledWith("REGISTRATION BYE response");
+      });
+
+      it("cancels PEER_REGISTRATION_TIMEOUT on a matching REGISTRATION BYE", async () => {
+        expect(instance.timeoutManager.isTimerActive("PEER_REGISTRATION_TIMEOUT")).toBe(true);
+        await receiveMessage(buildRegistrationBye());
+        expect(instance.timeoutManager.isTimerActive("PEER_REGISTRATION_TIMEOUT")).toBe(false);
+      });
+
+      it("ignores a REGISTRATION BYE for a stale Call-ID", async () => {
+        await receiveMessage(buildRegistrationBye({ callId: "some-other-call-id" }));
+        expect(mockReg.parseMessage).not.toHaveBeenCalled();
+      });
+
+      it("ignores a REGISTRATION BYE with a mismatched To-tag", async () => {
+        await receiveMessage(buildRegistrationBye({ tag: "some-other-tag" }));
+        expect(mockReg.parseMessage).not.toHaveBeenCalled();
+      });
+
+      it("ignores a REGISTRATION BYE that is a loop-prevention response to our own BYE", async () => {
+        mockReg.lastSentRegistrationByeCSeq = 5;
+        await receiveMessage(buildRegistrationBye({ cseq: 6 }));
+        expect(mockReg.parseMessage).not.toHaveBeenCalled();
+      });
+
+      it("does not send a response when Registration.parseMessage returns falsy", async () => {
+        mockReg.parseMessage.mockReturnValue("");
+        await receiveMessage(buildRegistrationBye());
+        const sent = (mockSocket.send as jest.Mock).mock.calls.map(([m]) => m);
+        expect(sent).not.toContain("");
+      });
+    });
+
+    describe("CONNECTION BYE", () => {
+      beforeEach(() => {
+        openSocket();
+        simulateRegistrationSuccess();
+      });
+
+      it("routes a matching-session CONNECTION BYE to EstablishingConnection.parseMessage", async () => {
+        mockConn.parseMessage.mockReturnValue("CONNECTION BYE response");
+        await receiveMessage(buildConnectionBye());
+        expect(mockConn.parseMessage).toHaveBeenCalled();
+        expect(mockSocket.send).toHaveBeenCalledWith("CONNECTION BYE response");
+      });
+
+      it("ignores a CONNECTION BYE for a stale Call-ID", async () => {
+        await receiveMessage(buildConnectionBye({ callId: "some-other-call-id" }));
+        expect(mockConn.parseMessage).not.toHaveBeenCalled();
+      });
+
+      it("ignores a CONNECTION BYE with a mismatched To-tag", async () => {
+        await receiveMessage(buildConnectionBye({ tag: "some-other-tag" }));
+        expect(mockConn.parseMessage).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe("ws.onmessage() — per-state routing", () => {
+    it("REGISTERING: routes messages to Registration.parseMessage", async () => {
+      openSocket(); // state = REGISTERING
+      mockReg.parseMessage.mockReturnValue("registration response");
+      await receiveMessage(buildGenericMessage());
+      expect(mockReg.parseMessage).toHaveBeenCalledWith(buildGenericMessage());
+      expect(mockSocket.send).toHaveBeenCalledWith("registration response");
+    });
+
+    describe("CONNECTING", () => {
+      beforeEach(() => {
+        openSocket();
+        simulateRegistrationSuccess(); // state = CONNECTING
+      });
+
+      it("rejects connection messages when not registered", async () => {
+        mockReg.isRegistered = false;
+        await receiveMessage(buildGenericMessage());
+        expect(mockConn.parseMessage).not.toHaveBeenCalled();
+      });
+
+      it("routes to EstablishingConnection.parseMessage when registered", async () => {
+        mockConn.parseMessage.mockReturnValue("connection response");
+        await receiveMessage(buildGenericMessage());
+        expect(mockConn.parseMessage).toHaveBeenCalledWith(buildGenericMessage());
+        expect(mockSocket.send).toHaveBeenCalledWith("connection response");
+      });
+
+      it("creates an SDP offer once the connection phase reaches COMPLETE", async () => {
+        mockConn.getState.mockReturnValue(ConnectionState.COMPLETE);
+        mockP2P.isOfferSent = false;
+        const notify = buildNotify4("the-call-id");
+
+        await receiveMessage(notify);
+
+        expect(mockP2P.createOffer).toHaveBeenCalledWith(
+          "the-call-id",
+          mockConn.sipUri,
+          mockConn.tag,
+          expect.stringContaining("To:")
+        );
+      });
+
+      it("does NOT create a second SDP offer once one has already been sent", async () => {
+        mockConn.getState.mockReturnValue(ConnectionState.COMPLETE);
+        mockP2P.isOfferSent = true;
+
+        await receiveMessage(buildNotify4());
+
+        expect(mockP2P.createOffer).not.toHaveBeenCalled();
+      });
+
+      it("does NOT create an SDP offer while the connection phase is not yet COMPLETE", async () => {
+        mockConn.getState.mockReturnValue(ConnectionState.WAITING_NOTIFY_6);
+        await receiveMessage(buildNotify4());
+        expect(mockP2P.createOffer).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("CONNECTING_P2P", () => {
+      beforeEach(() => {
+        openSocket();
+        simulateRegistrationSuccess();
+        simulateConnectionSuccess(); // state = CONNECTING_P2P
+      });
+
+      it("routes a SERVICE answer (CSeq 2) to parseIncomingAnswer", async () => {
+        await receiveMessage(buildServiceMessage(2));
+        expect(mockP2P.parseIncomingAnswer).toHaveBeenCalledWith(buildServiceMessage(2));
+      });
+
+      it("ignores a SERVICE message with CSeq 1 (server-role message)", async () => {
+        await receiveMessage(buildServiceMessage(1));
+        expect(mockP2P.parseIncomingAnswer).not.toHaveBeenCalled();
+      });
+
+      it("ignores a SERVICE message with an unexpected CSeq", async () => {
+        await receiveMessage(buildServiceMessage(5));
+        expect(mockP2P.parseIncomingAnswer).not.toHaveBeenCalled();
+      });
+
+      it("ignores a non-SERVICE message without throwing", async () => {
+        await expect(receiveMessage(buildGenericMessage())).resolves.not.toThrow();
+        expect(mockP2P.parseIncomingAnswer).not.toHaveBeenCalled();
+      });
+
+      it("still processes a SERVICE answer even if isOfferSent is stale/false", async () => {
+        mockP2P.isOfferSent = false;
+        await receiveMessage(buildServiceMessage(2));
+        expect(mockP2P.parseIncomingAnswer).toHaveBeenCalled();
+      });
+    });
+
+    it("CONNECTED: does not throw and does not change state on an unexpected message", async () => {
+      openSocket();
+      simulateRegistrationSuccess();
+      simulateConnectionSuccess();
+      simulateP2PSuccess(); // state = CONNECTED
+
+      await expect(receiveMessage(buildGenericMessage())).resolves.not.toThrow();
+      expect(instance.getState()).toBe(SipClientState.CONNECTED);
+    });
+
+    it("terminal states (FAILED_PERMANENTLY): ignores incoming messages without throwing", async () => {
+      mockSocket.onerror?.(new Event("error")); // → FAILED_PERMANENTLY
+      await expect(receiveMessage(buildGenericMessage())).resolves.not.toThrow();
+      expect(instance.getState()).toBe(SipClientState.FAILED_PERMANENTLY);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // onSelectedCandidateType observer notification
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("onSelectedCandidateType observer notification", () => {
+    it("notifies subscribed observers when Peer2Peer reports the selected candidate type", () => {
+      const onSelectedCandidateType = jest.fn();
+      const observer: SipClientObserver = {
+        onSipClientStateChanged: jest.fn(),
+        onSelectedCandidateType,
+      };
+      instance.subscribe(observer);
+
+      capturedP2PEvents.onCandidateTypeSelected?.("turn");
+
+      expect(onSelectedCandidateType).toHaveBeenCalledWith("turn");
+    });
+
+    it("does not throw when a subscribed observer has no onSelectedCandidateType handler", () => {
+      const observer: SipClientObserver = { onSipClientStateChanged: jest.fn() };
+      instance.subscribe(observer);
+
+      expect(() => capturedP2PEvents.onCandidateTypeSelected?.("stun")).not.toThrow();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // WebRTC failure recovery — remaining branches beyond "retry while connected"
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("WebRTC failure recovery — additional branches", () => {
+    it("restarts registration when not connected/connecting and not registered", () => {
+      // State stays DISCONNECTED (never opened) — canRetryWebRTC() is false (!isConnected())
+      mockReg.isRegistered = false;
+      capturedP2PEvents.onFailure("no connection");
+
+      // Socket was never opened, so this is the only REGISTER sent
+      expect(mockReg.getInitialRegistration).toHaveBeenCalledTimes(1);
+      expect(instance.getState()).toBe(SipClientState.REGISTERING);
+    });
+
+    it("restarts the connection phase when still registered but not connected/connecting", () => {
+      // REGISTERING is neither "connected/connecting" (CONNECTING/CONNECTING_P2P/CONNECTED)
+      // nor "not registered" (DISCONNECTED/FAILED) — it hits the "still registered" branch.
+      openSocket(); // state = REGISTERING
+      capturedP2PEvents.onFailure("stray failure while registering");
+
+      expect(mockConn.reset).toHaveBeenCalled();
+      expect(instance.getState()).toBe(SipClientState.CONNECTING);
+    });
+
+    it("waits without transitioning when still in the CONNECTING phase", () => {
+      openSocket();
+      simulateRegistrationSuccess(); // state = CONNECTING
+      capturedP2PEvents.onFailure("premature failure");
+      expect(instance.getState()).toBe(SipClientState.CONNECTING);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // getDataChannelStatus() / isHealthy() with an active data channel
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("getDataChannelStatus() / isHealthy() with an active channel", () => {
+    it("returns the DataChannel's readyState when one is active", () => {
+      mockP2P.getActiveDataChannel.mockReturnValue({ readyState: "open" });
+      expect(instance.getDataChannelStatus()).toBe("open");
+    });
+
+    it("isHealthy() is true only when CONNECTED with an open channel", () => {
+      mockP2P.getActiveDataChannel.mockReturnValue({ readyState: "open" });
+      openSocket();
+      simulateRegistrationSuccess();
+      simulateConnectionSuccess();
+      simulateP2PSuccess();
+
+      expect(instance.isHealthy()).toBe(true);
+    });
+
+    it("isHealthy() is false when CONNECTED but the channel is not open", () => {
+      mockP2P.getActiveDataChannel.mockReturnValue({ readyState: "connecting" });
+      openSocket();
+      simulateRegistrationSuccess();
+      simulateConnectionSuccess();
+      simulateP2PSuccess();
+
+      expect(instance.isHealthy()).toBe(false);
     });
   });
 });
