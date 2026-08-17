@@ -44,6 +44,21 @@ export class TokenService {
     return this._refreshPromise;
   }
 
+  /**
+   * Force a token refresh regardless of local expiry tracking.
+   * Used when the server rejects the current token as invalid/revoked even
+   * though the client's expiry clock still considers it valid.
+   */
+  async forceRefreshToken(): Promise<string | null> {
+    if (!this._refreshPromise) {
+      this._refreshPromise = this._refresh().finally(() => {
+        this._refreshPromise = null;
+      });
+    }
+
+    return this._refreshPromise;
+  }
+
   private async _refresh(): Promise<string | null> {
     // Office SSO tokens are short-lived (~1h) and are not proactively renewed
     // elsewhere, so re-acquire a fresh one here rather than reusing whatever

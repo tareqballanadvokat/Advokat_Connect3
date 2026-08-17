@@ -508,6 +508,39 @@ export class WebRTCApiService implements DataChannelObserver {
   }
 
   /**
+   * Force a fresh ADVOKAT JWT and retry a request that failed with 401.
+   * The token baked into pendingRequest.originalRequest may still look
+   * unexpired locally while the server has already rejected it, so a plain
+   * resend (same stale Authorization header) would just 401 again.
+   */
+  private async refreshTokenAndRetry(pendingRequest: PendingRequest): Promise<void> {
+    const newToken = await tokenService.forceRefreshToken();
+
+    if (!newToken) {
+      this.logger.error(
+        `Token refresh failed for ${pendingRequest.messageType} – cannot retry after 401`,
+        "WebRTCApiService"
+      );
+      this.completeRequest(
+        pendingRequest,
+        undefined,
+        new Error("Authentication failed (401): Token may have been revoked or is invalid on server.")
+      );
+      return;
+    }
+
+    if (pendingRequest.originalRequest) {
+      pendingRequest.originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+    }
+
+    this.logger.info(
+      `Token refreshed, retrying ${pendingRequest.messageType} with new token`,
+      "WebRTCApiService"
+    );
+    this.retryRequest(pendingRequest);
+  }
+
+  /**
    * Retry a request - handles timeouts, chunk failures, and other retry scenarios
    * Implements exponential backoff with configurable retry limits
    */
@@ -611,11 +644,11 @@ export class WebRTCApiService implements DataChannelObserver {
       if (actualStatusCode === 401) {
         if (!pendingRequest.messageType.includes("auth.") && !pendingRequest.authRetryAttempted) {
           this.logger.info(
-            `Auth error 401 for ${pendingRequest.messageType} – queuing retry`,
+            `Auth error 401 for ${pendingRequest.messageType} – forcing token refresh before retry`,
             "WebRTCApiService"
           );
           pendingRequest.authRetryAttempted = true;
-          this.retryRequest(pendingRequest);
+          this.refreshTokenAndRetry(pendingRequest);
           return;
         }
 
@@ -996,7 +1029,7 @@ export class WebRTCApiService implements DataChannelObserver {
     return this.sendRequest(
       "service.saveLeistung",
       "POST",
-      "api/v1.1/Leistungen",
+      "api/v2.0/Leistungen",
       {
         "Content-Type": "application/json-patch+json",
         Accept: "text/plain",

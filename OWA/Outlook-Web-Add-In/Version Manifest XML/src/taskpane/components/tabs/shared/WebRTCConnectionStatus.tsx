@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@store/hooks';
 import { selectConnectionState, selectIsReady, selectIsConnected, selectIsConnecting, updateConnectionState } from '@slices/connectionSlice';
-import { selectAuthError, selectEmail, clearError } from '@slices/authSlice';
+import { selectAuthError, selectEmail, selectOfficeAuthErrorKey, clearError, setOfficeAuthErrorKey } from '@slices/authSlice';
 import { selectKuerzel } from '@slices/pairingSlice';
 import { getWebRTCConnectionManager } from '@services/WebRTCConnectionManager';
 import { getLogger } from '@infra/logger';
@@ -22,6 +22,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
   const isConnected = useAppSelector(selectIsConnected);
   const isConnecting = useAppSelector(selectIsConnecting);
   const authError = useAppSelector(selectAuthError);
+  const officeAuthErrorKey = useAppSelector(selectOfficeAuthErrorKey);
   const kuerzel = useAppSelector(selectKuerzel);
   const email = useAppSelector(selectEmail);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -53,7 +54,13 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
   const getFriendlyMessage = (): string => {
     if (connectionState.idleDisconnectedAt || (!isConnecting && !isConnected && !isReady && !isFailing()))
       return translate('webrtc.disconnected');
-    if (authError && !isReady) return translate('webrtc.authenticationFailed');
+    if (authError && !isReady) {
+      // If the failure was specifically an Office SSO error (e.g. personal account,
+      // not signed in, consent required), show the precise localized reason instead
+      // of the generic "authentication failed" message.
+      if (officeAuthErrorKey) return translate(officeAuthErrorKey);
+      return translate('webrtc.authenticationFailed');
+    }
     if (isReady) return translate('webrtc.connected');
     if (isFailedPermanently()) return translate('webrtc.connectionFailedPermanently');
     if (isFailing()) {
@@ -74,6 +81,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
       // connect() cycle, so no need to do it here too.)
       dispatch(updateConnectionState({ reconnectAttempts: 0, lastError: undefined }));
       dispatch(clearError());
+      dispatch(setOfficeAuthErrorKey(null));
 
       // Bypass the automatic backoff/attempt-cap machinery in reconnect() — tear down
       // and start a fresh connect() cycle right away.

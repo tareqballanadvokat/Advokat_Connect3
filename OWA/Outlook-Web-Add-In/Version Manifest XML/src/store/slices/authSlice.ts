@@ -27,6 +27,7 @@ const initialState: IAuthState = {
   oid: null,
   email: null,
   advokatToken: null,
+  officeAuthErrorKey: null,
 };
 
 // Async thunk for logout to properly clear cache
@@ -116,12 +117,20 @@ const authSlice = createSlice({
       state.officeToken = action.payload.officeToken;
       state.oid = action.payload.oid;
       state.email = action.payload.email;
+      state.officeAuthErrorKey = null;
     },
 
     clearOfficeToken: (state) => {
       state.officeToken = null;
       state.oid = null;
       state.email = null;
+    },
+
+    // Set when OfficeRuntime.auth.getAccessToken() fails — stores the i18n key
+    // (resolved from the Office error code, see officeAuthErrors.ts) so the UI
+    // can show the specific, localized reason instead of a generic message.
+    setOfficeAuthErrorKey: (state, action: PayloadAction<string | null>) => {
+      state.officeAuthErrorKey = action.payload;
     },
 
     setAdvokatToken: (state, action: PayloadAction<string>) => {
@@ -177,6 +186,7 @@ export const {
   validateToken,
   setOfficeToken,
   clearOfficeToken,
+  setOfficeAuthErrorKey,
   setAdvokatToken,
   clearAdvokatToken,
 } = authSlice.actions;
@@ -194,6 +204,7 @@ export const selectOfficeToken = (state: { auth: IAuthState }) => state.auth.off
 export const selectOid = (state: { auth: IAuthState }) => state.auth.oid;
 export const selectEmail = (state: { auth: IAuthState }) => state.auth.email;
 export const selectAdvokatToken = (state: { auth: IAuthState }) => state.auth.advokatToken;
+export const selectOfficeAuthErrorKey = (state: { auth: IAuthState }) => state.auth.officeAuthErrorKey;
 
 // Helper selector to check if token is valid (not expired)
 export const selectIsTokenValid = (state: { auth: IAuthState }) => {
