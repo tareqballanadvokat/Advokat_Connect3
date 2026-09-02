@@ -273,6 +273,32 @@ describe("ServiceSection", () => {
       await renderReady();
       await waitFor(() => expect(screen.getByText("FullOnly")).toBeInTheDocument());
     });
+
+    it("caps the rendered rows and shows a hint when the full catalog has more matches than the limit", async () => {
+      const bigCatalog = Array.from({ length: 80 }, (_, i) => ({ id: i, kürzel: `S${i}`, stufe1: `Service ${i}` }));
+      mockLoadServices.mockImplementation((query: any) =>
+        Promise.resolve({
+          statusCode: 200,
+          body: query.OnlyQuickListe ? "[]" : JSON.stringify(bigCatalog),
+        })
+      );
+
+      await renderReady();
+      await waitFor(() => expect(screen.getByText("Service 0")).toBeInTheDocument());
+
+      expect(screen.queryAllByTestId(/^service-option-/)).toHaveLength(50);
+      expect(screen.getByText("refineSearchHint")).toBeInTheDocument();
+    });
+
+    it("does not show the refine-search hint when results fit within the cap", async () => {
+      await renderReady();
+      await waitFor(() => expect(mockLoadServices).toHaveBeenCalledTimes(2));
+
+      fireEvent.change(screen.getByTestId("service-search-input"), { target: { value: "Full" } });
+
+      await waitFor(() => expect(screen.getByText("FullOnly")).toBeInTheDocument());
+      expect(screen.queryByText("refineSearchHint")).not.toBeInTheDocument();
+    });
   });
 
   // ──────────────────────────────────────────────────────────────────────────

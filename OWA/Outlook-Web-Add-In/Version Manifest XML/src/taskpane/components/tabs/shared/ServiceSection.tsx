@@ -1,5 +1,5 @@
 // src/taskpane/components/tabs/shared/ServiceSection.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import './ServiceSection.css';
 import SelectBox from 'devextreme-react/select-box';
 import { LeistungAuswahlResponse } from '@interfaces/IService';
@@ -10,6 +10,11 @@ import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
 const logger = getLogger();
+
+// Cap how many rows from the full catalog ever reach the dropdown's DOM at once.
+// The catalog can hold thousands of entries; rendering all of them (even filtered
+// down by a broad search term) is what made the add-in hang.
+const MAX_DROPDOWN_RESULTS = 50;
 
 // Unified interface for both Email and Service tabs
 export interface ServiceSectionProps {}
@@ -145,15 +150,19 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
     const parts = [service.stufe1, service.stufe2, service.stufe3].filter(Boolean);
     return parts.length > 0 ? parts.join(' > ') : `Service ${service.id}`;
   };
-  // Transform services data to include display text
-  const servicesWithDisplayText = serviceState.services.map(service => ({
-    ...service,
-    displayText: getServiceDisplayText(service)
-  }));
-  const allServicesWithDisplayText = serviceState.allServices.map(service => ({
-    ...service,
-    displayText: getServiceDisplayText(service)
-  }));
+
+  // Transform services data to include display text. Memoized so this doesn't
+  // re-run over the (potentially large) full catalog on every unrelated re-render
+  // (typing SB/time/text, toggling the search box, etc.) — only when the lists
+  // themselves change.
+  const servicesWithDisplayText = useMemo(
+    () => serviceState.services.map(service => ({ ...service, displayText: getServiceDisplayText(service) })),
+    [serviceState.services]
+  );
+  const allServicesWithDisplayText = useMemo(
+    () => serviceState.allServices.map(service => ({ ...service, displayText: getServiceDisplayText(service) })),
+    [serviceState.allServices]
+  );
 
   // While the box is empty, show the small quick list; as soon as the user types
   // something, search the full catalog instead. Also fall back to the full catalog
@@ -162,8 +171,25 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   const isSearching = searchValue.trim() !== '';
   const quickListEmpty = !serviceState.servicesLoading && serviceState.services.length === 0;
   const useFullCatalog = isSearching || quickListEmpty;
-  const activeServices = useFullCatalog ? serviceState.allServices : serviceState.services;
-  const activeServicesWithDisplayText = useFullCatalog ? allServicesWithDisplayText : servicesWithDisplayText;
+
+  // The full catalog can hold thousands of rows. Filtering it ourselves (rather than
+  // handing the whole array to the SelectBox and letting its built-in search filter
+  // it client-side) means the dropdown never has to render more than a capped number
+  // of DOM rows, no matter how large the catalog or how broad the search term is.
+  const matchingFullCatalog = useMemo(() => {
+    if (!useFullCatalog) return [];
+    const term = searchValue.trim().toLowerCase();
+    if (!term) return allServicesWithDisplayText;
+    return allServicesWithDisplayText.filter(service =>
+      service.displayText.toLowerCase().includes(term) ||
+      (service.kürzel || '').toLowerCase().includes(term)
+    );
+  }, [useFullCatalog, searchValue, allServicesWithDisplayText]);
+
+  const activeServicesWithDisplayText = useFullCatalog
+    ? matchingFullCatalog.slice(0, MAX_DROPDOWN_RESULTS)
+    : servicesWithDisplayText;
+  const resultsTruncated = useFullCatalog && matchingFullCatalog.length > MAX_DROPDOWN_RESULTS;
 
   return (
     <div className="service-section-root">
@@ -184,10 +210,10 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
             <SelectBox
               stylingMode="outlined"
               dataSource={activeServicesWithDisplayText}
-              value={activeServices.length > 0 ? serviceState.selectedServiceId : null}
+              value={activeServicesWithDisplayText.length > 0 ? serviceState.selectedServiceId : null}
               valueExpr="id"
               displayExpr="displayText"
-              placeholder={activeServices.length > 0 ? translate('selectService') : translate('noServicesAvailable')}
+              placeholder={activeServicesWithDisplayText.length > 0 ? translate('selectService') : translate('noServicesAvailable')}
               onValueChanged={e => handleServiceChange(e.value)}
               onOptionChanged={e => {
                 if (e.name === 'searchValue') {
@@ -201,6 +227,11 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
               searchMode="contains"
             />
           </div>
+          {resultsTruncated && (
+            <div className="service-section-hint">
+              {translate('refineSearchHint', { count: MAX_DROPDOWN_RESULTS })}
+            </div>
+          )}
 
           {/* Time and SB inputs - side by side */}
           <div className="service-section-inline-row">
