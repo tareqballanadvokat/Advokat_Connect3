@@ -10,7 +10,7 @@
  *  - Loads services when an Akt is selected, clears them when deselected
  *  - Time-input parsing/formatting (handleTimeChange auto-colon, handleTimeBlur
  *    digit-length branches: 1/2/3/4+ digits, capping to valid hour/minute ranges)
- *  - SB input validation (letters only, max 3, uppercased) and blur validation error
+ *  - SB input is read-only, always defaulted from the logged-in user's kürzel
  *  - Service dropdown display-text building (stufe1>stufe2>stufe3, fallback to id)
  */
 
@@ -27,13 +27,6 @@ jest.mock("react-i18next", () => ({
 // ─── Logger mock ─────────────────────────────────────────────────────────────
 jest.mock("@infra/logger", () => ({
   getLogger: jest.fn(() => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() })),
-}));
-
-// ─── notify mock ──────────────────────────────────────────────────────────────
-const mockNotify = jest.fn();
-jest.mock("devextreme/ui/notify", () => ({
-  __esModule: true,
-  default: (...args: any[]) => mockNotify(...args),
 }));
 
 // ─── Cache mock (always miss so thunks always hit the WebRTC API) ────────────
@@ -417,40 +410,15 @@ describe("ServiceSection", () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe("SB input", () => {
-    it("accepts letters (up to 3) and uppercases them", async () => {
+    it("is read-only, since it is always the current user", async () => {
+      await renderReady();
+      expect(screen.getByPlaceholderText("sbPlaceholder")).toHaveAttribute("readonly");
+    });
+
+    it("ignores attempts to change its value", async () => {
       const { store } = await renderReady();
       fireEvent.change(screen.getByPlaceholderText("sbPlaceholder"), { target: { value: "jdo" } });
-      expect(store.getState().service.sb).toBe("JDO");
-    });
-
-    it("rejects non-letter characters", async () => {
-      const { store } = await renderReady(baseState({ service: { ...baseState().service, sb: "JD" } }));
-      fireEvent.change(screen.getByPlaceholderText("sbPlaceholder"), { target: { value: "J1" } });
-      expect(store.getState().service.sb).toBe("JD"); // unchanged
-    });
-
-    it("rejects more than 3 letters", async () => {
-      const { store } = await renderReady(baseState({ service: { ...baseState().service, sb: "JDO" } }));
-      fireEvent.change(screen.getByPlaceholderText("sbPlaceholder"), { target: { value: "JDOE" } });
-      expect(store.getState().service.sb).toBe("JDO"); // unchanged
-    });
-
-    it("shows a validation error on blur when SB is non-empty and not exactly 3 letters", async () => {
-      await renderReady(baseState({ service: { ...baseState().service, sb: "JD" } }));
-      fireEvent.blur(screen.getByPlaceholderText("sbPlaceholder"));
-      expect(mockNotify).toHaveBeenCalledWith("sbValidationError", "error", 3000);
-    });
-
-    it("does NOT show a validation error when SB is exactly 3 letters", async () => {
-      await renderReady(baseState({ service: { ...baseState().service, sb: "JDO" } }));
-      fireEvent.blur(screen.getByPlaceholderText("sbPlaceholder"));
-      expect(mockNotify).not.toHaveBeenCalled();
-    });
-
-    it("does NOT show a validation error when SB is empty", async () => {
-      await renderReady();
-      fireEvent.blur(screen.getByPlaceholderText("sbPlaceholder"));
-      expect(mockNotify).not.toHaveBeenCalled();
+      expect(store.getState().service.sb).toBe("TST"); // unchanged - defaulted from login
     });
 
     it("defaults to the logged-in user's kürzel when the field is empty", async () => {
@@ -458,7 +426,7 @@ describe("ServiceSection", () => {
       expect(store.getState().service.sb).toBe("TST");
     });
 
-    it("does NOT override a manually entered SB with the logged-in kürzel", async () => {
+    it("does NOT override an existing SB value with the logged-in kürzel", async () => {
       const { store } = await renderReady(
         baseState({ service: { ...baseState().service, sb: "ABC" } })
       );

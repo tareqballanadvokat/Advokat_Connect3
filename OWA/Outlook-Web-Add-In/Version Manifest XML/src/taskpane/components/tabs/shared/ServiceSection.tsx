@@ -5,7 +5,6 @@ import SelectBox from 'devextreme-react/select-box';
 import { LeistungAuswahlResponse } from '@interfaces/IService';
 import { useAppSelector, useAppDispatch } from '@store/hooks';
 import { setSelectedServiceId, setTime, setText, setSb, loadServicesAsync, clearServices } from '@slices/serviceSlice';
-import notify from 'devextreme/ui/notify';
 import { getLogger } from '@infra/logger';
 import { useTranslation } from 'react-i18next';
 
@@ -129,21 +128,6 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
     dispatch(setText(value));
   };
   
-  const handleSbChange = (value: string) => {
-    // Allow empty or only letters (max 3)
-    if (value === '' || /^[a-zA-Z]{0,3}$/.test(value)) {
-      dispatch(setSb(value.toUpperCase()));
-    }
-  };
-  
-  const handleSbBlur = () => {
-    const value = serviceState.sb;
-    // If not empty and not exactly 3 letters, show error
-    if (value && value.length !== 3) {
-      notify(translate('sbValidationError'), 'error', 3000);
-    }
-  };
-
   // Create display text for services dropdown
   const getServiceDisplayText = (service: LeistungAuswahlResponse): string => {
     if (!service) return '';
@@ -234,10 +218,8 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
               type="text"
               placeholder={translate('sbPlaceholder')}
               value={serviceState.sb}
-              onChange={e => handleSbChange(e.target.value)}
-              onBlur={handleSbBlur}
-              maxLength={3}
-              pattern="[A-Za-z]{0,3}"
+              readOnly
+              title={translate('sbLockedHint')}
               className="service-section-sb-input"
             />
             <input

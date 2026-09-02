@@ -32,6 +32,7 @@
   text-align: center;
   background-color: #f4f4f4;
   text-transform: uppercase;
+  cursor: not-allowed;
 }
 
 .service-section-time-input {
