@@ -27,6 +27,18 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   const selectedAktKuerzel = selectedAkt?.aKurz;
   const selectedAktId = selectedAkt?.id;
 
+  // Get the logged-in user's kürzel (set from the Pairing API once login/pairing resolves)
+  const loggedInKuerzel = useAppSelector(state => state.auth.credentials.username);
+
+  // Default the SB field to the logged-in user's kürzel once it's known,
+  // as long as the field hasn't already been filled in (manually or otherwise)
+  useEffect(() => {
+    if (loggedInKuerzel && !serviceState.sb) {
+      dispatch(setSb(loggedInKuerzel.toUpperCase()));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loggedInKuerzel]);
+
   // Load services whenever an Akt is selected (uses cache after first load)
   useEffect(() => {
     if (selectedAktId) {

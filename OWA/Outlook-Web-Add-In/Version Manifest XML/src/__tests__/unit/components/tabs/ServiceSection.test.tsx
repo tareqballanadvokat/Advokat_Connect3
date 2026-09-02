@@ -91,7 +91,7 @@ const readyConnectionState = { sipClientState: "CONNECTED", connectionStatus: "C
 
 function baseState(overrides: Record<string, any> = {}) {
   return {
-    auth: { isAuthenticated: true, credentials: { username: "tester" } },
+    auth: { isAuthenticated: true, credentials: { username: "TST" } },
     connection: readyConnectionState,
     akten: { selectedAkt: { id: 1, aKurz: "TEST-1", causa: "Causa" } },
     service: {
@@ -345,6 +345,18 @@ describe("ServiceSection", () => {
       await renderReady();
       fireEvent.blur(screen.getByPlaceholderText("sbPlaceholder"));
       expect(mockNotify).not.toHaveBeenCalled();
+    });
+
+    it("defaults to the logged-in user's kürzel when the field is empty", async () => {
+      const { store } = await renderReady();
+      expect(store.getState().service.sb).toBe("TST");
+    });
+
+    it("does NOT override a manually entered SB with the logged-in kürzel", async () => {
+      const { store } = await renderReady(
+        baseState({ service: { ...baseState().service, sb: "ABC" } })
+      );
+      expect(store.getState().service.sb).toBe("ABC");
     });
   });
 
