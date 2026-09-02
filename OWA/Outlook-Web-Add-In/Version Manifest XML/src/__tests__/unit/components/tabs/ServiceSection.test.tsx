@@ -189,6 +189,28 @@ describe("ServiceSection", () => {
       });
       expect(store.getState().service.services).toEqual([]);
     });
+
+    it("loads only the quick list by default", async () => {
+      renderWithProviders(<ServiceSection />, { preloadedState: baseState() });
+      await waitFor(() => expect(mockLoadServices).toHaveBeenCalled());
+      expect(mockLoadServices).toHaveBeenCalledWith(
+        expect.objectContaining({ OnlyQuickListe: true })
+      );
+    });
+
+    it("switches to the full catalog when 'show all services' is toggled", async () => {
+      await renderReady();
+      mockLoadServices.mockClear();
+
+      fireEvent.click(screen.getByText("showAllServices"));
+
+      await waitFor(() =>
+        expect(mockLoadServices).toHaveBeenCalledWith(
+          expect.objectContaining({ OnlyQuickListe: false })
+        )
+      );
+      expect(screen.getByText("showQuickListOnly")).toBeInTheDocument();
+    });
   });
 
   // ──────────────────────────────────────────────────────────────────────────

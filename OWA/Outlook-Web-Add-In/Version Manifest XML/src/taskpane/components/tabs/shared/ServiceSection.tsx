@@ -1,5 +1,5 @@
 // src/taskpane/components/tabs/shared/ServiceSection.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import './ServiceSection.css';
 import SelectBox from 'devextreme-react/select-box';
 import { LeistungAuswahlResponse } from '@interfaces/IService';
@@ -30,6 +30,10 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   // Get the logged-in user's kürzel (set from the Pairing API once login/pairing resolves)
   const loggedInKuerzel = useAppSelector(state => state.auth.credentials.username);
 
+  // Default to the curated Quickliste (small list); the user can opt into the
+  // full catalog when the service they need isn't in the quick list
+  const [showAllServices, setShowAllServices] = useState(false);
+
   // Default the SB field to the logged-in user's kürzel once it's known,
   // as long as the field hasn't already been filled in (manually or otherwise)
   useEffect(() => {
@@ -39,19 +43,28 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedInKuerzel]);
 
-  // Load services whenever an Akt is selected (uses cache after first load)
+  // Reset back to the quick list whenever a different Akt is selected
+  useEffect(() => {
+    setShowAllServices(false);
+  }, [selectedAktId]);
+
+  // Load services whenever an Akt is selected, or the quick-list/full-list toggle changes
+  // (uses cache after first load)
   useEffect(() => {
     if (selectedAktId) {
-      logger.debug('Loading global services list for Akt ' + selectedAktId, 'ServiceSection');
+      logger.debug(
+        `Loading ${showAllServices ? 'full' : 'quick'} services list for Akt ${selectedAktId}`,
+        'ServiceSection'
+      );
       dispatch(loadServicesAsync({
         Kürzel: undefined,
-         OnlyQuickListe: false,
+        OnlyQuickListe: !showAllServices,
         Count: undefined
       }));
     } else {
       dispatch(clearServices());
     }
-  }, [selectedAktId, dispatch]);
+  }, [selectedAktId, showAllServices, dispatch]);
   
   // Handle value changes using Redux dispatch
   const handleServiceChange = (value: number) => {
@@ -169,9 +182,23 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
               onValueChanged={e => handleServiceChange(e.value)}
               width="100%"
               disabled={serviceState.services.length === 0}
+              searchEnabled={true}
+              searchExpr={['displayText', 'kürzel']}
+              searchMode="contains"
             />
           </div>
-          
+
+          {/* Quick-list / full-catalog toggle */}
+          <div className="service-section-field">
+            <button
+              type="button"
+              className="service-section-toggle-list-link"
+              onClick={() => setShowAllServices(prev => !prev)}
+            >
+              {showAllServices ? translate('showQuickListOnly') : translate('showAllServices')}
+            </button>
+          </div>
+
           {/* Time and SB inputs - side by side */}
           <div className="service-section-inline-row">
             <input
