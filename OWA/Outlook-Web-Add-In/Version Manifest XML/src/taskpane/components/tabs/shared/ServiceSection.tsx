@@ -155,11 +155,15 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
     displayText: getServiceDisplayText(service)
   }));
 
-  // While the box is empty, show the small quick list; as soon as the user
-  // types something, search the full catalog instead
+  // While the box is empty, show the small quick list; as soon as the user types
+  // something, search the full catalog instead. Also fall back to the full catalog
+  // when the quick list turns out to be empty for this Akt, so the dropdown doesn't
+  // falsely claim "no services available" while the full catalog has entries.
   const isSearching = searchValue.trim() !== '';
-  const activeServices = isSearching ? serviceState.allServices : serviceState.services;
-  const activeServicesWithDisplayText = isSearching ? allServicesWithDisplayText : servicesWithDisplayText;
+  const quickListEmpty = !serviceState.servicesLoading && serviceState.services.length === 0;
+  const useFullCatalog = isSearching || quickListEmpty;
+  const activeServices = useFullCatalog ? serviceState.allServices : serviceState.services;
+  const activeServicesWithDisplayText = useFullCatalog ? allServicesWithDisplayText : servicesWithDisplayText;
 
   return (
     <div className="service-section-root">

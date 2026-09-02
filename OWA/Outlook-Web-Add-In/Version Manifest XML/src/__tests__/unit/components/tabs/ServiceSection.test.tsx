@@ -259,6 +259,20 @@ describe("ServiceSection", () => {
       expect(screen.getByText("QuickOnly")).toBeInTheDocument();
       expect(screen.queryByText("FullOnly")).not.toBeInTheDocument();
     });
+
+    it("falls back to the full catalog when the quick list is empty for this Akt", async () => {
+      mockLoadServices.mockImplementation((query: any) =>
+        Promise.resolve({
+          statusCode: 200,
+          body: query.OnlyQuickListe
+            ? "[]"
+            : JSON.stringify([{ id: 2, kürzel: "A2", stufe1: "FullOnly" }]),
+        })
+      );
+
+      await renderReady();
+      await waitFor(() => expect(screen.getByText("FullOnly")).toBeInTheDocument());
+    });
   });
 
   // ──────────────────────────────────────────────────────────────────────────
