@@ -159,6 +159,13 @@ describe("ServiceSection", () => {
       expect(screen.getByText("selectAktFirst")).toBeInTheDocument();
     });
 
+    it("shows a 'type to search' hint under the heading", () => {
+      renderWithProviders(<ServiceSection />, {
+        preloadedState: baseState({ akten: { selectedAkt: null } }),
+      });
+      expect(screen.getByText("typeToSearchHint")).toBeInTheDocument();
+    });
+
     it("shows the loading message while services are loading", () => {
       renderWithProviders(<ServiceSection />, {
         preloadedState: baseState({ service: { ...baseState().service, servicesLoading: true } }),
@@ -274,7 +281,7 @@ describe("ServiceSection", () => {
       await waitFor(() => expect(screen.getByText("FullOnly")).toBeInTheDocument());
     });
 
-    it("caps the rendered rows and shows a hint when the full catalog has more matches than the limit", async () => {
+    it("caps the rendered rows when the full catalog has more matches than the limit", async () => {
       const bigCatalog = Array.from({ length: 80 }, (_, i) => ({ id: i, kürzel: `S${i}`, stufe1: `Service ${i}` }));
       mockLoadServices.mockImplementation((query: any) =>
         Promise.resolve({
@@ -287,17 +294,6 @@ describe("ServiceSection", () => {
       await waitFor(() => expect(screen.getByText("Service 0")).toBeInTheDocument());
 
       expect(screen.queryAllByTestId(/^service-option-/)).toHaveLength(50);
-      expect(screen.getByText("refineSearchHint")).toBeInTheDocument();
-    });
-
-    it("does not show the refine-search hint when results fit within the cap", async () => {
-      await renderReady();
-      await waitFor(() => expect(mockLoadServices).toHaveBeenCalledTimes(2));
-
-      fireEvent.change(screen.getByTestId("service-search-input"), { target: { value: "Full" } });
-
-      await waitFor(() => expect(screen.getByText("FullOnly")).toBeInTheDocument());
-      expect(screen.queryByText("refineSearchHint")).not.toBeInTheDocument();
     });
   });
 

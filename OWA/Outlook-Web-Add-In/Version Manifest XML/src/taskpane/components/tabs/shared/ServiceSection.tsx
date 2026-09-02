@@ -189,11 +189,11 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   const activeServicesWithDisplayText = useFullCatalog
     ? matchingFullCatalog.slice(0, MAX_DROPDOWN_RESULTS)
     : servicesWithDisplayText;
-  const resultsTruncated = useFullCatalog && matchingFullCatalog.length > MAX_DROPDOWN_RESULTS;
 
   return (
     <div className="service-section-root">
       <h3>{translate('servicesHeading')}</h3>
+      <div className="service-section-search-hint">{translate('typeToSearchHint')}</div>
       {!selectedAktKuerzel ? (
         <div className="service-section-placeholder">
           {translate('selectAktFirst')}
@@ -227,11 +227,6 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
               searchMode="contains"
             />
           </div>
-          {resultsTruncated && (
-            <div className="service-section-hint">
-              {translate('refineSearchHint', { count: MAX_DROPDOWN_RESULTS })}
-            </div>
-          )}
 
           {/* Time and SB inputs - side by side */}
           <div className="service-section-inline-row">
