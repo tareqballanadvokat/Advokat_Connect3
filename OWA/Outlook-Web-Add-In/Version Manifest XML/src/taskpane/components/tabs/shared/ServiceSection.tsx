@@ -30,9 +30,9 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
   // Get the logged-in user's kürzel (set from the Pairing API once login/pairing resolves)
   const loggedInKuerzel = useAppSelector(state => state.auth.credentials.username);
 
-  // Default to the curated Quickliste (small list); the user can opt into the
-  // full catalog when the service they need isn't in the quick list
-  const [showAllServices, setShowAllServices] = useState(false);
+  // What the user has typed into the dropdown's search box. Empty -> show the
+  // small quick list; non-empty -> search falls through to the full catalog.
+  const [searchValue, setSearchValue] = useState('');
 
   // Default the SB field to the logged-in user's kürzel once it's known,
   // as long as the field hasn't already been filled in (manually or otherwise)
@@ -43,29 +43,23 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedInKuerzel]);
 
-  // Reset back to the quick list whenever a different Akt is selected
+  // Reset the search box whenever a different Akt is selected
   useEffect(() => {
-    setShowAllServices(false);
+    setSearchValue('');
   }, [selectedAktId]);
 
-  // Load services whenever an Akt is selected, or the quick-list/full-list toggle changes
-  // (uses cache after first load)
+  // Load both the quick list (shown by default) and the full catalog (used once the
+  // user starts searching) whenever an Akt is selected. Both are cached separately.
   useEffect(() => {
     if (selectedAktId) {
-      logger.debug(
-        `Loading ${showAllServices ? 'full' : 'quick'} services list for Akt ${selectedAktId}`,
-        'ServiceSection'
-      );
-      dispatch(loadServicesAsync({
-        Kürzel: undefined,
-        OnlyQuickListe: !showAllServices,
-        Count: undefined
-      }));
+      logger.debug('Loading services lists for Akt ' + selectedAktId, 'ServiceSection');
+      dispatch(loadServicesAsync({ Kürzel: undefined, OnlyQuickListe: true, Count: undefined }));
+      dispatch(loadServicesAsync({ Kürzel: undefined, OnlyQuickListe: false, Count: undefined }));
     } else {
       dispatch(clearServices());
     }
-  }, [selectedAktId, showAllServices, dispatch]);
-  
+  }, [selectedAktId, dispatch]);
+
   // Handle value changes using Redux dispatch
   const handleServiceChange = (value: number) => {
     dispatch(setSelectedServiceId(value));
@@ -156,6 +150,16 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
     ...service,
     displayText: getServiceDisplayText(service)
   }));
+  const allServicesWithDisplayText = serviceState.allServices.map(service => ({
+    ...service,
+    displayText: getServiceDisplayText(service)
+  }));
+
+  // While the box is empty, show the small quick list; as soon as the user
+  // types something, search the full catalog instead
+  const isSearching = searchValue.trim() !== '';
+  const activeServices = isSearching ? serviceState.allServices : serviceState.services;
+  const activeServicesWithDisplayText = isSearching ? allServicesWithDisplayText : servicesWithDisplayText;
 
   return (
     <div className="service-section-root">
@@ -170,33 +174,28 @@ const ServiceSection: React.FC<ServiceSectionProps> = () => {
         <div className="service-section-error">{translate('common:errorPrefix')}: {serviceState.servicesError}</div>
       ) : (
         <>
-          {/* Service dropdown - full width */}
+          {/* Service dropdown - full width. Shows the quick list until the user searches,
+              then searches the full catalog loaded in the background. */}
           <div className="service-section-field">
             <SelectBox
               stylingMode="outlined"
-              dataSource={servicesWithDisplayText}
-              value={serviceState.services.length > 0 ? serviceState.selectedServiceId : null}
+              dataSource={activeServicesWithDisplayText}
+              value={activeServices.length > 0 ? serviceState.selectedServiceId : null}
               valueExpr="id"
               displayExpr="displayText"
-              placeholder={serviceState.services.length > 0 ? translate('selectService') : translate('noServicesAvailable')}
+              placeholder={activeServices.length > 0 ? translate('selectService') : translate('noServicesAvailable')}
               onValueChanged={e => handleServiceChange(e.value)}
+              onOptionChanged={e => {
+                if (e.name === 'searchValue') {
+                  setSearchValue(e.value || '');
+                }
+              }}
               width="100%"
-              disabled={serviceState.services.length === 0}
+              disabled={serviceState.services.length === 0 && serviceState.allServices.length === 0}
               searchEnabled={true}
               searchExpr={['displayText', 'kürzel']}
               searchMode="contains"
             />
-          </div>
-
-          {/* Quick-list / full-catalog toggle */}
-          <div className="service-section-field">
-            <button
-              type="button"
-              className="service-section-toggle-list-link"
-              onClick={() => setShowAllServices(prev => !prev)}
-            >
-              {showAllServices ? translate('showQuickListOnly') : translate('showAllServices')}
-            </button>
           </div>
 
           {/* Time and SB inputs - side by side */}

@@ -60,19 +60,29 @@ jest.mock("@services/WebRTCConnectionManager", () => ({
 }));
 
 // ─── SelectBox mock ─────────────────────────────────────────────────────────────
+// Includes a search input that fires onOptionChanged({ name: "searchValue" }),
+// mirroring DevExtreme's built-in search box behavior.
 jest.mock("devextreme-react/select-box", () => {
   const R = require("react");
   return {
     __esModule: true,
-    default: ({ dataSource, value, onValueChanged, disabled, placeholder }: any) =>
+    default: ({ dataSource, value, onValueChanged, onOptionChanged, disabled, placeholder }: any) =>
       R.createElement(
-        "div",
-        { "data-testid": "service-select", "data-disabled": String(!!disabled), "data-placeholder": placeholder },
-        (dataSource || []).map((opt: any) =>
-          R.createElement(
-            "button",
-            { key: opt.id, "data-testid": `service-option-${opt.id}`, onClick: () => onValueChanged?.({ value: opt.id }) },
-            opt.displayText
+        R.Fragment,
+        null,
+        R.createElement("input", {
+          "data-testid": "service-search-input",
+          onChange: (e: any) => onOptionChanged?.({ name: "searchValue", value: e.target.value }),
+        }),
+        R.createElement(
+          "div",
+          { "data-testid": "service-select", "data-disabled": String(!!disabled), "data-placeholder": placeholder },
+          (dataSource || []).map((opt: any) =>
+            R.createElement(
+              "button",
+              { key: opt.id, "data-testid": `service-option-${opt.id}`, onClick: () => onValueChanged?.({ value: opt.id }) },
+              opt.displayText
+            )
           )
         )
       ),
@@ -102,6 +112,9 @@ function baseState(overrides: Record<string, any> = {}) {
       services: [],
       servicesLoading: false,
       servicesError: null,
+      allServices: [],
+      allServicesLoading: false,
+      allServicesError: null,
       saveLeistungLoading: false,
       saveLeistungError: null,
       savedLeistungen: [],
@@ -190,26 +203,61 @@ describe("ServiceSection", () => {
       expect(store.getState().service.services).toEqual([]);
     });
 
-    it("loads only the quick list by default", async () => {
+    it("loads both the quick list and the full catalog in the background", async () => {
       renderWithProviders(<ServiceSection />, { preloadedState: baseState() });
-      await waitFor(() => expect(mockLoadServices).toHaveBeenCalled());
+      await waitFor(() => expect(mockLoadServices).toHaveBeenCalledTimes(2));
       expect(mockLoadServices).toHaveBeenCalledWith(
         expect.objectContaining({ OnlyQuickListe: true })
       );
+      expect(mockLoadServices).toHaveBeenCalledWith(
+        expect.objectContaining({ OnlyQuickListe: false })
+      );
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Search: switches from the quick list to the full catalog
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("service search", () => {
+    beforeEach(() => {
+      mockLoadServices.mockImplementation((query: any) =>
+        Promise.resolve({
+          statusCode: 200,
+          body: query.OnlyQuickListe
+            ? JSON.stringify([{ id: 1, kürzel: "Q1", stufe1: "QuickOnly" }])
+            : JSON.stringify([{ id: 2, kürzel: "A2", stufe1: "FullOnly" }]),
+        })
+      );
     });
 
-    it("switches to the full catalog when 'show all services' is toggled", async () => {
+    it("shows the quick list by default", async () => {
       await renderReady();
-      mockLoadServices.mockClear();
+      expect(screen.getByText("QuickOnly")).toBeInTheDocument();
+      expect(screen.queryByText("FullOnly")).not.toBeInTheDocument();
+    });
 
-      fireEvent.click(screen.getByText("showAllServices"));
+    it("switches to the full catalog once the user types a search term", async () => {
+      await renderReady();
+      await waitFor(() => expect(mockLoadServices).toHaveBeenCalledTimes(2));
 
-      await waitFor(() =>
-        expect(mockLoadServices).toHaveBeenCalledWith(
-          expect.objectContaining({ OnlyQuickListe: false })
-        )
-      );
-      expect(screen.getByText("showQuickListOnly")).toBeInTheDocument();
+      fireEvent.change(screen.getByTestId("service-search-input"), { target: { value: "Full" } });
+
+      await waitFor(() => expect(screen.getByText("FullOnly")).toBeInTheDocument());
+      expect(screen.queryByText("QuickOnly")).not.toBeInTheDocument();
+    });
+
+    it("reverts to the quick list once the search box is cleared", async () => {
+      await renderReady();
+      await waitFor(() => expect(mockLoadServices).toHaveBeenCalledTimes(2));
+
+      const searchInput = screen.getByTestId("service-search-input");
+      fireEvent.change(searchInput, { target: { value: "Full" } });
+      await waitFor(() => expect(screen.getByText("FullOnly")).toBeInTheDocument());
+
+      fireEvent.change(searchInput, { target: { value: "" } });
+      expect(screen.getByText("QuickOnly")).toBeInTheDocument();
+      expect(screen.queryByText("FullOnly")).not.toBeInTheDocument();
     });
   });
 
