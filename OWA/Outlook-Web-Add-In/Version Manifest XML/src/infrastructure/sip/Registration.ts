@@ -95,6 +95,7 @@ const logger = getLogger();
 import { TimeoutManager } from "./TimeoutManager";
 import { MessageFactory } from "./MessageFactory";
 import { SipPhaseEvents } from "./SipClient";
+import { getInstanceId } from "./instanceId";
 
 /**
  * Event callbacks for Registration phase
@@ -242,6 +243,7 @@ export class Registration {
       tag: this.tag,
       fromDisplayName: this.fromDisplayName,
       toDisplayName: this.toDisplayName,
+      instanceId: getInstanceId(),
       timeoutConfig: {
         ConnectionTimeout: this.connectionTimeout,
         PeerRegistrationTimeout: this.peerRegistrationTimeout,
