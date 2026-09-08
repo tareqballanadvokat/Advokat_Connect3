@@ -92,6 +92,42 @@
 
 
           </DesktopFormFactor>
+
+          <MobileFormFactor>
+            <FunctionFile resid="Commands.Url"/>
+            <ExtensionPoint xsi:type="MobileMessageReadCommandSurface">
+              <Group id="mobileMsgReadGroup">
+                <Label resid="GroupLabel"/>
+                <Control xsi:type="MobileButton" id="mobileMsgReadOpenPaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Icon xsi:type="bt:MobileIconList">
+                    <bt:Image scale="1" size="25" resid="Icon.16x16"/>
+                    <bt:Image scale="1" size="32" resid="Icon.32x32"/>
+                    <bt:Image scale="1" size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </ExtensionPoint>
+            <ExtensionPoint xsi:type="MobileMessageComposeCommandSurface">
+              <Group id="mobileMsgComposeGroup">
+                <Label resid="GroupLabel"/>
+                <Control xsi:type="MobileButton" id="mobileMsgComposeOpenPaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Icon xsi:type="bt:MobileIconList">
+                    <bt:Image scale="1" size="25" resid="Icon.16x16"/>
+                    <bt:Image scale="1" size="32" resid="Icon.32x32"/>
+                    <bt:Image scale="1" size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </ExtensionPoint>
+          </MobileFormFactor>
         </Host>
       </Hosts>
       <Resources>
