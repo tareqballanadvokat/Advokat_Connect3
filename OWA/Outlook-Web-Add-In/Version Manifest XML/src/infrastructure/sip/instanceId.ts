@@ -1,10 +1,13 @@
 /**
  * Persistent per-instance identifier for the SIP/signaling connection.
  *
- * Distinguishes concurrent add-in instances (e.g. Outlook web + local desktop
- * Outlook) that would otherwise share the same client IP at the signaling
- * server. Generated once and kept in localStorage so it survives task pane
- * reloads but stays unique per browser/WebView2 profile.
+ * Distinguishes concurrent add-in instances (e.g. two local desktop Outlook
+ * windows, or web + desktop) that would otherwise share the same client IP
+ * at the signaling server. Generated once per window/task-pane and kept in
+ * sessionStorage: sessionStorage is scoped per browsing context, so each
+ * WebView2/browser window gets its own value even though desktop Outlook
+ * windows share one WebView2 profile (and thus one localStorage) per user.
+ * Survives reloads within the same window; a new window gets a new ID.
  */
 
 const STORAGE_KEY = "adv_sip_instance_id";
@@ -23,15 +26,15 @@ export function getInstanceId(): string {
     return cachedInstanceId;
   }
 
-  const stored = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+  const stored = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(STORAGE_KEY) : null;
   if (stored) {
     cachedInstanceId = stored;
     return cachedInstanceId;
   }
 
   const generated = generateId();
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, generated);
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.setItem(STORAGE_KEY, generated);
   }
   cachedInstanceId = generated;
   return cachedInstanceId;
