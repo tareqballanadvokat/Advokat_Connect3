@@ -74,11 +74,12 @@ describe("PairingDialog", () => {
       expect(container).toBeEmptyDOMElement();
     });
 
-    it("renders nothing when pairingStatus is 'error'", () => {
+    it("stays rendered when pairingStatus is 'error' (so the user can see why and retry)", () => {
       const { container } = renderWithProviders(<PairingDialog />, {
         preloadedState: { pairing: { status: "error" } },
       });
-      expect(container).toBeEmptyDOMElement();
+      expect(container).not.toBeEmptyDOMElement();
+      expect(screen.getByText(/ADVOKAT Server Pairing Required/i)).toBeInTheDocument();
     });
 
     it("renders the pairing form when pairingStatus is 'unpaired'", () => {

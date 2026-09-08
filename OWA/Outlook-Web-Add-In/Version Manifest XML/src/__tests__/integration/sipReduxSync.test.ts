@@ -83,6 +83,13 @@ jest.mock("@services/PairingApiService", () => ({
   },
 }));
 
+// ─── OfficeAuthService mock — performAuthentication() re-acquires a fresh
+// Office SSO token via this service before exchanging it for the ADVOKAT JWT.
+const mockGetOfficeToken = jest.fn(() => Promise.resolve("office-jwt"));
+jest.mock("@services/OfficeAuthService", () => ({
+  officeAuthService: { getOfficeToken: (...args: any[]) => mockGetOfficeToken(...args) },
+}));
+
 // ─── Store mock — dynamic getter so each test injects a fresh store ───────────
 let _store: ReturnType<typeof buildStore>;
 jest.mock("@store", () => ({
@@ -103,6 +110,18 @@ function buildStore() {
     reducer: { connection: connectionReducer, auth: authReducer },
     middleware: (gd) => gd({ serializableCheck: false }),
   });
+}
+
+/**
+ * performAuthentication() is fired-and-forgotten from onSipClientStateChanged
+ * (not awaited by connect()), so tests need to flush its microtask chain
+ * (getOfficeToken → exchangeOfficeToken → dispatch) after connectPromise resolves.
+ * Uses only microtasks (not setImmediate/setTimeout) so it works under fake timers.
+ */
+async function flushPromises(times = 6): Promise<void> {
+  for (let i = 0; i < times; i++) {
+    await Promise.resolve();
+  }
 }
 
 // ─── SIP message builders (real wire format expected by Registration /
@@ -184,7 +203,8 @@ describe("Integration — SIP + Redux Sync (real SipClient orchestration)", () =
     jest.clearAllMocks();
     _store = buildStore();
 
-    // Seed the Office token so performAuthentication() can proceed once CONNECTED.
+    // Seed an Office token in the store (unrelated to auth: performAuthentication()
+    // re-acquires its own via the mocked officeAuthService.getOfficeToken() above).
     _store.dispatch(setOfficeToken({ officeToken: "office-jwt", oid: "oid-1", email: "user@test.com" }));
 
     (global.WebSocket as any).OPEN       = 1;
@@ -289,6 +309,11 @@ describe("Integration — SIP + Redux Sync (real SipClient orchestration)", () =
     const finalState = selectConnectionState(_store.getState() as any);
     expect(finalState.sipClientState).toBe(SipClientState.CONNECTED);
 
+    // performAuthentication() runs fire-and-forgotten off the CONNECTED handler —
+    // flush its microtask chain (getOfficeToken → exchangeOfficeToken → dispatch)
+    // before asserting on the resulting auth state.
+    await flushPromises();
+
     // Post-connection authentication ran against the real authSlice reducer.
     expect(selectAuthToken(_store.getState() as any)).toBe("jwt");
     expect(selectIsAuthenticated(_store.getState() as any)).toBe(true);
@@ -329,5 +354,139 @@ describe("Integration — SIP + Redux Sync (real SipClient orchestration)", () =
     const finalState = selectConnectionState(_store.getState() as any);
     expect(finalState.sipClientState).toBe(SipClientState.FAILED_PERMANENTLY);
     expect(finalState.sipClientState).not.toBe(SipClientState.CONNECTED);
+  });
+
+  it("retries registration in-place after a temporary (5xx) failure and still reaches CONNECTED", async () => {
+    manager = new WebRTCConnectionManager({
+      enableAutoReconnect:  false,
+      enableIdleDisconnect: false,
+    });
+
+    const connectPromise = manager.connect();
+    const sipClient = manager.getSipClient();
+    const ws = sipClient!.socket as any;
+
+    ws.onopen?.(new Event("open"));
+    const firstRegisterMsg = ws.send.mock.calls[0][0];
+    const firstCallId = extractCallId(firstRegisterMsg);
+
+    const serverError = [
+      "SIP/2.0 500 Server Internal Error",
+      "Via: SIP/2.0/WSS sip.test;branch=z9hG4bKserver500",
+      `Call-ID: ${firstCallId}`,
+      "CSeq: 2 REGISTER",
+      "Content-Length: 0",
+      "",
+      "",
+    ].join("\r\n");
+
+    // Temporary error → Registration retries in-place over the SAME socket,
+    // generating a fresh Call-ID for the retried REGISTER.
+    await ws.onmessage!({ data: serverError } as any);
+
+    expect(selectConnectionState(_store.getState() as any).sipClientState).toBe(
+      SipClientState.REGISTERING
+    );
+    expect(ws.send.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+    const retryRegisterMsg = ws.send.mock.calls[ws.send.mock.calls.length - 1][0];
+    const retryCallId = extractCallId(retryRegisterMsg);
+    expect(retryCallId).not.toBe(firstCallId);
+
+    // Retried REGISTER succeeds — the rest of the handshake proceeds normally.
+    await ws.onmessage!({ data: build202Response(retryCallId) } as any);
+    await ws.onmessage!({ data: buildNotify4() } as any);
+    await ws.onmessage!({ data: buildNotify6() } as any);
+
+    mockPc.iceGatheringState = "complete";
+    mockPc.onicegatheringstatechange?.();
+    await ws.onmessage!({ data: buildServiceAnswer(CONN_CALL_ID) } as any);
+
+    mockSvcInstance.isReadyForCommunication = true;
+    capturedObserver.onDataChannelStateChanged?.("open", "offer");
+
+    await connectPromise;
+
+    const finalState = selectConnectionState(_store.getState() as any);
+    expect(finalState.sipClientState).toBe(SipClientState.CONNECTED);
+  });
+
+  it("performs a full reconnect cycle (new SipClient/WebSocket) after an unexpected socket close, reaching CONNECTED again", async () => {
+    manager = new WebRTCConnectionManager({
+      enableAutoReconnect:    true,
+      enableIdleDisconnect:   false,
+      reconnectDelay:         100,
+      maxReconnectAttempts:   2,
+    });
+
+    // ── First connection cycle — identical handshake to the happy-path test ──
+    const firstConnectPromise = manager.connect();
+    const firstSipClient = manager.getSipClient();
+    const ws1 = firstSipClient!.socket as any;
+
+    ws1.onopen?.(new Event("open"));
+    const registerMsg1 = ws1.send.mock.calls[0][0];
+    const callId1 = extractCallId(registerMsg1);
+
+    await ws1.onmessage!({ data: build202Response(callId1) } as any);
+    await ws1.onmessage!({ data: buildNotify4() } as any);
+    await ws1.onmessage!({ data: buildNotify6() } as any);
+
+    mockPc.iceGatheringState = "complete";
+    mockPc.onicegatheringstatechange?.();
+    await ws1.onmessage!({ data: buildServiceAnswer(CONN_CALL_ID) } as any);
+
+    mockSvcInstance.isReadyForCommunication = true;
+    capturedObserver.onDataChannelStateChanged?.("open", "offer");
+
+    await firstConnectPromise;
+    await flushPromises();
+
+    expect(selectConnectionState(_store.getState() as any).sipClientState).toBe(
+      SipClientState.CONNECTED
+    );
+
+    // ── Unexpected socket close (non-1000 code) — SipClient transitions
+    //    FAILED_PERMANENTLY, WebRTCConnectionManager schedules a full
+    //    reconnect (new SipClient / new WebSocket) after reconnectDelay. ──
+    ws1.onclose?.({ code: 1006, reason: "abnormal closure" } as any);
+
+    expect(selectConnectionState(_store.getState() as any).sipClientState).toBe(
+      SipClientState.FAILED_PERMANENTLY
+    );
+
+    // Advance past the reconnect delay (100ms + up to 1000ms jitter) AND the
+    // 100ms grace period disconnect() waits for outgoing BYE messages to flush.
+    await jest.advanceTimersByTimeAsync(2000);
+
+    // A brand-new SipClient (and therefore a brand-new mocked WebSocket
+    // instance) now exists — this is the crux of a "full reconnect cycle"
+    // as opposed to the in-place registration retry above.
+    const secondSipClient = manager.getSipClient();
+    expect(secondSipClient).not.toBeNull();
+    expect(secondSipClient).not.toBe(firstSipClient);
+    const ws2 = secondSipClient!.socket as any;
+    expect(ws2).not.toBe(ws1);
+
+    // ── Drive the second handshake to completion on the NEW socket ──────────
+    ws2.onopen?.(new Event("open"));
+    const registerMsg2 = ws2.send.mock.calls[0][0];
+    const callId2 = extractCallId(registerMsg2);
+
+    await ws2.onmessage!({ data: build202Response(callId2) } as any);
+    await ws2.onmessage!({ data: buildNotify4() } as any);
+    await ws2.onmessage!({ data: buildNotify6() } as any);
+
+    mockPc.iceGatheringState = "complete";
+    mockPc.onicegatheringstatechange?.();
+    await ws2.onmessage!({ data: buildServiceAnswer(CONN_CALL_ID) } as any);
+
+    mockSvcInstance.isReadyForCommunication = true;
+    capturedObserver.onDataChannelStateChanged?.("open", "offer");
+
+    await flushPromises();
+
+    const finalState = selectConnectionState(_store.getState() as any);
+    expect(finalState.sipClientState).toBe(SipClientState.CONNECTED);
   });
 });

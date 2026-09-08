@@ -9,7 +9,8 @@ import { useTranslation } from 'react-i18next';
 /**
  * PairingDialog
  *
- * Shown when pairingStatus === 'unpaired' (first-time setup).
+ * Shown when pairingStatus === 'unpaired' (first-time setup) or 'error'
+ * (a pairing attempt failed and the user needs to see why / retry).
  * User enters the OTP from the ADVOKAT Desktop Client.
  * On submit: POST /addin/pair → { advokatServerId } → pairingSlice updated → dialog disappears.
  */
@@ -21,7 +22,10 @@ const PairingDialog: React.FC = () => {
   const officeToken = useAppSelector(selectOfficeToken);
   const { t: translate } = useTranslation('common');
 
-  if (pairingStatus !== 'unpaired') {
+  // Stay mounted on 'error' too — pairingApiService.pair()/checkServerId() dispatch
+  // setPairingError() (status: 'error') before throwing, so unmounting on any status
+  // other than 'unpaired' would hide the failure and strand the user with no retry.
+  if (pairingStatus !== 'unpaired' && pairingStatus !== 'error') {
     return null;
   }
 

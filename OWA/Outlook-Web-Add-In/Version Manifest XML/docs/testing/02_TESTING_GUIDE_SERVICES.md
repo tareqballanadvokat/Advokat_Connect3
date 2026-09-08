@@ -10,12 +10,14 @@
 
 | File | Status |
 |---|---|
-| `OfficeAuthService.ts` | ✅ 22 tests — `extractOid`, `extractEmail`, `getOfficeToken` success + failure paths |
-| `TokenService.ts` | ✅ 17 tests — cached token, refresh, expiry boundary, no Office token, API failure, concurrency |
-| `IdleActivityMonitor.ts` | ✅ 26 tests |
-| `WebRTCDataChannelService.ts` | ✅ 33 tests |
-| `WebRTCConnectionManager.ts` | ✅ 34 tests |
+| `OfficeAuthService.ts` | ✅ 28 tests — `extractOid`, `extractEmail`, `getOfficeToken` success + near-expiry retry + failure paths |
+| `TokenService.ts` | ✅ 23 tests — cached token, refresh, expiry boundary, no Office token, API failure, concurrency, `forceRefreshToken()` |
+| `IdleActivityMonitor.ts` | ✅ 30 tests |
+| `WebRTCDataChannelService.ts` | ✅ 37 tests — incl. unknown data-type handling and observer-throws resilience |
+| `WebRTCConnectionManager.ts` | ✅ 50 tests — incl. `getConnectionState()`, idle disconnect/reconnect, `performAuthentication()` success path, skip-reauth-on-valid-token |
 | `PairingApiService.ts` | ✅ 14 tests — `exchangeOfficeToken` delegation, `pair` + `checkServerId` success/error/network/parse paths |
+| `officeAuthErrors.ts` | ✅ 22 tests — error-code → i18n key mapping, retryable-code detection |
+| `webRTCApiService.ts` | ✅ 68 tests — init/cleanup, chunking + reassembly, HTTP error handling (401 refresh-and-retry, 404-as-success, 4xx permanent, 5xx retryable), timeout retry, all public API methods, `sendAuthMessage()` |
 
 ---
 

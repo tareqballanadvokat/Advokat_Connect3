@@ -12,13 +12,13 @@
 |---|---|---|
 | `MessageFactory.ts` | ✅ 44 tests — all message types, header and body assertions | Low |
 | `Helper.ts` | ✅ 15 tests — string / ArrayBuffer / Blob paths, contentLength | Low |
-| `TimeoutManager.ts` | ✅ 33 tests — start, cancel, cancelAll, reset, queries, stats | Low |
-| `Registration.ts` | ✅ 30 tests | Medium |
-| `EstablishingConnection.ts` | ✅ 31 tests | Medium |
-| `Peer2PeerConnection.ts` | ✅ 46 tests | High |
-| `SipClient.ts` | ✅ 38 tests | High |
+| `TimeoutManager.ts` | ✅ 37 tests — start, cancel, cancelAll, reset, queries, stats, logActiveTimers | Low |
+| `Registration.ts` | ✅ 46 tests — incl. terminate(), getRegistrationError(), duplicate-CSeq, NOTIFY-in-phase, parseServerTimeouts edge cases | Medium |
+| `EstablishingConnection.ts` | ✅ 49 tests — incl. terminate(), handleAck, retryable/non-retryable error responses, BYE loop prevention, duplicate NOTIFY6 | Medium |
+| `Peer2PeerConnection.ts` | ✅ 59 tests — incl. querySelectedCandidateType() (all candidate types), getActiveDataChannel() | High |
+| `SipClient.ts` | ✅ 68 tests — incl. full ws.onmessage routing (BYE/per-state/SDP offer trigger), candidate-type observer notification, remaining WebRTC-failure branches | High |
 
-All 7 files are covered — 237 tests total.
+All 7 files are covered — 318 tests total.
 
 ---
 

@@ -32,6 +32,7 @@
   text-align: center;
   background-color: #f4f4f4;
   text-transform: uppercase;
+  cursor: not-allowed;
 }
 
 .service-section-time-input {
@@ -53,6 +54,12 @@
 
 .service-section-hint {
   margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.service-section-search-hint {
+  margin-bottom: 8px;
   font-size: 12px;
   color: #666;
 }
