@@ -200,7 +200,7 @@ const App: React.FC<AppProps> = () => {
           ? `LOCAL — ${window.location.origin}`
           : `AZURE — ${window.location.origin}`}
       </div>
-      {pairingStatus === 'unpaired' && <PairingDialog />}
+      {(pairingStatus === 'unpaired' || pairingStatus === 'error') && <PairingDialog />}
       <div> 
         <Tabs />
       </div>

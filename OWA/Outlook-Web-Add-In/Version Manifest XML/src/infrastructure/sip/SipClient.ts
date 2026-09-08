@@ -144,6 +144,8 @@ const TIMER_CONNECTION = "CONNECTION_TIMEOUT";
 const CSEQ_BYE_PEER_TIMEOUT = 4;
 const CSEQ_BYE_CONNECTION_RETRY = 7;
 const CSEQ_BYE_WEBRTC_FAILURE = 8;
+const CSEQ_BYE_P2P_ESTABLISHED = 9;
+const CSEQ_BYE_CONNECTION_P2P_ESTABLISHED = 10;
 const REGEX_BYE = /^BYE\s+([^\s]+)\s+(SIP\/\d\.\d)/;
 const REGEX_REASON_REGISTRATION = /Reason:\s*REGISTRATION/;
 const REGEX_REASON_CONNECTION = /Reason:\s*CONNECTION/;
@@ -474,6 +476,42 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
   }
 
   /**
+   * Close only the SIP signaling session (registration) while leaving the active
+   * P2P DataChannel untouched. Mirrors the server's own behavior: once the direct
+   * connection is open, neither the SIP registration nor the connection session are
+   * needed anymore. Sends a REGISTRATION BYE first (signals no new SIP connection
+   * should be established), then a CONNECTION BYE (signals this connection session
+   * is no longer needed), instead of waiting for the server to time them out.
+   * Does NOT reset peer2PeerConnectionObject and does NOT change clientState -
+   * the client stays CONNECTED with the DataChannel alive.
+   * @param reason - Reason for closing (for logging)
+   */
+  function closeSipOnly(reason: string): void {
+    logWithPrefix(`🔌 Closing SIP session only (P2P stays alive): ${reason}`);
+
+    if (isRegistered() || isRegistering()) {
+      const registrationByeMsg = registrationObj.createRegistrationBye(CSEQ_BYE_P2P_ESTABLISHED);
+      sendMessage(registrationByeMsg, `REGISTRATION BYE (CSeq: ${CSEQ_BYE_P2P_ESTABLISHED}, ${reason})`);
+    }
+
+    sendConnectionBye(CSEQ_BYE_CONNECTION_P2P_ESTABLISHED, reason);
+
+    cancelAllTimers();
+
+    const currentSocket = sipClientInstance.socket;
+    if (currentSocket) {
+      currentSocket.onerror = null;
+      currentSocket.onclose = null;
+      currentSocket.onmessage = null;
+      currentSocket.onopen = null;
+
+      if (currentSocket.readyState === WebSocket.OPEN) {
+        currentSocket.close(1000, reason);
+      }
+    }
+  }
+
+  /**
    * Reset state for new registration attempt
    */
   function resetForNewRegistration(): void {
@@ -533,6 +571,16 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
       // Cancel PEER_REGISTRATION_TIMEOUT on registration failure
       timeoutManager.cancelTimer(TIMER_PEER_REGISTRATION);
 
+      // The P2P DataChannel is already up (e.g. server sent its own REGISTRATION BYE
+      // right after seeing the direct connection open, possibly racing our own
+      // closeSipOnly() call). SIP is no longer needed - just let it go, and do NOT
+      // touch peer2PeerConnectionObject or move clientState away from CONNECTED.
+      if (isConnected()) {
+        logWithPrefix("ℹ️ Registration failure while P2P connected - closing SIP only, keeping DataChannel");
+        closeSipOnly(`Registration failure while connected: ${reason}`);
+        return;
+      }
+
       transitionClientState(SipClientState.FAILED, `Registration failure: ${reason}`);
 
       if (!isRetryable) {
@@ -589,6 +637,15 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
 
     onFailure: (reason) => {
       logWithPrefix(`❌ Connection failed: ${reason}`);
+
+      // The P2P DataChannel is already up - a CONNECTION BYE at this point is just
+      // the server (or our own closeSipOnly()) tearing down signaling that is no
+      // longer needed. Keep the DataChannel alive, don't reset P2P state.
+      if (isConnected()) {
+        logWithPrefix("ℹ️ Connection failure while P2P connected - closing SIP only, keeping DataChannel");
+        closeSipOnly(`Connection failure while connected: ${reason}`);
+        return;
+      }
 
       if (canRetryConnection()) {
         connectionRetryCount++;
@@ -655,6 +712,10 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
       logWithPrefix("✅ WebRTC DataChannel established - CONNECTED");
       transitionClientState(SipClientState.CONNECTED, "DataChannel opened");
       webrtcRetryCount = 0;
+
+      // SIP registration is no longer needed once the direct connection is up -
+      // close it proactively instead of waiting for the server to time it out.
+      closeSipOnly("P2P DataChannel established");
     },
 
     onFailure: (reason) => {

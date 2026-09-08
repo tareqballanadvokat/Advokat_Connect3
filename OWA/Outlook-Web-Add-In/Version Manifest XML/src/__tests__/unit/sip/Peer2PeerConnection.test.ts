@@ -95,6 +95,31 @@ const OFFER_PARAMS = {
   toLine: '"Server" <sip:server@sip.test;transport=wss>;tag=srv-tag',
 };
 
+/** Builds an RTCStatsReport-like Map with a nominated succeeded candidate pair. */
+function buildStatsMap(candidateType: string, address = "1.2.3.4"): Map<string, any> {
+  const localCandidateId = "local-1";
+  const stats = new Map<string, any>();
+  stats.set("pair-1", {
+    type: "candidate-pair",
+    nominated: true,
+    state: "succeeded",
+    localCandidateId,
+  });
+  stats.set(localCandidateId, {
+    id: localCandidateId,
+    type: "local-candidate",
+    candidateType,
+    address,
+  });
+  return stats;
+}
+
+async function flush(times = 4): Promise<void> {
+  for (let i = 0; i < times; i++) {
+    await Promise.resolve();
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("Peer2PeerConnection", () => {
@@ -551,6 +576,123 @@ describe("Peer2PeerConnection", () => {
       jest.advanceTimersByTime(5_001);
       // Should fail because localDescription is null
       expect(p2p.getState()).toBe(SdpExchangeState.FAILED);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // querySelectedCandidateType() — triggered automatically once both channels open
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("querySelectedCandidateType()", () => {
+    async function reachSuccess() {
+      await p2p.createOffer(OFFER_PARAMS.callId, OFFER_PARAMS.sipUri, OFFER_PARAMS.tag, OFFER_PARAMS.toLine);
+      mockPc.iceGatheringState = "complete";
+      mockPc.onicegatheringstatechange?.();
+      await p2p.parseIncomingAnswer(buildServiceAnswer());
+      mockSvcInstance.isReadyForCommunication = true;
+      capturedObserver.onDataChannelStateChanged?.("open", "offer");
+      await flush();
+    }
+
+    it("reports 'turn' for a relay candidate", async () => {
+      mockPc.getStats.mockResolvedValue(buildStatsMap("relay"));
+      await reachSuccess();
+      expect(events.onCandidateTypeSelected).toHaveBeenCalledWith("turn");
+    });
+
+    it("reports 'stun' for a srflx candidate", async () => {
+      mockPc.getStats.mockResolvedValue(buildStatsMap("srflx"));
+      await reachSuccess();
+      expect(events.onCandidateTypeSelected).toHaveBeenCalledWith("stun");
+    });
+
+    it("reports 'mdns' for a host candidate with a .local address", async () => {
+      mockPc.getStats.mockResolvedValue(buildStatsMap("host", "abc123.local"));
+      await reachSuccess();
+      expect(events.onCandidateTypeSelected).toHaveBeenCalledWith("mdns");
+    });
+
+    it("reports 'direct' for a host candidate with a non-local address", async () => {
+      mockPc.getStats.mockResolvedValue(buildStatsMap("host", "192.168.1.5"));
+      await reachSuccess();
+      expect(events.onCandidateTypeSelected).toHaveBeenCalledWith("direct");
+    });
+
+    it("reports 'direct' for a prflx candidate", async () => {
+      mockPc.getStats.mockResolvedValue(buildStatsMap("prflx", "192.168.1.5"));
+      await reachSuccess();
+      expect(events.onCandidateTypeSelected).toHaveBeenCalledWith("direct");
+    });
+
+    it("reports 'unknown' for an unrecognized candidate type", async () => {
+      mockPc.getStats.mockResolvedValue(buildStatsMap("weird-type"));
+      await reachSuccess();
+      expect(events.onCandidateTypeSelected).toHaveBeenCalledWith("unknown");
+    });
+
+    it("reports 'unknown' when no nominated candidate pair is found", async () => {
+      mockPc.getStats.mockResolvedValue(new Map());
+      await reachSuccess();
+      expect(events.onCandidateTypeSelected).toHaveBeenCalledWith("unknown");
+    });
+
+    it("reports 'unknown' when getStats() rejects", async () => {
+      mockPc.getStats.mockRejectedValue(new Error("stats unavailable"));
+      await reachSuccess();
+      expect(events.onCandidateTypeSelected).toHaveBeenCalledWith("unknown");
+    });
+
+    it("falls back to any nominated pair when none has state 'succeeded'", async () => {
+      const localCandidateId = "local-2";
+      const stats = new Map<string, any>();
+      stats.set("pair-1", { type: "candidate-pair", nominated: true, state: "in-progress", localCandidateId });
+      stats.set(localCandidateId, { id: localCandidateId, type: "local-candidate", candidateType: "srflx", address: "1.2.3.4" });
+      mockPc.getStats.mockResolvedValue(stats);
+
+      await reachSuccess();
+      expect(events.onCandidateTypeSelected).toHaveBeenCalledWith("stun");
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // getActiveDataChannel()
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("getActiveDataChannel()", () => {
+    it("returns undefined before an offer has been created", () => {
+      expect(p2p.getActiveDataChannel()).toBeUndefined();
+    });
+
+    it("returns the created data channel after createOffer()", async () => {
+      await p2p.createOffer(OFFER_PARAMS.callId, OFFER_PARAMS.sipUri, OFFER_PARAMS.tag, OFFER_PARAMS.toLine);
+      expect(p2p.getActiveDataChannel()).toBe(mockDataChannel);
+    });
+
+    it("returns undefined again after reset()", async () => {
+      await p2p.createOffer(OFFER_PARAMS.callId, OFFER_PARAMS.sipUri, OFFER_PARAMS.tag, OFFER_PARAMS.toLine);
+      p2p.reset();
+      expect(p2p.getActiveDataChannel()).toBeUndefined();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Answer channel closed unexpectedly after COMPLETE
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("Answer channel closed after COMPLETE", () => {
+    it("does not throw and does not change state when the answer channel closes post-COMPLETE", async () => {
+      await p2p.createOffer(OFFER_PARAMS.callId, OFFER_PARAMS.sipUri, OFFER_PARAMS.tag, OFFER_PARAMS.toLine);
+      mockPc.iceGatheringState = "complete";
+      mockPc.onicegatheringstatechange?.();
+      await p2p.parseIncomingAnswer(buildServiceAnswer());
+      mockSvcInstance.isReadyForCommunication = true;
+      capturedObserver.onDataChannelStateChanged?.("open", "offer"); // → COMPLETE
+      expect(p2p.getState()).toBe(SdpExchangeState.COMPLETE);
+
+      expect(() =>
+        capturedObserver.onDataChannelStateChanged?.("closed", "answer")
+      ).not.toThrow();
+      expect(p2p.getState()).toBe(SdpExchangeState.COMPLETE);
     });
   });
 });

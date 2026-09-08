@@ -25,6 +25,8 @@ import connectionReducer, {
   selectIsDisconnected,
   selectIsReady,
   selectSelectedCandidateType,
+  selectIsNavigatorOnline,
+  selectIsNavigatorOffline,
   ConnectionState,
 } from "@slices/connectionSlice";
 import { SipClientState } from "@infra/sip/SipClient";
@@ -631,6 +633,31 @@ describe("connectionSlice", () => {
 
       it("should return undefined when not set", () => {
         expect(selectSelectedCandidateType(mockState as any)).toBeUndefined();
+      });
+    });
+
+    describe("selectIsNavigatorOnline / selectIsNavigatorOffline", () => {
+      const originalOnLine = window.navigator.onLine;
+
+      afterEach(() => {
+        Object.defineProperty(window.navigator, "onLine", {
+          value: originalOnLine,
+          configurable: true,
+        });
+      });
+
+      it("should report online when navigator.onLine is true", () => {
+        Object.defineProperty(window.navigator, "onLine", { value: true, configurable: true });
+
+        expect(selectIsNavigatorOnline()).toBe(true);
+        expect(selectIsNavigatorOffline()).toBe(false);
+      });
+
+      it("should report offline when navigator.onLine is false", () => {
+        Object.defineProperty(window.navigator, "onLine", { value: false, configurable: true });
+
+        expect(selectIsNavigatorOnline()).toBe(false);
+        expect(selectIsNavigatorOffline()).toBe(true);
       });
     });
 

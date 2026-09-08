@@ -8,13 +8,14 @@
  */
 
 // ─── Logger mock ─────────────────────────────────────────────────────────────
+const mockLogger = {
+  info:  jest.fn(),
+  warn:  jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+};
 jest.mock("@infra/logger", () => ({
-  getLogger: jest.fn(() => ({
-    info:  jest.fn(),
-    warn:  jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-  })),
+  getLogger: jest.fn(() => mockLogger),
 }));
 
 import { IdleActivityMonitor, IdleActivityMonitorConfig } from "@services/IdleActivityMonitor";
@@ -52,6 +53,7 @@ describe("IdleActivityMonitor", () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    Object.values(mockLogger).forEach((fn) => fn.mockClear());
 
     docAddSpy    = jest.spyOn(document, "addEventListener");
     docRemoveSpy = jest.spyOn(document, "removeEventListener");
@@ -366,6 +368,45 @@ describe("IdleActivityMonitor", () => {
       expect(onIdle).not.toHaveBeenCalled();
       monitor.stop();
     });
+
+    it("does NOT reset the idle timer when the page becomes hidden/blurred", () => {
+      const { monitor, onIdle } = buildMonitor({ idleTimeout: 5_000 });
+      monitor.start();
+
+      const visHandler = docAddSpy.mock.calls
+        .find(([evt]) => evt === "visibilitychange")?.[1] as (() => void) | undefined;
+
+      jest.advanceTimersByTime(4_000); // almost idle
+
+      // Simulate page becoming hidden and unfocused
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      jest.spyOn(document, "hasFocus").mockReturnValue(false);
+      visHandler?.();
+
+      // The idle timer should NOT have been reset — it keeps counting toward the
+      // original 5s deadline set by start(), so 1_001 more ms tips it over.
+      jest.advanceTimersByTime(1_001);
+
+      expect(onIdle).toHaveBeenCalledTimes(1);
+      monitor.stop();
+      jest.restoreAllMocks();
+    });
+
+    it("logs a debug message when the page becomes hidden/blurred", () => {
+      const { monitor } = buildMonitor({ idleTimeout: 5_000 });
+      monitor.start();
+
+      const visHandler = docAddSpy.mock.calls
+        .find(([evt]) => evt === "visibilitychange")?.[1] as (() => void) | undefined;
+
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      jest.spyOn(document, "hasFocus").mockReturnValue(false);
+      visHandler?.();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith("Page became hidden/blurred", "IdleMonitor");
+      monitor.stop();
+      jest.restoreAllMocks();
+    });
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -390,6 +431,29 @@ describe("IdleActivityMonitor", () => {
       jest.advanceTimersByTime(3_000);
 
       expect(monitor.getTimeSinceLastActivity()).toBeGreaterThanOrEqual(3_000);
+      monitor.stop();
+    });
+
+    it("getTimeSinceLastActivity() is near zero immediately after reset()", () => {
+      const { monitor } = buildMonitor();
+      monitor.start();
+
+      jest.advanceTimersByTime(3_000);
+      monitor.reset();
+
+      expect(monitor.getTimeSinceLastActivity()).toBe(0);
+      monitor.stop();
+    });
+
+    it("getTimeSinceLastActivity() resumes growing after a reset()", () => {
+      const { monitor } = buildMonitor();
+      monitor.start();
+
+      jest.advanceTimersByTime(3_000);
+      monitor.reset();
+      jest.advanceTimersByTime(1_500);
+
+      expect(monitor.getTimeSinceLastActivity()).toBe(1_500);
       monitor.stop();
     });
 

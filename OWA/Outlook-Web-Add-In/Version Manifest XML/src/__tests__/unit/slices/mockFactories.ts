@@ -15,6 +15,7 @@ import {
 import {
   LeistungAuswahlResponse,
   LeistungPostData,
+  LeistungResponse,
 } from "@interfaces/IService";
 import {
   PersonLookUpResponse,
@@ -93,6 +94,14 @@ export const createMockService = (
   stufe2: "Legal Advice",
   stufe3: "General",
   anzeigenInQuicklisteOutlook: true,
+  ...overrides,
+});
+
+export const createMockLeistung = (
+  overrides: Partial<LeistungResponse> = {}
+): LeistungResponse => ({
+  id: 1,
+  status: "Offen",
   ...overrides,
 });
 

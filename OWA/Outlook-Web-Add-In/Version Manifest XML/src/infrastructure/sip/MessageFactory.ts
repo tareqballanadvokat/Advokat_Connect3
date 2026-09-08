@@ -81,6 +81,7 @@ export interface ServiceMessageParams extends BaseMessageParams {
 export interface RegisterMessageParams extends BaseMessageParams {
   fromDisplayName: string;
   toDisplayName: string;
+  instanceId: string;
   timeoutConfig: {
     ConnectionTimeout: number;
     PeerRegistrationTimeout: number;
@@ -256,8 +257,11 @@ export class MessageFactory {
     const cseq = params.cseq || 1;
     logger.debug(`Creating REGISTER message (CSeq: ${cseq})`, "MessageFactory");
 
-    // Generate timeout configuration JSON body
-    const timeoutBody = JSON.stringify(params.timeoutConfig);
+    // Generate JSON body with timeout configuration and instance identity
+    const timeoutBody = JSON.stringify({
+      ...params.timeoutConfig,
+      InstanceId: params.instanceId,
+    });
     const contentLength = timeoutBody.length;
 
     const registerMessage =
@@ -273,7 +277,7 @@ export class MessageFactory {
       `Supported: path,gruu,outbound\r\n` +
       `User-Agent: JsSIP 3.10.0\r\n` +
       `Contact: <${params.sipUri}>\r\n` +
-      `Content-Type: application/json\r\n` +
+      `Content-Type: text/json\r\n` +
       `Content-Length: ${contentLength}\r\n\r\n` +
       timeoutBody;
 

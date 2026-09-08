@@ -64,18 +64,30 @@ jest.mock("@services/WebRTCDataChannelService", () => ({
 }));
 
 // ─── IdleActivityMonitor mock ─────────────────────────────────────────────────
+// Captures the config (incl. onIdle/onActive callbacks) passed by
+// startIdleMonitoring() so tests can fire them directly.
 const mockIdleMonitor = { start: jest.fn(), stop: jest.fn() };
+let capturedIdleMonitorConfig: { onIdle: () => void; onActive: () => void } | undefined;
 jest.mock("@services/IdleActivityMonitor", () => ({
-  IdleActivityMonitor: jest.fn(() => mockIdleMonitor),
+  IdleActivityMonitor: jest.fn((config) => {
+    capturedIdleMonitorConfig = config;
+    return mockIdleMonitor;
+  }),
 }));
 
 // ─── PairingApiService mock ───────────────────────────────────────────────────
+const mockExchangeOfficeToken = jest.fn(() =>
+  Promise.resolve({ token: "jwt-token", refreshToken: "refresh", expiresIn: 3600 })
+);
 jest.mock("@services/PairingApiService", () => ({
-  pairingApiService: {
-    exchangeOfficeToken: jest.fn(() =>
-      Promise.resolve({ token: "jwt-token", refreshToken: "refresh", expiresIn: 3600 })
-    ),
-  },
+  pairingApiService: { exchangeOfficeToken: (...args: any[]) => mockExchangeOfficeToken(...args) },
+}));
+
+// ─── OfficeAuthService mock — performAuthentication() re-acquires a fresh
+// Office SSO token via this service before exchanging it for the ADVOKAT JWT.
+const mockGetOfficeToken = jest.fn(() => Promise.resolve("office-jwt"));
+jest.mock("@services/OfficeAuthService", () => ({
+  officeAuthService: { getOfficeToken: (...args: any[]) => mockGetOfficeToken(...args) },
 }));
 
 // ─── Redux store mock ─────────────────────────────────────────────────────────
@@ -154,6 +166,9 @@ describe("WebRTCConnectionManager", () => {
 
     // Default DataChannel: not ready (auth will fail silently)
     mockDataChannelSvc.isReadyForCommunication = false;
+    capturedIdleMonitorConfig = undefined;
+    mockGetOfficeToken.mockResolvedValue("office-jwt");
+    mockExchangeOfficeToken.mockResolvedValue({ token: "jwt-token", refreshToken: "refresh", expiresIn: 3600 });
 
     manager = new WebRTCConnectionManager({
       reconnectDelay:       100,   // short delay for tests
@@ -190,6 +205,17 @@ describe("WebRTCConnectionManager", () => {
     const connectPromise = manager.connect();
     manager.onSipClientStateChanged(SipClientState.FAILED_PERMANENTLY, "fatal");
     try { await connectPromise; } catch { /* expected */ }
+  }
+
+  /**
+   * performAuthentication() is fired-and-forgotten from onSipClientStateChanged
+   * (not awaited by connect()) — flush its microtask chain (getOfficeToken →
+   * exchangeOfficeToken → dispatch) before asserting on the resulting calls.
+   */
+  async function flushMicrotasks(times = 6): Promise<void> {
+    for (let i = 0; i < times; i++) {
+      await Promise.resolve();
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -485,6 +511,218 @@ describe("WebRTCConnectionManager", () => {
       manager.reconnect(); // should no-op because at max
       // No timer scheduled — advance time and check no new SipClient created
       await jest.advanceTimersByTimeAsync(5000);
+      expect(initializeSipClient).not.toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // getConnectionState()
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("getConnectionState()", () => {
+    it("delegates to selectConnectionState(store.getState())", () => {
+      const fakeState = { ...DISCONNECTED_STATE, connectionStatus: "custom" };
+      mockSelectConnectionState.mockReturnValue(fakeState);
+
+      expect(manager.getConnectionState()).toBe(fakeState);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // performAuthentication() — triggered internally on CONNECTED
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("performAuthentication() success path (via CONNECTED transition)", () => {
+    beforeEach(() => {
+      // Channels ready — lets performAuthentication() proceed past its guard.
+      mockDataChannelSvc.isReadyForCommunication = true;
+    });
+
+    it("dispatches startAuthentication when channels are ready", async () => {
+      await connectAndResolve();
+      await flushMicrotasks();
+
+      expect(mockDispatch).toHaveBeenCalledWith(mockStartAuthentication());
+    });
+
+    it("calls officeAuthService.getOfficeToken()", async () => {
+      await connectAndResolve();
+      await flushMicrotasks();
+
+      expect(mockGetOfficeToken).toHaveBeenCalledTimes(1);
+    });
+
+    it("exchanges the Office token via pairingApiService.exchangeOfficeToken()", async () => {
+      await connectAndResolve();
+      await flushMicrotasks();
+
+      expect(mockExchangeOfficeToken).toHaveBeenCalledWith("office-jwt");
+    });
+
+    it("dispatches authenticationSuccess with the exchange response", async () => {
+      const authResponse = { token: "jwt-token", refreshToken: "refresh", expiresIn: 3600 };
+      mockExchangeOfficeToken.mockResolvedValue(authResponse);
+
+      await connectAndResolve();
+      await flushMicrotasks();
+
+      expect(mockDispatch).toHaveBeenCalledWith(mockAuthSuccess(authResponse));
+    });
+
+    it("dispatches authenticationFailure when no Office token is available", async () => {
+      mockGetOfficeToken.mockResolvedValue(null);
+
+      await connectAndResolve();
+      await flushMicrotasks();
+
+      expect(mockExchangeOfficeToken).not.toHaveBeenCalled();
+      const failureCall = mockDispatch.mock.calls
+        .map(([a]) => a)
+        .find((a) => a.type === "auth/failure");
+      expect(failureCall).toBeDefined();
+    });
+
+    it("does NOT throw when channels are not ready (falls back to authenticationFailure)", async () => {
+      mockDataChannelSvc.isReadyForCommunication = false;
+
+      await connectAndResolve();
+      await flushMicrotasks();
+
+      expect(mockGetOfficeToken).not.toHaveBeenCalled();
+      const failureCall = mockDispatch.mock.calls
+        .map(([a]) => a)
+        .find((a) => a.type === "auth/failure");
+      expect(failureCall).toBeDefined();
+    });
+  });
+
+  describe("CONNECTED transition — skips re-authentication when the JWT is still valid", () => {
+    it("does NOT call performAuthentication when auth.token is valid and far from expiry", async () => {
+      mockDataChannelSvc.isReadyForCommunication = true;
+      mockGetState.mockReturnValue({
+        auth: { token: "still-valid", expiresAt: Date.now() + 60 * 60 * 1000 },
+      });
+
+      await connectAndResolve();
+      await flushMicrotasks();
+
+      expect(mockGetOfficeToken).not.toHaveBeenCalled();
+      expect(mockExchangeOfficeToken).not.toHaveBeenCalled();
+    });
+
+    it("DOES call performAuthentication when auth.token is near expiry", async () => {
+      mockDataChannelSvc.isReadyForCommunication = true;
+      mockGetState.mockReturnValue({
+        auth: { token: "expiring-soon", expiresAt: Date.now() + 30 * 1000 },
+      });
+
+      await connectAndResolve();
+      await flushMicrotasks();
+
+      expect(mockGetOfficeToken).toHaveBeenCalledTimes(1);
+    });
+
+    it("DOES call performAuthentication when there is no auth.token at all", async () => {
+      mockDataChannelSvc.isReadyForCommunication = true;
+      mockGetState.mockReturnValue({ auth: { token: null, expiresAt: null } });
+
+      await connectAndResolve();
+      await flushMicrotasks();
+
+      expect(mockGetOfficeToken).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Idle disconnect / reconnect — handleUserIdle() / handleUserActive()
+  // (private methods, exercised via the onIdle/onActive callbacks captured
+  // from the mocked IdleActivityMonitor constructor)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("Idle disconnect and reconnect-on-activity", () => {
+    it("handleUserIdle() dispatches setIdle(true) and setDisconnectedDueToIdleAt when connected", async () => {
+      await connectAndResolve();
+      jest.clearAllMocks();
+      mockSelectConnectionState.mockReturnValue({
+        ...DISCONNECTED_STATE,
+        sipClientState: SipClientState.CONNECTED,
+      });
+
+      capturedIdleMonitorConfig?.onIdle();
+      await jest.advanceTimersByTimeAsync(200);
+
+      expect(mockDispatch).toHaveBeenCalledWith(mockSetIdle(true));
+      const idleAtCall = mockDispatch.mock.calls
+        .map(([a]) => a)
+        .find((a) => a.type === "conn/idleAt" && a.payload !== undefined);
+      expect(idleAtCall).toBeDefined();
+    });
+
+    it("handleUserIdle() disconnects the SipClient", async () => {
+      await connectAndResolve();
+      jest.clearAllMocks();
+      mockSelectConnectionState.mockReturnValue({
+        ...DISCONNECTED_STATE,
+        sipClientState: SipClientState.CONNECTED,
+      });
+
+      capturedIdleMonitorConfig?.onIdle();
+      await jest.advanceTimersByTimeAsync(200);
+
+      expect(mockSipClient.disconnect).toHaveBeenCalledWith(SipClientState.DISCONNECTED);
+    });
+
+    it("handleUserIdle() is a no-op when already disconnected", async () => {
+      await connectAndResolve();
+      jest.clearAllMocks();
+      mockSelectConnectionState.mockReturnValue({ ...DISCONNECTED_STATE });
+
+      capturedIdleMonitorConfig?.onIdle();
+      await jest.advanceTimersByTimeAsync(200);
+
+      expect(mockDispatch).not.toHaveBeenCalledWith(mockSetIdle(true));
+    });
+
+    it("handleUserActive() dispatches updateLastActivity and setIdle(false)", async () => {
+      await connectAndResolve();
+      jest.clearAllMocks();
+
+      capturedIdleMonitorConfig?.onActive();
+
+      expect(mockDispatch).toHaveBeenCalledWith(mockUpdateLastActivity());
+      expect(mockDispatch).toHaveBeenCalledWith(mockSetIdle(false));
+    });
+
+    it("handleUserActive() reconnects after an idle disconnect completed", async () => {
+      await connectAndResolve();
+      mockSelectConnectionState.mockReturnValue({
+        ...DISCONNECTED_STATE,
+        sipClientState: SipClientState.CONNECTED,
+      });
+
+      // Go idle — triggers disconnect()
+      capturedIdleMonitorConfig?.onIdle();
+      await jest.advanceTimersByTimeAsync(200); // let disconnect()'s internal 100ms settle
+
+      jest.clearAllMocks();
+      mockSelectConnectionState.mockReturnValue({ ...DISCONNECTED_STATE });
+
+      // User comes back — should trigger a fresh connect()
+      capturedIdleMonitorConfig?.onActive();
+      const secondConnect = manager.connect();
+      manager.onSipClientStateChanged(SipClientState.CONNECTED, "reconnected-after-idle");
+      await secondConnect;
+
+      expect(initializeSipClient).toHaveBeenCalled();
+    });
+
+    it("handleUserActive() does NOT reconnect when the user was not idle-disconnected", async () => {
+      await connectAndResolve();
+      jest.clearAllMocks();
+
+      capturedIdleMonitorConfig?.onActive();
+      await jest.advanceTimersByTimeAsync(200);
+
       expect(initializeSipClient).not.toHaveBeenCalled();
     });
   });

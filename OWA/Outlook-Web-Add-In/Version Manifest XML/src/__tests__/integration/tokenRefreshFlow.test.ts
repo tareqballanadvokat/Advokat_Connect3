@@ -31,6 +31,13 @@ jest.mock("@services/PairingApiService", () => ({
   pairingApiService: { exchangeOfficeToken: mockExchangeOfficeToken },
 }));
 
+// ─── OfficeAuthService mock — _refresh() re-acquires a fresh Office SSO token
+// via this service rather than reading state.auth.officeToken directly.
+const mockGetOfficeToken = jest.fn();
+jest.mock("@services/OfficeAuthService", () => ({
+  officeAuthService: { getOfficeToken: (...args: any[]) => mockGetOfficeToken(...args) },
+}));
+
 // ─── Imports ──────────────────────────────────────────────────────────────────
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer, {
@@ -56,6 +63,9 @@ function seedStore(
 ) {
   if (opts.officeToken) {
     store.dispatch(setOfficeToken({ officeToken: opts.officeToken, oid: null, email: null }));
+    mockGetOfficeToken.mockResolvedValue(opts.officeToken);
+  } else {
+    mockGetOfficeToken.mockResolvedValue(null);
   }
   if (opts.token) {
     store.dispatch(
@@ -94,6 +104,7 @@ describe("Integration — Token Refresh Flow", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetOfficeToken.mockReset().mockResolvedValue(null);
     _store = buildStore();
     service = new TokenService();
   });

@@ -24,10 +24,15 @@ interface ServiceState {
   text: string;
   sb: string;
 
-  // Services dropdown data
+  // Services dropdown data (quick list - the small, curated default)
   services: LeistungAuswahlResponse[];
   servicesLoading: boolean;
   servicesError: string | null;
+
+  // Full service catalog, loaded in the background so search can fall back to it
+  allServices: LeistungAuswahlResponse[];
+  allServicesLoading: boolean;
+  allServicesError: string | null;
 
   // Save Leistung state
   saveLeistungLoading: boolean;
@@ -56,6 +61,10 @@ const initialState: ServiceState = {
   servicesLoading: false,
   servicesError: null,
 
+  allServices: [],
+  allServicesLoading: false,
+  allServicesError: null,
+
   // Save Leistung state
   saveLeistungLoading: false,
   saveLeistungError: null,
@@ -75,7 +84,9 @@ export const loadServicesAsync = createAsyncThunk(
   async (query: LeistungenAuswahlQuery, { getState }) => {
     const state = getState() as RootState;
 
-    const cacheKey = `${CACHE_KEYS.SERVICES}_${query.Kürzel || "all"}`;
+    // Quick-list and full-catalog results must not share a cache entry, or toggling
+    // between them would silently serve the other list's stale cached data.
+    const cacheKey = `${CACHE_KEYS.SERVICES}_${query.OnlyQuickListe ? "quick" : "full"}_${query.Kürzel || "all"}`;
     const cacheOptions = CACHE_CONFIG[CACHE_KEYS.SERVICES]; // No namespace needed for sessionStorage
 
     const isReady = selectIsReady(state);
@@ -346,6 +357,8 @@ const serviceSlice = createSlice({
     clearServices: (state) => {
       state.services = [];
       state.servicesError = null;
+      state.allServices = [];
+      state.allServicesError = null;
       state.selectedServiceId = 0;
     },
     setRegisteredServicesLoading: (state, action: PayloadAction<boolean>) => {
@@ -361,18 +374,37 @@ const serviceSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(loadServicesAsync.pending, (state) => {
-        state.servicesLoading = true;
-        state.servicesError = null;
+      .addCase(loadServicesAsync.pending, (state, action) => {
+        const isQuickList = action.meta?.arg?.OnlyQuickListe !== false;
+        if (isQuickList) {
+          state.servicesLoading = true;
+          state.servicesError = null;
+        } else {
+          state.allServicesLoading = true;
+          state.allServicesError = null;
+        }
       })
       .addCase(loadServicesAsync.fulfilled, (state, action) => {
-        state.servicesLoading = false;
-        state.services = action.payload;
-        state.servicesError = null;
+        const isQuickList = action.meta?.arg?.OnlyQuickListe !== false;
+        if (isQuickList) {
+          state.servicesLoading = false;
+          state.services = action.payload;
+          state.servicesError = null;
+        } else {
+          state.allServicesLoading = false;
+          state.allServices = action.payload;
+          state.allServicesError = null;
+        }
       })
       .addCase(loadServicesAsync.rejected, (state, action) => {
-        state.servicesLoading = false;
-        state.servicesError = action.error.message || "Failed to load services";
+        const isQuickList = action.meta?.arg?.OnlyQuickListe !== false;
+        if (isQuickList) {
+          state.servicesLoading = false;
+          state.servicesError = action.error.message || "Failed to load services";
+        } else {
+          state.allServicesLoading = false;
+          state.allServicesError = action.error.message || "Failed to load services";
+        }
       })
       .addCase(saveLeistungAsync.pending, (state) => {
         state.saveLeistungLoading = true;

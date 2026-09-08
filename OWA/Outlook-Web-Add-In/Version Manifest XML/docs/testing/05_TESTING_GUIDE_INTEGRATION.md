@@ -29,12 +29,25 @@ Redux store and is subsequently used by `TokenService` when making API calls.
 
 | Scenario | Status |
 |---|---|
-| Token refresh flow | ✅ Done (9 tests) |
-| Pairing flow | ✅ Done (13 tests) |
+| Token refresh flow (service-level) | ✅ Done (9 tests) |
+| Pairing flow (service-level) | ✅ Done (13 tests) |
+| Pairing flow through the real UI | ✅ Done (4 tests) |
 | Idle disconnect | ✅ Done (8 tests) |
-| SIP + Redux sync | ✅ Done (2 tests) |
+| SIP + Redux sync (happy path, permanent failure, registration retry, full reconnect cycle) | ✅ Done (4 tests) |
+| Favorites (case) flow end-to-end (component → thunk → real WebRTCApiService) | ✅ Done (4 tests) |
+| Token expiry mid-session, UI-visible consequences | ✅ Done (2 tests) |
 
-All 4 scenarios are implemented — 32 integration tests total.
+All scenarios are implemented — 44 integration tests total, across 7 files.
+
+A gap re-audit (2026-08-17) found that most of the original 4 files only
+wired 2 of the "2+ real units" they claimed — e.g. `pairingFlow.test.ts`
+never rendered a component despite the guide describing a `PairingDialog`/
+`App` scenario, and `idleDisconnect.test.ts` mocked `SipClient` away
+entirely. The 3 new files above close those gaps with genuinely
+cross-layer tests (component + slice + real service, with only the true
+I/O boundary mocked), and `sipReduxSync.test.ts` gained 2 new tests for
+previously-uncovered failure/recovery paths. One real production bug was
+found and fixed in the process — see Scenario 2 below.
 
 ---
 
@@ -110,37 +123,42 @@ it('should refresh token when near expiry and update Redux', async () => {
 
 ### Scenario 2 — Pairing Flow ✅ Done
 
-**Units involved:** `PairingApiService` → `pairingSlice` → `App` component
+**Units involved (service-level):** `PairingApiService` → `pairingSlice`
 
-**Flow:**
-1. User fills in server URL + OTP in `PairingDialog`
-2. `PairingApiService` sends pairing request
-3. On success, `pairingSlice` is updated to `'paired'`
-4. `App` re-renders and shows the main tab navigation
+**Test file:** `src/__tests__/integration/pairingFlow.test.ts` (13 tests) — calls
+`PairingApiService.pair()`/`checkServerId()` directly against a mocked `fetch`
+and asserts on the real `pairingSlice` reducer. Does not render a component.
 
-**Test file:** `src/__tests__/integration/pairingFlow.test.ts`
+**Units involved (real UI):** `PairingDialog` component → `pairingSlice` →
+`PairingApiService` (real singleton, `fetch` mocked)
+
+**Test file:** `src/__tests__/integration/pairingFlowUI.test.tsx` (4 tests) —
+renders the real `PairingDialog`, submits an OTP through real `fireEvent`s, and
+asserts the real round trip: submit → real fetch → real `pairingSlice` dispatch
+→ dialog auto-unmounts on success, or stays visible with the real error message
+on failure, and supports retry.
+
+**Real bug found and fixed:** `PairingApiService.pair()`/`checkServerId()`
+dispatch `setPairingError()` (status: `'error'`) *before* throwing on failure.
+`PairingDialog` and `App.tsx` previously only stayed mounted while
+`pairingStatus === 'unpaired'`, so the dialog unmounted itself the instant the
+store flipped to `'error'` — hiding the very error message the component's own
+catch block was about to render, and stranding the user with no visible dialog
+and no way to retry a failed OTP submission. Both components now also
+render/mount while `pairingStatus === 'error'`.
 
 ```typescript
-it('should update pairing state and re-render App after successful pairing', async () => {
-  const user = userEvent.setup();
+it("submits the OTP through the real component and disappears once the real store reaches 'paired'", async () => {
+  mockFetchOk({ advokatServerId: SERVER_ID, kuerzel: KUERZEL });
+  const { container } = renderPairingDialog();
 
-  jest.spyOn(global, 'fetch').mockResolvedValue(new Response(
-    JSON.stringify({ success: true }),
-    { status: 200 }
-  ));
-
-  const { store } = renderWithProviders(<App title="Test" />, {
-    preloadedState: { pairing: { status: 'unpaired' } },
+  fireEvent.change(screen.getByRole("textbox", { name: /One-time pairing code/i }), {
+    target: { value: "abcd1234" },
   });
+  fireEvent.click(screen.getByRole("button", { name: /Pair with ADVOKAT/i }));
 
-  await user.type(screen.getByLabelText(/server url/i), 'https://advokat.example.com');
-  await user.type(screen.getByLabelText(/otp/i), '123456');
-  await user.click(screen.getByRole('button', { name: /pair/i }));
-
-  await waitFor(() => {
-    expect(store.getState().pairing.status).toBe('paired');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
+  await waitFor(() => expect(selectPairingStatus(_store.getState() as any)).toBe("paired"));
+  await waitFor(() => expect(container).toBeEmptyDOMElement());
 });
 ```
 
@@ -194,9 +212,13 @@ it('should disconnect and mark idle after timeout', () => {
 5. Redux `connectionSlice` reflects `CONNECTED`, and `authSlice` reflects a
    successful post-connection authentication
 
-**Test file:** `src/__tests__/integration/sipReduxSync.test.ts` (2 tests — happy
-path to `CONNECTED`, and a permanent registration failure that never reaches
-`CONNECTED`)
+**Test file:** `src/__tests__/integration/sipReduxSync.test.ts` (4 tests — happy
+path to `CONNECTED`; a permanent registration failure that never reaches
+`CONNECTED`; a temporary (5xx) registration failure that retries in-place over
+the same socket with a fresh Call-ID and still reaches `CONNECTED`; and a full
+reconnect cycle — an unexpected (non-1000) WebSocket close triggers
+`WebRTCConnectionManager`'s auto-reconnect, which tears down and creates a
+brand-new `SipClient`/`WebSocket` and re-drives the handshake to `CONNECTED`)
 
 **Key techniques:**
 - `configService.getSipConfig()` / `getConfig()` mocked with static values (no
@@ -216,14 +238,60 @@ path to `CONNECTED`, and a permanent registration failure that never reaches
 
 ---
 
+### Scenario 5 — Favorites (Case) Flow End-to-End ✅ Done
+
+**Units involved:** `CaseTabContent` component → `aktenSlice` (real reducer +
+thunks) → `WebRTCApiService` (real instance — real chunking, request-id
+correlation, and protocol construction; `chunkingUtils` is NOT mocked)
+
+**Test file:** `src/__tests__/integration/favoritesFlow.test.tsx` (4 tests)
+
+Only the true I/O boundary — `WebRTCDataChannelService.send()` /
+`onDataChannelMessage()` — is driven manually, exactly the way the real
+DataChannel delivers bytes. Unlike the unit-level `CaseTabContent.test.tsx`
+(which mocks `getWebRTCApiService()` to return plain `jest.fn()` stubs), this
+proves the full round trip: delete click → `removeAktFromFavoriteAsync` thunk
+→ real `WebRTCApiService` builds the actual chunked protocol request → (fake)
+DataChannel "sends" it → simulated server response delivered back through
+`onDataChannelMessage()` → real thunk resolves → real reducer updates →
+component re-renders → success notification. Also covers a permanent
+HTTP-status error (400) and a connection-level failure (channels not ready)
+both correctly propagating to a real Redux state change and a real UI error
+notification.
+
+---
+
+### Scenario 6 — Token Expiry Mid-Session, UI-Visible Consequences ✅ Done
+
+**Units involved:** `WebRTCConnectionStatus` component → `TokenService` (real
+singleton) → `authSlice` (real reducer)
+
+**Test file:** `src/__tests__/integration/tokenExpiryReconnect.test.tsx` (2 tests)
+
+Renders the real connection-status banner on top of the real `TokenService`,
+with only `OfficeRuntime.auth.getAccessToken` and `PairingApiService`'s HTTP
+exchange mocked. Proves the background-refresh success path is fully silent
+to the user (banner stays "connected" throughout), and documents a real,
+easy-to-miss behavior: `TokenService._refresh()` does **not** dispatch
+`authenticationFailure()` when a background refresh fails — it just returns
+`null`. So a failed proactive refresh does not flip the banner to the red
+"authentication failed" state or show a reconnect button; the failure only
+becomes visible once whatever action triggered the refresh fails on its own
+(see Scenario 5's error-propagation tests).
+
+---
+
 ## Test File Structure
 
 ```
 src/__tests__/integration/
-├── tokenRefreshFlow.test.ts   ← ✅ done (9 tests)
-├── pairingFlow.test.ts        ← ✅ done (13 tests)
-├── idleDisconnect.test.ts     ← ✅ done (8 tests)
-└── sipReduxSync.test.ts       ← ✅ done (2 tests)
+├── tokenRefreshFlow.test.ts       ← ✅ done (9 tests)
+├── pairingFlow.test.ts            ← ✅ done (13 tests)
+├── pairingFlowUI.test.tsx         ← ✅ done (4 tests)
+├── idleDisconnect.test.ts         ← ✅ done (8 tests)
+├── sipReduxSync.test.ts           ← ✅ done (4 tests)
+├── favoritesFlow.test.tsx         ← ✅ done (4 tests)
+└── tokenExpiryReconnect.test.tsx  ← ✅ done (2 tests)
 ```
 
 ---

@@ -11,9 +11,10 @@ import serviceReducer, {
   clearSaveLeistungError,
   loadServicesAsync,
   saveLeistungAsync,
+  loadLeistungenAsync,
 } from "@slices/serviceSlice";
 import { createMockWebRTCService, setupDefaultWebRTCMocks, cleanupTests } from "./testSetup";
-import { createMockService, createMockLeistungPostData } from "./mockFactories";
+import { createMockService, createMockLeistungPostData, createMockLeistung } from "./mockFactories";
 
 // Create mock WebRTC service
 const mockWebRTCService = createMockWebRTCService();
@@ -25,6 +26,31 @@ jest.mock("@services/WebRTCConnectionManager", () => ({
   })),
 }));
 
+// Mock cache service so loadLeistungenAsync's cache reads/writes are deterministic
+const mockCacheGet = jest.fn();
+const mockCacheSet = jest.fn();
+jest.mock("@infra/cache", () => {
+  const actual = jest.requireActual("@infra/cache");
+  return {
+    ...actual,
+    cacheService: {
+      ...actual.cacheService,
+      get: (...args: unknown[]) => mockCacheGet(...args),
+      set: (...args: unknown[]) => mockCacheSet(...args),
+    },
+  };
+});
+
+const readyGetState = (overrides: Record<string, unknown> = {}) => ({
+  service: {
+    loadCounter: 0,
+    previousLoadKey: null,
+  },
+  auth: { credentials: { username: "testuser" }, isAuthenticated: true },
+  connection: { sipClientState: "CONNECTED" },
+  ...overrides,
+});
+
 describe("serviceSlice", () => {
   const initialState = {
     selectedServiceId: 0,
@@ -34,6 +60,9 @@ describe("serviceSlice", () => {
     services: [],
     servicesLoading: false,
     servicesError: null,
+    allServices: [],
+    allServicesLoading: false,
+    allServicesError: null,
     saveLeistungLoading: false,
     saveLeistungError: null,
     savedLeistungen: [],
@@ -49,6 +78,10 @@ describe("serviceSlice", () => {
 
     // Setup default mock implementations
     setupDefaultWebRTCMocks(mockWebRTCService);
+
+    // Default: cache is empty, writes succeed
+    mockCacheGet.mockReset().mockResolvedValue(null);
+    mockCacheSet.mockReset().mockResolvedValue(undefined);
   });
 
   describe("Reducer", () => {
@@ -380,6 +413,124 @@ describe("serviceSlice", () => {
         const actual = serviceReducer(previousState, action);
 
         expect(actual.saveLeistungError).toBeNull();
+      });
+    });
+
+    describe("loadLeistungenAsync", () => {
+      it("should handle pending state", () => {
+        const action = { type: loadLeistungenAsync.pending.type };
+        const actual = serviceReducer(initialState, action);
+
+        expect(actual.savedLeistungenLoading).toBe(true);
+        expect(actual.savedLeistungenError).toBeNull();
+      });
+
+      it("should clear error when starting a new load", () => {
+        const previousState = { ...initialState, savedLeistungenError: "Previous error" };
+        const action = { type: loadLeistungenAsync.pending.type };
+        const actual = serviceReducer(previousState, action);
+
+        expect(actual.savedLeistungenError).toBeNull();
+      });
+
+      it("should handle fulfilled state", () => {
+        const payload = [createMockLeistung()];
+        const action = {
+          type: loadLeistungenAsync.fulfilled.type,
+          payload,
+          meta: { arg: { aktId: 123 } },
+        };
+        const actual = serviceReducer(initialState, action);
+
+        expect(actual.savedLeistungenLoading).toBe(false);
+        expect(actual.savedLeistungen).toEqual(payload);
+        expect(actual.savedLeistungenError).toBeNull();
+      });
+
+      it("should reset loadCounter and set previousLoadKey on first load for an aktId", () => {
+        const previousState = { ...initialState, loadCounter: 5, previousLoadKey: null };
+        const action = {
+          type: loadLeistungenAsync.fulfilled.type,
+          payload: [],
+          meta: { arg: { aktId: 123 } },
+        };
+        const actual = serviceReducer(previousState, action);
+
+        expect(actual.loadCounter).toBe(0);
+        expect(actual.previousLoadKey).toBe("123");
+      });
+
+      it("should increment loadCounter on repeated loads for the same aktId", () => {
+        const previousState = { ...initialState, loadCounter: 1, previousLoadKey: "123" };
+        const action = {
+          type: loadLeistungenAsync.fulfilled.type,
+          payload: [],
+          meta: { arg: { aktId: 123 } },
+        };
+        const actual = serviceReducer(previousState, action);
+
+        expect(actual.loadCounter).toBe(2);
+        expect(actual.previousLoadKey).toBe("123");
+      });
+
+      it("should reset loadCounter when switching to a different aktId", () => {
+        const previousState = { ...initialState, loadCounter: 7, previousLoadKey: "123" };
+        const action = {
+          type: loadLeistungenAsync.fulfilled.type,
+          payload: [],
+          meta: { arg: { aktId: 456 } },
+        };
+        const actual = serviceReducer(previousState, action);
+
+        expect(actual.loadCounter).toBe(0);
+        expect(actual.previousLoadKey).toBe("456");
+      });
+
+      it("should cap loadCounter at 100", () => {
+        const previousState = { ...initialState, loadCounter: 100, previousLoadKey: "123" };
+        const action = {
+          type: loadLeistungenAsync.fulfilled.type,
+          payload: [],
+          meta: { arg: { aktId: 123 } },
+        };
+        const actual = serviceReducer(previousState, action);
+
+        expect(actual.loadCounter).toBe(100);
+      });
+
+      it("should handle missing aktId in meta.arg", () => {
+        const previousState = { ...initialState, loadCounter: 3, previousLoadKey: "123" };
+        const action = {
+          type: loadLeistungenAsync.fulfilled.type,
+          payload: [],
+          meta: { arg: {} },
+        };
+        const actual = serviceReducer(previousState, action);
+
+        expect(actual.loadCounter).toBe(0);
+        expect(actual.previousLoadKey).toBe("");
+      });
+
+      it("should handle rejected state", () => {
+        const action = {
+          type: loadLeistungenAsync.rejected.type,
+          error: { message: "Load failed" },
+        };
+        const actual = serviceReducer(initialState, action);
+
+        expect(actual.savedLeistungenLoading).toBe(false);
+        expect(actual.savedLeistungenError).toBe("Load failed");
+      });
+
+      it("should handle rejected state with undefined error", () => {
+        const action = {
+          type: loadLeistungenAsync.rejected.type,
+          error: {},
+        };
+        const actual = serviceReducer(initialState, action);
+
+        expect(actual.savedLeistungenLoading).toBe(false);
+        expect(actual.savedLeistungenError).toBe("Failed to load Leistungen");
       });
     });
   });
@@ -919,6 +1070,188 @@ describe("serviceSlice", () => {
         expect(result.type).toBe("service/saveLeistung/fulfilled");
         if (saveLeistungAsync.fulfilled.match(result)) {
           expect(result.payload.statusCode).toBe(201);
+        }
+      });
+    });
+
+    describe("loadLeistungenAsync", () => {
+      it("should reject when connection is not ready (offline)", async () => {
+        const dispatch = jest.fn();
+        const getState = jest.fn(() =>
+          readyGetState({ connection: { sipClientState: "DISCONNECTED" } })
+        );
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(result.type).toBe("service/loadLeistungen/rejected");
+        if (loadLeistungenAsync.rejected.match(result)) {
+          expect(result.error.message).toContain("Cannot load Leistungen");
+        }
+        expect(mockWebRTCService.getLeistungenByAkt).not.toHaveBeenCalled();
+      });
+
+      it("should reject when not authenticated", async () => {
+        const dispatch = jest.fn();
+        const getState = jest.fn(() =>
+          readyGetState({ auth: { credentials: { username: "testuser" }, isAuthenticated: false } })
+        );
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(result.type).toBe("service/loadLeistungen/rejected");
+        expect(mockWebRTCService.getLeistungenByAkt).not.toHaveBeenCalled();
+      });
+
+      it("should reject when aktId is missing", async () => {
+        const dispatch = jest.fn();
+        const getState = jest.fn(() => readyGetState());
+
+        const result = await loadLeistungenAsync({})(dispatch, getState, undefined);
+
+        expect(result.type).toBe("service/loadLeistungen/rejected");
+        if (loadLeistungenAsync.rejected.match(result)) {
+          expect(result.error.message).toBe("AktId is required for loading Leistungen");
+        }
+        expect(mockWebRTCService.getLeistungenByAkt).not.toHaveBeenCalled();
+      });
+
+      it("should reject when user is not authenticated with a username", async () => {
+        const dispatch = jest.fn();
+        const getState = jest.fn(() =>
+          readyGetState({ auth: { credentials: { username: null }, isAuthenticated: true } })
+        );
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(result.type).toBe("service/loadLeistungen/rejected");
+        if (loadLeistungenAsync.rejected.match(result)) {
+          expect(result.error.message).toBe("User not authenticated");
+        }
+        expect(mockWebRTCService.getLeistungenByAkt).not.toHaveBeenCalled();
+      });
+
+      it("should fetch from the API on a cache miss and cache the result", async () => {
+        const payload = [createMockLeistung({ id: 1 })];
+        mockWebRTCService.getLeistungenByAkt.mockResolvedValue({
+          statusCode: 200,
+          body: JSON.stringify(payload),
+        });
+
+        const dispatch = jest.fn();
+        const getState = jest.fn(() => readyGetState());
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(mockWebRTCService.getLeistungenByAkt).toHaveBeenCalledWith({ aktId: 123 });
+        expect(result.type).toBe("service/loadLeistungen/fulfilled");
+        if (loadLeistungenAsync.fulfilled.match(result)) {
+          expect(result.payload).toEqual(payload);
+        }
+        expect(mockCacheSet).toHaveBeenCalledWith(
+          "registered_services_123",
+          payload,
+          expect.objectContaining({ namespace: "testuser" })
+        );
+      });
+
+      it("should skip caching an empty result", async () => {
+        mockWebRTCService.getLeistungenByAkt.mockResolvedValue({ statusCode: 200, body: "[]" });
+
+        const dispatch = jest.fn();
+        const getState = jest.fn(() => readyGetState());
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(result.type).toBe("service/loadLeistungen/fulfilled");
+        expect(mockCacheSet).not.toHaveBeenCalled();
+      });
+
+      it("should return cached data without calling the API when not force-refreshing", async () => {
+        const cached = [createMockLeistung({ id: 9 })];
+        mockCacheGet.mockResolvedValue(cached);
+
+        const dispatch = jest.fn();
+        const getState = jest.fn(() =>
+          readyGetState({ service: { loadCounter: 0, previousLoadKey: null } })
+        );
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(result.type).toBe("service/loadLeistungen/fulfilled");
+        if (loadLeistungenAsync.fulfilled.match(result)) {
+          expect(result.payload).toEqual(cached);
+        }
+        expect(mockWebRTCService.getLeistungenByAkt).not.toHaveBeenCalled();
+      });
+
+      it("should bypass the cache and hit the API when loadCounter is odd for the same aktId (force refresh)", async () => {
+        mockCacheGet.mockResolvedValue([createMockLeistung({ id: 9 })]);
+        const fresh = [createMockLeistung({ id: 42 })];
+        mockWebRTCService.getLeistungenByAkt.mockResolvedValue({
+          statusCode: 200,
+          body: JSON.stringify(fresh),
+        });
+
+        const dispatch = jest.fn();
+        const getState = jest.fn(() =>
+          readyGetState({ service: { loadCounter: 1, previousLoadKey: "123" } })
+        );
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(mockWebRTCService.getLeistungenByAkt).toHaveBeenCalled();
+        expect(result.type).toBe("service/loadLeistungen/fulfilled");
+        if (loadLeistungenAsync.fulfilled.match(result)) {
+          expect(result.payload).toEqual(fresh);
+        }
+      });
+
+      it("should reject when the API returns a non-200 status", async () => {
+        mockWebRTCService.getLeistungenByAkt.mockResolvedValue({
+          statusCode: 500,
+          body: "Server error",
+        });
+
+        const dispatch = jest.fn();
+        const getState = jest.fn(() => readyGetState());
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(result.type).toBe("service/loadLeistungen/rejected");
+        if (loadLeistungenAsync.rejected.match(result)) {
+          expect(result.error.message).toBe("Failed to load Leistungen");
+        }
+      });
+
+      it("should fall back to stale cache when the API call throws", async () => {
+        const stale = [createMockLeistung({ id: 7 })];
+        // First cache read (pre-fetch) misses, second read (stale fallback) hits
+        mockCacheGet.mockResolvedValueOnce(null).mockResolvedValueOnce(stale);
+        mockWebRTCService.getLeistungenByAkt.mockRejectedValue(new Error("Network timeout"));
+
+        const dispatch = jest.fn();
+        const getState = jest.fn(() => readyGetState());
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(result.type).toBe("service/loadLeistungen/fulfilled");
+        if (loadLeistungenAsync.fulfilled.match(result)) {
+          expect(result.payload).toEqual(stale);
+        }
+      });
+
+      it("should reject when the API call throws and there is no stale cache", async () => {
+        mockCacheGet.mockResolvedValue(null);
+        mockWebRTCService.getLeistungenByAkt.mockRejectedValue(new Error("Network timeout"));
+
+        const dispatch = jest.fn();
+        const getState = jest.fn(() => readyGetState());
+
+        const result = await loadLeistungenAsync({ aktId: 123 })(dispatch, getState, undefined);
+
+        expect(result.type).toBe("service/loadLeistungen/rejected");
+        if (loadLeistungenAsync.rejected.match(result)) {
+          expect(result.error.message).toBe("Network timeout");
         }
       });
     });

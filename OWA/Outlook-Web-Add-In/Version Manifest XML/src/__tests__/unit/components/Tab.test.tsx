@@ -45,14 +45,24 @@ jest.mock("@config/runtimeConfig", () => ({
 }));
 
 // ─── DevExtreme Tabs mock (overrides moduleNameMapper for this file) ─────────
+// Forwards onItemClick so tests can actually switch tabs by clicking an Item,
+// exercising DevTabs' renderContent() switch statement.
 jest.mock("devextreme-react/tabs", () => {
   const React = require("react");
   return {
     __esModule: true,
-    default: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement("div", { "data-testid": "dx-tabs" }, children),
-    Item: ({ text }: { text?: string }) =>
-      React.createElement("div", { role: "tab" }, text),
+    default: ({ children, onItemClick }: { children?: React.ReactNode; onItemClick?: (e: { itemIndex: number }) => void }) =>
+      React.createElement(
+        "div",
+        { "data-testid": "dx-tabs" },
+        React.Children.map(children, (child: any, index: number) =>
+          child
+            ? React.cloneElement(child, { onClick: () => onItemClick?.({ itemIndex: index }) })
+            : child
+        )
+      ),
+    Item: ({ text, onClick }: { text?: string; onClick?: () => void }) =>
+      React.createElement("div", { role: "tab", onClick }, text),
   };
 });
 
@@ -107,6 +117,40 @@ describe("Tab (DevTabs)", () => {
   });
 
   // ────────────────────────────────────────────────────────────────────────────
+  // renderContent() switch statement — tab switching
+  // ────────────────────────────────────────────────────────────────────────────
+  describe("renderContent() tab switching", () => {
+    it("renders the email tab by default (selectedIndex 0)", () => {
+      renderWithProviders(<DevTabs />);
+      expect(screen.getByTestId("email-tab")).toBeInTheDocument();
+    });
+
+    it("renders the service tab when its Item is clicked", async () => {
+      renderWithProviders(<DevTabs />);
+      fireEvent.click(screen.getByText("tabs.service"));
+      // The lazily-loaded tab component resolves asynchronously via Suspense
+      expect(await screen.findByTestId("service-tab")).toBeInTheDocument();
+    });
+
+    it("renders the case tab when its Item is clicked", async () => {
+      renderWithProviders(<DevTabs />);
+      fireEvent.click(screen.getByText("tabs.case"));
+      expect(await screen.findByTestId("case-tab")).toBeInTheDocument();
+    });
+
+    it("renders the person tab when its Item is clicked", async () => {
+      renderWithProviders(<DevTabs />);
+      fireEvent.click(screen.getByText("tabs.person"));
+      expect(await screen.findByTestId("person-tab")).toBeInTheDocument();
+    });
+
+    it("does not render the cache tab Item when ENABLE_CACHE_STATS is false", () => {
+      renderWithProviders(<DevTabs />);
+      expect(screen.queryByText("tabs.cache")).not.toBeInTheDocument();
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
   // ICE badge
   // ────────────────────────────────────────────────────────────────────────────
   describe("ICE badge", () => {
@@ -138,15 +182,57 @@ describe("Tab (DevTabs)", () => {
   // Keyboard shortcut for cache tab toggle
   // ────────────────────────────────────────────────────────────────────────────
   describe("Keyboard shortcut", () => {
-    it("does not crash when Ctrl+Shift+S is pressed", () => {
-      renderWithProviders(<DevTabs />);
+    function fireCtrlShiftS() {
       act(() => {
         window.dispatchEvent(
           new KeyboardEvent("keydown", { key: "S", ctrlKey: true, shiftKey: true, bubbles: true })
         );
       });
+    }
+
+    it("does not crash when Ctrl+Shift+S is pressed", () => {
+      renderWithProviders(<DevTabs />);
+      fireCtrlShiftS();
       // Just verify the component is still mounted
       expect(screen.getByRole("button", { name: /^DE$/i })).toBeInTheDocument();
+    });
+
+    it("reveals the cache tab Item after Ctrl+Shift+S", () => {
+      renderWithProviders(<DevTabs />);
+      expect(screen.queryByText("tabs.cache")).not.toBeInTheDocument();
+
+      fireCtrlShiftS();
+
+      expect(screen.getByText("tabs.cache")).toBeInTheDocument();
+    });
+
+    it("hides the cache tab Item again on a second Ctrl+Shift+S", () => {
+      renderWithProviders(<DevTabs />);
+      fireCtrlShiftS();
+      expect(screen.getByText("tabs.cache")).toBeInTheDocument();
+
+      fireCtrlShiftS();
+
+      expect(screen.queryByText("tabs.cache")).not.toBeInTheDocument();
+    });
+
+    it("renders the CacheStatsPanel when the revealed cache tab is selected", async () => {
+      renderWithProviders(<DevTabs />);
+      fireCtrlShiftS();
+      fireEvent.click(screen.getByText("tabs.cache"));
+      expect(await screen.findByTestId("cache-tab")).toBeInTheDocument();
+    });
+
+    it("shows the 'cache not available' message if cache tab is toggled off while selected", async () => {
+      renderWithProviders(<DevTabs />);
+      fireCtrlShiftS(); // reveal
+      fireEvent.click(screen.getByText("tabs.cache")); // select index 4
+      expect(await screen.findByTestId("cache-tab")).toBeInTheDocument();
+
+      fireCtrlShiftS(); // hide again, but selectedIndex is still 4
+
+      expect(screen.queryByTestId("cache-tab")).not.toBeInTheDocument();
+      expect(screen.getByText("cacheNotAvailable")).toBeInTheDocument();
     });
   });
 });

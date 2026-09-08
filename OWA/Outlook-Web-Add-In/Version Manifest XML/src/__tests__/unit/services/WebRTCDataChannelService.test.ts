@@ -10,13 +10,14 @@
  */
 
 // ─── Logger mock ─────────────────────────────────────────────────────────────
+const mockLogger = {
+  info:  jest.fn(),
+  warn:  jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+};
 jest.mock("@infra/logger", () => ({
-  getLogger: jest.fn(() => ({
-    info:  jest.fn(),
-    warn:  jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-  })),
+  getLogger: jest.fn(() => mockLogger),
 }));
 
 import {
@@ -294,6 +295,106 @@ describe("WebRTCDataChannelService", () => {
       await Promise.resolve();
 
       expect(onMessage).toHaveBeenCalledWith(messageEvent);
+    });
+
+    it("ignores a message whose data is of an unsupported type and logs a warning", async () => {
+      const { observer, onMessage } = makeObserver();
+      svc.subscribe(observer);
+
+      const ch = makeChannel("open");
+      svc.setAnswerChannel(ch as unknown as RTCDataChannel);
+
+      // MessageEvent normally carries string/ArrayBuffer/Blob — simulate an
+      // unsupported type (e.g. a number) reaching the handler.
+      const messageEvent = new MessageEvent("message", { data: 42 });
+      ch.onmessage?.(messageEvent);
+      await Promise.resolve();
+
+      expect(onMessage).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        "Unknown message type: number",
+        "WebRTCDataChannelService"
+      );
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Observer error resilience — a throwing observer must not break notification
+  // to the remaining observers, and the error is logged instead of propagated.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("Observer error resilience", () => {
+    it("continues notifying other observers when one onDataChannelMessage handler throws", async () => {
+      const throwingObserver: DataChannelObserver = {
+        onDataChannelMessage: jest.fn(() => {
+          throw new Error("boom");
+        }),
+      };
+      const { observer: healthyObserver, onMessage } = makeObserver();
+
+      svc.subscribe(throwingObserver);
+      svc.subscribe(healthyObserver);
+
+      const ch = makeChannel("open");
+      svc.setAnswerChannel(ch as unknown as RTCDataChannel);
+
+      const messageEvent = new MessageEvent("message", { data: "hello" });
+      ch.onmessage?.(messageEvent);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(onMessage).toHaveBeenCalledWith(messageEvent);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Error in observer message handler:",
+        "WebRTCDataChannelService",
+        expect.any(Error)
+      );
+    });
+
+    it("continues notifying other observers when one onDataChannelStateChanged handler throws", () => {
+      const throwingObserver: DataChannelObserver = {
+        onDataChannelStateChanged: jest.fn(() => {
+          throw new Error("boom");
+        }),
+      };
+      const { observer: healthyObserver, onStateChanged } = makeObserver();
+
+      svc.subscribe(throwingObserver);
+      svc.subscribe(healthyObserver);
+
+      const ch = makeChannel("connecting");
+      expect(() => svc.setOfferChannel(ch as unknown as RTCDataChannel)).not.toThrow();
+
+      expect(onStateChanged).toHaveBeenCalledWith("connecting", "offer");
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Error in observer state change handler:",
+        "WebRTCDataChannelService",
+        expect.any(Error)
+      );
+    });
+
+    it("continues notifying other observers when one onDataChannelError handler throws", () => {
+      const throwingObserver: DataChannelObserver = {
+        onDataChannelError: jest.fn(() => {
+          throw new Error("boom");
+        }),
+      };
+      const { observer: healthyObserver, onError } = makeObserver();
+
+      svc.subscribe(throwingObserver);
+      svc.subscribe(healthyObserver);
+
+      const ch = makeChannel("open");
+      svc.setOfferChannel(ch as unknown as RTCDataChannel);
+
+      expect(() => ch.onerror?.(new Event("error"))).not.toThrow();
+
+      expect(onError).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Error in observer error handler:",
+        "WebRTCDataChannelService",
+        expect.any(Error)
+      );
     });
   });
 

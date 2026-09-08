@@ -176,6 +176,94 @@ describe("OfficeAuthService", () => {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
+  // getOfficeToken — near-expiry retry
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("getOfficeToken — near-expiry retry", () => {
+    const nearExpirySeconds = Math.floor(Date.now() / 1000) + 30; // 30s — within the 60s buffer
+    const freshExpirySeconds = Math.floor(Date.now() / 1000) + 3600; // 1h — safely outside the buffer
+
+    const nearExpiryJwt = buildJwt({
+      oid: "stale-oid",
+      preferred_username: "stale@tenant.com",
+      exp: nearExpirySeconds,
+    });
+    const freshJwt = buildJwt({
+      oid: "fresh-oid",
+      preferred_username: "fresh@tenant.com",
+      exp: freshExpirySeconds,
+    });
+
+    it("should retry once and use the fresh token when the first is near expiry", async () => {
+      (OfficeRuntime.auth.getAccessToken as jest.Mock)
+        .mockResolvedValueOnce(nearExpiryJwt)
+        .mockResolvedValueOnce(freshJwt);
+
+      const result = await service.getOfficeToken();
+
+      expect(OfficeRuntime.auth.getAccessToken).toHaveBeenCalledTimes(2);
+      expect(result).toBe(freshJwt);
+    });
+
+    it("should dispatch setOfficeToken with the fresh token's claims after retry", async () => {
+      (OfficeRuntime.auth.getAccessToken as jest.Mock)
+        .mockResolvedValueOnce(nearExpiryJwt)
+        .mockResolvedValueOnce(freshJwt);
+
+      await service.getOfficeToken();
+
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        setOfficeToken({ officeToken: freshJwt, oid: "fresh-oid", email: "fresh@tenant.com" })
+      );
+    });
+
+    it("should log a warning when the first token is near expiry", async () => {
+      (OfficeRuntime.auth.getAccessToken as jest.Mock)
+        .mockResolvedValueOnce(nearExpiryJwt)
+        .mockResolvedValueOnce(freshJwt);
+
+      await service.getOfficeToken();
+
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("should return null and dispatch clearOfficeToken when the retry is also near expiry", async () => {
+      (OfficeRuntime.auth.getAccessToken as jest.Mock)
+        .mockResolvedValueOnce(nearExpiryJwt)
+        .mockResolvedValueOnce(nearExpiryJwt);
+
+      const result = await service.getOfficeToken();
+
+      expect(OfficeRuntime.auth.getAccessToken).toHaveBeenCalledTimes(2);
+      expect(result).toBeNull();
+      expect(dispatchSpy).toHaveBeenCalledWith(clearOfficeToken());
+    });
+
+    it("should log the double-expiry error when both attempts return a near-expiry token", async () => {
+      (OfficeRuntime.auth.getAccessToken as jest.Mock)
+        .mockResolvedValueOnce(nearExpiryJwt)
+        .mockResolvedValueOnce(nearExpiryJwt);
+
+      await service.getOfficeToken();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "OfficeAuthService",
+        expect.stringContaining("twice in a row"),
+        expect.anything()
+      );
+    });
+
+    it("should NOT retry when the first token is not near expiry", async () => {
+      (OfficeRuntime.auth.getAccessToken as jest.Mock).mockResolvedValueOnce(freshJwt);
+
+      const result = await service.getOfficeToken();
+
+      expect(OfficeRuntime.auth.getAccessToken).toHaveBeenCalledTimes(1);
+      expect(result).toBe(freshJwt);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
   // getOfficeToken — failure paths
   // ──────────────────────────────────────────────────────────────────────────
 

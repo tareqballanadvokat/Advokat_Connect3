@@ -131,6 +131,7 @@ export function createMockWebRTCService() {
     // Service methods
     loadServices: jest.fn(),
     saveLeistung: jest.fn(),
+    getLeistungenByAkt: jest.fn(),
 
     // Person methods
     getFavoritePersons: jest.fn(),
@@ -166,6 +167,7 @@ export function setupDefaultWebRTCMocks(mockService: ReturnType<typeof createMoc
   // Service defaults
   mockService.loadServices.mockResolvedValue({ statusCode: 200, body: "[]" });
   mockService.saveLeistung.mockResolvedValue({ statusCode: 200, body: "Success" });
+  mockService.getLeistungenByAkt.mockResolvedValue({ statusCode: 200, body: "[]" });
 
   // Person defaults
   mockService.getFavoritePersons.mockResolvedValue({ statusCode: 200, body: "[]" });

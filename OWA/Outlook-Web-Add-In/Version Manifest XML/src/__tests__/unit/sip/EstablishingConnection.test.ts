@@ -85,15 +85,41 @@ function buildNotify6(callId = "tunnel-call-id-abc"): string {
   ].join("\r\n");
 }
 
-function buildConnectionBye(callId = "tunnel-call-id-abc"): string {
+function buildConnectionBye(callId = "tunnel-call-id-abc", cseq = 7): string {
   return [
     `BYE sip:client@sip.test:5061;transport=wss SIP/2.0`,
     `Via: SIP/2.0/WSS sip.test;branch=z9hG4bKbye`,
     `From: "Server" <sip:server@sip.test;transport=wss>;tag=srv-from-tag`,
     `To: "Client" <sip:client@sip.test;transport=wss>;tag=cli-to-tag`,
     `Call-ID: ${callId}`,
-    `CSeq: 7 BYE`,
+    `CSeq: ${cseq} BYE`,
     `Reason: CONNECTION`,
+    ``,
+    ``,
+  ].join("\r\n");
+}
+
+function buildAck(cseq = 5): string {
+  return [
+    `ACK sip:client@sip.test:5061;transport=wss SIP/2.0`,
+    `Via: SIP/2.0/WSS sip.test;branch=z9hG4bKack`,
+    `From: "Server" <sip:server@sip.test;transport=wss>;tag=srv-from-tag`,
+    `To: "Client" <sip:client@sip.test;transport=wss>;tag=cli-to-tag`,
+    `Call-ID: tunnel-call-id-abc`,
+    `CSeq: ${cseq} ACK`,
+    ``,
+    ``,
+  ].join("\r\n");
+}
+
+function buildErrorResponse(statusCode: number, cseq = 10): string {
+  return [
+    `SIP/2.0 ${statusCode} Error`,
+    `Via: SIP/2.0/WSS sip.test;branch=z9hG4bKerr`,
+    `From: "Server" <sip:server@sip.test;transport=wss>;tag=srv-from-tag`,
+    `To: "Client" <sip:client@sip.test;transport=wss>;tag=cli-to-tag`,
+    `Call-ID: tunnel-call-id-abc`,
+    `CSeq: ${cseq} NOTIFY`,
     ``,
     ``,
   ].join("\r\n");
@@ -363,6 +389,148 @@ describe("EstablishingConnection", () => {
       conn.parseMessage(buildNotify4());
       jest.advanceTimersByTime(CONN_TIMEOUT_MS + 1);
       expect(conn.getLastError()).toBeTruthy();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // terminate()
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("terminate()", () => {
+    it("returns a CONNECTION BYE message", () => {
+      const msg = conn.terminate();
+      expect(msg).toContain("BYE");
+      expect(msg).toContain("CONNECTION");
+    });
+
+    it("transitions to TERMINATING state", () => {
+      conn.terminate();
+      expect(conn.getState()).toBe(ConnectionState.TERMINATING);
+    });
+
+    it("cancels an active CONNECTION_TIMEOUT", () => {
+      conn.parseMessage(buildNotify4());
+      expect(manager.isTimerActive("CONNECTION_TIMEOUT")).toBe(true);
+      conn.terminate();
+      expect(manager.isTimerActive("CONNECTION_TIMEOUT")).toBe(false);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // ACK handling (handleAck) — response to our ACK5
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("ACK handling", () => {
+    it("transitions to WAITING_NOTIFY_6 when a CSeq-5 ACK arrives after NOTIFY4", () => {
+      conn.parseMessage(buildNotify4()); // already transitions to WAITING_NOTIFY_6 via ACK5 creation
+      // Force back to NOTIFY_4_RECEIVED-equivalent by asserting handleAck's guard directly:
+      // since createAck5ForNotify4 already moves state to WAITING_NOTIFY_6, sending a stray
+      // ACK here should simply return undefined without changing anything further.
+      const result = conn.parseMessage(buildAck(5));
+      expect(result).toBeUndefined();
+      expect(conn.getState()).toBe(ConnectionState.WAITING_NOTIFY_6);
+    });
+
+    it("ignores an ACK with an unexpected CSeq", () => {
+      conn.parseMessage(buildNotify4());
+      const stateBefore = conn.getState();
+      const result = conn.parseMessage(buildAck(99));
+      expect(result).toBeUndefined();
+      expect(conn.getState()).toBe(stateBefore);
+    });
+
+    it("does not throw when an ACK arrives before any NOTIFY4", () => {
+      expect(() => conn.parseMessage(buildAck(5))).not.toThrow();
+      expect(conn.getState()).toBe(ConnectionState.WAITING_NOTIFY_4);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Error responses (handleErrorResponse) — retryable vs non-retryable
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("Error responses", () => {
+    it.each([408, 500, 503, 504])(
+      "sends a CONNECTION BYE for retryable error %d",
+      (code) => {
+        conn.parseMessage(buildNotify4());
+        events.onMessageToSend.mockClear();
+        conn.parseMessage(buildErrorResponse(code));
+        expect(events.onMessageToSend).toHaveBeenCalledWith(
+          expect.stringContaining("BYE"),
+          expect.any(String)
+        );
+      }
+    );
+
+    it("does NOT send a CONNECTION BYE for a non-retryable error (400)", () => {
+      conn.parseMessage(buildNotify4());
+      events.onMessageToSend.mockClear();
+      conn.parseMessage(buildErrorResponse(400));
+      expect(events.onMessageToSend).not.toHaveBeenCalled();
+    });
+
+    it("transitions to FAILED for both retryable and non-retryable errors", () => {
+      conn.parseMessage(buildErrorResponse(400));
+      expect(conn.getState()).toBe(ConnectionState.FAILED);
+    });
+
+    it("cancels CONNECTION_TIMEOUT on any error response", () => {
+      conn.parseMessage(buildNotify4());
+      expect(manager.isTimerActive("CONNECTION_TIMEOUT")).toBe(true);
+      conn.parseMessage(buildErrorResponse(500));
+      expect(manager.isTimerActive("CONNECTION_TIMEOUT")).toBe(false);
+    });
+
+    it("records a 'Non-retryable' lastError for non-retryable codes", () => {
+      conn.parseMessage(buildErrorResponse(400));
+      expect(conn.getLastError()).toContain("Non-retryable");
+    });
+
+    it("records a 'Retryable' lastError for retryable codes", () => {
+      conn.parseMessage(buildErrorResponse(500));
+      expect(conn.getLastError()).toContain("Retryable");
+    });
+
+    it("fires onFailure for error responses", () => {
+      conn.parseMessage(buildErrorResponse(500));
+      expect(events.onFailure).toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // CONNECTION BYE loop prevention
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("CONNECTION BYE loop prevention", () => {
+    it("ignores a second BYE whose CSeq exceeds our own sent BYE CSeq", () => {
+      conn.parseMessage(buildNotify4());
+      // First BYE (server-initiated) — we respond with our own BYE, bumping lastSentConnectionByeCSeq to 1
+      const firstResponse = conn.parseMessage(buildConnectionBye("tunnel-call-id-abc", 7));
+      expect(firstResponse).toContain("BYE");
+      events.onFailure.mockClear();
+
+      // Second BYE with a higher CSeq than what we just sent (1) — treated as the server's
+      // response to OUR bye, not a new server-initiated one — loop prevention kicks in.
+      const secondResponse = conn.parseMessage(buildConnectionBye("tunnel-call-id-abc", 2));
+      expect(secondResponse).toBe("");
+      expect(events.onFailure).not.toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Duplicate NOTIFY6
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("Duplicate NOTIFY6", () => {
+    it("ignores a second NOTIFY6 and does not re-fire onSuccess", () => {
+      conn.parseMessage(buildNotify4());
+      conn.parseMessage(buildNotify6());
+      expect(events.onSuccess).toHaveBeenCalledTimes(1);
+
+      const result = conn.parseMessage(buildNotify6());
+      expect(result).toBeUndefined();
+      expect(events.onSuccess).toHaveBeenCalledTimes(1);
     });
   });
 });

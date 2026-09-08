@@ -11,10 +11,15 @@
  *  6. PairingApiService.exchangeOfficeToken fails → refresh returns null
  *  7. Concurrent calls during refresh      → only one HTTP request made
  *  8. After refresh completes              → next call starts a fresh refresh
+ *  9. forceRefreshToken() refreshes regardless of local expiry tracking
+ * 10. forceRefreshToken() shares the in-flight promise with a concurrent ensureValidToken()
  *
  * External dependencies mocked:
  *   - @store                      (jest.mock — fully stubbed, avoids spy race conditions)
  *   - @services/PairingApiService (jest.mock — intercepts dynamic import in _refresh)
+ *   - @services/OfficeAuthService (jest.mock — _refresh() re-acquires a fresh Office SSO
+ *                                   token via officeAuthService.getOfficeToken() rather
+ *                                   than reading it from the store)
  *   - @infra/logger               (jest.mock)
  */
 
@@ -42,6 +47,14 @@ jest.mock("@services/PairingApiService", () => ({
   pairingApiService: { exchangeOfficeToken: mockExchangeOfficeToken },
 }));
 
+// ─── OfficeAuthService mock ────────────────────────────────────────────────────
+// _refresh() re-acquires a fresh Office SSO token via this service instead of
+// reading state.auth.officeToken (see commit "Refresh office token").
+const mockGetOfficeToken = jest.fn();
+jest.mock("@services/OfficeAuthService", () => ({
+  officeAuthService: { getOfficeToken: (...args: any[]) => mockGetOfficeToken(...args) },
+}));
+
 // ─── Imports (after all mocks) ────────────────────────────────────────────────
 import { TokenService } from "@services/TokenService";
 import { authenticationSuccess } from "@slices/authSlice";
@@ -66,13 +79,14 @@ function makeAuthResponse(overrides: Partial<IAuthResponse> = {}): IAuthResponse
 function stubStore(options: {
   token?: string | null;
   expiresAt?: number | null;
+  /** Convenience: also stubs officeAuthService.getOfficeToken() to resolve this value. */
   officeToken?: string | null;
 }) {
+  mockGetOfficeToken.mockResolvedValue(options.officeToken ?? null);
   mockGetState.mockReturnValue({
     auth: {
       token: options.token ?? null,
       expiresAt: options.expiresAt ?? null,
-      officeToken: options.officeToken ?? null,
     },
   });
 }
@@ -268,6 +282,83 @@ describe("TokenService", () => {
       expect(mockExchangeOfficeToken).toHaveBeenCalledTimes(1);
 
       await service.ensureValidToken();
+      expect(mockExchangeOfficeToken).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 9 & 10. forceRefreshToken() — used when the server rejects the current
+  // token as invalid even though the client's expiry clock still trusts it.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe("forceRefreshToken", () => {
+    it("should refresh even when the store holds a token that is nowhere near expiry", async () => {
+      stubStore({ token: "still-looks-valid", expiresAt: Date.now() + 60 * 60 * 1000, officeToken: "office-jwt" });
+      mockExchangeOfficeToken.mockResolvedValue(makeAuthResponse({ access_token: "force-refreshed-token" }));
+
+      const result = await service.forceRefreshToken();
+
+      expect(result).toBe("force-refreshed-token");
+      expect(mockExchangeOfficeToken).toHaveBeenCalledWith("office-jwt");
+    });
+
+    it("should dispatch authenticationSuccess on success", async () => {
+      stubStore({ token: "still-looks-valid", expiresAt: Date.now() + 60 * 60 * 1000, officeToken: "office-jwt" });
+      const authResponse = makeAuthResponse({ access_token: "force-refreshed-token" });
+      mockExchangeOfficeToken.mockResolvedValue(authResponse);
+
+      await service.forceRefreshToken();
+
+      expect(mockDispatch).toHaveBeenCalledWith(authenticationSuccess(authResponse));
+    });
+
+    it("should return null and log a warning when no Office token is available", async () => {
+      stubStore({ token: "still-looks-valid", expiresAt: Date.now() + 60 * 60 * 1000, officeToken: null });
+
+      const result = await service.forceRefreshToken();
+
+      expect(result).toBeNull();
+      expect(mockExchangeOfficeToken).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+    });
+
+    it("should return null and log the error when the exchange call fails", async () => {
+      stubStore({ token: "still-looks-valid", expiresAt: Date.now() + 60 * 60 * 1000, officeToken: "office-jwt" });
+      mockExchangeOfficeToken.mockRejectedValue(new Error("Server rejected token"));
+
+      const result = await service.forceRefreshToken();
+
+      expect(result).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledTimes(1);
+    });
+
+    it("should share the in-flight promise with a concurrent ensureValidToken() call", async () => {
+      stubStore({ token: "still-looks-valid", expiresAt: Date.now() + 60 * 60 * 1000, officeToken: "office-jwt" });
+
+      let resolveExchange!: (v: IAuthResponse) => void;
+      const slowPromise = new Promise<IAuthResponse>((res) => { resolveExchange = res; });
+      mockExchangeOfficeToken.mockReturnValue(slowPromise);
+      const authResponse = makeAuthResponse({ access_token: "shared-token" });
+      Promise.resolve().then(() => resolveExchange(authResponse));
+
+      const [forced, ensured] = await Promise.all([
+        service.forceRefreshToken(),
+        service.forceRefreshToken(),
+      ]);
+
+      expect(mockExchangeOfficeToken).toHaveBeenCalledTimes(1);
+      expect(forced).toBe("shared-token");
+      expect(ensured).toBe("shared-token");
+    });
+
+    it("should start a fresh refresh on the next call after completion", async () => {
+      stubStore({ token: "still-looks-valid", expiresAt: Date.now() + 60 * 60 * 1000, officeToken: "office-jwt" });
+      mockExchangeOfficeToken
+        .mockResolvedValueOnce(makeAuthResponse({ access_token: "first-token" }))
+        .mockResolvedValueOnce(makeAuthResponse({ access_token: "second-token" }));
+
+      expect(await service.forceRefreshToken()).toBe("first-token");
+      expect(await service.forceRefreshToken()).toBe("second-token");
       expect(mockExchangeOfficeToken).toHaveBeenCalledTimes(2);
     });
   });
