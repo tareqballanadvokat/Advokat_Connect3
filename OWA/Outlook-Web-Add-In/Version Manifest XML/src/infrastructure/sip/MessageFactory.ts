@@ -277,7 +277,7 @@ export class MessageFactory {
       `Supported: path,gruu,outbound\r\n` +
       `User-Agent: JsSIP 3.10.0\r\n` +
       `Contact: <${params.sipUri}>\r\n` +
-      `Content-Type: application/json\r\n` +
+      `Content-Type: text/json\r\n` +
       `Content-Length: ${contentLength}\r\n\r\n` +
       timeoutBody;
 
