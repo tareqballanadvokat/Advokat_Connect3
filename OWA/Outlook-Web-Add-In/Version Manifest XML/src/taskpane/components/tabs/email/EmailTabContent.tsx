@@ -323,7 +323,10 @@ const EmailTabContent: React.FC = () => {
         <EmailSend
           caseId={selectedCaseName}
           onTransfer={sendEmailHandler}
-          transferBtnDisable={!selectedAkt || !attachmentSelected.some(i => i.checked && !i.disabled)}
+          transferBtnDisable={
+            !selectedAkt ||
+            (!(selectedServiceId && selectedServiceId > 0) && !attachmentSelected.some(i => i.checked && !i.disabled))
+          }
           transferLoading={transferLoading}
         />
       )}
