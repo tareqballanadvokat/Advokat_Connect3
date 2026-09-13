@@ -45,7 +45,7 @@ const EmailTabContent: React.FC = () => {
   const selectedCaseName = selectedAkt?.aKurz ?? '';
   
   // Get service state
-  const { selectedServiceId, time, text, sb, services } = useAppSelector(state => state.service);
+  const { selectedServiceId, time, text, sb, services, allServices } = useAppSelector(state => state.service);
   
   // Get email message ID
   const [messageId, setMessageId] = useState<string | null>(null);
@@ -127,8 +127,10 @@ const EmailTabContent: React.FC = () => {
         
         logger.debug('Saving Leistung via WebRTC...', 'EmailTabContent');
         
-        // Find the selected service to get its kürzel
-        const selectedService = services.find(service => service.id === selectedServiceId);
+        // Find the selected service to get its kürzel (may only exist in the full
+        // catalog if the user picked it via search rather than the quick list)
+        const selectedService = services.find(service => service.id === selectedServiceId)
+          ?? allServices.find(service => service.id === selectedServiceId);
         const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
         
         // Create payload using LeistungPostData interface matching C# model
