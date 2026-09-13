@@ -21,7 +21,7 @@ const ServiceTabContent: React.FC = () => {
   const [transferLoading, setTransferLoading] = useState(false);
   const { t: translate } = useTranslation(['service', 'common']);
   
-  const { selectedServiceId, time, text, sb, services } = useAppSelector(state => state.service);
+  const { selectedServiceId, time, text, sb, services, allServices } = useAppSelector(state => state.service);
   const { selectedAkt, cases } = useAppSelector(state => state.akten);
   
   // Derive case values from selectedAkt
@@ -75,8 +75,10 @@ const ServiceTabContent: React.FC = () => {
     setTransferLoading(true);
     
     try {
-      // Find the selected service to get its kürzel
-      const selectedService = services.find(service => service.id === selectedServiceId);
+      // Find the selected service to get its kürzel (may only exist in the full
+      // catalog if the user picked it via search rather than the quick list)
+      const selectedService = services.find(service => service.id === selectedServiceId)
+        ?? allServices.find(service => service.id === selectedServiceId);
       const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
       
       // Get Outlook email ID (only in read mode)
