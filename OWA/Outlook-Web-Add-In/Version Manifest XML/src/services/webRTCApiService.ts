@@ -789,6 +789,12 @@ export class WebRTCApiService implements DataChannelObserver {
 
     // Ensure both channels are ready for bidirectional communication (send request + receive response)
     if (!WebRTCDataChannelService.getInstance().isReadyForCommunication) {
+      const status = WebRTCDataChannelService.getInstance().getChannelStatus();
+      this.logger.error(
+        `Channels not ready for "${messageType}" - offer: ${status.offer.state} (label: ${status.offer.label}), ` +
+          `answer: ${status.answer.state} (label: ${status.answer.label}), canSend: ${status.canSend}, canReceive: ${status.canReceive}`,
+        "WebRTCApiService"
+      );
       throw new Error('WebRTC channels not ready for bidirectional communication');
     }
 

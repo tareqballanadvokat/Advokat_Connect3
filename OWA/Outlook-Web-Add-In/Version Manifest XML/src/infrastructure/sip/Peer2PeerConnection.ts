@@ -262,10 +262,19 @@ export class Peer2PeerConnection {
 
       // Detect and report which ICE candidate type was selected (fire-and-forget)
       this.querySelectedCandidateType();
-    } else if (state === "closed" && channelType === "answer") {
-      // Only log if we were in COMPLETE state (unexpected close)
+    } else if (state === "closed") {
+      // Log unexpected close of EITHER channel post-COMPLETE. Note this is diagnostic
+      // only: nothing here demotes sdpExchangeState or notifies SipClient, so the
+      // Redux/UI "connected" indicator (driven by SipClient's clientState) stays stale
+      // until the next sendRequest() fails the isReadyForCommunication check.
       if (this.sdpExchangeState === SdpExchangeState.COMPLETE) {
-        this.logWithPrefix("⚠️ Answer channel closed unexpectedly after connection established");
+        const channelService = WebRTCDataChannelService.getInstance();
+        const status = channelService.getChannelStatus();
+        this.logWithPrefix(
+          `⚠️ ${channelType} channel closed unexpectedly after connection established ` +
+            `(offer: ${status.offer.state}, answer: ${status.answer.state}) - ` +
+            `sdpExchangeState stays COMPLETE, no reconnect will be triggered by this event`
+        );
       }
     }
   }
@@ -695,9 +704,22 @@ export class Peer2PeerConnection {
       // Setup ICE handlers BEFORE creating offer
       this.setupICEHandlers(callId, sipUri, tag, toLine);
 
-      // Monitor ICE connection state for diagnostics
+      // Monitor ICE connection state for diagnostics.
+      // A NAT/UDP binding timeout (common after the tab sits backgrounded/idle for a
+      // while with no traffic) surfaces here first as "disconnected"/"failed" - often
+      // well before (or without ever) tripping the DataChannel's own onclose/onerror.
       this.pc.oniceconnectionstatechange = () => {
-        this.logWithPrefix(`📊 ICE connection state: ${this.pc.iceConnectionState}`);
+        const iceState = this.pc.iceConnectionState;
+        if (iceState === "disconnected" || iceState === "failed" || iceState === "closed") {
+          logger.warn(
+            `${Peer2PeerConnection.LOG_PREFIX} 📊 ICE connection state: ${iceState} ` +
+              `(sdpExchangeState: ${this.sdpExchangeState}) - underlying transport may be dead ` +
+              `even though DataChannels have not reported closed/error yet`,
+            "Peer2PeerConnection"
+          );
+        } else {
+          this.logWithPrefix(`📊 ICE connection state: ${iceState}`);
+        }
       };
 
       const offer = await this.pc.createOffer();
