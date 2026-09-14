@@ -27,6 +27,7 @@ const enCommon = {
     authenticationFailed: 'Authentication failed. Please check your credentials.',
     connectionFailedPermanently: 'Connection Failed Permanently.',
     connectionFailedReconnecting: 'Connection failed, trying to reconnect ({{attempt}}/{{max}})',
+    dataChannelClosed: 'Connection channel closed - reconnecting...',
     connecting: 'Connecting...',
   },
   dragDrop: {
@@ -151,6 +152,7 @@ const deCommon = {
     authenticationFailed: 'Authentifizierung fehlgeschlagen. Bitte Zugangsdaten prüfen.',
     connectionFailedPermanently: 'Verbindung dauerhaft fehlgeschlagen.',
     connectionFailedReconnecting: 'Verbindung fehlgeschlagen, Wiederverbindung wird versucht ({{attempt}}/{{max}})',
+    dataChannelClosed: 'Verbindungskanal geschlossen - Wiederverbindung wird versucht...',
     connecting: 'Verbinde...',
   },
   dragDrop: {

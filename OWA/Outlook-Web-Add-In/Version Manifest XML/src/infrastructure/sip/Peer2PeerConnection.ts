@@ -100,6 +100,7 @@ export type SelectedCandidateType = "mdns" | "direct" | "stun" | "turn" | "unkno
  */
 export interface Peer2PeerEvents extends SipPhaseEvents<SdpExchangeState, "RECEIVE_TIMEOUT"> {
   onCandidateTypeSelected?: (type: SelectedCandidateType) => void;
+  onDataChannelClosed?: (channelType: "offer" | "answer") => void;
 }
 
 /**
@@ -263,18 +264,23 @@ export class Peer2PeerConnection {
       // Detect and report which ICE candidate type was selected (fire-and-forget)
       this.querySelectedCandidateType();
     } else if (state === "closed") {
-      // Log unexpected close of EITHER channel post-COMPLETE. Note this is diagnostic
-      // only: nothing here demotes sdpExchangeState or notifies SipClient, so the
-      // Redux/UI "connected" indicator (driven by SipClient's clientState) stays stale
-      // until the next sendRequest() fails the isReadyForCommunication check.
+      // Unexpected close of EITHER channel post-COMPLETE. Treat this the same way as a
+      // DataChannel error: demote sdpExchangeState and notify SipClient via onFailure,
+      // so the existing WebRTC/registration retry cascade (see handleDataChannelError)
+      // kicks in automatically instead of the UI staying stale until the next failed
+      // sendRequest().
       if (this.sdpExchangeState === SdpExchangeState.COMPLETE) {
         const channelService = WebRTCDataChannelService.getInstance();
         const status = channelService.getChannelStatus();
         this.logWithPrefix(
           `⚠️ ${channelType} channel closed unexpectedly after connection established ` +
-            `(offer: ${status.offer.state}, answer: ${status.answer.state}) - ` +
-            `sdpExchangeState stays COMPLETE, no reconnect will be triggered by this event`
+            `(offer: ${status.offer.state}, answer: ${status.answer.state}) - triggering reconnect`
         );
+        this.isOfferSent = false;
+        this.cancelAllTimeouts();
+        this.transitionTo(SdpExchangeState.FAILED);
+        this.events.onDataChannelClosed?.(channelType);
+        this.events.onFailure?.(`${channelType} channel closed unexpectedly`);
       }
     }
   }

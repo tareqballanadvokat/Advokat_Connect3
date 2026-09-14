@@ -136,6 +136,8 @@ export interface SipClientObserver {
   onSipClientStateChanged(newState: SipClientState, reason: string): void;
   /** Called once the ICE candidate type used for the active connection is known. */
   onSelectedCandidateType?(type: SelectedCandidateType): void;
+  /** Called when a P2P DataChannel closes unexpectedly after the connection was established, right before the retry/reconnect cascade kicks in. */
+  onDataChannelClosed?(channelType: "offer" | "answer"): void;
 }
 
 const MAX_RETRIES = 3;
@@ -274,6 +276,19 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         observer.onSelectedCandidateType?.(type);
       } catch (error) {
         logWithPrefix(`Error notifying observer (candidateType): ${error}`);
+      }
+    });
+  }
+
+  /**
+   * Notify all observers that a P2P DataChannel closed unexpectedly
+   */
+  function notifyDataChannelClosed(channelType: "offer" | "answer"): void {
+    observers.forEach((observer) => {
+      try {
+        observer.onDataChannelClosed?.(channelType);
+      } catch (error) {
+        logWithPrefix(`Error notifying observer (dataChannelClosed): ${error}`);
       }
     });
   }
@@ -708,6 +723,11 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
       logWithPrefix(`WebRTC state: ${state}`);
     },
 
+    onDataChannelClosed: (channelType) => {
+      logWithPrefix(`📥 DataChannel closed notification (${channelType}) - notifying observers`);
+      notifyDataChannelClosed(channelType);
+    },
+
     onSuccess: () => {
       logWithPrefix("✅ WebRTC DataChannel established - CONNECTED");
       transitionClientState(SipClientState.CONNECTED, "DataChannel opened");
@@ -904,6 +924,14 @@ export function initializeSipClient(config?: Partial<SipClientConfig>): SipClien
         const cseqMatch = data.match(REGEX_CSEQ);
         const incomingCSeq = cseqMatch ? parseInt(cseqMatch[1]) : 0;
         const incomingCallId = extractCallId(data);
+        const incomingReason = REGEX_REASON_REGISTRATION.test(data)
+          ? "REGISTRATION"
+          : REGEX_REASON_CONNECTION.test(data)
+            ? "CONNECTION"
+            : "UNKNOWN";
+        logWithPrefix(
+          `📥 BYE received (CSeq: ${incomingCSeq}, Reason: ${incomingReason}, Call-ID: ${incomingCallId})`
+        );
 
         // Check Reason header to determine BYE type
         if (REGEX_REASON_REGISTRATION.test(data)) {

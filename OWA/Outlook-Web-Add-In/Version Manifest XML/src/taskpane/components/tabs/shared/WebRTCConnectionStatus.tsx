@@ -45,11 +45,15 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
   // set, isReady false). Neither recovers on its own — both need a manual retry.
   const needsManualReconnect = (): boolean => isFailedPermanently() || (!!authError && !isReady);
 
+  const isDataChannelClosed = (): boolean =>
+    connectionState.connectionStatus.includes('channel closed');
+
   const isFailing = (): boolean =>
     !!(connectionState.lastError ||
       connectionState.connectionStatus.includes('Failed') ||
       connectionState.connectionStatus.includes('Error') ||
-      connectionState.connectionStatus.includes('failed'));
+      connectionState.connectionStatus.includes('failed') ||
+      isDataChannelClosed());
 
   const getFriendlyMessage = (): string => {
     if (connectionState.idleDisconnectedAt || (!isConnecting && !isConnected && !isReady && !isFailing()))
@@ -63,6 +67,7 @@ const WebRTCConnectionStatus: React.FC<WebRTCConnectionStatusProps> = ({ classNa
     }
     if (isReady) return translate('webrtc.connected');
     if (isFailedPermanently()) return translate('webrtc.connectionFailedPermanently');
+    if (isDataChannelClosed()) return translate('webrtc.dataChannelClosed', 'Connection channel closed - reconnecting...');
     if (isFailing()) {
       const max = getWebRTCConnectionManager().getConfig().maxReconnectAttempts;
       const attempt = connectionState.reconnectAttempts;

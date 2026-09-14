@@ -169,6 +169,10 @@ export class WebRTCConnectionManager implements SipClientObserver {
       );
       this._rejectPendingConnection(new Error(`Connection failed permanently: ${reason}`));
       this.handlePermanentFailure(reason);
+    } else if (newState === SipClientState.FAILED) {
+      // Surface the reason (e.g. "offer channel closed unexpectedly") immediately so the
+      // UI can show it, rather than waiting for a possible later FAILED_PERMANENTLY.
+      this.updateConnectionState({ lastError: reason });
     } else if (newState === SipClientState.DISCONNECTED) {
       // DISCONNECTED indicates deliberate disconnect - reject any pending promise and do not reconnect
       this.logger.info(
@@ -188,6 +192,20 @@ export class WebRTCConnectionManager implements SipClientObserver {
   onSelectedCandidateType(type: SelectedCandidateType): void {
     this.logger.info("ConnectionManager", `Selected ICE candidate type: ${type}`);
     store.dispatch(setSelectedCandidateType(type));
+  }
+
+  /**
+   * Observer pattern callback - called when a P2P DataChannel closes unexpectedly
+   * after the connection was established. Surfaces this on the badge immediately;
+   * SipClient's own retry/reconnect cascade (triggered right after this) will then
+   * update sipClientState/connectionStatus as it proceeds.
+   */
+  onDataChannelClosed(channelType: "offer" | "answer"): void {
+    this.logger.warn("ConnectionManager", `DataChannel closed unexpectedly (${channelType})`);
+    this.updateConnectionState({
+      connectionStatus: `Connection channel closed (${channelType}) - reconnecting...`,
+      lastError: `${channelType} channel closed unexpectedly`,
+    });
   }
 
   /**
