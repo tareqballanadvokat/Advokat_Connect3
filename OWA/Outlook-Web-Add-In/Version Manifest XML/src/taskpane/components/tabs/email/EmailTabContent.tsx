@@ -112,68 +112,20 @@ const EmailTabContent: React.FC = () => {
     setTransferLoading(true);
 
     try {
-      // STEP 1: Save Leistung first (if service is selected)
-      if (selectedServiceId && selectedServiceId > 0) {
-        // Validate that either SB or time is provided (or both are empty)
-        const hasSb = sb && sb.trim() !== '';
-        const hasTime = time && time.trim() !== '';
-        
-        // If one is provided, both must be provided
-        if ((hasSb && !hasTime) || (!hasSb && hasTime)) {
-          notify(translate('provideBothSbAndTime'), 'error', 4000);
-          setTransferLoading(false);
-          return;
-        }
-        
-        logger.debug('Saving Leistung via WebRTC...', 'EmailTabContent');
-        
-        // Find the selected service to get its kürzel (may only exist in the full
-        // catalog if the user picked it via search rather than the quick list)
-        const selectedService = services.find(service => service.id === selectedServiceId)
-          ?? allServices.find(service => service.id === selectedServiceId);
-        const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
-        
-        // Create payload using LeistungPostData interface matching C# model
-        const timeInMinutes = convertTimeToMinutes(time);
-        
-        // Build sachbearbeiter array with SB and time information
-        const sachbearbeiter = [];
-        if (sb && sb.trim() !== '' && timeInMinutes !== null) {
-          sachbearbeiter.push({
-            sb: sb.trim(),
-            zeitVerrechenbarInMinuten: timeInMinutes,
-            zeitNichtVerrechenbarInMinuten: 0
-          });
-        }
-        
-        const leistungPayload: LeistungPostData = {
-          aktId: selectedCaseId !== -1 ? selectedCaseId : null,
-          aKurz: selectedCaseName || null,
-          leistungKurz: serviceKuerzel,
-          datum: new Date().toISOString(), // Current date in ISO format
-          honorartext: text || null,
-          memo: text || null,
-          outlookEmailId: messageId || undefined, // Link leistung to email for retrieval
-          sachbearbeiter: sachbearbeiter.length > 0 ? sachbearbeiter : undefined
-        };
-        
-        // Send Leistung to API via WebRTC using Redux thunk
-        await dispatch(saveLeistungAsync(leistungPayload)).unwrap();
-        logger.info('Leistung saved successfully', 'EmailTabContent');
-        notify(translate('serviceSavedSuccessfully'), 'success', 3000);
-      } else {
-        logger.debug('No service selected, skipping Leistung save', 'EmailTabContent');
-      }
+      // Track the id of the email document saved in this transfer so it can be linked
+      // to the Leistung. Attachments are never linked, only the email itself.
+      let linkedDokumentId: number | null = null;
 
-      // STEP 2: Handle Email and Attachments via WebRTC API
+      // STEP 1: Handle Email and Attachments via WebRTC API — documents must be
+      // saved before the Leistung so their id can be sent along to link them.
       logger.debug('Processing email and attachments...', 'EmailTabContent');
-      
+
       const email = Office.context.mailbox.item;
-      
+
       // Find selected email (exclude already-transferred/disabled items)
       const firstE = attachmentSelected.find(i => i.checked && i.type === 'E' && !i.disabled); // email taken
       let emailContent = '';
-      
+
       // Save email as document if selected
       if (firstE != null) {
         emailContent = await getEmailContentAsync(email);
@@ -206,6 +158,9 @@ const EmailTabContent: React.FC = () => {
         // Build a partial DokumentResponse so RegisteredEmails can update its cache immediately
         // Use the real ID returned by CreateAsync so the user can download immediately
         const returnedId = savedEmailResponse?.body ? parseInt(savedEmailResponse.body, 10) : NaN;
+        if (!isNaN(returnedId)) {
+          linkedDokumentId = returnedId;
+        }
         const now = new Date();
         const optimisticEntry: DokumentResponse = {
           id: !isNaN(returnedId) ? returnedId : -Date.now(), // Real server ID when available
@@ -257,6 +212,7 @@ const EmailTabContent: React.FC = () => {
             };
             
             // Save attachment document via WebRTC using Redux thunk
+            // Note: attachments are never linked to the Leistung — only the email itself is.
             await dispatch(saveDokumentAsync(attachmentDokument)).unwrap();
             logger.info(`Attachment '${attachment.name}' saved successfully`, 'EmailTabContent');
           } catch (attachmentError) {
@@ -275,6 +231,61 @@ const EmailTabContent: React.FC = () => {
       if (firstE || selectedAttachments.length > 0) {
         const itemCount = (firstE ? 1 : 0) + selectedAttachments.length;
         notify(translate('documentsTransferred', { count: itemCount, caseName: selectedCaseName }), 'success', 4000);
+      }
+
+      // STEP 2: Save Leistung, now that the email document (if any) has been saved and
+      // its id (linkedDokumentId) can be sent along to link the two together in the backend.
+      if (selectedServiceId && selectedServiceId > 0) {
+        // Validate that either SB or time is provided (or both are empty)
+        const hasSb = sb && sb.trim() !== '';
+        const hasTime = time && time.trim() !== '';
+
+        // If one is provided, both must be provided
+        if ((hasSb && !hasTime) || (!hasSb && hasTime)) {
+          notify(translate('provideBothSbAndTime'), 'error', 4000);
+          setTransferLoading(false);
+          return;
+        }
+
+        logger.debug('Saving Leistung via WebRTC...', 'EmailTabContent');
+
+        // Find the selected service to get its kürzel (may only exist in the full
+        // catalog if the user picked it via search rather than the quick list)
+        const selectedService = services.find(service => service.id === selectedServiceId)
+          ?? allServices.find(service => service.id === selectedServiceId);
+        const serviceKuerzel = selectedService?.kürzel || selectedServiceId.toString();
+
+        // Create payload using LeistungPostData interface matching C# model
+        const timeInMinutes = convertTimeToMinutes(time);
+
+        // Build sachbearbeiter array with SB and time information
+        const sachbearbeiter = [];
+        if (sb && sb.trim() !== '' && timeInMinutes !== null) {
+          sachbearbeiter.push({
+            sb: sb.trim(),
+            zeitVerrechenbarInMinuten: timeInMinutes,
+            zeitNichtVerrechenbarInMinuten: 0
+          });
+        }
+
+        const leistungPayload: LeistungPostData = {
+          aktId: selectedCaseId !== -1 ? selectedCaseId : null,
+          aKurz: selectedCaseName || null,
+          leistungKurz: serviceKuerzel,
+          datum: new Date().toISOString(), // Current date in ISO format
+          honorartext: text || null,
+          memo: text || null,
+          outlookEmailId: messageId || undefined, // Link leistung to email for retrieval
+          dokumentId: linkedDokumentId, // Link leistung to the email document saved above (if any)
+          sachbearbeiter: sachbearbeiter.length > 0 ? sachbearbeiter : undefined
+        };
+
+        // Send Leistung to API via WebRTC using Redux thunk
+        await dispatch(saveLeistungAsync(leistungPayload)).unwrap();
+        logger.info('Leistung saved successfully', 'EmailTabContent');
+        notify(translate('serviceSavedSuccessfully'), 'success', 3000);
+      } else {
+        logger.debug('No service selected, skipping Leistung save', 'EmailTabContent');
       }
 
       // Mark all successfully transferred items as disabled/readonly in Redux
