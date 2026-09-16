@@ -256,8 +256,14 @@ export class WebRTCDataChannelService {
     };
 
     channel.onclose = () => {
-      this.logger.info(
-        `${prefix} ${channelType} channel closed: ${channel.label}`,
+      // Log the OTHER channel's state too - a channel rarely dies alone (ICE/NAT drop,
+      // background-tab throttling), and this is the only place that captures both
+      // states at the exact moment one of them goes away.
+      const other =
+        channelType === "offer" ? this.answerChannel : this.offerChannel;
+      this.logger.warn(
+        `${prefix} ${channelType} channel closed: ${channel.label} ` +
+          `(other channel [${channelType === "offer" ? "answer" : "offer"}] state: ${other?.readyState ?? "not-set"})`,
         "WebRTCDataChannelService"
       );
       this.notifyStateChanged("closed", channelType);
