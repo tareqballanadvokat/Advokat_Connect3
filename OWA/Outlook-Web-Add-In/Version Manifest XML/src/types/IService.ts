@@ -12,8 +12,9 @@ export interface LeistungPostData {
   honorartext: string | null;                    
   memo: string | null;                           
   outlookEmailId?: string | null;                // Outlook email message ID for tracking
-  sachbearbeiter?: LeistungSachbearbeiter[];     
-  barauslagen?: any[];                           
+  dokumentId?: number | null;                    // Links this Leistung to a previously saved Dokument
+  sachbearbeiter?: LeistungSachbearbeiter[];
+  barauslagen?: any[];
 }
 
 export interface LeistungenAuswahlQuery {

@@ -100,6 +100,7 @@ export type SelectedCandidateType = "mdns" | "direct" | "stun" | "turn" | "unkno
  */
 export interface Peer2PeerEvents extends SipPhaseEvents<SdpExchangeState, "RECEIVE_TIMEOUT"> {
   onCandidateTypeSelected?: (type: SelectedCandidateType) => void;
+  onDataChannelClosed?: (channelType: "offer" | "answer") => void;
 }
 
 /**
@@ -262,10 +263,24 @@ export class Peer2PeerConnection {
 
       // Detect and report which ICE candidate type was selected (fire-and-forget)
       this.querySelectedCandidateType();
-    } else if (state === "closed" && channelType === "answer") {
-      // Only log if we were in COMPLETE state (unexpected close)
+    } else if (state === "closed") {
+      // Unexpected close of EITHER channel post-COMPLETE. Treat this the same way as a
+      // DataChannel error: demote sdpExchangeState and notify SipClient via onFailure,
+      // so the existing WebRTC/registration retry cascade (see handleDataChannelError)
+      // kicks in automatically instead of the UI staying stale until the next failed
+      // sendRequest().
       if (this.sdpExchangeState === SdpExchangeState.COMPLETE) {
-        this.logWithPrefix("⚠️ Answer channel closed unexpectedly after connection established");
+        const channelService = WebRTCDataChannelService.getInstance();
+        const status = channelService.getChannelStatus();
+        this.logWithPrefix(
+          `⚠️ ${channelType} channel closed unexpectedly after connection established ` +
+            `(offer: ${status.offer.state}, answer: ${status.answer.state}) - triggering reconnect`
+        );
+        this.isOfferSent = false;
+        this.cancelAllTimeouts();
+        this.transitionTo(SdpExchangeState.FAILED);
+        this.events.onDataChannelClosed?.(channelType);
+        this.events.onFailure?.(`${channelType} channel closed unexpectedly`);
       }
     }
   }
@@ -695,9 +710,22 @@ export class Peer2PeerConnection {
       // Setup ICE handlers BEFORE creating offer
       this.setupICEHandlers(callId, sipUri, tag, toLine);
 
-      // Monitor ICE connection state for diagnostics
+      // Monitor ICE connection state for diagnostics.
+      // A NAT/UDP binding timeout (common after the tab sits backgrounded/idle for a
+      // while with no traffic) surfaces here first as "disconnected"/"failed" - often
+      // well before (or without ever) tripping the DataChannel's own onclose/onerror.
       this.pc.oniceconnectionstatechange = () => {
-        this.logWithPrefix(`📊 ICE connection state: ${this.pc.iceConnectionState}`);
+        const iceState = this.pc.iceConnectionState;
+        if (iceState === "disconnected" || iceState === "failed" || iceState === "closed") {
+          logger.warn(
+            `${Peer2PeerConnection.LOG_PREFIX} 📊 ICE connection state: ${iceState} ` +
+              `(sdpExchangeState: ${this.sdpExchangeState}) - underlying transport may be dead ` +
+              `even though DataChannels have not reported closed/error yet`,
+            "Peer2PeerConnection"
+          );
+        } else {
+          this.logWithPrefix(`📊 ICE connection state: ${iceState}`);
+        }
       };
 
       const offer = await this.pc.createOffer();

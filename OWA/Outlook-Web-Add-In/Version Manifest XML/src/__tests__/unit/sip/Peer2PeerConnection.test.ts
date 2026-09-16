@@ -46,6 +46,10 @@ const mockSvcInstance = {
   isReadyForCommunication: false,
   isOfferChannelOpen:      false,
   isAnswerChannelOpen:     false,
+  getChannelStatus:        jest.fn(() => ({
+    offer:  { state: "closed" },
+    answer: { state: "closed" },
+  })),
 };
 
 jest.mock("@services/WebRTCDataChannelService", () => ({
@@ -68,6 +72,7 @@ function makeEvents() {
     onTimeout:              jest.fn(),
     onMessageToSend:        jest.fn(),
     onCandidateTypeSelected: jest.fn(),
+    onDataChannelClosed:    jest.fn(),
   };
 }
 
@@ -680,7 +685,7 @@ describe("Peer2PeerConnection", () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe("Answer channel closed after COMPLETE", () => {
-    it("does not throw and does not change state when the answer channel closes post-COMPLETE", async () => {
+    it("demotes to FAILED and notifies onDataChannelClosed/onFailure when the answer channel closes post-COMPLETE", async () => {
       await p2p.createOffer(OFFER_PARAMS.callId, OFFER_PARAMS.sipUri, OFFER_PARAMS.tag, OFFER_PARAMS.toLine);
       mockPc.iceGatheringState = "complete";
       mockPc.onicegatheringstatechange?.();
@@ -692,7 +697,9 @@ describe("Peer2PeerConnection", () => {
       expect(() =>
         capturedObserver.onDataChannelStateChanged?.("closed", "answer")
       ).not.toThrow();
-      expect(p2p.getState()).toBe(SdpExchangeState.COMPLETE);
+      expect(p2p.getState()).toBe(SdpExchangeState.FAILED);
+      expect(events.onDataChannelClosed).toHaveBeenCalledWith("answer");
+      expect(events.onFailure).toHaveBeenCalledWith("answer channel closed unexpectedly");
     });
   });
 });
