@@ -24,14 +24,13 @@ namespace TestAPI
             WebRTCPlugin plugin = new WebRTCPlugin();
             plugin.Configuration = builder.Configuration;
 
-            await plugin.AddServicesAsync(builder.Services);
+            plugin.AddServices(builder.Services);
             var app = builder.Build();
 
             app.UsePipelineHook();
             app.UseRouting()
                 .UseEndpoints(x => x.MapControllers());
 
-            await plugin.UseServicesAsync(app.Services);
             app.Run();
         }
     }

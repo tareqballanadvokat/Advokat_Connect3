@@ -1,4 +1,4 @@
-﻿using Advokat.WebRTC.Client.Interfaces;
+﻿using Advokat.WebRTC.Client;
 using Advokat.WebRTC.Client.Utils;
 using Advokat.WebRTC.Plugin.Chunking.DTOs;
 using Microsoft.Extensions.Configuration;
@@ -7,20 +7,31 @@ using SIPSorcery.Net;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using WebRTCClient;
 
 
 namespace Caller
 {
+    internal class ICEServerConfig
+    {
+        public string Url { get; set; } = string.Empty;
+
+        public string? Username { get; set; }
+
+        public string? Password { get; set; }
+    }
+
     internal class Program
     {
         static WebRTCPeer UserAgent { get; set; }
 
-        static P2PConnection? DirectConnection { get; set; }
+        static DirectConnection? DirectConnection { get; set; }
 
         private static bool Running { get; set; }
 
-        static IPEndPoint SignalingServer { get; set; }
+        //static Uri SignalingServer { get; set; }
+        static DnsEndPoint SignalingServer { get; set; }
+        //static IPEndPoint SignalingServer { get; set; }
+
 
         static List<RTCIceServer> IceServers { get; set; } = [];
 
@@ -49,6 +60,8 @@ namespace Caller
 
             IConfiguration config = configuration.Build();
 
+            Console.WriteLine($"Caller 2");
+
             try
             {
                 ReadSignalingServer(config);
@@ -65,17 +78,30 @@ namespace Caller
 
         static void ReadSignalingServer(IConfiguration config)
         {
-            string? signalingServer = config.GetValue<string>("signalingServer")
+            string? signalingServerHost = config.GetValue<string>("signalingServerHost")
                 ?? throw new Exception("No valid signalignServer provided");
 
-            SignalingServer = IPEndPoint.Parse(signalingServer);
+            int signalingServerPort = config.GetValue<int>("signalingServerPort");
+
+            SignalingServer = new DnsEndPoint(signalingServerHost, signalingServerPort);
+            //SignalingServer = new Uri($"wss://{signalingServerHost}:{signalingServerPort}");
+            //SignalingServer = IPEndPoint.Parse($"{signalingServerHost}:{signalingServerPort}");
         }
 
         static void ReadIceServers(IConfiguration config)
         {
-            IceServers = config.GetValue<IEnumerable<string>>("iceServers")?
-                .Select(s => new RTCIceServer() { urls = s })
-                ?.ToList() ?? [];
+            List<ICEServerConfig> stunServers = config.GetSection("STUNServers")?.Get<List<ICEServerConfig>?>() ?? [];
+            List<ICEServerConfig> turnServers = config.GetSection("TURNServers")?.Get<List<ICEServerConfig>?>() ?? [];
+
+            IceServers = stunServers
+                .Concat(turnServers)
+                .Select(s => new RTCIceServer()
+                {
+                    urls = s.Url,
+                    username = s.Username ?? string.Empty,
+                    credential = s.Password ?? string.Empty,
+                })
+                .ToList();
         }
 
         static void ReadNames(IConfiguration config)
@@ -99,6 +125,7 @@ namespace Caller
                });
 
             SIPSorcery.LogFactory.Set(loggerFactory);
+            Advokat.WebRTC.Library.LoggerFactory.Instance = loggerFactory;
 
             Console.WriteLine($"caller name: {CallerName}");
             Console.WriteLine($"caller endpoint: {callerEndpoint}");
@@ -108,54 +135,40 @@ namespace Caller
             Console.WriteLine($"signaling server endpoint: {SignalingServer}");
             Console.WriteLine("-----------------------------------------------------");
 
-            Console.WriteLine("Enter to connect");
-            Console.ReadLine();
-
             UserAgent = new WebRTCPeer(
                 sourceUser: CallerName,
                 remoteUser: RemoteName,
                 sourceEndpoint: callerEndpoint,
                 signalingServer: SignalingServer,
-                isOffering: true,
-                iceServers: IceServers,
-                loggerFactory
+                isOffering: true
                 );
 
+            UserAgent.WebRTCConfig.SIPClientConfig.ReconnectToSignalingServer = false;
+
+            //UserAgent.WebRTCConfig.P2PConnectionConfig.ICEServers = IceServers;
+            UserAgent.WebRTCConfig.DirectConnectionConfig.ICEServers = IceServers;
+
             //UserAgent.WebRTCConfig.SIPClientConfig.ConnectionTimeout = 10000;
-            //UserAgent.WebRTCConfig.SIPClientConfig.ReceiveTimeout = 10000;
+            UserAgent.WebRTCConfig.SIPClientConfig.ReceiveTimeout = 10000;
             //UserAgent.WebRTCConfig.SIPClientConfig.SIPPeerConnectionTimout = 10000;
+            UserAgent.WebRTCConfig.SIPClientConfig.PeerRegistrationTimeout = 10000;
+            UserAgent.WebRTCConfig.SIPClientConfig.MaxRegistrationRetries = 0;
 
-            UserAgent.DirectConnectionEstablished += async (object? sender, DirectConnectionEventArgs e) =>
+            UserAgent.WebRTCConfig.SIPClientConfig.InstanceId = "abc";
+
+
+            UserAgent.Disconnected += async (s, e) =>
             {
-                DirectConnection = e.P2PConnection;
-                Console.WriteLine("connected.");
+                await Connect();
+            };
 
-                //// automatic disconnect
-                //await Task.Delay(100);
-
-                //Console.WriteLine("Disconnecting");
-                //await UserAgent.Disconnect();
-
-                //await Task.Delay(3000);
-
-                //Console.WriteLine("Enter to reconnect");
-                //Console.ReadLine();
-
-                //await UserAgent.Connect();
-
-                //// automatic reconnect done
-
-                if (!Running)
+            UserAgent.DirectConnectionStarted += async (object? sender, DirectConnectionEventArgs e) =>
+            {
+                DirectConnection = e.PeerConnection;
+                DirectConnection.MessageReceived += async (object? sender, MessageEventArgs e) =>
                 {
-                    while (true)
-                    {
-                        Running = true;
-                        await SendRequest();
-                    }
-                }
+                    byte[] message = e.Buffer;
 
-                DirectConnection.OnMessageReceived += async (P2PConnection sender, byte[] message) =>
-                {
                     // project reference to WebRtcApiRelay is only for DTOs here.
                     var responseString = Encoding.UTF8.GetString(message);
 
@@ -225,9 +238,56 @@ namespace Caller
                     }
                 };
 
+
+                DirectConnection.Connected += async (s, e) =>
+                {
+
+                    Console.WriteLine("connected.");
+
+                    //// automatic disconnect
+                    //await Task.Delay(100);
+
+                    //Console.WriteLine("Disconnecting");
+                    //await UserAgent.Disconnect();
+
+                    //await Task.Delay(3000);
+
+                    //Console.WriteLine("Enter to reconnect");
+                    //Console.ReadLine();
+
+                    //await UserAgent.Connect();
+
+                    //// automatic reconnect done
+
+                    if (!Running)
+                    {
+                        while (true)
+                        {
+                            Running = true;
+                            await SendRequest();
+                        }
+                    }
+                };
+
+
+
             };
 
-            await UserAgent.Connect();
+            await Connect();
+        }
+
+        private async static Task Connect()
+        {
+            Console.WriteLine("Enter to connect");
+            Console.ReadLine();
+            try
+            {
+                await UserAgent.ConnectAsync();
+            }
+            catch (TaskCanceledException)
+            {
+                Console.WriteLine("Connection failed");
+            }
         }
 
         private async static Task SendRequest()
@@ -237,14 +297,22 @@ namespace Caller
             if (input == "c")
             {
                 Console.WriteLine("Connecting");
-                await UserAgent.Connect();
+                try
+                {
+                    await UserAgent.ConnectAsync();
+                }
+                catch (TaskCanceledException)
+                {
+                    Console.WriteLine("Connection failed");
+                }
+
                 return;
             }
 
             else if (input == "d")
             {
                 Console.WriteLine("Disconnecting");
-                await UserAgent.Disconnect();
+                await UserAgent.DisconnectAsync();
                 return;
             }
 
