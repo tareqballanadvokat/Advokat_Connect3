@@ -83,13 +83,17 @@ export class OfficeAuthService {
     try {
       this.logger.info('OfficeAuthService', 'Requesting Office SSO token...');
 
-      const tokenOptions = {
+      // Office.js mutates the options object it receives (it attaches an internal
+      // `callback`), so reusing the same object for a second call fails with
+      // "Callback cannot be specified both in argument list and in optional object".
+      // Build a fresh object for every call.
+      const tokenOptions = () => ({
         allowSignInPrompt: true,   // show sign-in UI if user is not signed into Office
         allowConsentPrompt: true,  // show consent dialog on first use
         forMSGraphAccess: false,   // we only need the oid — no MS Graph access required
-      };
+      });
 
-      let token = await OfficeRuntime.auth.getAccessToken(tokenOptions);
+      let token = await OfficeRuntime.auth.getAccessToken(tokenOptions());
       let expiresAt = this.extractExpiresAt(token);
 
       // The host is expected to hand back a fresh token, but on some hosts/platforms
@@ -100,7 +104,7 @@ export class OfficeAuthService {
           'OfficeAuthService',
           `Office token expires too soon (expiresAt: ${new Date(expiresAt).toISOString()}) — requesting a fresh one`
         );
-        token = await OfficeRuntime.auth.getAccessToken(tokenOptions);
+        token = await OfficeRuntime.auth.getAccessToken(tokenOptions());
         expiresAt = this.extractExpiresAt(token);
 
         if (expiresAt !== null && expiresAt - Date.now() < EXPIRY_BUFFER_MS) {
