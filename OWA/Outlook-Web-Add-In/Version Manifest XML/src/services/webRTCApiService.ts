@@ -1256,10 +1256,13 @@ export class WebRTCApiService implements DataChannelObserver {
   async sendAuthMessage(officeToken: string): Promise<IAuthResponse> {
     this.logger.info('Sending office-token exchange request through WebRTC data channel...', 'WebRTCApiService');
 
+    const tokenUrl = 'addin/office-token/token';
+    this.logger.info(`Office-token exchange URL: POST ${tokenUrl}`, 'WebRTCApiService');
+
     const response = await this.sendRequest(
       'auth.officeToken.exchange',
       'POST',
-      'addin/office-token/token',
+      tokenUrl,
       {
         Authorization: `Bearer ${officeToken}`,
         Accept: 'application/json',
